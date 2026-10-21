@@ -1,0 +1,79 @@
+# The workflow every repository in the RoboHub ecosystem runs.
+#
+# One workflow, called by each repository, rather than one workflow written
+# thirteen times: the steps are the same, and a copy of a step is a step that
+# is fixed in one repository and not the others.
+#
+# A repository calls it from its own workflow:
+#
+#   jobs:
+#     ci:
+#       uses: RoboHubPlatform/robohub/.github/workflows/robohub-ci.yml@main
+#       with:
+#         module: robohub-avr
+#         target: uno-r3
+#
+name: CI
+
+on:
+  workflow_call:
+    inputs:
+      module:
+        description: The module to build and test.
+        required: true
+        type: string
+      target:
+        description: The board the module is built for, when it is one.
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      # The toolchain. A platform is not built by cmake: it is built by rho,
+      # for a board, from an application — a board cannot be compiled on its
+      # own and neither can the platform, because a driver is compiled against
+      # a part's headers and a board's.
+      - name: Check out the toolchain
+        uses: actions/checkout@v5
+        with:
+          repository: RoboHubPlatform/rho
+          path: toolchain
+
+      - name: Install the toolchain
+        run: |
+          cd toolchain
+          go build -o ./bin/rho ./cmd/rho
+          ./bin/rho install --update
+
+      # The module's own tests are guarded by this, and a guarded-out test is a
+      # test that does not run: without this the configure is clean, the build
+      # is clean, and `ctest` reports that it found no tests at all and passes.
+      # A "Test" step that verifies nothing while reporting success is worse
+      # than no step, because it is read as coverage.
+      - name: Configure
+        run: >-
+          cmake -S . -B build
+          -DCMAKE_BUILD_TYPE=Debug
+          -DBUILD_TESTING=ON
+          -DRHO_BUILD_HOST_TESTS=ON
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      # The count is asserted because "no tests were found" also passes: a
+      # ctest run that found nothing and a ctest run that passed everything are
+      # the same exit status, and only one of them is a check.
+      - name: Test
+        run: |
+          ctest --test-dir build --output-on-failure
+          found="$(ctest --test-dir build -N | grep -c 'Test *#')"
+          test "${found}" -gt 0 || { echo "no tests were registered" >&2; exit 1; }

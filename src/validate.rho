@@ -1,0 +1,123 @@
+module robohub.validate
+
+// The ecosystem's own check: whether the files it carries are the files it
+// says they are.
+//
+// The rules are the ones in `schemas/`, written out here so that a program can
+// keep them: a manifest that says a list where it should say a map is a
+// manifest the toolchain will not read, and a toolchain that will not read it
+// says so in a sentence about a target that does not exist rather than about
+// the manifest that is wrong.
+//
+// The schemas themselves are the published form of these rules, in JSON Schema
+// so that anything else can check against them too. The two are the same
+// contract: what a rule says here is what a schema says there.
+
+/// The schema a registry entry is checked against.
+const REGISTRY_SCHEMA: string = "registry.v1"
+
+/// The schema a suite manifest is checked against.
+const SUITE_SCHEMA: string = "suite.v1"
+
+/// The schema a target spec is checked against.
+const TARGET_SCHEMA: string = "target-spec.v1"
+
+/// A problem found in a file.
+struct Problem {
+    file: string
+    what: string
+}
+
+/// The check runs over the ecosystem and says what it found.
+fn validate(registry_dir: string, modules_root: string) u32 {
+    var problems: u32 = 0
+    problems = problems + check_registry(registry_dir)
+    problems = problems + check_suites(modules_root)
+    problems = problems + check_specs(modules_root)
+    if problems == 0 {
+        print("robohub validate: every file matches its schema\n")
+        return 0
+    }
+    print("robohub validate: " + int_to_str(problems) + " problem(s)\n")
+    return 1
+}
+
+/// check_registry checks the registry: every entry says what an entry says.
+fn check_registry(registry_dir: string) u32 {
+    var problems: u32 = 0
+    var index: u32 = 0
+    while index < MODULE_COUNT {
+        let name: string = module_name(index)
+        let entry: string = registry_dir + "/" + name + ".yml"
+        if yaml.kind(entry, "name") == "missing" {
+            print("  " + entry + ": no name\n")
+            problems = problems + 1
+        } else {
+            if yaml.value(entry, "name") != name {
+                print("  " + entry + ": the entry names another module\n")
+                problems = problems + 1
+            }
+            if yaml.kind(entry, "role") == "missing" {
+                print("  " + entry + ": no role\n")
+                problems = problems + 1
+            }
+            if yaml.kind(entry, "path") == "missing" {
+                print("  " + entry + ": no path\n")
+                problems = problems + 1
+            }
+        }
+        index = index + 1
+    }
+    return problems
+}
+
+/// check_suites checks the suite manifests of every module that has one.
+fn check_suites(modules_root: string) u32 {
+    var problems: u32 = 0
+    var index: u32 = 0
+    while index < MODULE_COUNT {
+        let name: string = module_name(index)
+        let manifest: string = modules_root + "/" + name + "/tests/tests.yml"
+        if rho_path_exists(manifest) {
+            if yaml.kind(manifest, "name") == "missing" {
+                print("  " + manifest + ": no name\n")
+                problems = problems + 1
+            }
+            if yaml.kind(manifest, "suites") == "missing" {
+                // A manifest that only includes others has no suites of its own.
+                if yaml.kind(manifest, "include") == "missing" {
+                    print("  " + manifest + ": neither suites nor includes\n")
+                    problems = problems + 1
+                }
+            }
+        }
+        index = index + 1
+    }
+    return problems
+}
+
+/// check_specs checks the target specs of every module that carries one.
+///
+/// A spec is JSON, and the language has no JSON reader yet; what is checked
+/// here is what a flat read can see — that a spec says what a spec says. The
+/// rest of it is the toolchain's own validation, which is the authority.
+fn check_specs(modules_root: string) u32 {
+    var problems: u32 = 0
+    var index: u32 = 0
+    while index < MODULE_COUNT {
+        let name: string = module_name(index)
+        let spec: string = modules_root + "/" + name + "/targets/" + name + ".json"
+        if rho_path_exists(spec) {
+            if yaml.kind(spec, "name") == "missing" {
+                print("  " + spec + ": no name\n")
+                problems = problems + 1
+            }
+            if yaml.kind(spec, "kind") == "missing" {
+                print("  " + spec + ": no kind\n")
+                problems = problems + 1
+            }
+        }
+        index = index + 1
+    }
+    return problems
+}

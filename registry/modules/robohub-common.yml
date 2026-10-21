@@ -1,0 +1,10 @@
+# robohub-common — interfaces.
+#
+# What the orchestrator knows about this module. The module's own manifest is
+# the truth about what it is; this is the truth about where it is and what it
+# is for in the ecosystem.
+name: robohub-common
+role: interfaces
+path: ../robohub-common
+git: https://github.com/RoboHubPlatform/robohub-common
+summary: The interfaces every platform implements: types, errors, the HAL, the device registry.

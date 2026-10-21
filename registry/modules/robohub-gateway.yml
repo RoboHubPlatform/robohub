@@ -1,0 +1,10 @@
+# robohub-gateway — application.
+#
+# What the orchestrator knows about this module. The module's own manifest is
+# the truth about what it is; this is the truth about where it is and what it
+# is for in the ecosystem.
+name: robohub-gateway
+role: application
+path: ../robohub-gateway
+git: https://github.com/RoboHubPlatform/robohub-gateway
+summary: The edge gateway: it ingests what the nodes report and serves it.

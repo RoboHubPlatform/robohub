@@ -1,0 +1,37 @@
+# The orchestrator's own tests.
+#
+# The suites are commands, because the orchestrator is a program and the test of
+# a program is that it does what it says. The first is the whole ecosystem
+# checked at once — every module the registry names is where the registry says
+# it is — and the second is one module asked about, which is the read a person
+# makes most often.
+name: robohub
+suites:
+  - name: the ecosystem is whole
+    kind: command
+    command: ["./build/robohub", "registry", "check"]
+    tags: [unit, fast]
+  - name: one module is described
+    kind: command
+    command: ["./build/robohub", "registry", "show", "robohub-avr"]
+    tags: [unit, fast]
+  - name: the ecosystem matches its schemas
+    kind: command
+    command: ["./build/robohub", "validate"]
+    tags: [unit, fast]
+  # The toolchain's own validation, over every module and every board of one.
+  # A manifest that does not match the schema is not read: a board whose
+  # manifest is not read is a board that does not exist, and a build that asks
+  # for it is told that no such target is there.
+  - name: the validator catches what it is for
+    kind: command
+    command: ["sh", "tests/validate-catches.sh"]
+    tags: [unit, fast]
+  - name: the registry says what the module has
+    kind: command
+    command: ["sh", "tests/registry-tests.sh"]
+    tags: [unit, fast]
+  - name: every manifest matches the toolchain's schema
+    kind: command
+    command: ["sh", "tests/validate-manifests.sh"]
+    tags: [unit, slow]

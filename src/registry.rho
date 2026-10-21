@@ -1,0 +1,97 @@
+module robohub.registry
+
+// The registry: what the orchestrator knows about the ecosystem.
+//
+// The module names of the ecosystem are the truth about *where* each module
+// lives and what it is for; each module's own manifest is the truth about what
+// it is. The registry does not repeat what a module already says, because a
+// registry that repeats it is a second copy that drifts.
+//
+// The names are reached by their position rather than held in a list. A Rho
+// program has no heap, and a list of strings is a list of pointers to strings
+// that nothing owns — so a registry of thirteen modules is thirteen names and
+// an index, which is what a program of this kind can honestly hold.
+
+/// The number of modules in the ecosystem.
+const MODULE_COUNT: u32 = 13
+
+/// The name of the module at a position, or "" when there is none.
+fn module_name(index: u32) string {
+    if index == 0 {
+        return "robohub-common"
+    }
+    if index == 1 {
+        return "robohub-core"
+    }
+    if index == 2 {
+        return "robohub-devices"
+    }
+    if index == 3 {
+        return "robohub-drivers"
+    }
+    if index == 4 {
+        return "robohub-esp32"
+    }
+    if index == 5 {
+        return "robohub-freertos"
+    }
+    if index == 6 {
+        return "robohub-gateway"
+    }
+    if index == 7 {
+        return "robohub-linux"
+    }
+    if index == 8 {
+        return "robohub-pico"
+    }
+    if index == 9 {
+        return "robohub-stm32"
+    }
+    if index == 10 {
+        return "robohub-telemetry"
+    }
+    if index == 11 {
+        return "robohub-transport"
+    }
+    if index == 12 {
+        return "robohub-avr"
+    }
+    return ""
+}
+
+/// The registry entry of a module, as a path relative to the orchestrator.
+fn entry_path(name: string) string {
+    return "registry/modules/" + name + ".yml"
+}
+
+/// A value out of a registry entry, named by its key.
+///
+/// The language's own YAML, not a reader written here: a program that reads
+/// YAML with its own reader is a program whose reader and the language's
+/// disagree about what a file says.
+fn yaml_value(path: string, key: string) string {
+    return yaml.value(path, key)
+}
+
+/// Whether the registry names a module.
+fn is_known(name: string) bool {
+    var index: u32 = 0
+    while index < MODULE_COUNT {
+        if module_name(index) == name {
+            return true
+        }
+        index = index + 1
+    }
+    return false
+}
+
+/// A name padded to a width, so a list lines up.
+fn pad(text: string, width: u32) string {
+    var padded: string = text
+    var length_now: u32 = strlen(text)
+    while length_now < width {
+        padded = padded + " "
+        length_now = length_now + 1
+    }
+    return padded
+}

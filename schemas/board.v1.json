@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://robohub.org/schemas/board.v1.json",
+  "title": "The board block of a RoboHub board manifest",
+  "description": "What every board of the ecosystem says about itself. A board whose manifest does not match this is a board that does not exist: the toolchain reads the board through this, and a board it cannot read is a board nobody is told about.",
+  "type": "object",
+  "properties": {
+    "connectors": {
+      "description": "The headers a board is known by. A connector is named, and what it carries is said of it.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "signal": { "type": "string" }
+        },
+        "required": ["name"],
+        "additionalProperties": false
+      }
+    },
+    "programmer": {
+      "description": "How the board is programmed. What it is, and what is said of it.",
+      "type": "object",
+      "properties": {
+        "tool": { "type": "string" },
+        "comment": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "peripherals": {
+      "description": "The peripherals the board brings out. A list, because a board has a number of them.",
+      "type": "array"
+    },
+    "pins": {
+      "description": "The pin map. A map, because a pin is named and what it is carries.",
+      "type": "object"
+    },
+    "designation": { "type": "string" },
+    "mcu": { "type": "string" },
+    "family": { "type": "string" },
+    "core": { "type": "string" },
+    "summary": { "type": "string" },
+    "preset": { "type": "string" },
+    "target": { "type": "string" },
+    "debug_interface": { "type": "string" }
+  },
+  "additionalProperties": true
+}

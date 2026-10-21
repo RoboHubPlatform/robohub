@@ -1,0 +1,17 @@
+# Build output.
+build/
+output/
+
+# The toolchain's generated project.
+build/generated/
+
+# Reports.
+build/reports/
+build/test-reports/
+
+# The Python environment, if one is used for the schemas.
+.venv/
+
+# Editor files.
+*.swp
+*~

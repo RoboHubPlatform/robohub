@@ -1,0 +1,55 @@
+module robohub.tests.registry
+
+// The registry's own rules, checked.
+//
+// A registry that names a module that is not there sends a reader looking for
+// something that does not exist, and a module that is not named is a module
+// nobody is told about. Both are quiet failures, so they are tested here rather
+// than found later by a person who trusted the list.
+
+include "../src/registry.rho"
+
+// assert is defined here rather than imported: the standard library's own
+// assertion lives in the toolchain's tree, and a project that is not the
+// toolchain does not have it on the path. A test that cannot assert is a test
+// that only says it ran.
+fn assert(condition: bool) void {
+    if !condition {
+        panic("assertion failed")
+    }
+}
+
+test fn every_module_has_a_name() {
+    var index: u32 = 0
+    var named: u32 = 0
+    while index < MODULE_COUNT {
+        if module_name(index) != "" {
+            named = named + 1
+        }
+        index = index + 1
+    }
+    assert(named == MODULE_COUNT)
+}
+
+test fn a_module_beyond_the_registry_has_no_name() {
+    assert(module_name(MODULE_COUNT) == "")
+}
+
+test fn a_known_module_is_known() {
+    assert(is_known("robohub-common"))
+    assert(is_known("robohub-avr"))
+}
+
+test fn an_unknown_module_is_not_known() {
+    assert(!is_known("robohub-nowhere"))
+    assert(!is_known(""))
+}
+
+test fn an_entry_path_is_the_modules_own_entry() {
+    assert(entry_path("robohub-avr") == "registry/modules/robohub-avr.yml")
+}
+
+test fn a_padded_name_is_at_least_the_width() {
+    assert(strlen(pad("ab", 6)) == 6)
+    assert(strlen(pad("abcdefgh", 4)) == 8)
+}
