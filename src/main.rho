@@ -1,0 +1,480 @@
+module robohub.main
+
+// robohub — the orchestrator of the RoboHub ecosystem.
+//
+// The ecosystem is a set of repositories, and each of them is versioned and
+// built apart. The questions a person asks about it are not about a
+// repository: they are about the whole. Which modules are there, which version
+// of each, and does any of it still build.
+//
+// The answers come from two places. The registry says where each module is and
+// what it is for; the module's own manifest is the truth about what it is. The
+// tools — the linter, the tests and the documentation — are the toolchain's own
+// components, run over each module in turn, because a second implementation of
+// a linter is a linter that reports something else.
+//
+// Every command is a report about the ecosystem and nothing else. Nothing here
+// changes a module, and nothing here writes to a module's tree: a tool that
+// changes what it measures is not a tool that measures.
+
+include "registry.rho"
+include "validate.rho"
+
+// A line of what the runtime answered with.
+struct Line {
+    text: string
+    rest: string
+}
+
+// The host primitives. The runtime provides them, and a program that cannot
+// reach them is a program that can only describe.
+extern fn rho_arg(index: i32) string
+extern fn rho_strlen(s: string) u64
+extern fn rho_exec(program: string, arguments: string, output_path: string) u32
+extern fn rho_path_exists(path: string) bool
+extern fn rho_read_text(path: string) string
+extern fn rho_write_text(path: string, text: string) bool
+extern fn rho_str_index_of(s: string, needle: string) i32
+extern fn rho_str_slice(s: string, start: u32, length: u32) string
+
+// Where a run's output is written, and what a reader collects it from.
+const REPORT_DIR: string = "build/reports"
+
+/* -------------------------------------------------------------------------- */
+/*  The entry point                                                            */
+/* -------------------------------------------------------------------------- */
+
+fn main() void {
+    let command: string = rho_arg(0)
+    if command == "registry" {
+        registry_command()
+        return
+    }
+    if command == "lint" {
+        run_over("lint", "lint", false)
+        return
+    }
+    if command == "test" {
+        test_command()
+        return
+    }
+    if command == "validate" {
+        validate_command()
+        return
+    }
+    if command == "docs" {
+        run_over("docs", "doc", false)
+        return
+    }
+    if command == "help" || command == "--help" || command == "-h" {
+        usage()
+        return
+    }
+    print("robohub: unknown command " + command + "\n")
+    usage()
+}
+
+fn usage() void {
+    print("usage: robohub <command> [module]\n")
+    print("\n")
+    print("  registry list              every module of the ecosystem\n")
+    print("  registry show <module>     one module, and what is known of it\n")
+    print("  registry check             whether the ecosystem is whole\n")
+    print("  validate                   whether the ecosystem's files match the schemas\n")
+    print("  lint [module]              static analysis over the ecosystem\n")
+    print("  test [module]              the tests over the ecosystem\n")
+    print("  test [module] --unit       only the unit tests\n")
+    print("  test [module] --smoke      only the smoke tests\n")
+    print("  test list [module]         what tests the module has\n")
+    print("  test run <module> <name>   one of them, by its name\n")
+    print("  test add <module> <name> <program> [args]  a test that has been written\n")
+    print("  test enable <module> <name>   a test is run\n")
+    print("  test disable <module> <name>  a test is not run\n")
+    print("  docs [module]              documentation over the ecosystem\n")
+    print("\n")
+    print("A module is named by its own name; no name means every module.\n")
+}
+
+/* -------------------------------------------------------------------------- */
+/*  The registry                                                               */
+/* -------------------------------------------------------------------------- */
+
+fn registry_command() void {
+    let sub: string = rho_arg(1)
+    if sub == "list" {
+        registry_list()
+        return
+    }
+    if sub == "show" {
+        registry_show(rho_arg(2))
+        return
+    }
+    if sub == "check" {
+        registry_check()
+        return
+    }
+    print("usage: robohub registry list|show <module>|check\n")
+}
+
+fn registry_list() void {
+    print("the robohub ecosystem: " + int_to_str(MODULE_COUNT) + " modules\n")
+    print("\n")
+    var index: u32 = 0
+    while index < MODULE_COUNT {
+        let entry: string = entry_path(module_name(index))
+        print("  " + pad(yaml_value(entry, "name"), 20) +
+              pad(yaml_value(entry, "role"), 14) +
+              yaml_value(entry, "summary") + "\n")
+        index = index + 1
+    }
+}
+
+fn registry_show(wanted: string) void {
+    if wanted == "" {
+        print("robohub registry show: name a module\n")
+        return
+    }
+    if !is_known(wanted) {
+        print("robohub registry show: no module named " + wanted + "\n")
+        return
+    }
+    let entry: string = entry_path(wanted)
+    print("name:    " + yaml_value(entry, "name") + "\n")
+    print("role:    " + yaml_value(entry, "role") + "\n")
+    print("path:    " + yaml_value(entry, "path") + "\n")
+    print("git:     " + yaml_value(entry, "git") + "\n")
+    print("summary: " + yaml_value(entry, "summary") + "\n")
+}
+
+// registry_check reports what is missing: a module the registry names that is
+// not on this machine.
+//
+// A registry that names a module that is not there sends a reader looking for
+// something that does not exist, and a module that is not named is a module
+// nobody is told about.
+fn registry_check() void {
+    var present: u32 = 0
+    var missing: u32 = 0
+    var index: u32 = 0
+    while index < MODULE_COUNT {
+        let name: string = module_name(index)
+        let entry: string = entry_path(name)
+        let path: string = yaml_value(entry, "path")
+        if rho_path_exists(path + "/module.yml") {
+            present = present + 1
+        } else {
+            print("robohub registry check: " + name + " is not at " + path + "\n")
+            missing = missing + 1
+        }
+        index = index + 1
+    }
+    print("robohub registry check: " + int_to_str(present) + " of " +
+          int_to_str(MODULE_COUNT) + " modules are here")
+    if missing > 0 {
+        print(", " + int_to_str(missing) + " are not")
+        print("\n")
+        // A check that says what is wrong and then succeeds is a check that
+        // reports success for something that failed. The exit status is the
+        // answer a script reads, so the answer has to be the failure.
+        panic("the ecosystem is not whole")
+    }
+    print("\n")
+}
+
+// validate_command checks the ecosystem's files against the schemas.
+//
+// The manifests themselves are the toolchain's own business — `rho module
+// validate` is the authority on what a manifest may say, and it is what the
+// toolchain reads. What is checked here is the ecosystem's own files: the
+// registry, the suite manifests and the target specs.
+fn validate_command() void {
+    // The registry it checks is named, so that a check over a copy of the
+    // ecosystem is the same check: a validator that can only look at one
+    // directory cannot be shown to catch anything.
+    let registry: string = rho_arg(1)
+    if registry == "" {
+        registry = "registry/modules"
+    }
+    let code: u32 = validate(registry, "..")
+    if code != 0 {
+        panic("the ecosystem does not match its schemas")
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+/*  The tools                                                                  */
+/* -------------------------------------------------------------------------- */
+
+/// first_line is the first line of a text, and the rest of it.
+fn first_line(text: string) Line {
+    let at: i32 = rho_str_index_of(text, "\n")
+    if at < 0 {
+        return Line{ text, "" }
+    }
+    let length: u32 = u32(at)
+    return Line{
+        rho_str_slice(text, 0, length),
+        rho_str_slice(text, length + 1, u32(rho_strlen(text)) - length - 1)
+    }
+}
+
+// test_command runs the tests over the ecosystem.
+//
+// A module's tests are declared in its tests/tests.yml, and the tests
+// themselves are in folders beside it. Each suite says whether it is run, so a
+// test that is not enabled is still a test: it is there, and it is not run.
+//
+// The orchestrator drives the toolchain's own runner for the running, and
+// reads the manifest for the listing and the enabling.
+fn test_command() void {
+    let first: string = rho_arg(1)
+    if first == "list" {
+        test_list(rho_arg(2))
+        return
+    }
+    if first == "run" {
+        test_run(rho_arg(2), rho_arg(3))
+        return
+    }
+    if first == "enable" {
+        test_set_state(rho_arg(2), rho_arg(3), "enabled")
+        return
+    }
+    if first == "disable" {
+        test_set_state(rho_arg(2), rho_arg(3), "disabled")
+        return
+    }
+    if first == "add" {
+        test_add(rho_arg(2), rho_arg(3), rho_arg(4), rho_arg(5))
+        return
+    }
+
+    let mode: string = rho_arg(2)
+    let tool: string = "test"
+    if mode == "--unit" {
+        tool = "test --tag unit"
+    }
+    if mode == "--smoke" {
+        tool = "test --tag smoke"
+    }
+    run_over("test", tool, true)
+}
+
+// test_list says what a module's tests are, and which of them are run.
+fn test_list(wanted: string) void {
+    let index: u32 = 0
+    while index < MODULE_COUNT {
+        let name: string = module_name(index)
+        if wanted == "" || wanted == name {
+            let path: string = yaml_value(entry_path(name), "path")
+            print(name + ":\n")
+            let output: string = REPORT_DIR + "/list-" + name + ".txt"
+            let code: u32 = rho_exec("rho", "test --list " + path, output)
+            if code != 0 {
+                print("  (could not list)\n")
+            } else {
+                print(rho_read_text(output))
+            }
+        }
+        index = index + 1
+    }
+}
+
+// test_run runs one test of one module, by its name.
+fn test_run(wanted: string, name: string) void {
+    if wanted == "" || name == "" {
+        print("usage: robohub test run <module> <name>\n")
+        return
+    }
+    let path: string = yaml_value(entry_path(wanted), "path")
+    print("robohub test: running " + name + " of " + wanted + "\n")
+    let code: u32 = rho_exec("rho", "test --suite \"" + name + "\" " + path, REPORT_DIR + "/test-" + wanted + "-" + name + ".txt")
+    if code != 0 {
+        print("robohub test: " + name + " failed\n")
+        panic("the test failed")
+    }
+    print("robohub test: " + name + " passed\n")
+}
+
+// test_set_state says whether a test is run, in the manifest that declares it.
+fn test_set_state(wanted: string, name: string, state: string) void {
+    if wanted == "" || name == "" {
+        print("usage: robohub test enable|disable <module> <name>\n")
+        return
+    }
+    let path: string = yaml_value(entry_path(wanted), "path")
+    let manifests: string = find_manifests(path)
+    var rest: string = manifests
+    while rest != "" {
+        let line: Line = first_line(rest)
+        rest = line.rest
+        if line.text == "" {
+            continue
+        }
+        let text: string = rho_read_text(line.text)
+        if rho_str_index_of(text, name) < 0 {
+            continue
+        }
+        // Find the enabled field after the suite name.
+        let at: i32 = rho_str_index_of(text, name)
+        let rest_text: string = rho_str_slice(text, u32(at), u32(rho_strlen(text)) - u32(at))
+        let new_val: string = "true"
+        if state == "disabled" {
+            new_val = "false"
+        }
+        // Replace enabled: true or enabled: false.
+        var updated: string = text
+        if rho_str_index_of(rest_text, "enabled: true") >= 0 {
+            let pos: i32 = rho_str_index_of(rest_text, "enabled: true")
+            let before: string = rho_str_slice(text, 0, u32(at) + u32(pos))
+            let after: string = rho_str_slice(rest_text, u32(pos) + 13, u32(rho_strlen(rest_text)) - u32(pos) - 13)
+            updated = before + "enabled: " + new_val + after
+        } else if rho_str_index_of(rest_text, "enabled: false") >= 0 {
+            let pos: i32 = rho_str_index_of(rest_text, "enabled: false")
+            let before: string = rho_str_slice(text, 0, u32(at) + u32(pos))
+            let after: string = rho_str_slice(rest_text, u32(pos) + 14, u32(rho_strlen(rest_text)) - u32(pos) - 14)
+            updated = before + "enabled: " + new_val + after
+        }
+        if updated != text {
+            if rho_write_text(line.text, updated) {
+                print("robohub test: " + name + " is " + state + "\n")
+                return
+            }
+            print("robohub test: the manifest could not be written\n")
+            return
+        }
+    }
+    print("robohub test: " + wanted + " has no test named " + name + "\n")
+}
+
+// find_manifests finds all tests.yml files in a module.
+fn find_manifests(path: string) string {
+    var result: string = ""
+    if rho_path_exists(path + "/tests/tests.yml") {
+        result = result + path + "/tests/tests.yml\n"
+    }
+    let subfolders: string = "unit smoke integration e2e"
+    var i: u32 = 0
+    // Walk the string character by character to find space-separated words.
+    var word: string = ""
+    var j: u32 = 0
+    while j < u32(rho_strlen(subfolders)) {
+        let ch: string = rho_str_slice(subfolders, j, 1)
+        if ch == " " {
+            if word != "" {
+                let manifest: string = path + "/tests/" + word + "/tests.yml"
+                if rho_path_exists(manifest) {
+                    result = result + manifest + "\n"
+                }
+                word = ""
+            }
+        } else {
+            word = word + ch
+        }
+        j = j + 1
+    }
+    if word != "" {
+        let manifest: string = path + "/tests/" + word + "/tests.yml"
+        if rho_path_exists(manifest) {
+            result = result + manifest + "\n"
+        }
+    }
+    return result
+}
+
+// test_add registers a test that has been written.
+//
+// The test is run first: a manifest that holds a test which does not work is a
+// manifest that will fail a run for a reason nobody can see.
+fn test_add(wanted: string, name: string, program: string, arguments: string) void {
+    if wanted == "" || name == "" || program == "" {
+        print("usage: robohub test add <module> <name> <program> [arguments]\n")
+        return
+    }
+    let path: string = yaml_value(entry_path(wanted), "path")
+    let args: string = arguments
+    if args == "" {
+        args = ""
+    }
+    print("robohub test: trying " + name + " of " + wanted + "\n")
+    let output: string = REPORT_DIR + "/test-" + wanted + "-" + name + ".txt"
+    let code: u32 = rho_exec(program, path + "/" + args, output)
+    if code != 0 {
+        print("robohub test: " + name + " did not pass, and was not added\n")
+        print("robohub test: what it said is in " + output + "\n")
+        return
+    }
+    let manifest: string = path + "/tests/unit/tests.yml"
+    if !rho_path_exists(manifest) {
+        manifest = path + "/tests/tests.yml"
+    }
+    let text: string = rho_read_text(manifest)
+    let entry: string = "\n  - name: " + name + "\n    kind: command\n    enabled: true\n    command: [\"sh\", \"-c\", \"" + program + " " + args + "\"]\n    tags: [unit]\n"
+    if !rho_write_text(manifest, text + entry) {
+        print("robohub test: the manifest could not be written\n")
+        return
+    }
+    print("robohub test: " + name + " passed and was added\n")
+}
+
+// run_over runs a toolchain command over every module, or over the one named.
+//
+// The tool is the toolchain's own: this decides *what* to run it over and
+// collects what it said, and the component decides how to run it and what its
+// findings mean. A second linter here would be a linter that reports something
+// else, and a run that says "no findings" from a tool that never ran is worse
+// than a run that failed.
+fn run_over(what: string, tool: string, declared: bool) void {
+    let wanted: string = rho_arg(1)
+    var ran: u32 = 0
+    var failed: u32 = 0
+    var index: u32 = 0
+    while index < MODULE_COUNT {
+        let name: string = module_name(index)
+        if wanted == "" || wanted == name {
+            let code: u32 = run_one(what, tool, name)
+            if code != 0 {
+                failed = failed + 1
+            } else {
+                ran = ran + 1
+            }
+        }
+        index = index + 1
+    }
+    print("robohub " + what + ": " + int_to_str(ran) + " of " +
+          int_to_str(ran + failed) + " modules passed")
+    if failed > 0 {
+        print(", " + int_to_str(failed) + " did not")
+    }
+    print("\n")
+}
+
+/// declares_tests reports whether a module declares its tests.
+///
+/// A module that declares them says where they are: a manifest beside the
+/// project, or in the project's own tests folder.
+fn declares_tests(path: string) bool {
+    return rho_path_exists(path + "/tests/tests.yml") || rho_path_exists(path + "/tests.yml")
+}
+
+/// run_one runs a tool over a module, says what happened, and answers with the
+/// tool's own verdict.
+fn run_one(what: string, tool: string, name: string) u32 {
+    let entry: string = entry_path(name)
+    let path: string = yaml_value(entry, "path")
+    // A module that declares no tests has no tests to fail. Reporting it as a
+    // failure is how a run over an ecosystem starts to look broken when what it
+    // says is that some of it has not been written yet.
+    if !declares_tests(path) {
+        print("  " + what + ": " + name + " declares no tests\n")
+        return 0
+    }
+    let output: string = REPORT_DIR + "/" + what + "-" + name + ".txt"
+    let code: u32 = rho_exec("rho", tool + " " + path, output)
+    if code != 0 {
+        print("  " + what + ": " + name + " failed (" + int_to_str(code) + ")\n")
+        return code
+    }
+    print("  " + what + ": " + name + " ok\n")
+    return 0
+}

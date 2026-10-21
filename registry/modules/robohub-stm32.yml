@@ -1,0 +1,10 @@
+# robohub-stm32 — platform.
+#
+# What the orchestrator knows about this module. The module's own manifest is
+# the truth about what it is; this is the truth about where it is and what it
+# is for in the ecosystem.
+name: robohub-stm32
+role: platform
+path: ../robohub-stm32
+git: https://github.com/RoboHubPlatform/robohub-stm32
+summary: The STM32 platform: the interfaces on an STM32, and the boards that carry them.

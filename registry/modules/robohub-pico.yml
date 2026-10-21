@@ -1,0 +1,10 @@
+# robohub-pico — platform.
+#
+# What the orchestrator knows about this module. The module's own manifest is
+# the truth about what it is; this is the truth about where it is and what it
+# is for in the ecosystem.
+name: robohub-pico
+role: platform
+path: ../robohub-pico
+git: https://github.com/RoboHubPlatform/robohub-pico
+summary: The RP2040 and RP2350 platform: the interfaces on a Pico, and the boards that carry them.

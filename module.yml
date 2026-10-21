@@ -1,0 +1,50 @@
+#
+# @file module.yml
+# @brief robohub — the orchestrator of the RoboHub ecosystem.
+#
+# The ecosystem is a set of repositories: the interfaces every platform
+# implements, a platform per family of parts, the runtime and transport the
+# nodes speak, the devices and drivers they are made of, and the gateway that
+# collects them. Each is versioned apart and built apart.
+#
+# That is right for the code and wrong for the questions a person asks about the
+# whole: which modules are there, which version of each, which platform a
+# program is written for, and whether any of it still builds. Those questions
+# are about the ecosystem rather than about a repository, and this is where they
+# are answered.
+#
+# @project RoboHub
+# @license MIT
+#
+
+module:
+  name: robohub
+  type: rho
+  version: 0.1.0
+  description: >
+    The orchestrator of the RoboHub ecosystem: a registry of its modules, and
+    the tools that run over all of them — static analysis, unit tests, software
+    smoke tests and documentation — using the Rho toolchain's own components.
+  maintainer: "Aurel Miron"
+  license: "MIT"
+  created: "2026-10-21"
+
+main: src/main.rho
+
+# The orchestrator is a program, so it is generated as one: a Go target, built
+# by the toolchain, run the way any other Rho program is run.
+build:
+  language: go
+  output_dir: output
+  targets:
+    - go
+
+# The orchestrator documents itself: the page below ships with the source, so
+# what a reader needs to run it travels with the code that is run.
+docs:
+  title: RoboHub Orchestrator
+  section: applications
+  order: "10"
+  index: docs/index.md
+  sources:
+    - docs/index.md

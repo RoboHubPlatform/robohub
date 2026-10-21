@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://robohub.org/schemas/target-spec.v1.json",
+  "title": "A target spec of the RoboHub ecosystem",
+  "description": "What a part is and how a program is laid out on it. A spec refers to another: a board names the chip it carries, and a chip names the architecture it is built as.",
+  "type": "object",
+  "required": ["name", "kind"],
+  "properties": {
+    "name": { "type": "string", "minLength": 1 },
+    "kind": { "type": "string", "enum": ["arch", "mcu", "board"] },
+    "arch": { "type": "string" },
+    "mcu": { "type": "string" },
+    "family": { "type": "string" },
+    "preset": { "type": "string" },
+    "target": { "type": "string" },
+    "core": { "type": "string" },
+    "toolchain": {
+      "type": "object",
+      "properties": {
+        "compiler": { "type": "string" },
+        "objcopy": { "type": "string" },
+        "size": { "type": "string" },
+        "linker": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "memory": {
+      "type": "object",
+      "properties": {
+        "flash": { "$ref": "#/$defs/region" },
+        "ram": { "$ref": "#/$defs/region" },
+        "extra": { "type": "array", "items": { "$ref": "#/$defs/region" } }
+      },
+      "additionalProperties": true
+    },
+    "linker": {
+      "type": "object",
+      "properties": {
+        "script": { "type": "string" },
+        "toolchain_script": { "type": "boolean" },
+        "stack_bytes": { "type": "integer", "minimum": 0 },
+        "heap_bytes": { "type": "integer", "minimum": 0 },
+        "entry": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "flash": {
+      "type": "object",
+      "properties": {
+        "tool": { "type": "string" },
+        "command": { "type": "string" },
+        "offset": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "pins": { "type": "object" },
+    "peripherals": { "type": "object" },
+    "export": { "type": "object" }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "region": {
+      "type": "object",
+      "properties": {
+        "origin": { "type": "string" },
+        "length": { "type": "string" }
+      },
+      "additionalProperties": true
+    }
+  }
+}

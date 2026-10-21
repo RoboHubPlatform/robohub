@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://robohub.org/schemas/registry.v1.json",
+  "title": "A registry entry of the RoboHub ecosystem",
+  "description": "What the orchestrator knows about a module: where it is, and what it is for in the ecosystem. The module's own manifest is the truth about what it is.",
+  "type": "object",
+  "required": ["name", "role", "path"],
+  "properties": {
+    "name": { "type": "string", "minLength": 1 },
+    "role": {
+      "type": "string",
+      "enum": ["interfaces", "platform", "runtime", "collection", "middleware", "application", "library"]
+    },
+    "path": { "type": "string", "minLength": 1 },
+    "git": { "type": "string" },
+    "summary": { "type": "string" }
+  },
+  "additionalProperties": false
+}

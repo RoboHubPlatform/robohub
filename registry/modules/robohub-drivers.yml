@@ -1,0 +1,10 @@
+# robohub-drivers — collection.
+#
+# What the orchestrator knows about this module. The module's own manifest is
+# the truth about what it is; this is the truth about where it is and what it
+# is for in the ecosystem.
+name: robohub-drivers
+role: collection
+path: ../robohub-drivers
+git: https://github.com/RoboHubPlatform/robohub-drivers
+summary: The drivers the devices are driven by, and the boards they are fitted to.
