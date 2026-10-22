@@ -1,0 +1,79 @@
+module docsite
+
+// The RoboHub documentation, built.
+//
+// The documentation each module of the ecosystem ships — the pages in its
+// `docs/` directory — is collected here and built into one site, so that a
+// reader can move from a platform to the devices on it to the interfaces they
+// implement without leaving the documentation.
+//
+// The build is the toolchain's own: `rho doc`, run over every module, and the
+// pages are written where a reader can find them.
+
+extern fn rho_arg(index: i32) string
+extern fn rho_exec(program: string, arguments: string, output_path: string) u32
+extern fn rho_path_exists(path: string) bool
+extern fn rho_strlen(s: string) u64
+extern fn rho_str_slice(s: string, start: u32, length: u32) string
+
+const MODULES: string = "robohub-common robohub-core robohub-devices robohub-drivers robohub-esp32 robohub-freertos robohub-gateway robohub-linux robohub-pico robohub-stm32 robohub-telemetry robohub-transport robohub-avr"
+
+fn main() void {
+    let output: string = "build/docs"
+    if rho_arg(1) != "" {
+        output = rho_arg(1)
+    }
+    print("building the RoboHub documentation into " + output + "\n")
+    build_all(output)
+    print("done\n")
+}
+
+fn build_all(output: string) void {
+    var rest: string = MODULES
+    while rest != "" {
+        let at: i32 = index_of(rest, " ")
+        let name: string = ""
+        if at < 0 {
+            name = rest
+            rest = ""
+        } else {
+            name = slice(rest, 0, u32(at))
+            rest = slice(rest, u32(at) + 1, u32(rho_strlen(rest)) - u32(at) - 1)
+        }
+        if name == "" {
+            continue
+        }
+        let path: string = "../" + name
+        if !rho_path_exists(path + "/module.yml") {
+            print("  " + name + ": not found, skipped\n")
+            continue
+        }
+        print("  " + name + ": ")
+        let code: u32 = rho_exec("rho", "doc " + path + " -section " + name + " -out " + output, "build/reports/doc-" + name + ".txt")
+        if code != 0 {
+            print("failed\n")
+        } else {
+            print("ok\n")
+        }
+    }
+}
+
+// Helpers: the runtime provides strings, but not these two. They are written
+// here so that a program that walks a list can do so.
+fn index_of(s: string, needle: string) i32 {
+    var i: u32 = 0
+    while i < u32(rho_strlen(s)) {
+        if slice(s, i, 1) == needle {
+            return i32(i)
+        }
+        i = i + 1
+    }
+    return -1
+}
+
+fn slice(s: string, start: u32, length: u32) string {
+    // Rho has no string slicing builtin; the runtime provides rho_str_slice.
+    return rho_str_slice(s, start, length)
+}
+
+
