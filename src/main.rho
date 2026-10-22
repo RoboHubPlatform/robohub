@@ -66,6 +66,10 @@ fn main() void {
         run_over("docs", "doc", false)
         return
     }
+    if command == "keeper" {
+        keeper_command()
+        return
+    }
     if command == "help" || command == "--help" || command == "-h" {
         usage()
         return
@@ -91,6 +95,7 @@ fn usage() void {
     print("  test enable <module> <name>   a test is run\n")
     print("  test disable <module> <name>  a test is not run\n")
     print("  docs [module]              documentation over the ecosystem\n")
+    print("  keeper [port]              the web-based admin panel\n")
     print("\n")
     print("A module is named by its own name; no name means every module.\n")
 }
@@ -415,6 +420,31 @@ fn test_add(wanted: string, name: string, program: string, arguments: string) vo
         return
     }
     print("robohub test: " + name + " passed and was added\n")
+}
+
+// keeper_command launches the keeper, the web-based admin panel for the
+// ecosystem.
+//
+// The keeper is a separate program, because a web server is a program that
+// stays running and a CLI is a program that says what it came to say and
+// stops. The CLI finds it where it was built and runs it, and says where to
+// look if it is not there.
+fn keeper_command() void {
+    let port: string = rho_arg(1)
+    if port == "" {
+        port = "8080"
+    }
+    let keeper: string = "applications/keeper/build/keeper"
+    if !rho_path_exists(keeper) {
+        print("robohub keeper: the keeper is not built\n")
+        print("robohub keeper: rho build applications/keeper\n")
+        return
+    }
+    print("robohub keeper: starting on port " + port + "\n")
+    let code: u32 = rho_exec(keeper, "--port " + port, REPORT_DIR + "/keeper.txt")
+    if code != 0 {
+        print("robohub keeper: stopped (" + int_to_str(code) + ")\n")
+    }
 }
 
 // run_over runs a toolchain command over every module, or over the one named.
