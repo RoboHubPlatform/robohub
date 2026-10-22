@@ -3,77 +3,89 @@ module docsite
 // The RoboHub documentation, built.
 //
 // The documentation each module of the ecosystem ships — the pages in its
-// `docs/` directory — is collected here and built into one site, so that a
-// reader can move from a platform to the devices on it to the interfaces they
-// implement without leaving the documentation.
+// `docs/` directory — is collected here into one tree, and the tree is built
+// into one site. A module's pages are a section of the tree named for the
+// module, so the site has a section per module and the keeper can serve them.
 //
-// The build is the toolchain's own: `rho doc`, run over every module, and the
-// pages are written where a reader can find them.
+// The modules come from the registry, not from a list written here: a module
+// that joins the ecosystem is in the registry, and a list written here would be
+// a second copy of the ecosystem that drifts.
+//
+// The build is the toolchain's own: `rho doc`, and the pages are written where
+// a reader can find them.
 
 extern fn rho_arg(index: i32) string
 extern fn rho_exec(program: string, arguments: string, output_path: string) u32
 extern fn rho_path_exists(path: string) bool
+extern fn rho_read_text(path: string) string
 extern fn rho_strlen(s: string) u64
+extern fn rho_str_index_of(s: string, needle: string) i32
 extern fn rho_str_slice(s: string, start: u32, length: u32) string
 
-const MODULES: string = "robohub-common robohub-core robohub-devices robohub-drivers robohub-esp32 robohub-freertos robohub-gateway robohub-linux robohub-pico robohub-stm32 robohub-telemetry robohub-transport robohub-avr"
+/// Where the registry of the ecosystem lives.
+const REGISTRY: string = "registry/modules"
+
+/// Where the tree is assembled.
+///
+/// The tree is a `docs` directory beside a root, because that is where the
+/// generator reads a project's documentation from, and the keeper's store reads
+/// it from the same place.
+const TREE: string = "build/docs"
+
+/// Where the built site is written.
+const SITE: string = "build/site"
+
+/// The directory the tree sits in, which is where the generator reads a
+/// project's documentation from.
+const ROOT: string = "build"
 
 fn main() void {
-    let output: string = "build/docs"
-    if rho_arg(1) != "" {
-        output = rho_arg(1)
+    let tree: string = rho_arg(1)
+    if tree == "" {
+        tree = TREE
     }
-    print("building the RoboHub documentation into " + output + "\n")
-    build_all(output)
+    print("assembling the RoboHub documentation in " + tree + "\n")
+    assemble(tree)
     print("done\n")
 }
 
-fn build_all(output: string) void {
-    var rest: string = MODULES
+// assemble collects every module's documentation into one tree and builds it.
+fn assemble(tree: string) void {
+    // The orchestrator's own documentation is the tree's index: a reader who
+    // starts at the root of the documentation should read what the orchestrator
+    // is before they read what it orchestrates.
+    rho_exec("sh", "-c \"mkdir -p " + tree + " && cp -f docs/index.md " + tree + "/index.md\"", "build/reports/assemble.txt")
+
+    // Every module's documentation is a section named for the module.
+    let listing: string = ""
+    rho_exec("sh", "-c \"ls " + REGISTRY + "/\"", "build/reports/ls-modules.txt")
+    listing = rho_read_text("build/reports/ls-modules.txt")
+
+    var rest: string = listing
     while rest != "" {
-        let at: i32 = index_of(rest, " ")
-        let name: string = ""
+        let at: i32 = rho_str_index_of(rest, "\n")
+        let filename: string = ""
         if at < 0 {
-            name = rest
+            filename = rest
             rest = ""
         } else {
-            name = slice(rest, 0, u32(at))
-            rest = slice(rest, u32(at) + 1, u32(rho_strlen(rest)) - u32(at) - 1)
+            filename = rho_str_slice(rest, 0, u32(at))
+            rest = rho_str_slice(rest, u32(at) + 1, u32(rho_strlen(rest)) - u32(at) - 1)
         }
-        if name == "" {
+        if filename == "" {
             continue
         }
+        if rho_str_index_of(filename, ".yml") < 0 {
+            continue
+        }
+        let name: string = rho_str_slice(filename, 0, u32(rho_str_index_of(filename, ".yml")))
         let path: string = "../" + name
-        if !rho_path_exists(path + "/module.yml") {
-            print("  " + name + ": not found, skipped\n")
+        if !rho_path_exists(path + "/docs/index.md") {
             continue
         }
-        print("  " + name + ": ")
-        let code: u32 = rho_exec("rho", "doc " + path + " -section " + name + " -out " + output, "build/reports/doc-" + name + ".txt")
-        if code != 0 {
-            print("failed\n")
-        } else {
-            print("ok\n")
-        }
+        rho_exec("sh", "-c \"mkdir -p " + tree + "/" + name + " && cp -f " + path + "/docs/index.md " + tree + "/" + name + "/index.md\"", "build/reports/assemble-" + name + ".txt")
     }
+
+    // The site is the toolchain's own build of the tree.
+    rho_exec("rho", "doc " + ROOT + " -out " + SITE, "build/reports/doc.txt")
 }
-
-// Helpers: the runtime provides strings, but not these two. They are written
-// here so that a program that walks a list can do so.
-fn index_of(s: string, needle: string) i32 {
-    var i: u32 = 0
-    while i < u32(rho_strlen(s)) {
-        if slice(s, i, 1) == needle {
-            return i32(i)
-        }
-        i = i + 1
-    }
-    return -1
-}
-
-fn slice(s: string, start: u32, length: u32) string {
-    // Rho has no string slicing builtin; the runtime provides rho_str_slice.
-    return rho_str_slice(s, start, length)
-}
-
-
