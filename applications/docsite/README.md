@@ -22,19 +22,22 @@ The documentation is assembled into `build/doctree/` and the site is written to
 python3 -m http.server 8080 --directory build/site
 ```
 
-Or with Docker:
+## Image
+
+The image carries the built site and serves it with Python's HTTP server on port
+8080. It is built from the repository root, because that is where `build/site/`
+is:
 
 ```sh
-docker run -p 8080:8080 miraur/robohub-docsite:latest
+docker build -f applications/docsite/deploy/Dockerfile -t miraur/robohub-docsite:latest .
+docker run --rm -p 8080:8080 miraur/robohub-docsite:latest
 ```
 
 ## Deploying
 
-The Docker image is published to Docker Hub as `miraur/robohub-docsite:latest`.
+The image is published to Docker Hub as `miraur/robohub-docsite:latest`, after
+the site has been rebuilt and the image tested:
 
 ```sh
 docker push miraur/robohub-docsite:latest
 ```
-
-The image carries the built documentation site and serves it with a simple HTTP
-server on port 8080.
