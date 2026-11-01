@@ -1,7 +1,7 @@
 module:
   name: docsite
   type: rho
-  version: 0.1.0
+  version: 0.2.0
   author: Aurel Miron
   maintainer: Aurel Miron
 description: Serves the RoboHub documentation as a site — an index, a menu, the pages, and the ecosystem's release notes

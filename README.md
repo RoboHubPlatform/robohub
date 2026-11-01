@@ -130,3 +130,14 @@ rho test .
 The material every repository in the ecosystem needs and none of them should
 own is here: the ignore rules, the configuration a CI build resolves, and the
 workflow itself. See `shared/`.
+
+## The keeper and Mesh
+
+The keeper is the local dashboard for the ecosystem. Its **Mesh** section plans
+and runs gateway deployments: projects, a gateway and its nodes, the
+connections between them, and the firmware on their boards. A project is a
+folder under `~/.rho/mesh/projects` (or `ROBOHUB_MESH_PROJECTS`); the dashboard
+at `/mesh` lists them with their gateway status, and opening one shows the plan
+wizard. The full guide is
+[the keeper's Mesh guide](https://github.com/RoboHubPlatform/robohub/blob/main/applications/keeper/docs/mesh.md).
+

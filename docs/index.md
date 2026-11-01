@@ -1,6 +1,6 @@
 # The orchestrator
 
-**Version:** 0.1.0
+**Version:** 0.2.0
 
 The orchestrator of the RoboHub ecosystem: a registry of its modules, and the
 tools that run over all of them.
@@ -165,3 +165,14 @@ the same compiler, the same warnings, the same include paths, the same generated
 namespace — and had already begun to differ. The runner is here now, and what
 is left in each repository is the part that is its own: the headers it
 publishes and the suites it runs, in `tests/host-tests.plan`.
+
+## The keeper and Mesh
+
+The keeper is the local dashboard for the ecosystem. Its **Mesh** section plans
+and runs gateway deployments: projects, a gateway and its nodes, the
+connections between them, and the firmware on their boards. A project is a
+folder under `~/.rho/mesh/projects` (or `ROBOHUB_MESH_PROJECTS`); the dashboard
+at `/mesh` lists them with their gateway status, and opening one shows the plan
+wizard. The full guide is
+[the keeper's Mesh guide](https://github.com/RoboHubPlatform/robohub/blob/main/applications/keeper/docs/mesh.md).
+

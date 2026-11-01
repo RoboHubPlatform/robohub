@@ -49,7 +49,7 @@ fn main() void {
 fn assemble(tree: string) void {
     // The orchestrator's own documentation and manifest.
     rho_exec("sh", "-c \"mkdir -p " + tree + "/docs\"", "build/reports/assemble.txt")
-    rho_exec("sh", "-c \"cp -f docs/index.md " + tree + "/docs/index.md\"", "build/reports/assemble2.txt")
+    rho_exec("sh", "-c \"cp -f docs/index.md " + tree + "/docs/index.md && if [ -f CHANGELOG.md ]; then printf '\\n\\n## Release history\\n\\n' >> " + tree + "/docs/index.md && sed '/^# Changelog$/d' CHANGELOG.md >> " + tree + "/docs/index.md; fi\"", "build/reports/assemble2.txt")
     rho_exec("sh", "-c \"sed \'s/name: robohub/name: build/\' module.yml > " + tree + "/module.yml\"", "build/reports/assemble3.txt")
     rho_exec("sh", "-c \"mkdir -p " + tree + "/src && cp -f src/main.rho " + tree + "/src/main.rho\"", "build/reports/assemble4.txt")
 
@@ -80,7 +80,7 @@ fn assemble(tree: string) void {
         if !rho_path_exists(path + "/docs/index.md") {
             continue
         }
-        rho_exec("sh", "-c \"mkdir -p " + tree + "/" + name + "/docs && cp -f " + path + "/docs/index.md " + tree + "/" + name + "/docs/index.md && cp -f " + path + "/module.yml " + tree + "/" + name + "/module.yml\"", "build/reports/assemble-" + name + ".txt")
+        rho_exec("sh", "-c \"mkdir -p " + tree + "/" + name + "/docs && cp -f " + path + "/docs/index.md " + tree + "/" + name + "/docs/index.md && cp -f " + path + "/module.yml " + tree + "/" + name + "/module.yml && if [ -f " + path + "/CHANGELOG.md ]; then printf '\\n\\n## Release history\\n\\n' >> " + tree + "/" + name + "/docs/index.md && sed '/^# Changelog$/d' " + path + "/CHANGELOG.md >> " + tree + "/" + name + "/docs/index.md; fi\"", "build/reports/assemble-" + name + ".txt")
     }
 
     // The site is the toolchain's own build of the tree.

@@ -25,3 +25,18 @@ The material every repository in the ecosystem needs and none of them should own
 is here as well: the ignore rules, the configuration a CI build resolves, and
 the workflow itself, as a workflow the repositories call rather than a copy
 each of them carries.
+
+## [0.2.0] - 2026-11-01
+
+The keeper gains **Mesh**: projects saved in a workspace, a dashboard that
+lists them with their gateway status, a plan of the gateway and its nodes, and
+network, build/program and verify steps. A project is a folder under
+`~/.rho/mesh/projects` (or `ROBOHUB_MESH_PROJECTS`); it can be created, opened,
+renamed, described and deleted. Boards and drivers come from the registry's
+`capabilities` and `deployment` blocks, and transports from
+`robohub-transport`, so a new board or driver is offered without rebuilding the
+keeper.
+
+The gateway page, frame history and CSV export, the wall-clock receive time
+beside a node's uptime, and the documentation each module now carries with its
+release history are part of the ecosystem this release describes.
