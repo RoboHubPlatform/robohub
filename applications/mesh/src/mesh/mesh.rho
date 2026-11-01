@@ -1,4 +1,4 @@
-module keeper.mesh
+module mesh.mesh
 
 // The RoboHub Mesh page.
 //
@@ -137,7 +137,7 @@ fn link_label(link: string) string {
 fn node_card_body(index: u32) string {
     let role: string = node_value(index, "role", "node")
     let board: string = node_value(index, "board", "")
-    let driver: string = node_value(index, "driver", "")
+    let sensors: string = node_sensors(index)
     let parent: string = node_value(index, "parent", "gateway")
     var name: string = node_value(index, "name", "Node " + rho_int_to_str(index))
     var description: string = node_value(index, "description", "")
@@ -148,7 +148,7 @@ fn node_card_body(index: u32) string {
         "<strong>" + escape_html(name) + "</strong>" +
         "<small>" + escape_html(description) + "</small>" +
         "<span class=\"node-meta\">" + escape_html(label_for(board_rows(), board)) +
-        " · " + escape_html(driver_label(driver)) + " · parent " +
+        " · " + escape_html(sensor_labels(sensors)) + " · parent " +
         escape_html(parent) + "</span>" + status_badge(node_status(index))
 }
 
@@ -183,7 +183,7 @@ fn gateway_card_body() string {
     return "<span class=\"node-role\">gateway</span><strong>" +
         escape_html(name) + "</strong><small>" + escape_html(description) +
         "</small><span class=\"node-meta\">" + escape_html(label_for(board_rows(), gateway)) +
-        "</span>" + gateway_live_badge()
+        " · " + escape_html(sensor_labels(gateway_sensors())) + "</span>" + gateway_live_badge()
 }
 
 fn gateway_card(readonly: bool) string {
@@ -524,7 +524,7 @@ fn network_link_badge(index: u32) string {
 fn node_network_body(index: u32) string {
     let role: string = node_value(index, "role", "node")
     let board: string = node_value(index, "board", "")
-    let driver: string = node_value(index, "driver", "")
+    let sensors: string = node_sensors(index)
     let parent: string = node_value(index, "parent", "gateway")
     var name: string = node_value(index, "name", "Node " + rho_int_to_str(index))
     var description: string = node_value(index, "description", "")
@@ -535,7 +535,7 @@ fn node_network_body(index: u32) string {
         "<strong>" + escape_html(name) + "</strong>" +
         "<small>" + escape_html(description) + "</small>" +
         "<span class=\"node-meta\">" + escape_html(label_for(board_rows(), board)) +
-        " · " + escape_html(driver_label(driver)) + " · parent " +
+        " · " + escape_html(sensor_labels(sensors)) + " · parent " +
         escape_html(parent) + "</span>" + network_badge(network_ready(index))
 }
 
@@ -735,8 +735,21 @@ fn project_card(id: string) string {
         address_html = "<a href=\"" + address + "\">" + escape_html(address) + "</a>"
     }
     var current_class: string = ""
+    var active_badge: string = ""
+    var active_action: string = ""
     if id == current_project() {
         current_class = " current"
+        active_badge = " <span class=\"badge-active\">Active</span>"
+        active_action = "<form method=\"post\" action=\"/mesh/project/active\">" +
+            "<input type=\"hidden\" name=\"project\" value=\"" + escape_html(id) + "\">" +
+            "<input type=\"hidden\" name=\"active\" value=\"0\">" +
+            "<button type=\"submit\" class=\"quiet\">Make inactive</button></form>"
+    } else {
+        active_action = "<form method=\"post\" action=\"/mesh/project/active\">" +
+            "<input type=\"hidden\" name=\"project\" value=\"" + escape_html(id) + "\">" +
+            "<input type=\"hidden\" name=\"active\" value=\"1\">" +
+            "<input type=\"hidden\" name=\"return\" value=\"dashboard\">" +
+            "<button type=\"submit\">Set active</button></form>"
     }
     var description_html: string = ""
     if description != "" {
@@ -744,7 +757,7 @@ fn project_card(id: string) string {
     }
     return "<div class=\"project-card" + current_class + "\">" +
         "<div class=\"project-head\"><div><h3><a href=\"/mesh/project/" +
-        escape_html(id) + "\">" + escape_html(name) + "</a></h3><code>" +
+        escape_html(id) + "\">" + escape_html(name) + "</a>" + active_badge + "</h3><code>" +
         escape_html(location) + "</code></div>" +
         project_status_badge(live, gateway) + "</div>" +
         "<dl class=\"settings\"><dt>Gateway</dt><dd>" + escape_html(gateway_label) +
@@ -753,7 +766,7 @@ fn project_card(id: string) string {
         description_html +
         "<p><a class=\"connection-edit\" href=\"/mesh/project/" + escape_html(id) +
         "/settings\">Project settings →</a></p>" +
-        "<div class=\"actions\">" +
+        "<div class=\"actions\">" + active_action +
         "<form method=\"post\" action=\"/mesh/project/restart\">" +
         "<input type=\"hidden\" name=\"project\" value=\"" + escape_html(id) + "\">" +
         "<button type=\"submit\">Restart</button></form>" +
@@ -786,7 +799,7 @@ fn mesh_projects() string {
         cards = "<p>No projects yet.</p>"
     }
     return "<div class=\"project-grid\">" + cards + "</div>" +
-        "<section class=\"mesh-sessions\"><h2>Create a project</h2>" +
+        "<section class=\"mesh-sessions\" id=\"new-project\"><h2>Create a project</h2>" +
         "<p>A project is a folder in the projects workspace; its plan, network, build and verify settings live there.</p>" +
         "<form class=\"grid\" method=\"post\" action=\"/mesh/project/new\">" +
         "<label>Project name<input type=\"text\" name=\"name\" placeholder=\"Greenhouse gateway\"></label>" +
@@ -810,7 +823,10 @@ fn mesh_project_new(req: Request) Response {
 }
 
 fn mesh_project_settings_page(req: Request) Response {
-    let id: string = param(req, "id")
+    return mesh_project_settings_for(req, param(req, "id"))
+}
+
+fn mesh_project_settings_for(req: Request, id: string) Response {
     let file: string = project_file(id)
     if !rho_path_exists(file) {
         return mesh_dashboard(req)
@@ -823,18 +839,54 @@ fn mesh_project_settings_page(req: Request) Response {
         mesh_input("description", "Short description", description,
             "One line about what this mesh is for.") +
         "<button type=\"submit\">Save project</button></form>"
+    var active_form: string = ""
+    if id == current_project() {
+        active_form = "<p class=\"notice\">This project is the active one. The Operations menu and every step page act on it.</p>" +
+            "<form method=\"post\" action=\"/mesh/project/active\">" +
+            "<input type=\"hidden\" name=\"project\" value=\"" + escape_html(id) + "\">" +
+            "<input type=\"hidden\" name=\"active\" value=\"0\">" +
+            "<input type=\"hidden\" name=\"return\" value=\"settings\">" +
+            "<button type=\"submit\" class=\"quiet\">Make inactive</button></form>"
+    } else {
+        active_form = "<p>No project is active, or another project is. Set this one active to work on its plan.</p>" +
+            "<form method=\"post\" action=\"/mesh/project/active\">" +
+            "<input type=\"hidden\" name=\"project\" value=\"" + escape_html(id) + "\">" +
+            "<input type=\"hidden\" name=\"active\" value=\"1\">" +
+            "<input type=\"hidden\" name=\"return\" value=\"settings\">" +
+            "<button type=\"submit\">Set as active</button></form>"
+    }
     let content: string = template_fill(template_get("mesh-project-settings"),
         vars("project", escape_html(id)) +
         vars("location", project_location(id)) +
         vars("notice", state_value_in(file, "message.project")) +
         vars("form", form) +
+        vars("active", active_form) +
         vars("actions", "<form method=\"post\" action=\"/mesh/project/delete\" " +
             "onsubmit=\"return confirm('Delete this project and its settings?');\">" +
             "<input type=\"hidden\" name=\"project\" value=\"" + escape_html(id) + "\">" +
             "<button type=\"submit\" class=\"danger\">Delete project</button></form>"))
-    let body: string = template_fill(template_get("layout"),
-        vars("title", "Project settings") + vars("body", content))
-    return html(status_ok(), body)
+    return html(status_ok(), mesh_shell("Project settings", content))
+}
+
+fn mesh_project_active(req: Request) Response {
+    let body: string = request_body(req)
+    let id: string = sanitize(form_value(body, "project"))
+    let active: string = form_value(body, "active")
+    if active == "0" {
+        ignore_bool(rho_write_text(current_project_file(), ""))
+        info("mesh", "no project is active")
+        return mesh_dashboard(req)
+    }
+    if id == "" || rho_str_index_of(id, "/") >= 0 || rho_str_index_of(id, "..") >= 0 ||
+        !rho_path_exists(project_file(id)) {
+        return mesh_dashboard(req)
+    }
+    ignore_bool(rho_write_text(current_project_file(), id + "\n"))
+    info("mesh", "activated project " + id)
+    if form_value(body, "return") == "settings" {
+        return mesh_project_settings_for(req, id)
+    }
+    return mesh_dashboard(req)
 }
 
 fn mesh_project_settings_post(req: Request) Response {
@@ -888,7 +940,10 @@ fn mesh_project_delete(req: Request) Response {
             }
         }
         if next == "" {
-            ignore_string(new_project("Default"))
+            // Deleting the last project leaves the application with no active
+            // project rather than creating one nobody asked for. The Operations
+            // menu disappears; the dashboard still creates a new one.
+            ignore_bool(rho_write_text(current_project_file(), ""))
         } else {
             ignore_bool(rho_write_text(current_project_file(), next + "\n"))
         }
@@ -961,6 +1016,9 @@ fn parent_options(limit: u32, selected: string) string {
 }
 
 fn mesh_node_page(req: Request) Response {
+    if current_project() == "" {
+        return mesh_dashboard(req)
+    }
     ensure_wizard_dir()
     let raw: string = param(req, "index")
     let is_new: bool = raw == "new"
@@ -972,8 +1030,8 @@ fn mesh_node_page(req: Request) Response {
         return mesh_page(req)
     }
     let role: string = node_value(index, "role", "node")
-    let driver: string = node_value(index, "driver", first_driver())
-    let board: string = node_value(index, "board", first_board_for(role, driver))
+    let sensors: string = node_sensors(index)
+    let board: string = node_value(index, "board", first_board(role))
     let parent: string = node_value(index, "parent", "gateway")
     let link: string = node_value(index, "link", "wifi")
     var name: string = node_value(index, "name", "Node " + rho_int_to_str(index))
@@ -991,33 +1049,46 @@ fn mesh_node_page(req: Request) Response {
     }
     let role_options: string = option("node", "node", "", role) +
         option("relay", "relay", "", role) + option("gateway", "gateway", "", role)
-    let driver_options: string = option("", "none", "", driver) +
-        options_from_rows(driver_rows(), "driver", "", driver)
-    let form: string = "<form class=\"grid\" method=\"post\" action=\"/mesh/node/" +
+    var plan_html: string = ""
+    if !is_new {
+        plan_html = "<h2>Bus plan</h2>" + node_bus_html(index)
+        if node_bus_conflicts(index) {
+            plan_html = plan_html + "<p class=\"notice bad\">A module's bus or address is already in use. " +
+                "That module is left out of the image so the node still builds.</p>"
+        }
+    }
+    let form: string = "<form class=\"node-form\" method=\"post\" action=\"/mesh/node/" +
         escape_html(raw) + "\">" +
         "<input type=\"hidden\" name=\"action\" value=\"save\">" +
+        "<div class=\"grid\">" +
         mesh_input("name", "Name", name, "What this node is called in the mesh.") +
         mesh_textarea("description", "Description", description) +
         mesh_select("role", "Role", role_options, "node measures, relay also has children, gateway is another host.") +
-        mesh_select("board", "Board", board_options_for(role, driver, board), "") +
-        mesh_select("driver", "Driver", driver_options, "") +
+        mesh_select("board", "Board", board_options_for(role, "", board), "The compute board this node is built for.") +
         mesh_select("parent", "Parent", parent_options(limit, parent), "Where this node reports through.") +
         mesh_select("link", "Link", option("uart", "UART", "", link) + option("wifi", "WiFi", "", link), "") +
-        "<button type=\"submit\">Save node</button></form>"
+        "</div>" +
+        "<fieldset class=\"sensor-picker\"><legend>Attached modules</legend>" +
+        "<p><small>Any number of sensor modules can be fitted to this node. They are carried by the node's image; only the node itself is built and programmed. The first module selects the example the image is built from.</small></p>" +
+        sensor_checkboxes(sensors) + "</fieldset>" +
+        "<div class=\"form-actions\"><button type=\"submit\">Save node</button></div></form>"
     var delete_form: string = ""
     if !is_new {
         delete_form = "<form method=\"post\" action=\"/mesh/node/" + escape_html(raw) +
             "\"><input type=\"hidden\" name=\"action\" value=\"delete\">" +
             "<button type=\"submit\" class=\"danger\">Delete node</button></form>"
     }
-    let body: string = "<h1>" + escape_html(title) + "</h1><p>Choose the role, the board and " +
-        "the driver from the local registry. The board list is filtered by the driver's " +
-        "deployment compatibility.</p>" + form + delete_form +
+    let body: string = "<h1>" + escape_html(title) + "</h1><p>Choose the role and the board, " +
+        "then attach the modules fitted to it. Modules are read from robohub-drivers at this " +
+        "moment, so a new board appears here without a rebuild.</p>" + form + plan_html + delete_form +
         "<p class=\"mesh-nav\"><a href=\"/mesh\">← Mesh</a></p>"
     return page(title, body)
 }
 
 fn mesh_node_post(req: Request) Response {
+    if current_project() == "" {
+        return mesh_dashboard(req)
+    }
     ensure_wizard_dir()
     let raw: string = param(req, "index")
     let body: string = request_body(req)
@@ -1029,7 +1100,7 @@ fn mesh_node_post(req: Request) Response {
         let index: u32 = node_count() + 1
         let role: string = form_value(body, "role")
         let board: string = form_value(body, "board")
-        let driver: string = form_value(body, "driver")
+        let sensors: string = form_values(body, "sensors")
         let parent: string = form_value(body, "parent")
         let link: string = form_value(body, "link")
         if role == "" || board == "" || parent == "" || link == "" {
@@ -1042,12 +1113,12 @@ fn mesh_node_post(req: Request) Response {
         save_setting(prefix + "description", form_value(body, "description"))
         save_setting(prefix + "role", role)
         save_setting(prefix + "board", board)
-        save_setting(prefix + "driver", driver)
+        save_setting(prefix + "sensors", sensors)
+        save_setting(prefix + "driver", "")
         save_setting(prefix + "parent", parent)
         save_setting(prefix + "link", link)
         if index == 1 {
             save_setting("relay", board)
-            save_setting("driver", driver)
             save_setting("link", link)
         }
         save_setting("step_topology", "pending")
@@ -1070,6 +1141,7 @@ fn mesh_node_post(req: Request) Response {
             save_setting(to + "description", state_value(from + "description"))
             save_setting(to + "role", state_value(from + "role"))
             save_setting(to + "board", state_value(from + "board"))
+            save_setting(to + "sensors", state_value(from + "sensors"))
             save_setting(to + "driver", state_value(from + "driver"))
             save_setting(to + "link", state_value(from + "link"))
             var parent: string = state_value(from + "parent")
@@ -1090,12 +1162,12 @@ fn mesh_node_post(req: Request) Response {
         save_setting(last + "description", "")
         save_setting(last + "role", "")
         save_setting(last + "board", "")
+        save_setting(last + "sensors", "")
         save_setting(last + "driver", "")
         save_setting(last + "parent", "")
         save_setting(last + "link", "")
         save_setting("node.count", rho_int_to_str(count - 1))
         save_setting("relay", node_value(1, "board", ""))
-        save_setting("driver", node_value(1, "driver", ""))
         save_setting("link", node_value(1, "link", "uart"))
         save_setting("step_topology", "pending")
         mesh_reset_after("topology")
@@ -1105,7 +1177,7 @@ fn mesh_node_post(req: Request) Response {
 
     let role: string = form_value(body, "role")
     let board: string = form_value(body, "board")
-    let driver: string = form_value(body, "driver")
+    let sensors: string = form_values(body, "sensors")
     let parent: string = form_value(body, "parent")
     let link: string = form_value(body, "link")
     if role == "" || board == "" || parent == "" || link == "" {
@@ -1121,12 +1193,12 @@ fn mesh_node_post(req: Request) Response {
     save_setting(prefix + "description", form_value(body, "description"))
     save_setting(prefix + "role", role)
     save_setting(prefix + "board", board)
-    save_setting(prefix + "driver", driver)
+    save_setting(prefix + "sensors", sensors)
+    save_setting(prefix + "driver", "")
     save_setting(prefix + "parent", parent)
     save_setting(prefix + "link", link)
     if index == 1 {
         save_setting("relay", board)
-        save_setting("driver", driver)
         save_setting("link", link)
     }
     save_setting("step_topology", "pending")
@@ -1136,9 +1208,12 @@ fn mesh_node_post(req: Request) Response {
 }
 
 fn mesh_gateway_page(req: Request) Response {
+    if current_project() == "" {
+        return mesh_dashboard(req)
+    }
     ensure_wizard_dir()
     let gateway: string = default_value("gateway", first_board("gateway"))
-    let driver: string = default_value("gateway_driver", "")
+    let sensors: string = gateway_sensors()
     var name: string = default_value("gateway_name", "")
     if name == "" {
         name = label_for(board_rows(), gateway)
@@ -1152,15 +1227,18 @@ fn mesh_gateway_page(req: Request) Response {
         mesh_textarea("description", "Description", description) +
         mesh_select("gateway", "Board", options_from_rows(board_rows(), "board", "gateway", gateway),
             "This host, or a board whose manifest says it can gateway.") +
-        mesh_select("gateway_driver", "Driver",
-            option("", "none", "", driver) + options_from_rows(driver_rows(), "driver", "", driver),
-            "Optional sensor fitted to the gateway itself.") +
-        "<button type=\"submit\">Save gateway</button></form>"
+        "<fieldset class=\"sensor-picker\"><legend>Attached modules</legend>" +
+        "<p><small>Sensor modules fitted to the gateway itself. They are carried by the gateway, " +
+        "not built as separate nodes.</small></p>" + sensor_checkboxes(sensors) + "</fieldset>" +
+        "<div class=\"form-actions\"><button type=\"submit\">Save gateway</button></div></form>"
     return page("Gateway", "<h1>Gateway</h1><p>The root of the mesh.</p>" + form +
         "<p class=\"mesh-nav\"><a href=\"/mesh\">← Mesh</a></p>")
 }
 
 fn mesh_gateway_post(req: Request) Response {
+    if current_project() == "" {
+        return mesh_dashboard(req)
+    }
     let body: string = request_body(req)
     let gateway: string = form_value(body, "gateway")
     if gateway == "" {
@@ -1170,7 +1248,8 @@ fn mesh_gateway_post(req: Request) Response {
     save_setting("gateway", gateway)
     save_setting("gateway_name", form_value(body, "name"))
     save_setting("gateway_description", form_value(body, "description"))
-    save_setting("gateway_driver", form_value(body, "gateway_driver"))
+    save_setting("gateway_sensors", form_values(body, "sensors"))
+    save_setting("gateway_driver", "")
     save_setting("step_topology", "pending")
     mesh_reset_after("topology")
     save_setting("mesh_message", "Gateway saved.")
@@ -1272,17 +1351,118 @@ fn gateway_http(path: string) string {
         default_value("rest_port", WIZARD_DEFAULT_REST), path)
 }
 
+/* -------------------------------------------------------------------------- */
+/*  The application's own menu                                                */
+/* -------------------------------------------------------------------------- */
+
+// The menu belongs to the application, not to the keeper that may have started
+// it. It offers the operations a mesh is built through, the projects already in
+// the workspace, and a way back to the keeper when the keeper is the one that
+// opened this page.
+
+fn mesh_menu_link(label: string, href: string, icon: string) string {
+    return "<li><a href=\"" + href + "\"><span class=\"ico\">" + icon + "</span>" +
+        escape_html(label) + "</a></li>"
+}
+
+fn mesh_project_menu() string {
+    var items: string = ""
+    var ids: string = project_ids()
+    while ids != "" {
+        let at: i32 = rho_str_index_of(ids, "\n")
+        let id: string = ""
+        if at < 0 {
+            id = ids
+            ids = ""
+        } else {
+            id = rho_str_slice(ids, 0, u32(at))
+            ids = rho_str_slice(ids, u32(at) + 1, u32(rho_strlen(ids)) - u32(at) - 1)
+        }
+        if id == "" {
+            continue
+        }
+        var current: string = ""
+        var badge: string = ""
+        if id == current_project() {
+            current = " class=\"current\""
+            badge = "<span class=\"nav-badge\">Active</span>"
+        }
+        items = items + "<li><a" + current + " href=\"/mesh/project/" + escape_html(id) +
+            "\">" + escape_html(project_name(id)) + badge + "</a></li>"
+    }
+    if items == "" {
+        items = "<li><span class=\"nav-empty\">No projects yet</span></li>"
+    }
+    return "<li class=\"nav-projects\"><ul class=\"subnav\">" + items + "</ul></li>"
+}
+
+fn mesh_menu() string {
+    ensure_wizard_dir()
+    var out: string = ""
+    let keeper_port: string = getenv("RHO_KEEPER_PORT")
+    if keeper_port != "" {
+        out = out + "<li><a class=\"nav-up keeper-link\" href=\"#\" data-keeper-port=\"" +
+            escape_html(keeper_port) + "\"><span class=\"ico\">↑</span>Go to Keeper</a></li>" +
+            "<li class=\"nav-rule\"></li>"
+    }
+    out = out + mesh_menu_link("Dashboard", "/mesh", "⌁")
+    let active: string = current_project()
+    if active != "" {
+        let active_name: string = project_name(active)
+        out = out + "<li class=\"nav-title\">Operations</li>"
+        out = out + "<li class=\"nav-context\">for <strong>" + escape_html(active_name) +
+            "</strong></li>"
+        out = out + mesh_menu_link("Plan", "/mesh/plan", "1")
+        out = out + mesh_menu_link("Network", "/mesh/step/network", "2")
+        out = out + mesh_menu_link("Build & program", "/mesh/step/build", "3")
+        out = out + mesh_menu_link("Verify", "/mesh/step/verify", "4")
+        out = out + mesh_menu_link("Gateway", "/mesh/gateway", "⌂")
+        out = out + mesh_menu_link("Project settings",
+            "/mesh/project/" + active + "/settings", "⚙")
+    }
+    out = out + "<li class=\"nav-title\">Projects</li>"
+    out = out + "<li><a class=\"new-project\" href=\"/mesh#new-project\"><span class=\"ico\">+</span>New project</a></li>"
+    out = out + mesh_project_menu()
+    out = out + "<li class=\"nav-title\">Help</li>"
+    out = out + mesh_menu_link("Documentation", "/mesh/docs", "▤")
+    return out
+}
+
+fn mesh_shell(title: string, content: string) string {
+    return template_fill(template_get("layout"),
+        vars("title", title) + vars("menu", mesh_menu()) + vars("body", content))
+}
+
+fn mesh_docs_page(req: Request) Response {
+    // The guide ships with the application. A hosted application runs from its
+    // own folder, while one started from the repository root has the
+    // orchestrator's module.yml in front of it; both reach the same file.
+    var source: string = "docs/index.md"
+    if !rho_path_exists("module.yml") || yaml.value("module.yml", "module.name") != "mesh" {
+        let shipped: string = robohub_root() + "/applications/mesh/docs/index.md"
+        if rho_path_exists(shipped) {
+            source = shipped
+        }
+    }
+    var content: string = docs_render_source(source)
+    if content == "" {
+        content = "<h1>Documentation</h1><p>No documentation was found for this application.</p>"
+    }
+    return html(status_ok(), mesh_shell("Documentation", content))
+}
+
 fn mesh_dashboard(req: Request) Response {
     ensure_wizard_dir()
     let content: string = template_fill(template_get("mesh-dashboard"),
         vars("location", projects_dir()) +
         vars("projects", mesh_projects()))
-    let body: string = template_fill(template_get("layout"),
-        vars("title", "RoboHub Mesh") + vars("body", content))
-    return html(status_ok(), body)
+    return html(status_ok(), mesh_shell("RoboHub Mesh", content))
 }
 
 fn mesh_gateway_restart(req: Request) Response {
+    if current_project() == "" {
+        return mesh_dashboard(req)
+    }
     let code: u32 = handler_program_gateway()
     if code == 0 {
         if default_value("gateway", "native") == "native" {
@@ -1302,6 +1482,9 @@ fn mesh_gateway_restart(req: Request) Response {
 }
 
 fn mesh_gateway_stop(req: Request) Response {
+    if current_project() == "" {
+        return mesh_dashboard(req)
+    }
     let gateway: string = default_value("gateway", "native")
     if gateway == "native" {
         ignore_u32(rho_exec("pkill", "-x robohub-gateway", wizard_report("stop-gateway")))
@@ -1329,6 +1512,9 @@ fn mesh_gateway_stop(req: Request) Response {
 }
 
 fn mesh_page(req: Request) Response {
+    if current_project() == "" {
+        return mesh_dashboard(req)
+    }
     ensure_wizard_dir()
     let editing: bool = default_value("step_topology", "pending") != "done"
     var title: string = yaml.value(spec_main(), "title")
@@ -1349,12 +1535,13 @@ fn mesh_page(req: Request) Response {
         vars("tree", mesh_tree(!editing)) +
         vars("project_actions", mesh_project_actions(current_project())) +
         vars("plan", mesh_plan_panel(editing)))
-    let document: string = template_fill(template_get("layout"),
-        vars("title", title) + vars("body", content))
-    return html(status_ok(), document)
+    return html(status_ok(), mesh_shell(title, content))
 }
 
 fn mesh_accept(req: Request) Response {
+    if current_project() == "" {
+        return mesh_dashboard(req)
+    }
     let count: u32 = node_count()
     if count < 1 {
         save_setting("mesh_message", "Add at least one node before accepting the topology.")
@@ -1376,6 +1563,9 @@ fn mesh_accept(req: Request) Response {
 }
 
 fn mesh_reopen(req: Request) Response {
+    if current_project() == "" {
+        return mesh_dashboard(req)
+    }
     save_setting("step_topology", "pending")
     mesh_reset_after("topology")
     save_setting("mesh_message", "Topology unlocked for editing.")
@@ -1594,6 +1784,9 @@ fn connection_settings_form(index: u32) string {
 }
 
 fn mesh_connection_page(req: Request) Response {
+    if current_project() == "" {
+        return mesh_dashboard(req)
+    }
     ensure_wizard_dir()
     if mesh_step_lock("network") != "" {
         return mesh_network_page(req)
@@ -1627,12 +1820,13 @@ fn mesh_connection_page(req: Request) Response {
         vars("actions", "") +
         vars("output", "") +
         vars("nav", "<p class=\"mesh-nav\"><a href=\"/mesh/step/network\">← Network</a></p>"))
-    let document: string = template_fill(template_get("layout"),
-        vars("title", "Connection") + vars("body", content))
-    return html(status_ok(), document)
+    return html(status_ok(), mesh_shell("Connection", content))
 }
 
 fn mesh_connection_post(req: Request) Response {
+    if current_project() == "" {
+        return mesh_dashboard(req)
+    }
     ensure_wizard_dir()
     if mesh_step_lock("network") != "" {
         return mesh_network_page(req)
@@ -1692,6 +1886,9 @@ fn mesh_connection_post(req: Request) Response {
 }
 
 fn mesh_network_page(req: Request) Response {
+    if current_project() == "" {
+        return mesh_dashboard(req)
+    }
     ensure_wizard_dir()
     let lock: string = mesh_step_lock("network")
     let accepted: bool = default_value("step_network", "pending") == "done"
@@ -1730,12 +1927,13 @@ fn mesh_network_page(req: Request) Response {
         vars("notice", notice) +
         vars("panel", panel) +
         vars("nav", "<p class=\"mesh-nav\"><a href=\"/mesh\">← Plan</a></p>"))
-    let document: string = template_fill(template_get("layout"),
-        vars("title", "Network") + vars("body", content))
-    return html(status_ok(), document)
+    return html(status_ok(), mesh_shell("Network", content))
 }
 
 fn mesh_network_accept(req: Request) Response {
+    if current_project() == "" {
+        return mesh_dashboard(req)
+    }
     if mesh_step_lock("network") != "" {
         return mesh_network_page(req)
     }
@@ -1753,6 +1951,9 @@ fn mesh_network_accept(req: Request) Response {
 }
 
 fn mesh_network_node_page(req: Request) Response {
+    if current_project() == "" {
+        return mesh_dashboard(req)
+    }
     ensure_wizard_dir()
     if mesh_step_lock("network") != "" {
         return mesh_network_page(req)
@@ -1790,9 +1991,7 @@ fn mesh_network_node_page(req: Request) Response {
         vars("actions", "") +
         vars("output", "") +
         vars("nav", "<p class=\"mesh-nav\"><a href=\"/mesh/step/network\">← Network</a></p>"))
-    let document: string = template_fill(template_get("layout"),
-        vars("title", "Node network") + vars("body", content))
-    return html(status_ok(), document)
+    return html(status_ok(), mesh_shell("Node network", content))
 }
 
 fn mesh_gateway_network_form() string {
@@ -1807,6 +2006,9 @@ fn mesh_gateway_network_form() string {
 }
 
 fn mesh_network_gateway_post(req: Request) Response {
+    if current_project() == "" {
+        return mesh_dashboard(req)
+    }
     if mesh_step_lock("network") != "" {
         return mesh_network_page(req)
     }
@@ -1825,6 +2027,9 @@ fn mesh_network_gateway_post(req: Request) Response {
 }
 
 fn mesh_network_gateway_page(req: Request) Response {
+    if current_project() == "" {
+        return mesh_dashboard(req)
+    }
     ensure_wizard_dir()
     if mesh_step_lock("network") != "" {
         return mesh_network_page(req)
@@ -1856,29 +2061,34 @@ fn mesh_network_gateway_page(req: Request) Response {
         vars("actions", "") +
         vars("output", "") +
         vars("nav", "<p class=\"mesh-nav\"><a href=\"/mesh/step/network\">← Network</a></p>"))
-    let document: string = template_fill(template_get("layout"),
-        vars("title", "Gateway network") + vars("body", content))
-    return html(status_ok(), document)
+    return html(status_ok(), mesh_shell("Gateway network", content))
 }
 
 fn mesh_node_summary(index: u32) string {
     let name: string = node_value(index, "name", "Node " + rho_int_to_str(index))
     let role: string = node_value(index, "role", "node")
     let board: string = node_value(index, "board", "")
-    let driver: string = node_value(index, "driver", "")
+    let sensors: string = node_sensors(index)
     let link: string = node_value(index, "link", "uart")
     let parent: string = node_value(index, "parent", "gateway")
     var description: string = node_value(index, "description", "")
     if description == "" {
         description = board_summary(board)
     }
+    var conflict_html: string = ""
+    if node_bus_conflicts(index) {
+        conflict_html = "<p class=\"notice bad\">A module's bus or address is already in use. " +
+            "That module is left out of the image so the node still builds; " +
+            "change its address or remove it from the node.</p>"
+    }
     return "<div class=\"node-summary\"><h2>" + escape_html(name) + "</h2><p>" +
         escape_html(description) + "</p>" + status_badge(node_status(index)) +
         "<dl class=\"settings\"><dt>Role</dt><dd>" + escape_html(role) +
         "</dd><dt>Board</dt><dd>" + escape_html(label_for(board_rows(), board)) +
-        "</dd><dt>Driver</dt><dd>" + escape_html(driver_label(driver)) +
+        "</dd><dt>Modules</dt><dd>" + escape_html(sensor_labels(sensors)) +
         "</dd><dt>Link</dt><dd>" + escape_html(link_label(link)) + " to " +
-        escape_html(parent) + "</dd></dl></div>"
+        escape_html(parent) + "</dd></dl><h3>Bus plan</h3>" +
+        node_bus_html(index) + conflict_html + "</div>"
 }
 
 fn mesh_node_build_actions(index: u32) string {
@@ -1969,12 +2179,13 @@ fn mesh_program_confirm_page(req: Request, index: u32) Response {
         vars("output", "") +
         vars("nav", "<p class=\"mesh-nav\"><a href=\"/mesh/build/node/" + rho_int_to_str(index) +
             "\">← Back to node</a></p>"))
-    let document: string = template_fill(template_get("layout"),
-        vars("title", "Program node") + vars("body", content))
-    return html(status_ok(), document)
+    return html(status_ok(), mesh_shell("Program node", content))
 }
 
 fn mesh_build_node_page(req: Request) Response {
+    if current_project() == "" {
+        return mesh_dashboard(req)
+    }
     ensure_wizard_dir()
     if mesh_step_lock("build") != "" {
         return mesh_build_page(req)
@@ -1996,12 +2207,13 @@ fn mesh_build_node_page(req: Request) Response {
         vars("actions", mesh_node_build_actions(index)) +
         vars("output", output_block("build")) +
         vars("nav", "<p class=\"mesh-nav\"><a href=\"/mesh/step/build\">← Build & program</a></p>"))
-    let document: string = template_fill(template_get("layout"),
-        vars("title", "Build node") + vars("body", content))
-    return html(status_ok(), document)
+    return html(status_ok(), mesh_shell("Build node", content))
 }
 
 fn mesh_build_node_post(req: Request) Response {
+    if current_project() == "" {
+        return mesh_dashboard(req)
+    }
     let raw: string = param(req, "index")
     let index: u32 = rho_int_from_str(raw)
     if index < 1 || index > node_count() {
@@ -2220,6 +2432,9 @@ fn mesh_gateway_build_actions() string {
 }
 
 fn mesh_build_gateway_page(req: Request) Response {
+    if current_project() == "" {
+        return mesh_dashboard(req)
+    }
     ensure_wizard_dir()
     if mesh_step_lock("build") != "" {
         return mesh_build_page(req)
@@ -2235,12 +2450,13 @@ fn mesh_build_gateway_page(req: Request) Response {
         vars("actions", mesh_gateway_build_actions()) +
         vars("output", output_block("build")) +
         vars("nav", "<p class=\"mesh-nav\"><a href=\"/mesh/step/build\">← Build & program</a></p>"))
-    let document: string = template_fill(template_get("layout"),
-        vars("title", "Build gateway") + vars("body", content))
-    return html(status_ok(), document)
+    return html(status_ok(), mesh_shell("Build gateway", content))
 }
 
 fn mesh_build_gateway_post(req: Request) Response {
+    if current_project() == "" {
+        return mesh_dashboard(req)
+    }
     let body: string = request_body(req)
     let action: string = form_value(body, "action")
     if action == "select_node" {
@@ -2284,6 +2500,9 @@ fn mesh_build_gateway_post(req: Request) Response {
 }
 
 fn mesh_build_page(req: Request) Response {
+    if current_project() == "" {
+        return mesh_dashboard(req)
+    }
     ensure_wizard_dir()
     let lock: string = mesh_step_lock("build")
     var notice: string = ""
@@ -2315,9 +2534,7 @@ fn mesh_build_page(req: Request) Response {
         vars("notice", notice) +
         vars("panel", panel) +
         vars("nav", "<p class=\"mesh-nav\"><a href=\"/mesh/step/network\">← Network</a></p>"))
-    let document: string = template_fill(template_get("layout"),
-        vars("title", "Build & program") + vars("body", content))
-    return html(status_ok(), document)
+    return html(status_ok(), mesh_shell("Build & program", content))
 }
 
 fn mesh_node_selector() string {
@@ -2357,6 +2574,9 @@ fn mesh_step_lock(stage: string) string {
 }
 
 fn mesh_step_page(req: Request) Response {
+    if current_project() == "" {
+        return mesh_dashboard(req)
+    }
     let stage: string = param(req, "step")
     if stage != "network" && stage != "build" && stage != "verify" {
         return mesh_page(req)
@@ -2389,7 +2609,5 @@ fn mesh_step_page(req: Request) Response {
         vars("actions", actions) +
         vars("output", output_block(stage)) +
         vars("nav", mesh_nav(stage)))
-    let document: string = template_fill(template_get("layout"),
-        vars("title", step_title(stage)) + vars("body", content))
-    return html(status_ok(), document)
+    return html(status_ok(), mesh_shell(step_title(stage), content))
 }

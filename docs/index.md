@@ -1,6 +1,6 @@
 # The orchestrator
 
-**Version:** 0.2.0
+**Version:** 0.3.0
 
 The orchestrator of the RoboHub ecosystem: a registry of its modules, and the
 tools that run over all of them.
@@ -14,6 +14,24 @@ which version of each, and does any of it still build.
 
 Those questions are about the ecosystem rather than about a repository, and this
 is where they are answered.
+
+## Applications
+
+The ecosystem also has applications: what a person runs rather than what a node
+links. They live under `applications/`.
+
+- `keeper` is the dashboard and the registry of the other applications. It
+  reads an `application` block from a module's manifest and lists, installs,
+  starts, stops and removes the applications on the machine. A pinned
+  application is a sub-item of the keeper's Applications menu.
+- `mesh` is a keeper-hosted application of its own. It runs on its own port,
+  plans the gateway and its nodes, attaches sensor modules to a node, and builds
+  and programs the node images. The keeper can launch it from its registry.
+
+A module without an `application` block is not an application — a component or
+a documentation site has no listener of its own — which is how the two kinds
+stay apart without either naming the other. The `mesh` application was formerly
+part of the keeper; it is versioned and built apart now.
 
 ## The registry
 
