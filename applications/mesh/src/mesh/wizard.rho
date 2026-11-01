@@ -1,4 +1,4 @@
-module keeper.wizard
+module mesh.wizard
 
 include "wizard_text.rho"
 
@@ -43,11 +43,15 @@ fn ignore_string(value: string) void {
 /* -------------------------------------------------------------------------- */
 
 fn wizard_dir() string {
-    let override: string = getenv("RHO_KEEPER_STATE_DIR")
+    let override: string = getenv("RHO_MESH_STATE_DIR")
     if override != "" {
         return override
     }
-    return robohub_root() + "/build/keeper"
+    let home: string = getenv("HOME")
+    if home == "" {
+        return "build/mesh"
+    }
+    return home + "/.rho/mesh/state"
 }
 
 fn projects_dir() string {
@@ -74,12 +78,11 @@ fn first_line(text: string) string {
     return rho_str_slice(text, 0, u32(at))
 }
 
+// The active project. It is the one the Operations menu and the step pages
+// act on. An empty string means no project is active: the application still
+// lists and creates projects, but it shows no operations until one is opened.
 fn current_project() string {
-    let id: string = first_line(rho_read_text(current_project_file()))
-    if id == "" {
-        return "default"
-    }
-    return id
+    return first_line(rho_read_text(current_project_file()))
 }
 
 fn project_file(id: string) string {
@@ -91,7 +94,11 @@ fn project_location(id: string) string {
 }
 
 fn wizard_file() string {
-    return project_file(current_project())
+    let id: string = current_project()
+    if id == "" {
+        return ""
+    }
+    return project_file(id)
 }
 
 fn wizard_report(name: string) string {
@@ -188,67 +195,58 @@ fn ensure_wizard_dir() void {
     let dir: string = wizard_dir()
     ignore_u32(rho_exec("mkdir", "-p " + projects_dir(), dir + "/mkdir.txt"))
     let current: string = current_project_file()
-    if !rho_path_exists(current) {
-        var chosen: string = ""
-        let legacy_current: string = first_line(rho_read_text(dir + "/current-session.txt"))
-        let legacy_report: string = wizard_report("legacy-sessions")
-        ignore_u32(rho_exec("ls", dir + "/sessions", legacy_report))
-        var rest: string = rho_read_text(legacy_report)
-        while rest != "" {
-            let at: i32 = rho_str_index_of(rest, "\n")
-            let file: string = ""
-            if at < 0 {
-                file = rest
-                rest = ""
-            } else {
-                file = rho_str_slice(rest, 0, u32(at))
-                rest = rho_str_slice(rest, u32(at) + 1, u32(rho_strlen(rest)) - u32(at) - 1)
-            }
-            if file == "" || rho_str_index_of(file, ".txt") < 0 {
-                continue
-            }
-            let id: string = rho_str_slice(file, 0, u32(rho_str_index_of(file, ".txt")))
-            if !rho_path_exists(project_file(id)) {
-                ignore_u32(rho_exec("mkdir", "-p " + project_location(id), legacy_report))
-                let old: string = rho_read_text(dir + "/sessions/" + file)
-                ignore_bool(rho_write_text(project_file(id), "project.name=" + id + "\n" + old))
-            }
-            if chosen == "" || id == legacy_current {
-                chosen = id
-            }
-        }
-        if chosen == "" {
-            var listing: string = project_listing()
-            while listing != "" {
-                let at: i32 = rho_str_index_of(listing, "\n")
-                let id: string = ""
-                if at < 0 {
-                    id = listing
-                    listing = ""
-                } else {
-                    id = rho_str_slice(listing, 0, u32(at))
-                    listing = rho_str_slice(listing, u32(at) + 1, u32(rho_strlen(listing)) - u32(at) - 1)
-                }
-                if id != "" && rho_path_exists(project_file(id)) {
-                    chosen = id
-                    break
-                }
-            }
-        }
-        if chosen == "" {
-            chosen = "default"
-            ignore_u32(rho_exec("mkdir", "-p " + project_location(chosen), legacy_report))
-            ignore_bool(rho_write_text(project_file(chosen), "project.name=Default\n"))
-        }
-        ignore_bool(rho_write_text(current, chosen + "\n"))
-    }
-    let file: string = wizard_file()
-    if !rho_path_exists(file) {
-        let legacy: string = dir + "/wizard.txt"
-        if rho_path_exists(legacy) {
-            ignore_bool(rho_write_text(file, rho_read_text(legacy)))
+
+    // Sessions written by an older layout became projects. They are migrated
+    // whenever the directory is prepared, because a project that is not one
+    // yet cannot be opened, listed or activated.
+    let legacy_current: string = first_line(rho_read_text(dir + "/current-session.txt"))
+    let legacy_report: string = wizard_report("legacy-sessions")
+    ignore_u32(rho_exec("ls", dir + "/sessions", legacy_report))
+    var rest: string = rho_read_text(legacy_report)
+    while rest != "" {
+        let at: i32 = rho_str_index_of(rest, "\n")
+        let file: string = ""
+        if at < 0 {
+            file = rest
+            rest = ""
         } else {
-            ignore_bool(rho_write_text(file, "project.name=" + current_project() + "\n"))
+            file = rho_str_slice(rest, 0, u32(at))
+            rest = rho_str_slice(rest, u32(at) + 1, u32(rho_strlen(rest)) - u32(at) - 1)
+        }
+        if file == "" || rho_str_index_of(file, ".txt") < 0 {
+            continue
+        }
+        let id: string = rho_str_slice(file, 0, u32(rho_str_index_of(file, ".txt")))
+        if !rho_path_exists(project_file(id)) {
+            ignore_u32(rho_exec("mkdir", "-p " + project_location(id), legacy_report))
+            let old: string = rho_read_text(dir + "/sessions/" + file)
+            ignore_bool(rho_write_text(project_file(id), "project.name=" + id + "\n" + old))
+        }
+    }
+
+    // A legacy pointer selects a project only when it names one that exists.
+    // A missing pointer is a real state now: it means no project is active,
+    // and the Operations menu is hidden rather than defaulting to one.
+    if !rho_path_exists(current) && legacy_current != "" &&
+        rho_path_exists(project_file(legacy_current)) {
+        ignore_bool(rho_write_text(current, legacy_current + "\n"))
+    }
+
+    // A pointer to a deleted project is not an active project.
+    let active: string = current_project()
+    if active != "" && !rho_path_exists(project_file(active)) {
+        ignore_bool(rho_write_text(current, ""))
+    }
+
+    if active != "" {
+        let file: string = wizard_file()
+        if !rho_path_exists(file) {
+            let legacy: string = dir + "/wizard.txt"
+            if rho_path_exists(legacy) {
+                ignore_bool(rho_write_text(file, rho_read_text(legacy)))
+            } else {
+                ignore_bool(rho_write_text(file, "project.name=" + active + "\n"))
+            }
         }
     }
 }
@@ -374,7 +372,7 @@ fn spec_root() string {
     if override != "" {
         return override
     }
-    let under: string = robohub_root() + "/applications/keeper/wizard"
+    let under: string = robohub_root() + "/applications/mesh/wizard"
     if rho_path_exists(under + "/wizard.yml") {
         return under
     }
@@ -642,6 +640,589 @@ fn driver_rows() string {
     return out
 }
 
+// module_rows is one row per module board the robohub-drivers checkout carries
+// at this moment:
+//   name|label|summary|category|driver|manifest
+//
+// It is read from the checkout on every render rather than from a list in this
+// file, so a board added to robohub-drivers appears in the node form without
+// rebuilding Mesh or the keeper. A board is a physical module: the driver a
+// node runs is whatever the board says carries it.
+fn module_rows() string {
+    let entry: string = registry_entry("robohub-drivers")
+    if !rho_path_exists(entry) {
+        return ""
+    }
+    let drivers_path: string = resolve_path(yaml.value(entry, "path"))
+    let manifests: string = find_manifests(drivers_path + "/boards", "find-sensor-modules")
+    var out: string = ""
+    var rest: string = manifests
+    while rest != "" {
+        let at: i32 = rho_str_index_of(rest, "\n")
+        let manifest: string = ""
+        if at < 0 {
+            manifest = rest
+            rest = ""
+        } else {
+            manifest = rho_str_slice(rest, 0, u32(at))
+            rest = rho_str_slice(rest, u32(at) + 1, u32(rho_strlen(rest)) - u32(at) - 1)
+        }
+        if manifest == "" {
+            continue
+        }
+        let name: string = yaml.value(manifest, "module.name")
+        if name == "" {
+            continue
+        }
+        let designation: string = yaml.value(manifest, "board.designation")
+        var label: string = name
+        if designation != "" {
+            label = designation + " (" + name + ")"
+        }
+        var summary: string = yaml.value(manifest, "capabilities.summary")
+        if summary == "" || summary == ">" {
+            summary = yaml.value(manifest, "board.category")
+        }
+        if summary == "" {
+            summary = "module"
+        }
+        let category: string = yaml.value(manifest, "board.category")
+        // A module is something a node carries. Outputs and transceivers are
+        // boards too, but they are not sensors fitted to a node, so the picker
+        // leaves them out. The list itself is still what the checkout holds.
+        if category == "output" || category == "transceiver" {
+            continue
+        }
+        let driver: string = yaml.value(manifest, "board.driver")
+        out = out + name + "|" + label + "|" + summary + "|" + category + "|" +
+            driver + "|" + manifest + "\n"
+    }
+    return out
+}
+
+fn module_manifest(name: string) string {
+    return field(row_by_name(module_rows(), name), 5)
+}
+
+fn module_driver(name: string) string {
+    return field(row_by_name(module_rows(), name), 4)
+}
+
+fn module_label(name: string) string {
+    let label: string = field(row_by_name(module_rows(), name), 1)
+    if label == "" {
+        return name
+    }
+    return label
+}
+
+fn node_sensors(index: u32) string {
+    let prefix: string = "node." + rho_int_to_str(index) + "."
+    let stored: string = state_value(prefix + "sensors")
+    if stored != "" {
+        return stored
+    }
+    // A plan written before modules were separate from the node kept one
+    // driver in `driver`. It is read as a one-module attachment; a node with
+    // nothing written is a node with no modules, not a node with the first one.
+    var legacy: string = state_value(prefix + "driver")
+    if legacy == "" && index == 1 {
+        legacy = state_value("driver")
+    }
+    if legacy == "none" {
+        return ""
+    }
+    return legacy
+}
+
+fn gateway_sensors() string {
+    let stored: string = state_value("gateway_sensors")
+    if stored != "" {
+        return stored
+    }
+    let legacy: string = state_value("gateway_driver")
+    if legacy == "none" {
+        return ""
+    }
+    return legacy
+}
+
+fn first_sensor(sensors: string) string {
+    return first_word(sensors)
+}
+
+fn sensor_labels(sensors: string) string {
+    var out: string = ""
+    var count: u32 = 0
+    var rest: string = sensors
+    while rest != "" {
+        let at: i32 = rho_str_index_of(rest, " ")
+        var name: string = ""
+        if at < 0 {
+            name = rest
+            rest = ""
+        } else {
+            name = rho_str_slice(rest, 0, u32(at))
+            rest = rho_str_slice(rest, u32(at) + 1, u32(rho_strlen(rest)) - u32(at) - 1)
+        }
+        if name == "" {
+            continue
+        }
+        if count > 0 {
+            out = out + ", "
+        }
+        out = out + module_label(name)
+        count = count + 1
+    }
+    if count == 0 {
+        return "no modules attached"
+    }
+    return out
+}
+
+fn category_title(category: string) string {
+    if rho_strlen(category) == 0 {
+        return "Other"
+    }
+    let first: string = rho_str_slice(category, 0, 1)
+    let rest: string = rho_str_slice(category, 1, u32(rho_strlen(category)) - 1)
+    return upper_snake(first) + rest
+}
+
+fn category_total(rows: string, category: string) u32 {
+    var total: u32 = 0
+    var rest: string = rows
+    while rest != "" {
+        let at: i32 = rho_str_index_of(rest, "\n")
+        let line: string = ""
+        if at < 0 {
+            line = rest
+            rest = ""
+        } else {
+            line = rho_str_slice(rest, 0, u32(at))
+            rest = rho_str_slice(rest, u32(at) + 1, u32(rho_strlen(rest)) - u32(at) - 1)
+        }
+        if line != "" && field(line, 3) == category {
+            total = total + 1
+        }
+    }
+    return total
+}
+
+fn category_selected(rows: string, category: string, selected: string) u32 {
+    var count: u32 = 0
+    var rest: string = rows
+    while rest != "" {
+        let at: i32 = rho_str_index_of(rest, "\n")
+        let line: string = ""
+        if at < 0 {
+            line = rest
+            rest = ""
+        } else {
+            line = rho_str_slice(rest, 0, u32(at))
+            rest = rho_str_slice(rest, u32(at) + 1, u32(rho_strlen(rest)) - u32(at) - 1)
+        }
+        if line == "" || field(line, 3) != category {
+            continue
+        }
+        if words_contain(selected, field(line, 0)) {
+            count = count + 1
+        }
+    }
+    return count
+}
+
+fn category_cards(rows: string, category: string, selected: string) string {
+    var out: string = ""
+    var rest: string = rows
+    while rest != "" {
+        let at: i32 = rho_str_index_of(rest, "\n")
+        let line: string = ""
+        if at < 0 {
+            line = rest
+            rest = ""
+        } else {
+            line = rho_str_slice(rest, 0, u32(at))
+            rest = rho_str_slice(rest, u32(at) + 1, u32(rho_strlen(rest)) - u32(at) - 1)
+        }
+        if line == "" || field(line, 3) != category {
+            continue
+        }
+        let name: string = field(line, 0)
+        var mark: string = ""
+        if words_contain(selected, name) {
+            mark = " checked"
+        }
+        out = out + "<label class=\"sensor-option\"><input type=\"checkbox\" name=\"sensors\" value=\"" +
+            escape_html(name) + "\"" + mark + "><span><strong>" + escape_html(field(line, 1)) +
+            "</strong><small>" + escape_html(field(line, 2)) + " · " +
+            escape_html(module_driver(name)) + "</small></span></label>"
+    }
+    return out
+}
+
+fn category_selected_labels(rows: string, category: string, selected: string) string {
+    var out: string = ""
+    var rest: string = rows
+    while rest != "" {
+        let at: i32 = rho_str_index_of(rest, "\n")
+        let line: string = ""
+        if at < 0 {
+            line = rest
+            rest = ""
+        } else {
+            line = rho_str_slice(rest, 0, u32(at))
+            rest = rho_str_slice(rest, u32(at) + 1, u32(rho_strlen(rest)) - u32(at) - 1)
+        }
+        if line == "" || field(line, 3) != category {
+            continue
+        }
+        if !words_contain(selected, field(line, 0)) {
+            continue
+        }
+        if rho_strlen(out) > 0 {
+            out = out + ", "
+        }
+        out = out + field(line, 1)
+    }
+    return out
+}
+
+fn category_class(category: string) string {
+    var out: string = ""
+    var i: u32 = 0
+    let length: u32 = u32(rho_strlen(category))
+    while i < length {
+        let ch: string = rho_str_slice(category, i, 1)
+        if (ch >= "a" && ch <= "z") || (ch >= "A" && ch <= "Z") ||
+            (ch >= "0" && ch <= "9") || ch == "-" {
+            out = out + ch
+        } else {
+            out = out + "_"
+        }
+        i = i + 1
+    }
+    if out == "" {
+        return "other"
+    }
+    return out
+}
+
+fn category_section(rows: string, category: string, selected: string, open: bool) string {
+    var opened: string = ""
+    if open {
+        opened = " open"
+    }
+    let chosen: u32 = category_selected(rows, category, selected)
+    let total: u32 = category_total(rows, category)
+    var chosen_names: string = ""
+    if chosen > 0 {
+        chosen_names = "<span class=\"sensor-selected-names\">" +
+            escape_html(category_selected_labels(rows, category, selected)) + "</span>"
+    }
+    return "<details class=\"sensor-group cat-" + category_class(category) + "\"" + opened + ">" +
+        "<summary><span class=\"sensor-group-title\"><strong>" +
+        escape_html(category_title(category)) + "</strong><small>" +
+        rho_int_to_str(chosen) + " of " + rho_int_to_str(total) +
+        " selected</small></span>" + chosen_names +
+        "</summary><div class=\"sensor-grid\">" +
+        category_cards(rows, category, selected) + "</div></details>"
+}
+
+// The modules are grouped by their board category, which is the same folder
+// they live in under robohub-drivers/boards. A group is a collapsible section;
+// one with a selected module starts open, and so does the first group when the
+// node has none yet.
+fn sensor_checkboxes(selected: string) string {
+    let rows: string = module_rows()
+    if rows == "" {
+        return "<p>No module boards were found under robohub-drivers/boards.</p>"
+    }
+    var out: string = "<div class=\"sensor-groups\">"
+    var rendered: string = ""
+    var rest: string = "environmental temperature light input"
+    var first: bool = true
+    while rest != "" {
+        let at: i32 = rho_str_index_of(rest, " ")
+        var category: string = ""
+        if at < 0 {
+            category = rest
+            rest = ""
+        } else {
+            category = rho_str_slice(rest, 0, u32(at))
+            rest = rho_str_slice(rest, u32(at) + 1, u32(rho_strlen(rest)) - u32(at) - 1)
+        }
+        if category == "" || category_total(rows, category) == 0 {
+            continue
+        }
+        var open: bool = false
+        if first || category_selected(rows, category, selected) > 0 {
+            open = true
+        }
+        out = out + category_section(rows, category, selected, open)
+        rendered = rendered + category + " "
+        first = false
+    }
+    // A category this file has not heard of is still a section, after the
+    // known ones, so a board added under a new folder is not lost.
+    rest = rows
+    while rest != "" {
+        let at: i32 = rho_str_index_of(rest, "\n")
+        let line: string = ""
+        if at < 0 {
+            line = rest
+            rest = ""
+        } else {
+            line = rho_str_slice(rest, 0, u32(at))
+            rest = rho_str_slice(rest, u32(at) + 1, u32(rho_strlen(rest)) - u32(at) - 1)
+        }
+        if line == "" {
+            continue
+        }
+        let category: string = field(line, 3)
+        if category == "" || words_contain(rendered, category) {
+            continue
+        }
+        out = out + category_section(rows, category, selected,
+            category_selected(rows, category, selected) > 0)
+        rendered = rendered + category + " "
+    }
+    return out + "</div>"
+}
+fn node_assignments_add(assignments: string, key: string) string {
+    return assignments + key + "\n"
+}
+
+fn node_assignments_used(assignments: string, key: string) bool {
+    return line_in_list(assignments, key)
+}
+
+fn node_assignments_count(assignments: string, prefix: string) u32 {
+    var count: u32 = 0
+    var rest: string = assignments
+    while rest != "" {
+        let at: i32 = rho_str_index_of(rest, "\n")
+        let line: string = ""
+        if at < 0 {
+            line = rest
+            rest = ""
+        } else {
+            line = rho_str_slice(rest, 0, u32(at))
+            rest = rho_str_slice(rest, u32(at) + 1, u32(rho_strlen(rest)) - u32(at) - 1)
+        }
+        if line != "" && rho_str_index_of(line, prefix) == 0 {
+            count = count + 1
+        }
+    }
+    return count
+}
+
+// node_bus_plan returns one row per attached module:
+//   name|status|detail
+// where status is `ok`, `shared` or `conflict`.
+fn node_bus_plan(index: u32) string {
+    var rows: string = ""
+    var assignments: string = ""
+    var rest: string = node_sensors(index)
+    while rest != "" {
+        let at: i32 = rho_str_index_of(rest, " ")
+        var name: string = ""
+        if at < 0 {
+            name = rest
+            rest = ""
+        } else {
+            name = rho_str_slice(rest, 0, u32(at))
+            rest = rho_str_slice(rest, u32(at) + 1, u32(rho_strlen(rest)) - u32(at) - 1)
+        }
+        if name == "" {
+            continue
+        }
+        let manifest: string = module_manifest(name)
+        if manifest == "" {
+            rows = rows + name + "|conflict|the module is no longer in robohub-drivers|not found\n"
+            continue
+        }
+        let kind: string = yaml.value(manifest, "board.bus.type")
+        let instance: string = yaml.value(manifest, "board.bus.instance")
+        if kind == "" {
+            rows = rows + name + "|ok|no bus declared; nothing to share\n"
+            continue
+        }
+        if kind == "onewire" {
+            rows = rows + name + "|shared|1-Wire " + instance + "\n"
+            continue
+        }
+        if kind == "i2c" {
+            let address: string = yaml.value(manifest, "board.bus.address")
+            if address == "" {
+                let addresses: string = yaml.value(manifest, "board.bus.addresses")
+                let dash: i32 = rho_str_index_of(addresses, "-")
+                if dash > 0 {
+                    let low: u32 = parse_hex(rho_str_slice(addresses, 0, u32(dash)))
+                    let high: u32 = parse_hex(rho_str_slice(addresses, u32(dash) + 1,
+                        u32(rho_strlen(addresses)) - u32(dash) - 1))
+                    var chosen: u32 = low
+                    var assigned: string = ""
+                    while chosen <= high {
+                        let label: string = hex_label(chosen)
+                        let candidate: string = "i2c:" + instance + ":" + label
+                        if !node_assignments_used(assignments, candidate) {
+                            assignments = node_assignments_add(assignments, candidate)
+                            assigned = label
+                            break
+                        }
+                        chosen = chosen + 1
+                    }
+                    if assigned != "" {
+                        rows = rows + name + "|shared|I2C " + instance + " at " + assigned +
+                            " (from " + addresses + ")\n"
+                    } else {
+                        rows = rows + name + "|conflict|no free address in " + addresses +
+                            " on " + instance + "\n"
+                    }
+                } else {
+                    rows = rows + name + "|shared|I2C " + instance +
+                        ", address not declared; set it in the build\n"
+                }
+                continue
+            }
+            let key: string = "i2c:" + instance + ":" + address
+            if node_assignments_used(assignments, key) {
+                rows = rows + name + "|conflict|I2C address " + address +
+                    " is already used on " + instance + "\n"
+            } else {
+                assignments = node_assignments_add(assignments, key)
+                rows = rows + name + "|shared|I2C " + instance + " at " + address + "\n"
+            }
+            continue
+        }
+        if kind == "spi" {
+            let declared: string = yaml.value(manifest, "board.bus.cs")
+            var cs: string = declared
+            if cs == "" || cs == "auto" {
+                let used: u32 = node_assignments_count(assignments, "spi:" + instance + ":cs")
+                cs = "cs" + rho_int_to_str(used)
+            }
+            let key: string = "spi:" + instance + ":cs:" + cs
+            if node_assignments_used(assignments, key) {
+                rows = rows + name + "|conflict|SPI " + instance + " chip select " +
+                    cs + " is already used\n"
+            } else {
+                assignments = node_assignments_add(assignments, key)
+                rows = rows + name + "|shared|SPI " + instance + " with " + cs + "\n"
+            }
+            continue
+        }
+        // Everything else is exclusive: an ADC channel, a PWM channel, a UART,
+        // or a plain GPIO belongs to one module.
+        let channel: string = yaml.value(manifest, "board.bus.channel")
+        let key: string = kind + ":" + instance + ":" + channel
+        var where: string = kind + " " + instance
+        if channel != "" {
+            where = where + " channel " + channel
+        }
+        if node_assignments_used(assignments, key) {
+            rows = rows + name + "|conflict|" + where + " is already used\n"
+        } else {
+            assignments = node_assignments_add(assignments, key)
+            rows = rows + name + "|ok|" + where + "\n"
+        }
+    }
+    return rows
+}
+
+fn node_bus_conflicts(index: u32) bool {
+    var rest: string = node_bus_plan(index)
+    while rest != "" {
+        let at: i32 = rho_str_index_of(rest, "\n")
+        let line: string = ""
+        if at < 0 {
+            line = rest
+            rest = ""
+        } else {
+            line = rho_str_slice(rest, 0, u32(at))
+            rest = rho_str_slice(rest, u32(at) + 1, u32(rho_strlen(rest)) - u32(at) - 1)
+        }
+        if field(line, 1) == "conflict" {
+            return true
+        }
+    }
+    return false
+}
+
+// The modules a build may link. A conflict is a runtime clash the node cannot
+// resolve on its own, so it is left out of the image and reported instead of
+// making the parent fail to build.
+fn node_build_sensors(index: u32) string {
+    var out: string = ""
+    var plan: string = node_bus_plan(index)
+    var rest: string = plan
+    while rest != "" {
+        let at: i32 = rho_str_index_of(rest, "\n")
+        let line: string = ""
+        if at < 0 {
+            line = rest
+            rest = ""
+        } else {
+            line = rho_str_slice(rest, 0, u32(at))
+            rest = rho_str_slice(rest, u32(at) + 1, u32(rho_strlen(rest)) - u32(at) - 1)
+        }
+        if line == "" || field(line, 1) == "conflict" {
+            continue
+        }
+        if rho_strlen(out) > 0 {
+            out = out + " "
+        }
+        out = out + field(line, 0)
+    }
+    return out
+}
+
+fn node_bus_html(index: u32) string {
+    let plan: string = node_bus_plan(index)
+    if plan == "" {
+        return "<p><small>No modules attached.</small></p>"
+    }
+    var rows: string = ""
+    var rest: string = plan
+    while rest != "" {
+        let at: i32 = rho_str_index_of(rest, "\n")
+        let line: string = ""
+        if at < 0 {
+            line = rest
+            rest = ""
+        } else {
+            line = rho_str_slice(rest, 0, u32(at))
+            rest = rho_str_slice(rest, u32(at) + 1, u32(rho_strlen(rest)) - u32(at) - 1)
+        }
+        if line == "" {
+            continue
+        }
+        var status: string = field(line, 1)
+        var css: string = "bus-ok"
+        if status == "conflict" {
+            css = "bus-conflict"
+        } else if status == "shared" {
+            css = "bus-shared"
+        }
+        var label: string = status
+        if status == "ok" {
+            label = "fitted"
+        }
+        if status == "shared" {
+            label = "shared"
+        }
+        if status == "conflict" {
+            label = "conflict"
+        }
+        rows = rows + "<tr><td>" + escape_html(module_label(field(line, 0))) +
+            "</td><td><span class=\"" + css + "\">" + label + "</span></td><td>" +
+            escape_html(field(line, 2)) + "</td></tr>"
+    }
+    return "<table class=\"bus-plan\"><thead><tr><th>Module</th><th>Bus</th><th>Connection</th>" +
+        "</tr></thead><tbody>" + rows + "</tbody></table>"
+}
+
 fn field(line: string, index: u32) string {
     var rest: string = line
     var i: u32 = 0
@@ -888,12 +1469,24 @@ fn gateway_project() string {
     return resolve_path(yaml.value(entry, "path"))
 }
 
+fn canonical_path(path: string) string {
+    let report: string = wizard_report("canonical-path")
+    let code: u32 = rho_exec("realpath", "-m " + path, report)
+    if code == 0 {
+        let resolved: string = first_line(rho_read_text(report))
+        if resolved != "" {
+            return resolved
+        }
+    }
+    return path
+}
+
 fn drivers_root() string {
     let entry: string = registry_entry("robohub-drivers")
     if !rho_path_exists(entry) {
-        return robohub_root() + "/../robohub-drivers"
+        return canonical_path(robohub_root() + "/../robohub-drivers")
     }
-    return resolve_path(yaml.value(entry, "path"))
+    return canonical_path(resolve_path(yaml.value(entry, "path")))
 }
 
 fn node_source() string {
@@ -968,11 +1561,49 @@ fn node_binary() string {
 }
 
 fn node_board() string {
-    return node_value(selected_node(), "board", first_board_for("relay", node_driver()))
+    return node_value(selected_node(), "board", first_board("relay"))
+}
+
+// The driver a node's image is built from. The node is one computer; the
+// modules fitted to it are carried by that image. The first attached module
+// names the example, so it is the primary one, and the rest are linked into the
+// same build by prepare_node.
+fn driver_has_example(driver: string) bool {
+    let manifest: string = driver_manifest(driver)
+    if manifest == "" {
+        return false
+    }
+    return yaml.value(manifest, "deployment.example") != ""
+}
+
+fn node_driver_for(index: u32) string {
+    let sensors: string = node_sensors(index)
+    var rest: string = sensors
+    while rest != "" {
+        let at: i32 = rho_str_index_of(rest, " ")
+        var name: string = ""
+        if at < 0 {
+            name = rest
+            rest = ""
+        } else {
+            name = rho_str_slice(rest, 0, u32(at))
+            rest = rho_str_slice(rest, u32(at) + 1, u32(rho_strlen(rest)) - u32(at) - 1)
+        }
+        if name == "" {
+            continue
+        }
+        let driver: string = module_driver(name)
+        if driver != "" && driver_has_example(driver) {
+            return driver
+        }
+    }
+    // No attached module names a program of its own. The node still builds
+    // from a sensor example rather than failing; the module list is kept.
+    return first_driver()
 }
 
 fn node_driver() string {
-    return node_value(selected_node(), "driver", first_driver())
+    return node_driver_for(selected_node())
 }
 
 fn node_link() string {
@@ -1114,6 +1745,221 @@ fn append_kconfig(config: string, entries: string) string {
     return out
 }
 
+fn index_from(text: string, needle: string, start: u32) i32 {
+    if start >= u32(rho_strlen(text)) {
+        return -1
+    }
+    let at: i32 = rho_str_index_of(
+        rho_str_slice(text, start, u32(rho_strlen(text)) - start), needle)
+    if at < 0 {
+        return -1
+    }
+    return i32(start + u32(at))
+}
+
+fn upper_snake(value: string) string {
+    var out: string = ""
+    var i: u32 = 0
+    let length: u32 = u32(rho_strlen(value))
+    while i < length {
+        let ch: string = rho_str_slice(value, i, 1)
+        if ch >= "a" && ch <= "z" {
+            out = out + rho_str_from_byte(u8(u32(rho_str_index_of("abcdefghijklmnopqrstuvwxyz", ch)) + 65))
+        } else if (ch >= "A" && ch <= "Z") || (ch >= "0" && ch <= "9") {
+            out = out + ch
+        } else {
+            out = out + "_"
+        }
+        i = i + 1
+    }
+    return out
+}
+
+fn cmake_target(manifest: string) string {
+    let target: string = yaml.value(manifest, "exports.cmake.target")
+    if rho_str_index_of(target, "rho::") == 0 {
+        return rho_str_slice(target, 5, u32(rho_strlen(target)) - 5)
+    }
+    return target
+}
+
+// append_manifest_dep adds one `depends:` entry before the next top-level key
+// in a copied example's manifest. The entry is skipped when a dependency with
+// the same path is already there.
+fn append_manifest_dep(text: string, name: string, path: string) string {
+    if rho_str_index_of(text, "path: " + path) >= 0 ||
+        rho_str_index_of(text, "  - name: " + name + "\n") >= 0 {
+        return text
+    }
+    let entry: string = "  - name: " + name + "\n    type: c\n    path: " + path + "\n"
+    let start: i32 = index_from(text, "\ndepends:\n", 0)
+    if start < 0 {
+        return text + "\ndepends:\n" + entry
+    }
+    var i: u32 = u32(start) + 10
+    while i < u32(rho_strlen(text)) {
+        let at: i32 = index_from(text, "\n", i)
+        let end: u32 = u32(rho_strlen(text))
+        if at >= 0 {
+            end = u32(at)
+        }
+        let line: string = rho_str_slice(text, i, end - i)
+        if line != "" && rho_str_slice(line, 0, 1) != " " &&
+            rho_str_slice(line, 0, 1) != "-" && rho_str_slice(line, 0, 1) != "#" {
+            return rho_str_slice(text, 0, i) + entry +
+                rho_str_slice(text, i, u32(rho_strlen(text)) - i)
+        }
+        if at < 0 {
+            break
+        }
+        i = u32(at) + 1
+    }
+    return text + entry
+}
+
+// append_variant_library adds one library to the copied example's
+// `c_connection.variants.<preset>.libraries` list, which is what the generated
+// target links. A module whose board the example does not name still becomes
+// part of the node's image this way.
+fn append_variant_library(text: string, preset: string, library: string) string {
+    if library == "" || rho_str_index_of(text, "        - " + library + "\n") >= 0 {
+        return text
+    }
+    let variants: i32 = index_from(text, "\n  variants:\n", 0)
+    if variants < 0 {
+        return text
+    }
+    let preset_at: i32 = index_from(text, "\n    " + preset + ":\n", u32(variants))
+    if preset_at < 0 {
+        return text
+    }
+    let libraries: i32 = index_from(text, "\n      libraries:\n", u32(preset_at))
+    if libraries < 0 {
+        return text
+    }
+    let line_at: i32 = index_from(text, "\n", u32(libraries) + 1)
+    if line_at < 0 {
+        return text
+    }
+    var i: u32 = u32(line_at) + 1
+    var insert: u32 = i
+    while i < u32(rho_strlen(text)) {
+        let at: i32 = index_from(text, "\n", i)
+        let end: u32 = u32(rho_strlen(text))
+        if at >= 0 {
+            end = u32(at)
+        }
+        let line: string = rho_str_slice(text, i, end - i)
+        if rho_str_index_of(line, "        - ") != 0 {
+            break
+        }
+        insert = end + 1
+        if at < 0 {
+            i = u32(rho_strlen(text))
+            break
+        }
+        i = u32(at) + 1
+    }
+    return rho_str_slice(text, 0, insert) + "        - " + library + "\n" +
+        rho_str_slice(text, insert, u32(rho_strlen(text)) - insert)
+}
+
+fn sensor_kconfig_symbols(name: string) string {
+    let manifest: string = module_manifest(name)
+    if manifest == "" {
+        return ""
+    }
+    var out: string = ""
+    let board_kconfig: string = yaml.value(manifest, "deployment.kconfig")
+    if board_kconfig != "" {
+        out = out + board_kconfig + " "
+    } else {
+        let designation: string = yaml.value(manifest, "board.designation")
+        if designation != "" {
+            out = out + "CONFIG_RH_BOARD_" + upper_snake(designation) + "=y "
+        }
+    }
+    let driver: string = module_driver(name)
+    if driver != "" {
+        let driver_manifest: string = driver_manifest(driver)
+        let driver_kconfig: string = yaml.value(driver_manifest, "deployment.kconfig")
+        if driver_kconfig != "" {
+            out = out + driver_kconfig + " "
+        } else {
+            let suffix: string = rho_str_slice(driver, 15, u32(rho_strlen(driver)) - 15)
+            out = out + "CONFIG_RH_DRV_" + upper_snake(suffix) + "=y "
+        }
+    }
+    let kind: string = yaml.value(manifest, "board.bus.type")
+    if kind == "onewire" {
+        out = out + "CONFIG_RH_HAL_ONEWIRE=y "
+    } else if kind == "i2c" {
+        out = out + "CONFIG_RH_HAL_I2C=y "
+    } else if kind == "spi" {
+        out = out + "CONFIG_RH_HAL_SPI=y "
+    } else if kind == "adc" {
+        out = out + "CONFIG_RH_HAL_ADC=y "
+    } else if kind == "uart" {
+        out = out + "CONFIG_RH_HAL_UART=y "
+    } else if kind == "gpio" {
+        out = out + "CONFIG_RH_HAL_GPIO=y "
+    }
+    return out
+}
+
+// augment_node_build makes the copied example carry every compatible module:
+// each board and driver becomes a dependency (so its Kconfig fragment is
+// merged), its library is linked, and its symbols are written to project.conf.
+fn augment_node_build(target: string, sensors: string) u32 {
+    let manifest_path: string = target + "/module.yml"
+    if !rho_path_exists(manifest_path) {
+        return 1
+    }
+    var text: string = rho_read_text(manifest_path)
+    let preset: string = node_board()
+    let example_target: string = yaml.value(manifest_path,
+        "c_connection.variants." + preset + ".target")
+    var rest: string = sensors
+    while rest != "" {
+        let at: i32 = rho_str_index_of(rest, " ")
+        var name: string = ""
+        if at < 0 {
+            name = rest
+            rest = ""
+        } else {
+            name = rho_str_slice(rest, 0, u32(at))
+            rest = rho_str_slice(rest, u32(at) + 1, u32(rho_strlen(rest)) - u32(at) - 1)
+        }
+        if name == "" {
+            continue
+        }
+        let board_manifest: string = module_manifest(name)
+        if board_manifest == "" {
+            continue
+        }
+        let board_dir: string = canonical_path(path_parent(board_manifest))
+        text = append_manifest_dep(text, name, board_dir)
+        // The example's own target is already linked by the generated build;
+        // adding it again under --whole-archive would define every symbol twice.
+        let board_library: string = cmake_target(board_manifest)
+        if board_library != example_target {
+            text = append_variant_library(text, preset, board_library)
+        }
+        let driver: string = module_driver(name)
+        if driver != "" {
+            let driver_manifest: string = driver_manifest(driver)
+            if driver_manifest != "" {
+                text = append_manifest_dep(text, driver, canonical_path(path_parent(driver_manifest)))
+                text = append_variant_library(text, preset, cmake_target(driver_manifest))
+            }
+        }
+    }
+    if rho_write_text(manifest_path, text) {
+        return 0
+    }
+    return 1
+}
+
 /* prepare_node copies the sensor example into the wizard's own directory and
  * writes the configuration the selected boards and network need. The source
  * example stays untouched, so a test run does not leave a credential in a
@@ -1158,24 +2004,62 @@ fn prepare_node() u32 {
     var config: string = "CONFIG_RH_HAL_GPIO=y\n" +
         "CONFIG_RH_HAL_UART=y\n" +
         "CONFIG_RH_HAL_TIMER=y\n" +
-        "CONFIG_RH_CONSOLE_USB=y\n" +
-        "CONFIG_RH_NET=" + net + "\n" +
-        "CONFIG_RH_AREA_ID=" + area + "\n" +
-        "CONFIG_RH_NODE_ID=" + node + "\n" +
-        "CONFIG_RH_WIFI_SSID=" + kconfig_string(ssid) + "\n" +
-        "CONFIG_RH_WIFI_PASSWORD=" + kconfig_string(password) + "\n" +
-        "CONFIG_RH_TELEMETRY_HOST=" + kconfig_string(host) + "\n" +
-        "CONFIG_RH_TELEMETRY_PORT=" + uplink + "\n" +
-        "CONFIG_RH_NODE_TRANSPORT=" + kconfig_string(link) + "\n" +
-        "CONFIG_RH_NODE_UART=" + kconfig_string(uart_name) + "\n" +
-        "CONFIG_RH_NODE_BAUD=" + baud + "\n"
+        "CONFIG_RH_CONSOLE_USB=y\n"
+
+    // The network symbols belong to the telemetry example. Another example —
+    // a DHT11 or BMP180 node that only prints to the console — does not declare
+    // them, and writing them would make Kconfig fail the build. The link is
+    // still saved on the node; it just is not something this example reads.
+    let example_text: string = rho_read_text(target + "/module.yml")
+    if rho_str_index_of(example_text, "robohub-telemetry") >= 0 ||
+        rho_str_index_of(example_text, "robohub-transport") >= 0 {
+        config = config + "CONFIG_RH_NET=" + net + "\n" +
+            "CONFIG_RH_AREA_ID=" + area + "\n" +
+            "CONFIG_RH_NODE_ID=" + node + "\n" +
+            "CONFIG_RH_WIFI_SSID=" + kconfig_string(ssid) + "\n" +
+            "CONFIG_RH_WIFI_PASSWORD=" + kconfig_string(password) + "\n" +
+            "CONFIG_RH_TELEMETRY_HOST=" + kconfig_string(host) + "\n" +
+            "CONFIG_RH_TELEMETRY_PORT=" + uplink + "\n" +
+            "CONFIG_RH_NODE_TRANSPORT=" + kconfig_string(link) + "\n" +
+            "CONFIG_RH_NODE_UART=" + kconfig_string(uart_name) + "\n" +
+            "CONFIG_RH_NODE_BAUD=" + baud + "\n"
+    }
     let board_kconfig: string = yaml.value(board_manifest(node_board()), "deployment.kconfig")
     let driver_kconfig: string = yaml.value(driver_manifest(node_driver()), "deployment.kconfig")
     config = append_kconfig(config, board_kconfig)
     config = append_kconfig(config, driver_kconfig)
+
+    // Every module fitted to the node is part of the node's image. The primary
+    // module supplied the example and its own symbols above; the rest add
+    // theirs here. A module with a bus conflict is left out of the build and
+    // reported on the node page, so a clash never stops the parent building.
+    let compatible: string = node_build_sensors(selected_node())
+    let primary: string = first_sensor(compatible)
+    var rest_sensors: string = compatible
+    while rest_sensors != "" {
+        let at: i32 = rho_str_index_of(rest_sensors, " ")
+        var name: string = ""
+        if at < 0 {
+            name = rest_sensors
+            rest_sensors = ""
+        } else {
+            name = rho_str_slice(rest_sensors, 0, u32(at))
+            rest_sensors = rho_str_slice(rest_sensors, u32(at) + 1,
+                u32(rho_strlen(rest_sensors)) - u32(at) - 1)
+        }
+        if name == "" || name == primary {
+            continue
+        }
+        config = append_kconfig(config, sensor_kconfig_symbols(name))
+    }
+
     let written: bool = rho_write_text(target + "/project.conf", config)
     if !written {
         return 1
+    }
+    let augmented: u32 = augment_node_build(target, compatible)
+    if augmented != 0 {
+        info("mesh", "the node manifest could not carry every attached module; building the primary")
     }
     return 0
 }
@@ -1507,12 +2391,11 @@ fn nodes_editor(stage: string, name: string) string {
         let prefix: string = "node." + rho_int_to_str(index) + "."
         var role_default: string = "node"
         var board_default: string = ""
-        var driver_default: string = ""
+        var sensors_default: string = ""
         var link_default: string = "wifi"
         if index == 1 {
             role_default = "relay"
-            driver_default = first_driver()
-            board_default = first_board_for("relay", driver_default)
+            board_default = first_board("relay")
             link_default = "uart"
         }
         let role: string = node_value(index, "role", role_default)
@@ -1522,7 +2405,10 @@ fn nodes_editor(stage: string, name: string) string {
         if link == "usb" {
             link = "uart"
         }
-        let driver: string = node_value(index, "driver", driver_default)
+        let sensors: string = node_sensors(index)
+        if sensors == "" {
+            sensors = sensors_default
+        }
 
         var role_options: string = option("node", "node", "", role) +
             option("relay", "relay", "", role) + option("gateway", "gateway", "", role)
@@ -1533,17 +2419,15 @@ fn nodes_editor(stage: string, name: string) string {
                 "Node " + rho_int_to_str(earlier), "", parent)
             earlier = earlier + 1
         }
-        let driver_options: string = option("", "none", "", driver) +
-            options_from_rows(driver_rows(), "driver", "", driver)
-
         rows = rows + "<tr><td>" + rho_int_to_str(index) + "</td>" +
             "<td><select name=\"" + prefix + "role\">" + role_options + "</select></td>" +
             "<td><select name=\"" + prefix + "board\">" +
-            board_options_for(role, driver, board) + "</select></td>" +
+            board_options_for(role, "", board) + "</select></td>" +
             "<td><select name=\"" + prefix + "parent\">" + parent_options + "</select></td>" +
             "<td><select name=\"" + prefix + "link\">" +
             option("uart", "UART", "", link) + option("wifi", "WiFi", "", link) + "</select></td>" +
-            "<td><select name=\"" + prefix + "driver\">" + driver_options + "</select></td></tr>"
+            "<td><input name=\"" + prefix + "sensors\" value=\"" + escape_html(sensors) +
+            "\" placeholder=\"module names, space separated\"></td></tr>"
         index = index + 1
     }
     let label: string = field_attr(stage, name, "label")
@@ -1554,7 +2438,7 @@ fn nodes_editor(stage: string, name: string) string {
     }
     return "<div class=\"nodes-field\"><strong>" + escape_html(label) + "</strong>" +
         "<table class=\"nodes\"><thead><tr><th>#</th><th>Role</th><th>Board</th>" +
-        "<th>Parent</th><th>Link</th><th>Driver</th></tr></thead><tbody>" + rows +
+        "<th>Parent</th><th>Link</th><th>Modules</th></tr></thead><tbody>" + rows +
         "</tbody></table><input type=\"hidden\" name=\"node.count\" value=\"" +
         rho_int_to_str(count) + "\">" + help_html + "</div>"
 }
@@ -1577,23 +2461,20 @@ fn save_nodes(body: string) bool {
         let board: string = form_value(body, prefix + "board")
         let parent: string = form_value(body, prefix + "parent")
         let link: string = form_value(body, prefix + "link")
-        let driver: string = form_value(body, prefix + "driver")
+        let sensors: string = form_values(body, prefix + "sensors")
         if role == "" || board == "" || parent == "" || link == "" {
             valid = false
-        }
-        if driver == "none" {
-            driver = ""
         }
         save_setting(prefix + "role", role)
         save_setting(prefix + "board", board)
         save_setting(prefix + "parent", parent)
         save_setting(prefix + "link", link)
-        save_setting(prefix + "driver", driver)
+        save_setting(prefix + "sensors", sensors)
+        save_setting(prefix + "driver", "")
         index = index + 1
     }
     if count >= 1 {
         save_setting("relay", default_value("node.1.board", ""))
-        save_setting("driver", default_value("node.1.driver", ""))
         save_setting("link", default_value("node.1.link", WIZARD_DEFAULT_LINK))
     }
     return valid
@@ -1768,9 +2649,7 @@ fn output_block(stage: string) string {
 /* -------------------------------------------------------------------------- */
 
 fn page(title: string, body: string) Response {
-    let page: string = template_fill(template_get("layout"),
-        vars("title", title) + vars("body", body))
-    return html(status_ok(), page)
+    return html(status_ok(), mesh_shell(title, body))
 }
 
 fn step_card(stage: string) string {
@@ -1841,17 +2720,21 @@ fn state_table() string {
 }
 
 fn wizard_overview(req: Request) Response {
+    if current_project() == "" {
+        return mesh_dashboard(req)
+    }
     let title: string = yaml.value(spec_main(), "title")
     let description: string = yaml.value(spec_main(), "description")
     let content: string = template_fill(template_get("wizard"),
         vars("title", title) + vars("description", description) +
         vars("cards", step_cards()) + vars("settings", state_table()))
-    let body: string = template_fill(template_get("layout"),
-        vars("title", title) + vars("body", content))
-    return html(status_ok(), body)
+    return html(status_ok(), mesh_shell(title, content))
 }
 
 fn wizard_step_page(req: Request) Response {
+    if current_project() == "" {
+        return mesh_dashboard(req)
+    }
     let stage: string = param(req, "step")
     if !step_exists(stage) {
         let body: string = "<h1>Unknown step</h1><p>No step named " + escape_html(stage) +
@@ -1866,9 +2749,7 @@ fn wizard_step_page(req: Request) Response {
         vars("fields", fields_form(stage)) +
         vars("actions", actions_form(stage)) +
         vars("output", output_block(stage)))
-    let body: string = template_fill(template_get("layout"),
-        vars("title", step_title(stage)) + vars("body", content))
-    return html(status_ok(), body)
+    return html(status_ok(), mesh_shell(step_title(stage), content))
 }
 
 fn save_step_fields(stage: string, body: string) bool {
@@ -1913,6 +2794,9 @@ fn clear_console_stage(stage: string) void {
 }
 
 fn mesh_console_clear(req: Request) Response {
+    if current_project() == "" {
+        return mesh_dashboard(req)
+    }
     let stage: string = param(req, "step")
     if stage == "build" || stage == "verify" {
         clear_console_stage(stage)
@@ -1921,6 +2805,9 @@ fn mesh_console_clear(req: Request) Response {
 }
 
 fn wizard_progress_run(req: Request) Response {
+    if current_project() == "" {
+        return mesh_dashboard(req)
+    }
     let stage: string = param(req, "step")
     if stage != "build" && stage != "verify" {
         return text(status_not_found(), "unknown step")
@@ -1933,6 +2820,9 @@ fn wizard_progress_run(req: Request) Response {
 }
 
 fn wizard_progress(req: Request) Response {
+    if current_project() == "" {
+        return mesh_dashboard(req)
+    }
     let stage: string = param(req, "step")
     if !step_exists(stage) {
         return text(status_not_found(), "unknown step")
@@ -1988,6 +2878,9 @@ fn run_step_action(stage: string, action: string) u32 {
 }
 
 fn wizard_step_post(req: Request) Response {
+    if current_project() == "" {
+        return mesh_dashboard(req)
+    }
     let stage: string = param(req, "step")
     if !step_exists(stage) {
         let body: string = "<h1>Unknown step</h1><p>No step named " + escape_html(stage) + ".</p>"

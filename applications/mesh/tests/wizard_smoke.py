@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Smoke test for the keeper's deployment wizard.
+"""Smoke test for the RoboHub Mesh application.
 
-Builds the keeper, starts it against a temporary state directory, and walks the
-wizard the way a browser does: the table of contents, the plan, a saved
+Builds Mesh, starts it against a temporary state directory, and walks the
+application the way a browser does: the table of contents, the plan, a saved
 network, and the event stream that reports a long action.
 
 The test uses the repository's own registry and wizard documents; it does not
@@ -11,7 +11,7 @@ planner's promise is that its lists come from there.
 
 Run from anywhere:
 
-    python3 applications/keeper/tests/wizard_smoke.py
+    python3 applications/mesh/tests/wizard_smoke.py
 """
 
 import json
@@ -27,8 +27,8 @@ import urllib.request
 from pathlib import Path
 
 HERE = Path(__file__).resolve()
-KEEPER = HERE.parents[1]
-ROBOHUB = KEEPER.parents[1]
+MESH = HERE.parents[1]
+ROBOHUB = MESH.parents[1]
 PROJECTS = ROBOHUB.parent
 RHO = PROJECTS / "rho" / "bin" / "rho"
 
@@ -48,7 +48,7 @@ def wait_for(base: str, timeout: float = 20.0) -> None:
                     return
         except (urllib.error.URLError, ConnectionError):
             time.sleep(0.2)
-    raise SystemExit(f"keeper did not start at {base}")
+    raise SystemExit(f"mesh did not start at {base}")
 
 
 def get(base: str, path: str) -> str:
@@ -70,29 +70,29 @@ def assert_contains(haystack: str, needles: list, label: str) -> None:
             raise AssertionError(f"{label} does not contain {needle!r}")
 
 
-def build_keeper() -> Path:
-    binary = KEEPER / "build" / "keeper"
+def build_mesh() -> Path:
+    binary = MESH / "build" / "mesh"
     rho = str(RHO) if RHO.exists() else "rho"
     result = subprocess.run(
-        [rho, "build", "applications/keeper"],
-        cwd=ROBOHUB,
+        [rho, "build", "."],
+        cwd=MESH,
         text=True,
         capture_output=True,
     )
     if result.returncode != 0:
-        raise SystemExit("keeper build failed:\n" + result.stdout + result.stderr)
+        raise SystemExit("mesh build failed:\n" + result.stdout + result.stderr)
     if not binary.exists():
-        raise SystemExit(f"keeper build wrote no binary at {binary}")
+        raise SystemExit(f"mesh build wrote no binary at {binary}")
     return binary
 
 
 def validate_wizard_schema() -> None:
-    """Ask the Rho schema validator about the documents the keeper reads."""
+    """Ask the Rho schema validator about the documents the mesh reads."""
     go = PROJECTS / "rho"
     if not (go / "src" / "schema").is_dir():
         return
     env = dict(os.environ)
-    env["ROBOHUB_KEEPER_WIZARD_DIR"] = str(KEEPER / "wizard")
+    env["ROBOHUB_MESH_WIZARD_DIR"] = str(MESH / "wizard")
     result = subprocess.run(
         ["go", "test", "./src/schema", "-run", "TestKeeperWizardDocuments"],
         cwd=go,
@@ -106,18 +106,18 @@ def validate_wizard_schema() -> None:
 
 def main() -> int:
     validate_wizard_schema()
-    binary = build_keeper()
+    binary = build_mesh()
     port = free_port()
     base = f"http://127.0.0.1:{port}"
-    with tempfile.TemporaryDirectory(prefix="keeper-wizard-") as state:
+    with tempfile.TemporaryDirectory(prefix="mesh-app-") as state:
         env = dict(os.environ)
         env["ROBOHUB_WORKSPACE"] = str(PROJECTS)
-        env["RHO_KEEPER_STATE_DIR"] = state
+        env["RHO_MESH_STATE_DIR"] = state
         env["ROBOHUB_MESH_PROJECTS"] = os.path.join(state, "projects")
         env["RHO_HTTP_ADDR"] = f":{port}"
         process = subprocess.Popen(
             [str(binary)],
-            cwd=KEEPER,
+            cwd=MESH,
             env=env,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
@@ -129,8 +129,23 @@ def main() -> int:
             mesh = get(base, "/mesh")
             assert_contains(
                 mesh,
-                ["RoboHub Mesh", "Projects", "Create project"],
+                ["RoboHub Mesh", "Projects", "Create project", "Documentation"],
                 "mesh overview",
+            )
+            if 'nav-title">Operations' in mesh:
+                raise AssertionError("Operations must be hidden when no project is active")
+
+            docs = get(base, "/mesh/docs")
+            assert_contains(docs, ["RoboHub Mesh", "Projects", "left menu"], "documentation")
+
+            # A new project is active from the start when none was.
+            post(base, "/mesh/project/new", {"name": "default"})
+            active = get(base, "/mesh")
+            assert_contains(
+                active,
+                ["nav-title\">Operations", "for <strong>default", "nav-badge\">Active",
+                 "Project settings"],
+                "active project menu",
             )
 
             node_form = get(base, "/mesh/node/new")
@@ -140,11 +155,15 @@ def main() -> int:
                     'name="name"',
                     'name="role"',
                     'name="board"',
-                    'name="driver"',
+                    'name="sensors"',
                     'name="parent"',
                     'name="link"',
                     'value="pico2w"',
                     'value="ds18b20-temperature-module"',
+                    'value="ds18b20-waterproof-probe-module"',
+                    'value="ky-001-temperature-sensor-module"',
+                    'value="bmp180-module"',
+                    "form-actions",
                 ],
                 "node editor",
             )
@@ -156,7 +175,6 @@ def main() -> int:
                     "name": "Gateway",
                     "description": "The UNO Q gateway.",
                     "gateway": "arduino-uno-q",
-                    "gateway_driver": "",
                 },
             )
             post(
@@ -168,7 +186,7 @@ def main() -> int:
                     "description": "First node",
                     "role": "relay",
                     "board": "pico2w",
-                    "driver": "ds18b20-temperature-module",
+                    "sensors": "ds18b20-temperature-module dht11-module",
                     "parent": "gateway",
                     "link": "uart",
                 },
@@ -182,7 +200,7 @@ def main() -> int:
                     "description": "Second node",
                     "role": "node",
                     "board": "pico2w",
-                    "driver": "ds18b20-temperature-module",
+                    "sensors": "ky-013-analog-temperature-sensor-module ky-018-photoresistor-module",
                     "parent": "node.1",
                     "link": "wifi",
                 },
@@ -196,6 +214,23 @@ def main() -> int:
                  "mesh-children", "link-badge", "UART", "WiFi"],
                 "accepted mesh",
             )
+
+            relay_page = get(base, "/mesh/node/1")
+            assert_contains(
+                relay_page,
+                [
+                    "DS18B20_MODULE (ds18b20-temperature-module)",
+                    "DHT11_MODULE (dht11-module)",
+                    "1-Wire onewire0",
+                    "gpio dht0",
+                    "Bus plan",
+                ],
+                "relay modules",
+            )
+            leaf_page = get(base, "/mesh/node/2")
+            assert_contains(leaf_page, ["conflict", "adc adc0 channel 0"], "bus conflict")
+            # The conflicted module is reported and left out of the image, so
+            # the node itself still has a build path.
 
             dashboard = get(base, "/mesh")
             assert_contains(
@@ -318,6 +353,8 @@ def main() -> int:
                     "node.count=2",
                     "node.1.name=Relay one",
                     "node.1.board=pico2w",
+                    "node.1.sensors=ds18b20-temperature-module dht11-module",
+                    "node.2.sensors=ky-013-analog-temperature-sensor-module ky-018-photoresistor-module",
                     "node.2.parent=node.1",
                     "step_topology=done",
                     "step_network=done",
@@ -331,6 +368,26 @@ def main() -> int:
                 ],
                 "mesh state",
             )
+
+            # A project can be made inactive; the Operations menu disappears
+            # and a step page returns to the dashboard.
+            settings_default = get(base, "/mesh/project/default/settings")
+            assert_contains(settings_default, ["Make inactive", "active one"], "active settings")
+            post(
+                base,
+                "/mesh/project/active",
+                {"project": "default", "active": "0", "return": "settings"},
+            )
+            inactive = get(base, "/mesh")
+            if 'nav-title">Operations' in inactive:
+                raise AssertionError("Operations must be hidden when no project is active")
+            assert_contains(get(base, "/mesh/plan"), ["Create project"], "step without a project")
+            post(
+                base,
+                "/mesh/project/active",
+                {"project": "default", "active": "1", "return": "dashboard"},
+            )
+            assert_contains(get(base, "/mesh"), ['for <strong>default'], "reactivated project")
 
             # A project is a folder of its own; creating one starts empty, and
             # an existing project can be opened again.
@@ -382,7 +439,7 @@ def main() -> int:
                 "progress stream",
             )
 
-            print("wizard smoke test ok")
+            print("mesh smoke test ok")
             return 0
         finally:
             process.terminate()

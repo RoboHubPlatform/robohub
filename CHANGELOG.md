@@ -6,6 +6,19 @@ says what changed, which is what tells two versions of one module apart. The
 section for the version being published travels with it, so a registry shows it
 against that version.
 
+## [0.3.0] - 2026-11-02
+
+The keeper is an applications registry. A module whose manifest declares an
+`application` block is listed at `/applications`, where it can be opened,
+started, stopped, added to the keeper's left menu as a sub-item of Applications,
+or removed. An application is installed from a git URL or registered from a
+folder that already exists; its state lives in `~/.rho/keeper/`.
+
+Mesh moved out of the keeper and into `applications/mesh` as a keeper-hosted
+application. It has its own left menu, active-project selection, attached sensor
+modules read dynamically from `robohub-drivers/boards`, per-node bus plans with
+I2C address and SPI chip-select allocation, and its own documentation page.
+
 ## [0.1.0] - 2026-10-21
 
 The orchestrator of the RoboHub ecosystem: a registry of its modules, and the

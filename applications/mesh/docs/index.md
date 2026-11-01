@@ -1,11 +1,28 @@
 # RoboHub Mesh
 
-The keeper's Mesh section plans and runs deployments: a gateway, the nodes that
+The Mesh application plans and runs deployments: a gateway, the nodes that
 report through it, the connections between them, and the firmware on their
-boards. It is the part of the keeper that knows about boards, not only about
+boards. It is the part of the ecosystem that knows about boards, not only about
 modules.
 
-The page is at `/mesh`; the plan wizard for a project is at `/mesh/plan`.
+It is a keeper-hosted application: it runs on its own port, standalone or
+launched from the keeper's `/applications` registry. The page is at `/mesh`; the
+plan wizard for a project is at `/mesh/plan`.
+
+The left menu belongs to the application. It has Dashboard, a Projects group
+with every project in the workspace, and Documentation. When a project is
+active, an Operations group appears, headed by the project it acts on, with
+Plan, Network, Build & program, Verify, Gateway and that project's settings.
+An active project is marked **Active** in the project list; the others are not.
+
+A project is made active by opening it, by **Set active** on its card, or from
+its settings page. **Make inactive** clears the selection: the Operations group
+then disappears and the plan, network, build and verify pages return to the
+dashboard, while the projects remain listed. Creating a project when none is
+active makes the new one active.
+
+When the keeper started the application, the menu also has **Go to Keeper** at
+the top, which returns to the keeper that launched it.
 
 ## Projects
 
@@ -35,8 +52,9 @@ project loads it as the current project and opens its plan. The dashboard does
 not show the Plan/Network/Build/Verify steps; those belong to the project being
 created or edited.
 
-Deleting the current project selects another project, or creates a default. If
-that project's native gateway is running it is stopped first.
+Deleting the current project selects another project; deleting the last one
+leaves no active project. If the deleted project's native gateway is running it
+is stopped first.
 
 Every wizard page carries a **← Mesh dashboard** breadcrumb.
 
@@ -49,10 +67,47 @@ The plan is a tree of cards:
 - the branch badge is the connection and names the transport,
 - each card carries the node's role and status.
 
-A card opens the node or gateway editor. A node has a user-chosen name, a short
-description, a role (`node`, `relay` or `gateway`), a board, a driver, a parent
-and a link. Boards are filtered by the role and by the driver's
-`deployment.boards` compatibility.
+A card opens the node or gateway editor. A node is one computer: a user-chosen
+name, a short description, a role (`node`, `relay` or `gateway`), a board, a
+parent and a link. Boards are filtered by the role.
+
+### Nodes and modules
+
+A sensor is not a node. It is a module fitted to a node, and a node can carry
+any number of them. The editor's **Attached modules** list is read from
+`robohub-drivers/boards` on every render, so a board added to that checkout
+appears without rebuilding Mesh or the keeper. Output and transceiver boards are
+left out — they are boards, but not sensors fitted to a node. The list is grouped
+into collapsible sections by board category, each with its own colour and three
+cards to a row; a section with a module selected stays open and shows the
+selected names in its header. The first attached module names
+the example the node's image is built from; the node is the only thing built and
+programmed, and the image carries the modules fitted to it.
+
+Each module says how it reaches a bus in its own manifest:
+
+```yaml
+board:
+  bus:
+    type: i2c
+    instance: i2c0
+    address: "0x77"        # a part with one address
+    addresses: "0x76-0x77" # or the range it can be configured in
+    cs: auto               # SPI: the node picks a chip select
+```
+
+The node page shows a **bus plan**, which is how several modules become one
+node:
+
+- 1-Wire modules share `onewire0`.
+- I2C modules share `i2c0`; two fixed addresses on the same bus conflict, and a
+  module with an address range is assigned one that is free.
+- SPI modules share the bus lines and each gets a distinct chip select.
+- ADC, PWM, GPIO and UART instances are exclusive.
+
+A conflict is shown on the node and that module is left out of the image, so the
+parent still builds. A module that says nothing about its bus is listed without
+a plan rather than guessed at.
 
 **Accept topology** locks the tree and opens Network. **Edit topology** unlocks
 it again; editing resets the network, build and verify steps that depended on
@@ -222,7 +277,7 @@ lines and the server-side is reset before each action.
 ## Troubleshooting
 
 - **Gateway answers but no readings**: the board is running but its serial path
-  changed. A Pico's USB CDC is renumbered by a flash; the keeper uses its
+  changed. A Pico's USB CDC is renumbered by a flash; the Mesh app uses its
   stable `/dev/serial/by-id/...` path and attaches a Shared Pico to WSL.
 - **Pico will not program**: put it in BOOTSEL (hold BOOT, tap RST/EN, release),
   tick the acknowledgement, and press Program. The page detects when the board
@@ -231,17 +286,17 @@ lines and the server-side is reset before each action.
   Check the DS18B20 wiring (GP28, 3V3, GND) and its 4.7 kΩ pull-up. The node
   retries the sensor every 5 seconds.
 - **The page looks stale after a rebuild**: hard-refresh the browser and restart
-  the keeper process. Templates are embedded in the binary.
-- **The native gateway address**: `127.0.0.1` inside the keeper host, and the
+  the Mesh process. Templates are embedded in the binary.
+- **The native gateway address**: `127.0.0.1` on the Mesh host, and the
   host's network address for another machine. The dashboard shows both.
 
 ## Tests
 
 ```sh
-rho test applications/keeper
+rho test applications/mesh
 ```
 
 The Rho unit suite checks the wizard's string helpers. The smoke suite builds
-the keeper, walks the Mesh pages over HTTP, saves and accepts a two-node
+Mesh, walks its pages over HTTP, saves and accepts a two-node
 topology, edits a connection, creates, renames and deletes a project, checks the
 locked tree, and reads the event stream.
