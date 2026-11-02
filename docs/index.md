@@ -52,6 +52,11 @@ in their manifest — runtime, middleware, interfaces, platform, collection — 
 Freertos sits under middleware and Core under runtime, and neither is mixed into
 this section.
 
+A device is a network integration from `robohub-devices` — a Shelly plug, an
+inverter — and Mesh shows it as a device node attached to a gateway or relay. It
+is not built; the parent node carries it, and an HTTP device can be polled and
+switched from its node page.
+
 `modules/registry.yml` is the installed set, and the keeper's `/app-modules` page
 installs, removes and lists modules. A module has no single host: any application
 that includes it serves its routes.
