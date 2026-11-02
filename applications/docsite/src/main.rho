@@ -54,11 +54,64 @@ fn assemble(tree: string) void {
     rho_exec("sh", "-c \"mkdir -p " + tree + "/src && cp -f src/main.rho " + tree + "/src/main.rho\"", "build/reports/assemble4.txt")
 
     // Every module's documentation is a section named for the module.
-    let listing: string = ""
-    rho_exec("sh", "-c \"ls " + REGISTRY + "/\"", "build/reports/ls-modules.txt")
-    listing = rho_read_text("build/reports/ls-modules.txt")
+    assemble_registry(tree)
+    assemble_directories(tree, "applications")
+    assemble_directories(tree, "modules")
+    assemble_directories(tree, "plugins")
 
-    var rest: string = listing
+    // The site is the toolchain's own build of the tree.
+    rho_exec("rho", "doc " + tree + " -title RoboHub -api /dev/null -out " + SITE, "build/reports/doc.txt")
+}
+
+// assemble_module copies one module's page, manifest and release history into
+// the tree. The manifest is what gives the page its section and order.
+fn assemble_module(tree: string, name: string, path: string) void {
+    if !rho_path_exists(path + "/docs/index.md") {
+        return
+    }
+    rho_exec("sh", "-c \"mkdir -p " + tree + "/" + name + "/docs && cp -f " +
+        path + "/docs/index.md " + tree + "/" + name + "/docs/index.md && cp -f " +
+        path + "/module.yml " + tree + "/" + name + "/module.yml && if [ -f " +
+        path + "/CHANGELOG.md ]; then printf '\\n\\n## Release history\\n\\n' >> " +
+        tree + "/" + name + "/docs/index.md && sed '/^# Changelog$/d' " +
+        path + "/CHANGELOG.md >> " + tree + "/" + name + "/docs/index.md; fi\"",
+        "build/reports/assemble-" + name + ".txt")
+}
+
+// assemble_directories reads a directory of modules: applications, modules or
+// plugins. Each folder with a docs/index.md becomes a page.
+fn assemble_directories(tree: string, group: string) void {
+    if !rho_path_exists(group) {
+        return
+    }
+    rho_exec("sh", "-c \"ls " + group + "/\"", "build/reports/ls-" + group + ".txt")
+    var rest: string = rho_read_text("build/reports/ls-" + group + ".txt")
+    while rest != "" {
+        let at: i32 = rho_str_index_of(rest, "\n")
+        let name: string = ""
+        if at < 0 {
+            name = rest
+            rest = ""
+        } else {
+            name = rho_str_slice(rest, 0, u32(at))
+            rest = rho_str_slice(rest, u32(at) + 1,
+                u32(rho_strlen(rest)) - u32(at) - 1)
+        }
+        if name == "" || !rho_path_exists(group + "/" + name + "/module.yml") {
+            continue
+        }
+        assemble_module(tree, name, group + "/" + name)
+    }
+}
+
+// assemble_registry reads the ecosystem registry, where each entry is a
+// manifest beside the modules it names.
+fn assemble_registry(tree: string) void {
+    if !rho_path_exists(REGISTRY) {
+        return
+    }
+    rho_exec("sh", "-c \"ls " + REGISTRY + "/\"", "build/reports/ls-modules.txt")
+    var rest: string = rho_read_text("build/reports/ls-modules.txt")
     while rest != "" {
         let at: i32 = rho_str_index_of(rest, "\n")
         let filename: string = ""
@@ -67,23 +120,14 @@ fn assemble(tree: string) void {
             rest = ""
         } else {
             filename = rho_str_slice(rest, 0, u32(at))
-            rest = rho_str_slice(rest, u32(at) + 1, u32(rho_strlen(rest)) - u32(at) - 1)
+            rest = rho_str_slice(rest, u32(at) + 1,
+                u32(rho_strlen(rest)) - u32(at) - 1)
         }
-        if filename == "" {
+        if filename == "" || rho_str_index_of(filename, ".yml") < 0 {
             continue
         }
-        if rho_str_index_of(filename, ".yml") < 0 {
-            continue
-        }
-        let name: string = rho_str_slice(filename, 0, u32(rho_str_index_of(filename, ".yml")))
-        let path: string = "../" + name
-        if !rho_path_exists(path + "/docs/index.md") {
-            continue
-        }
-        rho_exec("sh", "-c \"mkdir -p " + tree + "/" + name + "/docs && cp -f " + path + "/docs/index.md " + tree + "/" + name + "/docs/index.md && cp -f " + path + "/module.yml " + tree + "/" + name + "/module.yml && if [ -f " + path + "/CHANGELOG.md ]; then printf '\\n\\n## Release history\\n\\n' >> " + tree + "/" + name + "/docs/index.md && sed '/^# Changelog$/d' " + path + "/CHANGELOG.md >> " + tree + "/" + name + "/docs/index.md; fi\"", "build/reports/assemble-" + name + ".txt")
+        let name: string = rho_str_slice(filename, 0,
+            u32(rho_str_index_of(filename, ".yml")))
+        assemble_module(tree, name, "../" + name)
     }
-
-    // The site is the toolchain's own build of the tree.
-    rho_exec("rho", "doc " + tree + " -title RoboHub -api /dev/null -out " + SITE, "build/reports/doc.txt")
 }
-

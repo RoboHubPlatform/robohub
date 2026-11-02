@@ -29,3 +29,11 @@ metadata:
     - plugin
     - alert
     - dispatcher
+
+docs:
+  title: alert-dispatcher
+  section: plugins
+  order: "10"
+  index: docs/index.md
+  sources:
+    - docs/index.md

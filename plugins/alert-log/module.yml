@@ -31,3 +31,11 @@ metadata:
     - alert
     - log
     - local
+
+docs:
+  title: alert-log
+  section: plugins
+  order: "20"
+  index: docs/index.md
+  sources:
+    - docs/index.md

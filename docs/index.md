@@ -20,17 +20,18 @@ is where they are answered.
 The ecosystem also has applications: what a person runs rather than what a node
 links. They live under `applications/`.
 
-- `keeper` is the dashboard and the registry of the other applications. It
-  reads an `application` block from a module's manifest and lists, installs,
-  starts, stops and removes the applications on the machine. A pinned
-  application is a sub-item of the keeper's Applications menu.
-- `mesh` is a keeper-hosted application of its own. It runs on its own port,
-  plans the gateway and its nodes, attaches sensor modules to a node, and builds
-  and programs the node images. The keeper can launch it from its registry.
-- `aquarium` is the first modular-monolith application: one HTTP service on one
-  port, with reusable modules registering their routes on its router. The
-  inventory and expense tracker is included and serves `/expenses`, the scheduler serves `/scheduler`, and the widgets module renders the dashboard
-  cards.
+- [Keeper](keeper/) is the dashboard and the registry of the other
+  applications. It reads an `application` block from a module's manifest and
+  lists, installs, starts, stops and removes the applications on the machine. A
+  pinned application is a sub-item of the keeper's Applications menu.
+- [Documentation site](docsite/) builds and serves this site.
+- [Mesh](mesh/) is a keeper-hosted application of its own. It runs on its own
+  port, plans the gateway and its nodes, attaches sensor modules to a node, and
+  builds and programs the node images.
+- [Aquarium](aquarium/) is the first modular-monolith application: one HTTP
+  service on one port, with reusable modules registering their routes on its
+  router. It also carries the equipment, automation, chemistry and
+  maintenance-mode framework the physical layer will drive.
 
 A module without an `application` block is not an application — a component or
 a documentation site has no listener of its own — which is how the two kinds
@@ -51,9 +52,17 @@ A module keeps its records in the workspace of the application that consumes it,
 under `$ROBOHUB_APP_WORKSPACE/data/app.db`, so the same module in two
 applications has two databases.
 
-The first module is the inventory tracker: stock on hand, reorder levels,
-purchases with categories, quantities, unit prices, stores, dates and comments,
-stored in SQLite through rho-sql.
+The modules are:
+
+- [Inventory & expenses](inventory/) — stock on hand, reorder levels, purchases
+  with categories, quantities, unit prices, stores, dates and comments;
+- [Scheduler](scheduler/) — interval, cron, one-time and usage-based chores with
+  due and overdue states, completion notes, snoozing and a JSON API;
+- [Widgets](widgets/) — number, chart, button and switch cards for the host
+  application's dashboard, with a manager and an API.
+
+All of them store their tables in the host's main SQL database and their
+settings in the host application.
 
 ## Plugins
 
@@ -82,6 +91,15 @@ names. A folder that is not in the registry is not loaded; an
 entry whose folder is gone is shown as missing. The keeper's `/plugins` page
 lists the registry, installs and removes plugins, toggles the keeper's own set
 and sends a test alert.
+
+The plugins are:
+
+- [Dispatcher](alert-dispatcher/) — fans an alert out to the channels in its
+  target list;
+- [Local log](alert-log/) — appends to a file;
+- [E-mail](email-alert/) — SMTP or a local outbox, with templates;
+- [Telegram](telegram-notifier/) — a chat through the bot API;
+- [Webhook](webhook-alert/) — a generic HTTP endpoint.
 
 The transports are generic Rho code under `providers/`: `log`, `email`,
 `telegram` and `webhook`. An application can call a provider directly for a

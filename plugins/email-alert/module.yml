@@ -34,3 +34,11 @@ metadata:
     - alert
     - email
     - smtp
+
+docs:
+  title: email-alert
+  section: plugins
+  order: "30"
+  index: docs/index.md
+  sources:
+    - docs/index.md

@@ -25,3 +25,11 @@ metadata:
     - alert
     - webhook
     - http
+
+docs:
+  title: webhook-alert
+  section: plugins
+  order: "50"
+  index: docs/index.md
+  sources:
+    - docs/index.md
