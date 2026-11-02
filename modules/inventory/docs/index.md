@@ -27,7 +27,7 @@ The module does not own its records; the application that consumes it does. The
 database lives under the consuming application's workspace:
 
 ```
-$ROBOHUB_APP_WORKSPACE/modules/inventory/inventory.db
+$ROBOHUB_APP_WORKSPACE/data/app.db
 ```
 
 The host application owns both the workspace and the module's settings, so two
@@ -39,6 +39,7 @@ entry in the host application's `module.yml`:
 app_modules:
   - name: inventory
     route: /expenses
+    version: ">=0.1.0"
     config:
       currency: RON
 ```

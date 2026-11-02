@@ -9,3 +9,6 @@ modules:
   - name: inventory
     path: inventory
     enabled: true
+  - name: scheduler
+    path: scheduler
+    enabled: true

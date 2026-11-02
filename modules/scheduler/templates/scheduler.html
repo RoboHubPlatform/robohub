@@ -1,0 +1,42 @@
+<h1>Maintenance schedule</h1>
+<p>Chores, their next due time, and the log of what was already done.
+A purchase or a completed chore is never remembered twice in one place.</p>
+{{{ notice }}}
+
+<h2>Add a chore</h2>
+<form method="post" action="/scheduler/chores/add">
+  <div class="grid">
+    <label>Title<input name="title" required placeholder="Change filter sock"></label>
+    <label>Schedule
+      <select name="kind">
+        <option value="interval">Every N hours</option>
+        <option value="cron">Cron (M H * * *)</option>
+        <option value="one_time">One time</option>
+        <option value="usage">After N hours of use</option>
+      </select>
+    </label>
+    <label>Cron / date<input name="value" placeholder="0 9 * * 1 or 2026-11-03T09:00"></label>
+    <label>Interval hours<input name="interval_hours" inputmode="numeric" placeholder="72"></label>
+    <label>Usage hours<input name="usage_hours" inputmode="numeric" placeholder="4000"></label>
+    <label>Grace hours<input name="grace_hours" inputmode="numeric" placeholder="12"></label>
+    <label>Priority<input name="priority" value="normal" placeholder="normal"></label>
+    <label>Description<input name="description" placeholder="Optional"></label>
+  </div>
+  <div class="form-actions"><button type="submit">Add chore</button></div>
+</form>
+
+<h2>Chores</h2>
+<table>
+<thead><tr><th>State</th><th>Chore</th><th>Schedule</th><th>Due</th><th>Priority</th><th></th></tr></thead>
+<tbody>
+{{{ rows }}}
+</tbody>
+</table>
+
+<h2>Completed</h2>
+<table>
+<thead><tr><th>Chore</th><th>When</th><th>Note</th></tr></thead>
+<tbody>
+{{{ completions }}}
+</tbody>
+</table>

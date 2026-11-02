@@ -76,7 +76,8 @@ run for a reason nobody can see, so a test is added only after it has passed.
 `applications/keeper` is the dashboard and registry; `applications/mesh` plans
 and runs gateway deployments; `applications/aquarium` is the first modular
 monolith. The aquarium is one service on one port, and the inventory module is
-included into it and serves `/expenses` on the same router.
+included into it and serves `/expenses`, and the scheduler serves `/scheduler`,
+on the same router.
 
 ## Modules
 
@@ -86,9 +87,9 @@ module registers its routes on the host's router — the aquarium application is
 one service on one port, with the inventory module serving `/expenses`.
 
 `modules/registry.yml` is the installed set; the keeper's `/app-modules` page
-lists it, installs and removes modules, and links to the application that hosts
-one. A module's records and settings live in the workspace of the application
-that consumes it (`$ROBOHUB_APP_WORKSPACE/modules/<name>/`), so two applications
+lists it, installs and removes modules. A module has no single host: any
+application that includes it serves its routes. A module's records and settings live in the workspace of the application
+that consumes it (`$ROBOHUB_APP_WORKSPACE/data/app.db`), so two applications
 can use the same module without sharing a database.
 
 ## Plugins

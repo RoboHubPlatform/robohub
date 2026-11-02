@@ -29,7 +29,8 @@ links. They live under `applications/`.
   and programs the node images. The keeper can launch it from its registry.
 - `aquarium` is the first modular-monolith application: one HTTP service on one
   port, with reusable modules registering their routes on its router. The
-  inventory and expense tracker is included and serves `/expenses`.
+  inventory and expense tracker is included and serves `/expenses`, and the
+  scheduler serves `/scheduler`.
 
 A module without an `application` block is not an application — a component or
 a documentation site has no listener of its own — which is how the two kinds
@@ -44,9 +45,10 @@ registers its routes on the host's router. The aquarium application is one
 service on one port, with the inventory module serving `/expenses`.
 
 `modules/registry.yml` is the installed set, and the keeper's `/app-modules` page
-installs, removes and lists modules, linking to the application that hosts one.
+installs, removes and lists modules. A module has no single host: any application
+that includes it serves its routes.
 A module keeps its records in the workspace of the application that consumes it,
-under `$ROBOHUB_APP_WORKSPACE/modules/<name>/`, so the same module in two
+under `$ROBOHUB_APP_WORKSPACE/data/app.db`, so the same module in two
 applications has two databases.
 
 The first module is the inventory tracker: stock on hand, reorder levels,
