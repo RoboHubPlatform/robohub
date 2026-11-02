@@ -6,6 +6,14 @@ says what changed, which is what tells two versions of one module apart. The
 section for the version being published travels with it, so a registry shows it
 against that version.
 
+## [0.3.4] - 2026-11-02
+
+The aquarium framework: equipment and devices, automation rules with an
+evaluation and audit trail, water chemistry, operational modes and the event
+log. The home page is a dashboard built from configurable widgets, including
+buttons and switches whose hooks are called when pressed. Module versions are
+independent of the application, and the keeper lists modules without a single
+host link. Module forms use the same semi-opaque panels as the aquarium.
 ## [0.3.3] - 2026-11-02
 
 Reusable modules under `modules/`, with `modules/registry.yml` as the
@@ -15,8 +23,9 @@ registers its routes on the host's router.
 
 The aquarium application is the first host: one service on one port, with the
 inventory module registering its routes on the aquarium router under
-`/expenses`, and a scheduler module under `/scheduler` with a chores API. Modules
-share the host's main SQL database. The aquarium has a stylized background asset
+`/expenses`, a scheduler module under `/scheduler` with a chores API, and a widgets module
+whose configurable number, chart, button and switch cards make the aquarium's
+home page a dashboard. Modules share the host's main SQL database. The aquarium has a stylized background asset
 and top/bottom menus.
 The inventory module tracks stock on hand, reorder levels, purchases with
 categories, quantities, unit prices, stores, dates and comments, a running total,

@@ -1,6 +1,6 @@
 # The orchestrator
 
-**Version:** 0.3.3
+**Version:** 0.3.4
 
 The orchestrator of the RoboHub ecosystem: a registry of its modules, and the
 tools that run over all of them.
@@ -29,8 +29,8 @@ links. They live under `applications/`.
   and programs the node images. The keeper can launch it from its registry.
 - `aquarium` is the first modular-monolith application: one HTTP service on one
   port, with reusable modules registering their routes on its router. The
-  inventory and expense tracker is included and serves `/expenses`, and the
-  scheduler serves `/scheduler`.
+  inventory and expense tracker is included and serves `/expenses`, the scheduler serves `/scheduler`, and the widgets module renders the dashboard
+  cards.
 
 A module without an `application` block is not an application — a component or
 a documentation site has no listener of its own — which is how the two kinds

@@ -76,8 +76,8 @@ run for a reason nobody can see, so a test is added only after it has passed.
 `applications/keeper` is the dashboard and registry; `applications/mesh` plans
 and runs gateway deployments; `applications/aquarium` is the first modular
 monolith. The aquarium is one service on one port, and the inventory module is
-included into it and serves `/expenses`, and the scheduler serves `/scheduler`,
-on the same router.
+included into it and serves `/expenses`, the scheduler serves `/scheduler`, and the widgets module renders the dashboard
+cards, on the same router.
 
 ## Modules
 
