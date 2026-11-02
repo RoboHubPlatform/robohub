@@ -32,6 +32,8 @@ links. They live under `applications/`.
   service on one port, with reusable modules registering their routes on its
   router. It also carries the equipment, automation, chemistry and
   maintenance-mode framework the physical layer will drive.
+- [Gateway](robohub-gateway/) is the gateway application the earliest
+  deployments ran.
 
 A module without an `application` block is not an application — a component or
 a documentation site has no listener of its own — which is how the two kinds
@@ -40,10 +42,15 @@ part of the keeper; it is versioned and built apart now.
 
 ## Modules
 
-Reusable applications with both backend and pages live under `modules/`. A
-module has no port of its own: the host application includes it and the module
-registers its routes on the host's router. The aquarium application is one
-service on one port, with the inventory module serving `/expenses`.
+**Modules** here means the reusable application modules under `modules/`: they
+have both backend and pages and are included by an application. A module has no
+port of its own; the host application includes it and the module registers its
+routes on the host's router.
+
+The ecosystem repositories are not modules. They are grouped by the `module.type`
+in their manifest — runtime, middleware, interfaces, platform, collection — so
+Freertos sits under middleware and Core under runtime, and neither is mixed into
+this section.
 
 `modules/registry.yml` is the installed set, and the keeper's `/app-modules` page
 installs, removes and lists modules. A module has no single host: any application
