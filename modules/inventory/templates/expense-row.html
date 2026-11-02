@@ -1,0 +1,16 @@
+<tr>
+  <td>{{{ item }}}</td>
+  <td>{{{ category }}}</td>
+  <td class="num">{{{ quantity }}}</td>
+  <td class="num">{{{ unit_price }}}</td>
+  <td class="num">{{{ total }}}</td>
+  <td>{{{ source }}}</td>
+  <td>{{{ date }}}</td>
+  <td>{{{ comment }}}</td>
+  <td class="row-actions">
+    <form method="post" action="/expenses/purchases/delete" onsubmit="return confirm('Remove this purchase?');">
+      <input type="hidden" name="id" value="{{{ id }}}">
+      <button type="submit" class="danger">Delete</button>
+    </form>
+  </td>
+</tr>

@@ -1,0 +1,79 @@
+<h1>Inventory & expenses</h1>
+<p>What is on the shelf, what needs reordering, and what it cost to put it
+there. A purchase increases stock and is recorded as spending in one step.</p>
+{{{ notice }}}
+
+<div class="summary">
+  <div><small>Total spent {{{ currency }}}</small><br><strong>{{{ total }}}</strong></div>
+  <div><small>Items tracked</small><br><strong>{{{ item_count }}}</strong></div>
+  <div><small>Need reorder</small><br><strong>{{{ low_count }}}</strong></div>
+  <div><small>Purchases</small><br><strong>{{{ expense_count }}}</strong></div>
+</div>
+
+<h2>Add an item</h2>
+<form method="post" action="/expenses/items/add">
+  <div class="grid">
+    <label>Name<input name="name" required placeholder="Filter sock"></label>
+    <label>Category<select name="category_id">{{{ category_options }}}</select></label>
+    <label>Unit<input name="unit" value="unit" placeholder="unit, kg, L"></label>
+    <label>Opening quantity<input name="quantity" value="0" inputmode="decimal"></label>
+    <label>Reorder at<input name="reorder" value="0" inputmode="decimal"></label>
+    <label>Location<input name="location" placeholder="Sump cabinet"></label>
+    <label>Notes<input name="notes" placeholder="Optional"></label>
+  </div>
+  <div class="form-actions"><button type="submit">Add item</button></div>
+</form>
+
+<h2>Record a purchase</h2>
+<form method="post" action="/expenses/purchases/add">
+  <div class="grid">
+    <label>Item<select name="item_id" required>{{{ item_options }}}</select></label>
+    <label>Quantity<input name="quantity" value="1" inputmode="decimal"></label>
+    <label>Unit price<input name="unit_price" inputmode="decimal" required placeholder="0.00"></label>
+    <label>Category<select name="category_id">{{{ category_options }}}</select></label>
+    <label>Store / source<input name="source" placeholder="Local shop"></label>
+    <label>Date<input type="date" name="purchased_at" value="{{{ today }}}"></label>
+    <label>Comment<input name="comment" placeholder="Optional note"></label>
+  </div>
+  <div class="form-actions"><button type="submit">Record purchase</button></div>
+</form>
+
+<h2>Remove from stock</h2>
+<form method="post" action="/expenses/items/consume">
+  <div class="grid">
+    <label>Item<select name="item_id" required>{{{ item_options }}}</select></label>
+    <label>Quantity<input name="quantity" inputmode="decimal" required></label>
+    <label>Reason<input name="comment" placeholder="Used, spilled, expired"></label>
+  </div>
+  <div class="form-actions"><button type="submit" class="quiet">Remove stock</button></div>
+</form>
+
+<h2 id="reorder">Reorder</h2>
+<table>
+<thead><tr><th>Item</th><th>On hand</th><th>Reorder at</th><th>Location</th></tr></thead>
+<tbody>
+{{{ low_rows }}}
+</tbody>
+</table>
+
+<h2>Inventory</h2>
+<table>
+<thead><tr><th>Item</th><th>Category</th><th class="num">On hand</th><th>Unit</th><th class="num">Reorder</th><th>Location</th><th>Notes</th><th></th></tr></thead>
+<tbody>
+{{{ item_rows }}}
+</tbody>
+</table>
+
+<h2>Categories</h2>
+<form class="category-form" method="post" action="/expenses/categories/add">
+  <div class="grid"><label>New category<input name="category" placeholder="Consumables" required></label></div>
+  <div class="form-actions"><button type="submit" class="quiet">Add category</button></div>
+</form>
+
+<h2 id="purchases">Purchases</h2>
+<table>
+<thead><tr><th>Item</th><th>Category</th><th class="num">Qty</th><th class="num">Unit</th><th class="num">Total</th><th>Store</th><th>Date</th><th>Comment</th><th></th></tr></thead>
+<tbody>
+{{{ expense_rows }}}
+</tbody>
+</table>

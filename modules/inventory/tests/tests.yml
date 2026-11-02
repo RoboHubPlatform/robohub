@@ -1,0 +1,6 @@
+name: inventory
+suites:
+  - name: inventory-smoke
+    kind: command
+    tags: [smoke]
+    command: [python3, tests/inventory_smoke.py]

@@ -1,0 +1,11 @@
+module:
+  name: inventory-tests
+  type: rho
+  version: 0.1.0
+
+main: inventory_test.rho
+
+build:
+  language: c
+  targets:
+    - c
