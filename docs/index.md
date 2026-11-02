@@ -1,6 +1,6 @@
 # The orchestrator
 
-**Version:** 0.3.0
+**Version:** 0.3.3
 
 The orchestrator of the RoboHub ecosystem: a registry of its modules, and the
 tools that run over all of them.
@@ -27,11 +27,74 @@ links. They live under `applications/`.
 - `mesh` is a keeper-hosted application of its own. It runs on its own port,
   plans the gateway and its nodes, attaches sensor modules to a node, and builds
   and programs the node images. The keeper can launch it from its registry.
+- `aquarium` is the first modular-monolith application: one HTTP service on one
+  port, with reusable modules registering their routes on its router. The
+  inventory and expense tracker is included and serves `/expenses`.
 
 A module without an `application` block is not an application — a component or
 a documentation site has no listener of its own — which is how the two kinds
 stay apart without either naming the other. The `mesh` application was formerly
 part of the keeper; it is versioned and built apart now.
+
+## Modules
+
+Reusable applications with both backend and pages live under `modules/`. A
+module has no port of its own: the host application includes it and the module
+registers its routes on the host's router. The aquarium application is one
+service on one port, with the inventory module serving `/expenses`.
+
+`modules/registry.yml` is the installed set, and the keeper's `/app-modules` page
+installs, removes and lists modules, linking to the application that hosts one.
+A module keeps its records in the workspace of the application that consumes it,
+under `$ROBOHUB_APP_WORKSPACE/modules/<name>/`, so the same module in two
+applications has two databases.
+
+The first module is the inventory tracker: stock on hand, reorder levels,
+purchases with categories, quantities, unit prices, stores, dates and comments,
+stored in SQLite through rho-sql.
+
+## Plugins
+
+An application's `module.yml` names the plugins it uses and their settings:
+
+```yaml
+plugins:
+  - name: alert-dispatcher
+    enabled: true
+    config:
+      targets: "alert-log,email-alert,telegram-notifier"
+      severity_threshold: INFO
+  - name: email-alert
+    enabled: false
+    config:
+      provider: local
+      to_address: "ops@robohub.internal"
+      subject_template: "[RoboHub {app}] {level}: {rule}"
+```
+
+A plugin is a Rho module under `plugins/` whose manifest has a `plugin:` block;
+that block, not the module type, is what makes it a plugin. The installed set is
+`plugins/registry.yml`. The manager reads it at load time, confirms each path
+still has a `module.yml`, and dispatches by the transport the plugin manifest
+names. A folder that is not in the registry is not loaded; an
+entry whose folder is gone is shown as missing. The keeper's `/plugins` page
+lists the registry, installs and removes plugins, toggles the keeper's own set
+and sends a test alert.
+
+The transports are generic Rho code under `providers/`: `log`, `email`,
+`telegram` and `webhook`. An application can call a provider directly for a
+message that is not an alert. A plugin that needs a transport of its own names a
+`plugin.command`, a Rho program the manager runs with a request file; adding it
+does not rebuild the manager.
+
+### Alert rules
+
+`plugins/alert/rule.rho` is the state machine above the dispatcher: hysteresis,
+a pending window that ignores a momentary spike, a cooldown after an alert
+clears, and a rolling rate limit. An application evaluates a sample and, when
+the result says it fired, hands the message to the alert dispatcher. The rule
+knows nothing about e-mail or chat; the dispatcher and its channels own
+delivery.
 
 ## The registry
 

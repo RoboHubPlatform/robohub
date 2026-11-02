@@ -20,7 +20,7 @@
 module:
   name: robohub
   type: rho
-  version: 0.3.0
+  version: 0.3.3
   description: >
     The orchestrator of the RoboHub ecosystem: a registry of its modules, and
     the tools that run over all of them — static analysis, unit tests, software
@@ -41,6 +41,61 @@ build:
 
 # The orchestrator documents itself: the page below ships with the source, so
 # what a reader needs to run it travels with the code that is run.
+# Where the plugin registry database lives and what a plugin manifest must say.
+# The manager reads the database, confirms each path under plugins/ on disk, and
+# uses only entries whose module.yml is still there. The keeper's plugin page
+# edits this database.
+plugin_registry:
+  database: plugins/registry.yml
+  discovery: "plugins/*/module.yml"
+  contract:
+    module:
+      - name
+      - type
+      - version
+      - description
+    plugin:
+      - kind
+      - transport
+      - command
+    transports:
+      - log
+      - email
+      - telegram
+      - webhook
+      - dispatcher
+      - command
+
+# Where the module registry lives. A module under modules/ is a Rho
+# application with a backend, pages and storage; this database is the installed
+# set the keeper's Modules page reads.
+module_registry:
+  database: modules/registry.yml
+  discovery: "modules/*/module.yml"
+  contract:
+    module:
+      - name
+      - type
+      - version
+      - description
+      - main
+    module_app:
+      - title
+      - category
+      - description
+      - version
+    host_instance:
+      description: >
+        Everything instance-specific is declared by the host application, not by
+        the module: the route it is mounted on, whether it is enabled, its
+        settings, and the SQL files its statements are generated from.
+      fields:
+        - name
+        - route
+        - enabled
+        - config
+        - sql
+
 docs:
   title: RoboHub Orchestrator
   section: applications
