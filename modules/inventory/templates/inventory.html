@@ -11,7 +11,7 @@ there. A purchase increases stock and is recorded as spending in one step.</p>
 </div>
 
 <h2>Add an item</h2>
-<form method="post" action="/expenses/items/add">
+<form class="panel-form" method="post" action="/expenses/items/add">
   <div class="grid">
     <label>Name<input name="name" required placeholder="Filter sock"></label>
     <label>Category<select name="category_id">{{{ category_options }}}</select></label>
@@ -25,7 +25,7 @@ there. A purchase increases stock and is recorded as spending in one step.</p>
 </form>
 
 <h2>Record a purchase</h2>
-<form method="post" action="/expenses/purchases/add">
+<form class="panel-form" method="post" action="/expenses/purchases/add">
   <div class="grid">
     <label>Item<select name="item_id" required>{{{ item_options }}}</select></label>
     <label>Quantity<input name="quantity" value="1" inputmode="decimal"></label>
@@ -39,7 +39,7 @@ there. A purchase increases stock and is recorded as spending in one step.</p>
 </form>
 
 <h2>Remove from stock</h2>
-<form method="post" action="/expenses/items/consume">
+<form class="panel-form" method="post" action="/expenses/items/consume">
   <div class="grid">
     <label>Item<select name="item_id" required>{{{ item_options }}}</select></label>
     <label>Quantity<input name="quantity" inputmode="decimal" required></label>
@@ -65,7 +65,7 @@ there. A purchase increases stock and is recorded as spending in one step.</p>
 </table>
 
 <h2>Categories</h2>
-<form class="category-form" method="post" action="/expenses/categories/add">
+<form class="panel-form category-form" method="post" action="/expenses/categories/add">
   <div class="grid"><label>New category<input name="category" placeholder="Consumables" required></label></div>
   <div class="form-actions"><button type="submit" class="quiet">Add category</button></div>
 </form>
