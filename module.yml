@@ -83,7 +83,6 @@ module_registry:
       - title
       - category
       - description
-      - version
     host_instance:
       description: >
         Everything instance-specific is declared by the host application, not by
@@ -91,10 +90,10 @@ module_registry:
         settings, and the SQL files its statements are generated from.
       fields:
         - name
+        - version
         - route
         - enabled
         - config
-        - sql
 
 docs:
   title: RoboHub Orchestrator

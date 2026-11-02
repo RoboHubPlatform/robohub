@@ -1,0 +1,5 @@
+module scheduler.tests
+
+fn main() void {
+    print("scheduler smoke suite is declared in tests.yml\n")
+}

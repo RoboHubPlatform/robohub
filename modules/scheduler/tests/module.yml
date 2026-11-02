@@ -1,0 +1,11 @@
+module:
+  name: scheduler-tests
+  type: rho
+  version: 0.1.0
+
+main: scheduler_test.rho
+
+build:
+  language: c
+  targets:
+    - c

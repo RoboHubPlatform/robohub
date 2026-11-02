@@ -1,0 +1,26 @@
+<tr>
+  <td>{{{ status }}}</td>
+  <td><strong>{{{ title }}}</strong><br><small>{{{ description }}}</small></td>
+  <td>{{{ kind }}}</td>
+  <td>{{{ due }}}</td>
+  <td>{{{ priority }}}</td>
+  <td>
+    <div class="chore-actions">
+      <form method="post" action="/scheduler/chores/complete">
+        <input type="hidden" name="id" value="{{{ id }}}">
+        <input name="note" placeholder="note">
+        <button type="submit">Done</button>
+      </form>
+      <form method="post" action="/scheduler/chores/snooze">
+        <input type="hidden" name="id" value="{{{ id }}}">
+        <input type="hidden" name="hours" value="24">
+        <button type="submit" class="quiet">Snooze 1d</button>
+      </form>
+      <form method="post" action="/scheduler/chores/usage">
+        <input type="hidden" name="id" value="{{{ id }}}">
+        <input name="hours" inputmode="numeric" placeholder="hours">
+        <button type="submit" class="quiet">Add use</button>
+      </form>
+    </div>
+  </td>
+</tr>

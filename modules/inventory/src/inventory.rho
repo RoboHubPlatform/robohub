@@ -65,9 +65,9 @@ fn inventory_db_path() string {
     // the module folder. Two applications using the same module therefore get
     // two databases, and a module update never moves one out from under the
     // other.
-    let dir: string = inventory_workspace() + "/modules/inventory"
+    let dir: string = inventory_workspace() + "/data"
     ignore_u32(rho_exec("mkdir", "-p " + dir, dir + "/mkdir.txt"))
-    return dir + "/inventory.db"
+    return dir + "/app.db"
 }
 
 fn inventory_schema() string {

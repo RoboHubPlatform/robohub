@@ -136,7 +136,7 @@ def main() -> int:
             assert_contains(edit, ["Edit item", 'value="Salt mix"', 'value="Cabinet"'],
                             "item edit")
 
-            db = Path(workspace) / "modules" / "inventory" / "inventory.db"
+            db = Path(workspace) / "data" / "app.db"
             if not db.exists():
                 raise AssertionError("the module database is not in the application workspace")
 

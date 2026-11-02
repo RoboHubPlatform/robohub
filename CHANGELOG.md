@@ -15,7 +15,9 @@ registers its routes on the host's router.
 
 The aquarium application is the first host: one service on one port, with the
 inventory module registering its routes on the aquarium router under
-`/expenses`. The aquarium has a stylized background asset and top/bottom menus.
+`/expenses`, and a scheduler module under `/scheduler` with a chores API. Modules
+share the host's main SQL database. The aquarium has a stylized background asset
+and top/bottom menus.
 The inventory module tracks stock on hand, reorder levels, purchases with
 categories, quantities, unit prices, stores, dates and comments, a running total,
 and SQLite storage through rho-sql. A module keeps its records and settings in

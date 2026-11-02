@@ -63,4 +63,4 @@ SELECT i.id, i.name, i.quantity_milli, i.reorder_milli, i.unit,
        COALESCE(i.location, '') AS location
 FROM items i
 WHERE i.reorder_milli > 0 AND i.quantity_milli <= i.reorder_milli
-ORDER BY i.quantity_milli
+ORDER BY i.quantity_milli;

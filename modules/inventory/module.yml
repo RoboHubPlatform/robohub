@@ -28,7 +28,6 @@ module_app:
   title: Inventory & expenses
   category: inventory
   description: Stock on hand, reorder levels, purchases, categories and totals.
-  version: 0.1.0
 
 deps:
   rho-log: ">=0.1.0"

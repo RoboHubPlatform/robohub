@@ -1,0 +1,25 @@
+module scheduler
+
+// scheduler — recurring chores and deferred tasks.
+//
+// The module registers its routes on the host application's router. It has no
+// port and no database of its own: its tables are applied to the host's main
+// SQL database, and its settings come from the host's app_modules entry.
+
+include "text.rho"
+include "scheduler.rho"
+
+import std.sql
+import std.web.http
+import std.web.template
+
+route GET  "/scheduler"                          => scheduler_page
+route POST "/scheduler/chores/add"               => chores_add
+route POST "/scheduler/chores/complete"          => chores_complete
+route POST "/scheduler/chores/snooze"            => chores_snooze
+route POST "/scheduler/chores/usage"             => chores_usage
+route GET  "/api/scheduler/chores"               => scheduler_api_list
+route POST "/api/scheduler/chores"               => scheduler_api_add
+route POST "/api/scheduler/chores/{id}/complete" => scheduler_api_complete
+route POST "/api/scheduler/chores/{id}/snooze"   => scheduler_api_snooze
+route POST "/api/scheduler/chores/{id}/usage"    => scheduler_api_usage

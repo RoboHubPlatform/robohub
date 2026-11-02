@@ -1,0 +1,36 @@
+#
+# scheduler — a reusable module for recurring chores and one-off tasks.
+#
+# The module has no port and no database of its own. A host application
+# includes it, declares its route and points its SQL block at this module's
+# schema; the records live in the host application's workspace.
+#
+module:
+  name: scheduler
+  type: module
+  version: 0.1.0
+  description: >
+    A chore scheduler for maintenance tasks: interval, cron, one-time and
+    usage-based schedules, due and overdue states, completion notes and
+    snoozing.
+  maintainer: "Aurel Miron"
+  license: "MIT"
+  created: "2026-11-02"
+
+main: src/main.rho
+
+module_app:
+  title: Scheduler
+  category: maintenance
+  description: Chores, due and overdue states, completions and snoozing.
+
+deps:
+  rho-log: ">=0.1.0"
+
+docs:
+  title: Scheduler
+  section: modules
+  order: "20"
+  index: docs/index.md
+  sources:
+    - docs/index.md

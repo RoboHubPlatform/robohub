@@ -8,8 +8,6 @@ module inventory
 // workspace, not beside the module.
 
 include "text.rho"
-include "db/models.rho"
-include "db/queries.rho"
 include "inventory.rho"
 
 import std.sql

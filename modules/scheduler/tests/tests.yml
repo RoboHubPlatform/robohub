@@ -1,0 +1,6 @@
+name: scheduler
+suites:
+  - name: scheduler-smoke
+    kind: command
+    tags: [smoke]
+    command: [python3, tests/scheduler_smoke.py]
