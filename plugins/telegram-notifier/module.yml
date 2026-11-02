@@ -1,0 +1,28 @@
+#
+# telegram-notifier — chat notifications through the Telegram bot API.
+#
+module:
+  name: telegram-notifier
+  type: module
+  version: 0.1.0
+  description: Sends an alert to a Telegram chat through a bot.
+  maintainer: "Aurel Miron"
+  license: "MIT"
+  created: "2026-11-02"
+
+main: src/main.rho
+
+plugin:
+  kind: alert
+  transport: telegram
+  defaults:
+    bot_token: ""
+    chat_id: ""
+    severity_threshold: WARNING
+
+metadata:
+  tags:
+    - plugin
+    - alert
+    - telegram
+    - chat

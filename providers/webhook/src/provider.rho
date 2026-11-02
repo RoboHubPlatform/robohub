@@ -1,0 +1,31 @@
+module robohub.providers.webhook
+
+// A generic HTTP POST. The body is written to a file and curl uploads it, so a
+// body may contain spaces and quotes without the argument splitter seeing them.
+// A caller that needs JSON sets content_type and passes a JSON body.
+
+fn provider_http_post(config: string, body: string) u32 {
+    let url: string = plugin_config_value(config, "url")
+    if url == "" {
+        return 0
+    }
+    var content_type: string = plugin_config_value(config, "content_type")
+    if content_type == "" {
+        content_type = "application/x-www-form-urlencoded"
+    }
+    let file: string = plugin_state_dir() + "/http-body.txt"
+    ignore_bool(rho_write_text(file, body))
+    var args: string = "-sS -X POST -H " +
+        plugin_arg_quote("Content-Type: " + content_type) +
+        " --data-binary " + plugin_arg_quote("@" + file) +
+        " " + plugin_arg_quote(url)
+    let authorization: string = plugin_config_value(config, "authorization")
+    if authorization != "" {
+        args = args + " -H " + plugin_arg_quote("Authorization: " + authorization)
+    }
+    let code: u32 = rho_exec("curl", args, plugin_report("webhook-provider"))
+    if code == 0 {
+        return 1
+    }
+    return 0
+}

@@ -1,0 +1,33 @@
+#
+# alert-log — an alert plugin that writes to a file.
+#
+# The first plugin because it needs nothing outside the machine: it is the one
+# that can be enabled in a fresh installation and left alone. A webhook, an
+# e-mail or a chat notifier is configured when someone wants it, not before.
+#
+module:
+  name: alert-log
+  type: module
+  version: 0.1.0
+  description: Writes an alert to a log file on the machine.
+  maintainer: "Aurel Miron"
+  license: "MIT"
+  created: "2026-11-02"
+
+main: src/main.rho
+
+plugin:
+  kind: alert
+  transport: log
+  # The file the manager appends to. An application overrides it in its own
+  # plugins block; without an override the file is beside the process.
+  defaults:
+    path: "~/.rho/alerts.log"
+    severity_threshold: INFO
+
+metadata:
+  tags:
+    - plugin
+    - alert
+    - log
+    - local

@@ -1,0 +1,187 @@
+module robohub.alert.rule
+
+// The alert state machine: hysteresis, a pending window, a cooldown, and a
+// rolling rate limit, so a noisy reading does not become a stream of messages.
+//
+// An application calls alert_rule_evaluate on each sample and, when the result
+// says it fired, hands the result to the plugin registry. The rule has no
+// knowledge of e-mail, chat or webhooks; the registry and the dispatcher
+// plugins own delivery.
+//
+// Times are seconds from any monotonic source the application chooses. A rule
+// is a value: the evaluation returns a new rule, and the caller keeps it.
+
+struct AlertRule {
+    id: string
+    name: string
+    threshold: f64
+    clear_threshold: f64
+    pending_seconds: u32
+    cooldown_seconds: u32
+    max_per_window: u32
+    window_seconds: u32
+    state: string
+    first_seen: u32
+    last_fired: u32
+    last_cleared: u32
+    fire_times: string
+}
+
+struct AlertEvaluation {
+    rule: AlertRule
+    fired: bool
+    cleared: bool
+    message: string
+}
+
+fn alert_rule_new(id: string, name: string, threshold: f64, hysteresis: f64,
+    pending_seconds: u32, cooldown_seconds: u32, max_per_window: u32,
+    window_seconds: u32) AlertRule {
+    return AlertRule {
+        id,
+        name,
+        threshold,
+        threshold - hysteresis,
+        pending_seconds,
+        cooldown_seconds,
+        max_per_window,
+        window_seconds,
+        "normal",
+        0,
+        0,
+        0,
+        ""
+    }
+}
+
+fn alert_rule_violating(rule: AlertRule, value: f64) bool {
+    return value > rule.threshold
+}
+
+fn alert_rule_cleared(rule: AlertRule, value: f64) bool {
+    return value < rule.clear_threshold
+}
+
+// alert_rule_prune drops fire times older than the rolling window and returns
+// what is left, so the rate limit is a count over the window rather than over
+// the life of the rule.
+fn alert_rule_prune(rule: AlertRule, now: u32) string {
+    if rule.window_seconds == 0 {
+        return ""
+    }
+    var out: string = ""
+    var rest: string = rule.fire_times
+    while rest != "" {
+        let at: i32 = rho_str_index_of(rest, " ")
+        var text: string = ""
+        if at < 0 {
+            text = rest
+            rest = ""
+        } else {
+            text = rho_str_slice(rest, 0, u32(at))
+            rest = rho_str_slice(rest, u32(at) + 1, u32(rho_strlen(rest)) - u32(at) - 1)
+        }
+        if text == "" {
+            continue
+        }
+        let fired_at: u32 = rho_int_from_str(text)
+        if now - fired_at < rule.window_seconds {
+            if rho_strlen(out) > 0 {
+                out = out + " "
+            }
+            out = out + text
+        }
+    }
+    return out
+}
+
+fn alert_rule_count(times: string) u32 {
+    var count: u32 = 0
+    var rest: string = times
+    while rest != "" {
+        let at: i32 = rho_str_index_of(rest, " ")
+        if at < 0 {
+            rest = ""
+        } else {
+            rest = rho_str_slice(rest, u32(at) + 1,
+                u32(rho_strlen(rest)) - u32(at) - 1)
+        }
+        count = count + 1
+    }
+    return count
+}
+
+fn alert_rule_allowed(rule: AlertRule, now: u32) bool {
+    if rule.max_per_window == 0 {
+        return true
+    }
+    return alert_rule_count(alert_rule_prune(rule, now)) < rule.max_per_window
+}
+
+fn alert_rule_message(rule: AlertRule) string {
+    return rule.name + " triggered"
+}
+
+// alert_rule_evaluate advances one rule by one sample. `now` is seconds.
+fn alert_rule_evaluate(rule: AlertRule, value: f64, now: u32) AlertEvaluation {
+    var next: AlertRule = rule
+    var fired: bool = false
+    var cleared: bool = false
+    let violating: bool = alert_rule_violating(next, value)
+
+    if rho_str_eq(next.state, "normal") {
+        if violating {
+            next.state = "pending"
+            next.first_seen = now
+            if next.pending_seconds == 0 {
+                fired = alert_rule_allowed(next, now)
+                next = alert_rule_trigger(next, now, value)
+            }
+        }
+    } else if rho_str_eq(next.state, "pending") {
+        if !violating {
+            next.state = "normal"
+        } else if now - next.first_seen >= next.pending_seconds {
+            fired = alert_rule_allowed(next, now)
+            next = alert_rule_trigger(next, now, value)
+        }
+    } else if rho_str_eq(next.state, "triggered") {
+        if alert_rule_cleared(next, value) {
+            next.state = "cooldown"
+            next.last_cleared = now
+            cleared = true
+        }
+    } else if rho_str_eq(next.state, "cooldown") {
+        if now - next.last_cleared >= next.cooldown_seconds {
+            if violating {
+                next.state = "pending"
+                next.first_seen = now
+            } else {
+                next.state = "normal"
+            }
+        }
+    }
+
+    return AlertEvaluation { next, fired, cleared, alert_rule_message(next) }
+}
+
+// alert_rule_trigger fires unless the rolling window is full. A suppressed
+// trigger still leaves the rule in the triggered state, so it does not re-fire
+// until the condition clears and a new pending window begins.
+fn alert_rule_trigger(rule: AlertRule, now: u32, value: f64) AlertRule {
+    var next: AlertRule = rule
+    next.fire_times = alert_rule_prune(next, now)
+    if next.max_per_window > 0 &&
+        alert_rule_count(next.fire_times) >= next.max_per_window {
+        next.state = "triggered"
+        next.last_fired = now
+        return next
+    }
+    if rho_strlen(next.fire_times) > 0 {
+        next.fire_times = next.fire_times + " "
+    }
+    next.fire_times = next.fire_times + rho_int_to_str(now)
+    next.state = "triggered"
+    next.last_fired = now
+    return next
+}
