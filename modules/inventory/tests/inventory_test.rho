@@ -1,0 +1,5 @@
+module inventory.tests
+
+fn main() void {
+    print("inventory smoke suite is declared in tests.yml\n")
+}

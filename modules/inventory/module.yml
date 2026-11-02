@@ -1,0 +1,42 @@
+#
+# inventory — a reusable module for stock and what it costs.
+#
+# It is a module a host application includes. The host owns the HTTP port and
+# the router; the module registers its routes there and keeps its records in the
+# host application's workspace. The module registry in modules/registry.yml is
+# how the keeper knows it is installed.
+#
+module:
+  name: inventory
+  type: module
+  version: 0.1.0
+  description: >
+    An inventory and expense tracker for an aquarium or any other long-running
+    project: stock on hand, reorder levels, purchases, prices, stores, dates,
+    categories and notes.
+  maintainer: "Aurel Miron"
+  license: "MIT"
+  created: "2026-11-02"
+
+main: src/main.rho
+
+# What the keeper's Modules page reads. A module is a full application
+# — backend, pages and storage — but it owns no port and no instance settings:
+# the application that includes it declares the route, the database and the
+# workspace in its own module.yml.
+module_app:
+  title: Inventory & expenses
+  category: inventory
+  description: Stock on hand, reorder levels, purchases, categories and totals.
+  version: 0.1.0
+
+deps:
+  rho-log: ">=0.1.0"
+
+docs:
+  title: Inventory & expenses
+  section: modules
+  order: "10"
+  index: docs/index.md
+  sources:
+    - docs/index.md

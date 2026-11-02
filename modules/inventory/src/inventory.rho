@@ -1,0 +1,711 @@
+module inventory
+
+// The inventory and expense tracker's pages and the statements behind them.
+//
+// Stock and money are integers: quantity in thousandths, money in cents. The
+// decimal point appears only in the formatting helpers. A purchase is recorded
+// twice on purpose — once as spending, once as stock arriving — and both are
+// linked to the item it belongs to.
+
+import std.core.ptr
+import std.core.result
+import std.core.slice
+import std.sql
+import std.web.http
+import std.web.template
+
+const ITEM_CAPACITY: u32 = 512
+const EXPENSES_CAPACITY: u32 = 512
+const CATEGORY_CAPACITY: u32 = 64
+const LOW_STOCK_CAPACITY: u32 = 128
+
+/* -------------------------------------------------------------------------- */
+/*  Where the database and its schema are                                     */
+/* -------------------------------------------------------------------------- */
+
+fn inventory_root() string {
+    if rho_path_exists("module.yml") &&
+        yaml.value("module.yml", "module.name") == "inventory" {
+        return "."
+    }
+    let root: string = getenv("ROBOHUB_WORKSPACE")
+    if root != "" {
+        if rho_path_exists(root + "/modules/inventory/module.yml") {
+            return root + "/modules/inventory"
+        }
+        if rho_path_exists(root + "/robohub/modules/inventory/module.yml") {
+            return root + "/robohub/modules/inventory"
+        }
+    }
+    return "modules/inventory"
+}
+
+fn inventory_workspace() string {
+    let workspace: string = getenv("ROBOHUB_APP_WORKSPACE")
+    if workspace == "" {
+        workspace = getenv("HOME") + "/.rho/modules/inventory"
+    }
+    return workspace
+}
+
+fn inventory_template(name: string) string {
+    let path: string = inventory_root() + "/templates/" + name + ".html"
+    if rho_path_exists(path) {
+        return rho_read_text(path)
+    }
+    return rho_read_text("templates/" + name + ".html")
+}
+
+fn inventory_db_path() string {
+    let override: string = getenv("RHO_INVENTORY_DB")
+    if override != "" {
+        return override
+    }
+    // The records belong to the application that consumes the module, not to
+    // the module folder. Two applications using the same module therefore get
+    // two databases, and a module update never moves one out from under the
+    // other.
+    let dir: string = inventory_workspace() + "/modules/inventory"
+    ignore_u32(rho_exec("mkdir", "-p " + dir, dir + "/mkdir.txt"))
+    return dir + "/inventory.db"
+}
+
+fn inventory_schema() string {
+    let path: string = inventory_root() + "/db/schema.sql"
+    if rho_path_exists(path) {
+        return rho_read_text(path)
+    }
+    return rho_read_text("db/schema.sql")
+}
+
+fn inventory_host_config(key: string) string {
+    let manifest: string = getenv("ROBOHUB_APP_MANIFEST")
+    if manifest == "" {
+        return ""
+    }
+    let text: string = rho_read_text(manifest)
+    let start: i32 = rho_str_index_of(text, "\napp_modules:\n")
+    if start < 0 {
+        return ""
+    }
+    var i: u32 = u32(start) + 13
+    var mine: bool = false
+    var in_config: bool = false
+    var config_indent: u32 = 0
+    while i < u32(rho_strlen(text)) {
+        let at: i32 = rho_str_index_of(
+            rho_str_slice(text, i, u32(rho_strlen(text)) - i), "\n")
+        let end: u32 = u32(rho_strlen(text))
+        if at >= 0 {
+            end = i + u32(at)
+        }
+        let line: string = rho_str_slice(text, i, end - i)
+        let trimmed: string = trim(line)
+        if rho_strlen(trimmed) == 0 {
+            i = end + 1
+            continue
+        }
+        if plugin_indent(line) == 0 && !rho_str_eq(trimmed, "app_modules:") {
+            break
+        }
+        if rho_str_index_of(trimmed, "- name:") == 0 {
+            let name: string = unquote(rho_str_slice(trimmed, 7,
+                u32(rho_strlen(trimmed)) - 7))
+            mine = rho_str_eq(name, "inventory")
+            in_config = false
+        } else if mine && rho_str_index_of(trimmed, "config:") == 0 {
+            in_config = true
+            config_indent = plugin_indent(line)
+        } else if mine && in_config && plugin_indent(line) > config_indent {
+            let colon: i32 = rho_str_index_of(trimmed, ":")
+            if colon > 0 && rho_str_eq(unquote(rho_str_slice(trimmed, 0, u32(colon))), key) {
+                return unquote(rho_str_slice(trimmed, u32(colon) + 1,
+                    u32(rho_strlen(trimmed)) - u32(colon) - 1))
+            }
+        }
+        i = end + 1
+    }
+    return ""
+}
+
+fn inventory_setting(key: string, fallback: string) string {
+    // The host application owns the module's settings, so two applications
+    // including this module can give it different values. Nothing is read from
+    // beside the module itself.
+    let from_host: string = inventory_host_config(key)
+    if from_host != "" {
+        return from_host
+    }
+    return fallback
+}
+
+fn unquote(text: string) string {
+    let value: string = trim(text)
+    if rho_strlen(value) >= 2 {
+        let first: string = rho_str_slice(value, 0, 1)
+        let last: string = rho_str_slice(value, u32(rho_strlen(value)) - 1, 1)
+        if (rho_str_eq(first, "\"") || rho_str_eq(first, "'")) &&
+            rho_str_eq(first, last) {
+            return rho_str_slice(value, 1, u32(rho_strlen(value)) - 2)
+        }
+    }
+    return value
+}
+
+fn plugin_indent(line: string) u32 {
+    var count: u32 = 0
+    while count < u32(rho_strlen(line)) &&
+        rho_str_eq(rho_str_slice(line, count, 1), " ") {
+        count = count + 1
+    }
+    return count
+}
+
+fn inventory_date() string {
+    let report: string = inventory_db_path() + ".date"
+    if rho_exec("date", "+%Y-%m-%d", report) == 0 {
+        let text: string = rho_read_text(report)
+        let at: i32 = rho_str_index_of(text, "\n")
+        if at < 0 {
+            return text
+        }
+        return rho_str_slice(text, 0, u32(at))
+    }
+    return ""
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Formatting and parsing                                                    */
+/* -------------------------------------------------------------------------- */
+
+fn ignore_result(value: Result[u32, SqlError]) void {
+}
+
+fn inventory_money(cents: i64) string {
+    var value: i64 = cents
+    var sign: string = ""
+    if value < 0 {
+        sign = "-"
+        value = -value
+    }
+    let whole: u32 = u32(value / 100)
+    let fraction: u32 = u32(value % 100)
+    var frac: string = rho_int_to_str(fraction)
+    if fraction < 10 {
+        frac = "0" + frac
+    }
+    return sign + rho_int_to_str(whole) + "." + frac
+}
+
+fn inventory_quantity(milli: i64) string {
+    let whole: u32 = u32(milli / 1000)
+    let fraction: u32 = u32(milli % 1000)
+    if fraction == 0 {
+        return rho_int_to_str(whole)
+    }
+    var frac: string = rho_int_to_str(fraction)
+    while rho_strlen(frac) < 3 {
+        frac = "0" + frac
+    }
+    while rho_strlen(frac) > 0 &&
+        rho_str_eq(rho_str_slice(frac, u32(rho_strlen(frac)) - 1, 1), "0") {
+        frac = rho_str_slice(frac, 0, u32(rho_strlen(frac)) - 1)
+    }
+    return rho_int_to_str(whole) + "." + frac
+}
+
+fn inventory_parse_scaled(text: string, scale: u32) u32 {
+    var value: string = trim(text)
+    if rho_strlen(value) == 0 {
+        return 0
+    }
+    if rho_str_eq(rho_str_slice(value, 0, 1), "+") {
+        value = rho_str_slice(value, 1, u32(rho_strlen(value)) - 1)
+    }
+    if rho_str_eq(rho_str_slice(value, 0, 1), "-") {
+        return 0
+    }
+    var whole: string = value
+    var fraction: string = ""
+    let dot: i32 = rho_str_index_of(value, ".")
+    if dot >= 0 {
+        whole = rho_str_slice(value, 0, u32(dot))
+        fraction = rho_str_slice(value, u32(dot) + 1,
+            u32(rho_strlen(value)) - u32(dot) - 1)
+    }
+    if rho_strlen(whole) == 0 {
+        whole = "0"
+    }
+    let whole_value: u32 = rho_int_from_str(whole)
+    var frac_value: u32 = 0
+    var i: u32 = 0
+    while i < 3 {
+        if i < u32(rho_strlen(fraction)) {
+            let ch: string = rho_str_slice(fraction, i, 1)
+            frac_value = frac_value * 10 + rho_int_from_str(ch)
+        } else {
+            frac_value = frac_value * 10
+        }
+        i = i + 1
+    }
+    return whole_value * scale + (frac_value * scale) / 1000
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Options and lookups                                                       */
+/* -------------------------------------------------------------------------- */
+
+fn inventory_categories(categories: Categories[64], count: u32, selected: string) string {
+    var out: string = "<option value=\"\">Uncategorised</option>"
+    var i: u32 = 0
+    while i < count {
+        let id: string = rho_int_to_str(u32(categories[i].id))
+        out = out + "<option value=\"" + id + "\""
+        if rho_str_eq(id, selected) {
+            out = out + " selected"
+        }
+        out = out + ">" + escape_html(categories[i].name) + "</option>"
+        i = i + 1
+    }
+    return out
+}
+
+fn inventory_items(items: ListItemsRow[512], count: u32, selected: string) string {
+    var out: string = "<option value=\"\">Choose an item</option>"
+    var i: u32 = 0
+    while i < count {
+        let id: string = rho_int_to_str(u32(items[i].id))
+        out = out + "<option value=\"" + id + "\""
+        if rho_str_eq(id, selected) {
+            out = out + " selected"
+        }
+        out = out + ">" + escape_html(items[i].name) + "</option>"
+        i = i + 1
+    }
+    return out
+}
+
+fn inventory_find_item(items: ListItemsRow[512], count: u32, id: u32) i32 {
+    var i: u32 = 0
+    while i < count {
+        if u32(items[i].id) == id {
+            return i32(i)
+        }
+        i = i + 1
+    }
+    return -1
+}
+
+fn inventory_item_rows(items: ListItemsRow[512], count: u32) string {
+    var out: string = ""
+    var i: u32 = 0
+    while i < count {
+        let row: ListItemsRow = items[i]
+        let id: string = rho_int_to_str(u32(row.id))
+        var low: string = ""
+        if row.reorderMilli > 0 && row.quantityMilli <= row.reorderMilli {
+            low = "<span class=\"badge low\">reorder</span>"
+        }
+        let html: string = template_fill(inventory_template("item-row"),
+            vars("id", id) +
+            vars("name", escape_html(row.name)) +
+            vars("category", escape_html(row.category)) +
+            vars("quantity", escape_html(inventory_quantity(row.quantityMilli))) +
+            vars("unit", escape_html(row.unit)) +
+            vars("reorder", escape_html(inventory_quantity(row.reorderMilli))) +
+            vars("location", escape_html(row.location)) +
+            vars("low", low) +
+            vars("notes", escape_html(row.notes)))
+        out = out + html + "\n"
+        i = i + 1
+    }
+    if out == "" {
+        out = "<tr><td colspan=\"8\">No items in the inventory yet.</td></tr>"
+    }
+    return out
+}
+
+fn inventory_low_rows(rows: LowStockItemsRow[128], count: u32) string {
+    var out: string = ""
+    var i: u32 = 0
+    while i < count {
+        let row: LowStockItemsRow = rows[i]
+        out = out + "<tr><td><strong>" + escape_html(row.name) + "</strong></td><td>" +
+            escape_html(inventory_quantity(row.quantityMilli)) + " " +
+            escape_html(row.unit) + "</td><td>" +
+            escape_html(inventory_quantity(row.reorderMilli)) + " " +
+            escape_html(row.unit) + "</td><td>" + escape_html(row.location) + "</td></tr>"
+        i = i + 1
+    }
+    if out == "" {
+        out = "<tr><td colspan=\"4\">Nothing needs reordering.</td></tr>"
+    }
+    return out
+}
+
+fn inventory_expense_rows(rows: ListExpensesRow[512], count: u32) string {
+    var out: string = ""
+    var i: u32 = 0
+    while i < count {
+        let row: ListExpensesRow = rows[i]
+        let html: string = template_fill(inventory_template("expense-row"),
+            vars("id", rho_int_to_str(u32(row.id))) +
+            vars("item", escape_html(row.item)) +
+            vars("category", escape_html(row.category)) +
+            vars("quantity", escape_html(inventory_quantity(row.quantityMilli))) +
+            vars("unit_price", escape_html(inventory_money(row.unitPriceCents))) +
+            vars("total", escape_html(inventory_money(row.totalCents))) +
+            vars("source", escape_html(row.source)) +
+            vars("date", escape_html(row.purchasedAt)) +
+            vars("comment", escape_html(row.comment)))
+        out = out + html + "\n"
+        i = i + 1
+    }
+    if out == "" {
+        out = "<tr><td colspan=\"9\">No purchases recorded yet.</td></tr>"
+    }
+    return out
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Queries                                                                   */
+/* -------------------------------------------------------------------------- */
+
+fn inventory_total(db: SqlDb) i64 {
+    let out: TotalExpensesRow[1]
+    let slice: Slice[TotalExpensesRow] = Slice[TotalExpensesRow]{
+        Ptr[TotalExpensesRow](&out[0]), 1 }
+    let total: Result[u32, SqlError] = TotalExpenses(db, slice, 1)
+    if !total.is_ok {
+        return 0
+    }
+    return out[0].totalCents
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Pages                                                                     */
+/* -------------------------------------------------------------------------- */
+
+fn inventory_page_message(message: string) Response {
+    let opened: Result[SqlDb, string] = sql_open(inventory_db_path())
+    if !opened.is_ok {
+        return html(status_internal(), "<h1>Inventory</h1><p>The database could not be opened: " +
+            escape_html(opened.err) + "</p>")
+    }
+    let db: SqlDb = opened.ok
+    ignore_u32(sql_apply(db, inventory_schema()))
+
+    let categories: Categories[64]
+    let category_slice: Slice[Categories] = Slice[Categories]{
+        Ptr[Categories](&categories[0]), CATEGORY_CAPACITY }
+    let listed_categories: Result[u32, SqlError] = ListCategories(
+        db, category_slice, CATEGORY_CAPACITY)
+    var category_count: u32 = 0
+    if listed_categories.is_ok {
+        category_count = listed_categories.ok
+    }
+
+    let items: ListItemsRow[512]
+    let item_slice: Slice[ListItemsRow] = Slice[ListItemsRow]{
+        Ptr[ListItemsRow](&items[0]), ITEM_CAPACITY }
+    let listed_items: Result[u32, SqlError] = ListItems(db, item_slice, ITEM_CAPACITY)
+    var item_count: u32 = 0
+    if listed_items.is_ok {
+        item_count = listed_items.ok
+    }
+
+    let low: LowStockItemsRow[128]
+    let low_slice: Slice[LowStockItemsRow] = Slice[LowStockItemsRow]{
+        Ptr[LowStockItemsRow](&low[0]), LOW_STOCK_CAPACITY }
+    let listed_low: Result[u32, SqlError] = LowStockItems(db, low_slice, LOW_STOCK_CAPACITY)
+    var low_count: u32 = 0
+    if listed_low.is_ok {
+        low_count = listed_low.ok
+    }
+
+    let expenses: ListExpensesRow[512]
+    let expense_slice: Slice[ListExpensesRow] = Slice[ListExpensesRow]{
+        Ptr[ListExpensesRow](&expenses[0]), EXPENSES_CAPACITY }
+    let listed_expenses: Result[u32, SqlError] = ListExpenses(
+        db, expense_slice, EXPENSES_CAPACITY)
+    var expense_count: u32 = 0
+    if listed_expenses.is_ok {
+        expense_count = listed_expenses.ok
+    }
+
+    let total: i64 = inventory_total(db)
+    sql_close(db)
+
+    let notice: string = ""
+    if message != "" {
+        notice = "<p class=\"notice\">" + escape_html(message) + "</p>"
+    }
+    let body: string = template_fill(inventory_template("inventory"),
+        vars("notice", notice) +
+        vars("today", escape_html(inventory_date())) +
+        vars("currency", escape_html(inventory_setting("currency", ""))) +
+        vars("category_options", inventory_categories(categories, category_count, "")) +
+        vars("item_options", inventory_items(items, item_count, "")) +
+        vars("item_rows", inventory_item_rows(items, item_count)) +
+        vars("low_rows", inventory_low_rows(low, low_count)) +
+        vars("expense_rows", inventory_expense_rows(expenses, expense_count)) +
+        vars("total", escape_html(inventory_money(total))) +
+        vars("item_count", rho_int_to_str(item_count)) +
+        vars("low_count", rho_int_to_str(low_count)) +
+        vars("expense_count", rho_int_to_str(expense_count)))
+
+    let document: string = template_fill(inventory_template("layout"),
+        vars("title", "Inventory") + vars("body", body) +
+        vars("keeper", inventory_keeper_link()))
+    return html(status_ok(), document)
+}
+
+fn inventory_page(req: Request) Response {
+    return inventory_page_message("")
+}
+
+fn inventory_keeper_link() string {
+    let port: string = getenv("RHO_KEEPER_PORT")
+    if port == "" {
+        return ""
+    }
+    return "<a class=\"keeper\" href=\"#\" data-keeper-port=\"" + escape_html(port) +
+        "\">← Keeper</a>"
+}
+
+fn item_edit_page(req: Request) Response {
+    let id: u32 = rho_int_from_str(request_query_param(req, "id"))
+    let opened: Result[SqlDb, string] = sql_open(inventory_db_path())
+    if !opened.is_ok {
+        return inventory_page_message("The database could not be opened: " + opened.err)
+    }
+    let db: SqlDb = opened.ok
+    ignore_u32(sql_apply(db, inventory_schema()))
+    let categories: Categories[64]
+    let category_slice: Slice[Categories] = Slice[Categories]{
+        Ptr[Categories](&categories[0]), CATEGORY_CAPACITY }
+    let listed_categories: Result[u32, SqlError] = ListCategories(
+        db, category_slice, CATEGORY_CAPACITY)
+    var category_count: u32 = 0
+    if listed_categories.is_ok {
+        category_count = listed_categories.ok
+    }
+    let items: ListItemsRow[512]
+    let item_slice: Slice[ListItemsRow] = Slice[ListItemsRow]{
+        Ptr[ListItemsRow](&items[0]), ITEM_CAPACITY }
+    let listed_items: Result[u32, SqlError] = ListItems(db, item_slice, ITEM_CAPACITY)
+    var item_count: u32 = 0
+    if listed_items.is_ok {
+        item_count = listed_items.ok
+    }
+    let at: i32 = inventory_find_item(items, item_count, id)
+    sql_close(db)
+    if at < 0 {
+        return inventory_page_message("That item was not found.")
+    }
+    let row_index: u32 = u32(at)
+    let row: ListItemsRow = items[row_index]
+    let body: string = template_fill(inventory_template("item-edit"),
+        vars("id", rho_int_to_str(u32(row.id))) +
+        vars("name", escape_html(row.name)) +
+        vars("category_options", inventory_categories(categories, category_count,
+            rho_int_to_str(u32(row.categoryId)))) +
+        vars("unit", escape_html(row.unit)) +
+        vars("quantity", escape_html(inventory_quantity(row.quantityMilli))) +
+        vars("reorder", escape_html(inventory_quantity(row.reorderMilli))) +
+        vars("location", escape_html(row.location)) +
+        vars("notes", escape_html(row.notes)))
+    let document: string = template_fill(inventory_template("layout"),
+        vars("title", "Edit item") + vars("body", body) +
+        vars("keeper", inventory_keeper_link()))
+    return html(status_ok(), document)
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Actions                                                                   */
+/* -------------------------------------------------------------------------- */
+
+fn items_add(req: Request) Response {
+    let body: string = request_body(req)
+    let name: string = trim(form_value(body, "name"))
+    if rho_strlen(name) == 0 {
+        return inventory_page_message("An item needs a name.")
+    }
+    let quantity: u32 = inventory_parse_scaled(form_value(body, "quantity"), 1000)
+    let reorder: u32 = inventory_parse_scaled(form_value(body, "reorder"), 1000)
+    let opened: Result[SqlDb, string] = sql_open(inventory_db_path())
+    if !opened.is_ok {
+        return inventory_page_message("The database could not be opened: " + opened.err)
+    }
+    let db: SqlDb = opened.ok
+    ignore_u32(sql_apply(db, inventory_schema()))
+    let added: Result[u32, SqlError] = InsertItem(
+        name,
+        trim(form_value(body, "category_id")),
+        trim(form_value(body, "unit")),
+        rho_int_to_str(quantity),
+        rho_int_to_str(reorder),
+        trim(form_value(body, "location")),
+        trim(form_value(body, "notes")),
+        db)
+    sql_close(db)
+    if !added.is_ok {
+        return inventory_page_message("The item could not be added: " + added.err.message)
+    }
+    return inventory_page_message("Item added.")
+}
+
+fn items_edit_save(req: Request) Response {
+    let body: string = request_body(req)
+    let id: u32 = rho_int_from_str(trim(form_value(body, "id")))
+    if id == 0 {
+        return inventory_page_message("That item was not found.")
+    }
+    let opened: Result[SqlDb, string] = sql_open(inventory_db_path())
+    if !opened.is_ok {
+        return inventory_page_message("The database could not be opened: " + opened.err)
+    }
+    let db: SqlDb = opened.ok
+    ignore_u32(sql_apply(db, inventory_schema()))
+    let reorder: u32 = inventory_parse_scaled(form_value(body, "reorder"), 1000)
+    let updated: Result[u32, SqlError] = UpdateItemDetails(
+        trim(form_value(body, "name")),
+        trim(form_value(body, "category_id")),
+        trim(form_value(body, "unit")),
+        i64(reorder),
+        trim(form_value(body, "location")),
+        trim(form_value(body, "notes")),
+        i64(id), db)
+    sql_close(db)
+    if !updated.is_ok {
+        return inventory_page_message("The item could not be saved: " + updated.err.message)
+    }
+    return inventory_page_message("Item saved.")
+}
+
+fn items_consume(req: Request) Response {
+    let body: string = request_body(req)
+    let id: u32 = rho_int_from_str(trim(form_value(body, "item_id")))
+    let amount: u32 = inventory_parse_scaled(form_value(body, "quantity"), 1000)
+    if id == 0 || amount == 0 {
+        return inventory_page_message("Choose an item and a quantity to remove.")
+    }
+    let opened: Result[SqlDb, string] = sql_open(inventory_db_path())
+    if !opened.is_ok {
+        return inventory_page_message("The database could not be opened: " + opened.err)
+    }
+    let db: SqlDb = opened.ok
+    ignore_u32(sql_apply(db, inventory_schema()))
+    let delta: string = "-" + rho_int_to_str(amount)
+    let updated: Result[u32, SqlError] = UpdateItemStock(delta, i64(id), db)
+    if updated.is_ok {
+        ignore_result(InsertMovement(rho_int_to_str(id), "consume", delta, "0", "0",
+            trim(form_value(body, "source")), inventory_date(),
+            trim(form_value(body, "comment")), db))
+    }
+    sql_close(db)
+    if !updated.is_ok {
+        return inventory_page_message("The stock could not be changed: " + updated.err.message)
+    }
+    return inventory_page_message("Stock removed.")
+}
+
+fn expenses_add(req: Request) Response {
+    let body: string = request_body(req)
+    let item_id: u32 = rho_int_from_str(trim(form_value(body, "item_id")))
+    let quantity: u32 = inventory_parse_scaled(form_value(body, "quantity"), 1000)
+    let unit_price: u32 = inventory_parse_scaled(form_value(body, "unit_price"), 100)
+    if item_id == 0 {
+        return inventory_page_message("Choose the item this purchase belongs to.")
+    }
+    let qty: u32 = quantity
+    if qty == 0 {
+        qty = 1000
+    }
+    let total: u32 = (qty * unit_price) / 1000
+    var purchased: string = trim(form_value(body, "purchased_at"))
+    if rho_strlen(purchased) == 0 {
+        purchased = inventory_date()
+    }
+    let opened: Result[SqlDb, string] = sql_open(inventory_db_path())
+    if !opened.is_ok {
+        return inventory_page_message("The database could not be opened: " + opened.err)
+    }
+    let db: SqlDb = opened.ok
+    ignore_u32(sql_apply(db, inventory_schema()))
+
+    let items: ListItemsRow[512]
+    let item_slice: Slice[ListItemsRow] = Slice[ListItemsRow]{
+        Ptr[ListItemsRow](&items[0]), ITEM_CAPACITY }
+    let listed_items: Result[u32, SqlError] = ListItems(db, item_slice, ITEM_CAPACITY)
+    var item_count: u32 = 0
+    if listed_items.is_ok {
+        item_count = listed_items.ok
+    }
+    let at: i32 = inventory_find_item(items, item_count, item_id)
+    if at < 0 {
+        sql_close(db)
+        return inventory_page_message("That item was not found.")
+    }
+    let item_index: u32 = u32(at)
+    let item_name: string = items[item_index].name
+
+    let inserted: Result[u32, SqlError] = InsertExpense(
+        rho_int_to_str(item_id), item_name,
+        trim(form_value(body, "category_id")),
+        rho_int_to_str(qty), rho_int_to_str(unit_price), rho_int_to_str(total),
+        trim(form_value(body, "source")), purchased,
+        trim(form_value(body, "comment")), db)
+    if inserted.is_ok {
+        ignore_result(UpdateItemStock(rho_int_to_str(qty), i64(item_id), db))
+        ignore_result(InsertMovement(rho_int_to_str(item_id), "purchase",
+            rho_int_to_str(qty), rho_int_to_str(unit_price), rho_int_to_str(total),
+            trim(form_value(body, "source")), purchased,
+            trim(form_value(body, "comment")), db))
+    }
+    sql_close(db)
+    if !inserted.is_ok {
+        return inventory_page_message("The purchase could not be saved: " + inserted.err.message)
+    }
+    return inventory_page_message("Purchase recorded and stock increased.")
+}
+
+fn expenses_delete(req: Request) Response {
+    let body: string = request_body(req)
+    let id: u32 = rho_int_from_str(trim(form_value(body, "id")))
+    if id == 0 {
+        return inventory_page_message("That purchase was not found.")
+    }
+    let opened: Result[SqlDb, string] = sql_open(inventory_db_path())
+    if !opened.is_ok {
+        return inventory_page_message("The database could not be opened: " + opened.err)
+    }
+    let db: SqlDb = opened.ok
+    ignore_u32(sql_apply(db, inventory_schema()))
+    let removed: Result[u32, SqlError] = DeleteExpense(i64(id), db)
+    sql_close(db)
+    if !removed.is_ok {
+        return inventory_page_message("The purchase could not be removed: " + removed.err.message)
+    }
+    return inventory_page_message("Purchase removed. Stock was not adjusted.")
+}
+
+fn categories_add(req: Request) Response {
+    let body: string = request_body(req)
+    let name: string = trim(form_value(body, "category"))
+    if rho_strlen(name) == 0 {
+        return inventory_page_message("A category needs a name.")
+    }
+    let opened: Result[SqlDb, string] = sql_open(inventory_db_path())
+    if !opened.is_ok {
+        return inventory_page_message("The database could not be opened: " + opened.err)
+    }
+    let db: SqlDb = opened.ok
+    ignore_u32(sql_apply(db, inventory_schema()))
+    let added: Result[u32, SqlError] = InsertCategory(name, db)
+    sql_close(db)
+    if !added.is_ok {
+        return inventory_page_message("The category could not be added: " + added.err.message)
+    }
+    return inventory_page_message("Category added.")
+}
