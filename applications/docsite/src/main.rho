@@ -129,5 +129,15 @@ fn assemble_registry(tree: string) void {
         let name: string = rho_str_slice(filename, 0,
             u32(rho_str_index_of(filename, ".yml")))
         assemble_module(tree, name, "../" + name)
+        // A repository is grouped by what its manifest says it is: a runtime,
+        // middleware, interfaces, a platform or a collection. Only the
+        // application modules under modules/ are "Modules"; the ecosystem
+        // repositories are never mixed into that section.
+        let kind: string = yaml.value("../" + name + "/module.yml", "module.type")
+        if kind != "" && kind != "rho" {
+            rho_exec("sh", "-c \"sed -i 's/^  section: .*/  section: " + kind +
+                "/' " + tree + "/" + name + "/module.yml\"",
+                "build/reports/section-" + name + ".txt")
+        }
     }
 }
