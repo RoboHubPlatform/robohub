@@ -33,3 +33,18 @@ uses the URL as a hook.
 Widget definitions and values live in the host's main SQL database. No widget
 setting is stored beside the module: the host application owns the route, the
 database and the workspace.
+
+
+## A switch for a Shelly plug
+
+A toggle widget can drive a plug through the gateway device API. Choose kind
+**Switch**, source kind **URL / hook**, method **POST**, and the gateway's
+device switch URL:
+
+```
+http://gateway:8080/api/v1/devices/1/switch
+```
+
+The widget appends `?state=on` or `?state=off` (or substitutes `{state}` if the
+URL contains it). Register the plug on the gateway first; the gateway's
+`/api/v1/devices` API polls it and keeps its state.
