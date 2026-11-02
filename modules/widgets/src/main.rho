@@ -1,0 +1,25 @@
+module widgets
+
+// widgets — dashboard widgets included by a host application.
+//
+// The module registers its manager and API on the host router. Its table lives
+// in the host's main SQL database, and its settings are the host's
+// app_modules entry.
+
+include "text.rho"
+include "widgets.rho"
+
+import std.sql
+import std.web.http
+import std.web.template
+
+route GET  "/widgets"                     => widgets_page
+route POST "/widgets/add"                 => widgets_add
+route GET  "/widgets/edit"                => widget_edit_page
+route POST "/widgets/edit"                => widgets_edit_save
+route POST "/widgets/delete"              => widgets_delete
+route POST "/widgets/value"               => widgets_value
+route POST "/widgets/press"               => widgets_press
+route GET  "/api/widgets"                 => widgets_api_list
+route POST "/api/widgets/{id}/value"      => widgets_api_value
+route POST "/api/widgets/{id}/press"      => widgets_api_press

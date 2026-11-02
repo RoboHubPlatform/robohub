@@ -1,0 +1,11 @@
+module:
+  name: widgets-tests
+  type: rho
+  version: 0.1.0
+
+main: widgets_test.rho
+
+build:
+  language: c
+  targets:
+    - c
