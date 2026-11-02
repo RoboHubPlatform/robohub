@@ -1,0 +1,36 @@
+#
+# widgets — configurable dashboard widgets for a host application.
+#
+# A widget shows a number, a history chart, or a push button that calls a
+# configured hook. The host application owns the route, the SQL database and
+# the workspace; the module owns the definitions and the rendering.
+#
+module:
+  name: widgets
+  type: module
+  version: 0.1.0
+  description: >
+    Dashboard widgets with a configurable source: a number, a chart of recent
+    values, or a button that calls a hook or API.
+  maintainer: "Aurel Miron"
+  license: "MIT"
+  created: "2026-11-02"
+
+main: src/main.rho
+
+module_app:
+  title: Widgets
+  category: dashboard
+  description: Numbers, charts and buttons for the application home page.
+  version: 0.1.0
+
+deps:
+  rho-log: ">=0.1.0"
+
+docs:
+  title: Widgets
+  section: modules
+  order: "30"
+  index: docs/index.md
+  sources:
+    - docs/index.md

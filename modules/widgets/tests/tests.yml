@@ -1,0 +1,6 @@
+name: widgets
+suites:
+  - name: widgets-smoke
+    kind: command
+    tags: [smoke]
+    command: [python3, tests/widgets_smoke.py]

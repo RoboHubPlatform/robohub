@@ -1,0 +1,27 @@
+<h1>Edit widget</h1>
+<form class="panel-form" method="post" action="/widgets/edit">
+  <input type="hidden" name="id" value="{{{ id }}}">
+  <div class="grid">
+    <label>Title<input name="title" value="{{{ title }}}" required></label>
+    <label>Kind
+      <select name="kind">
+        <option value="numeric">Number</option>
+        <option value="chart">Chart</option>
+        <option value="button">Button</option>
+        <option value="toggle">Switch</option>
+      </select>
+    </label>
+    <label>Source
+      <select name="source_kind">
+        <option value="manual">Manual</option>
+        <option value="url">URL / hook</option>
+      </select>
+    </label>
+    <label>URL or hook<input name="source" value="{{{ source }}}" placeholder="hook?state={state}"></label>
+    <label>Method<select name="method"><option>GET</option><option>POST</option></select></label>
+    <label>Unit<input name="unit" value="{{{ unit }}}"></label>
+    <label>Chart points<input name="points" value="{{{ points }}}" inputmode="numeric"></label>
+  </div>
+  <div class="form-actions"><button type="submit">Save widget</button></div>
+</form>
+<p><a href="/widgets">← Widgets</a></p>
