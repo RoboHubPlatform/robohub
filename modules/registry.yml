@@ -12,3 +12,6 @@ modules:
   - name: scheduler
     path: scheduler
     enabled: true
+  - name: widgets
+    path: widgets
+    enabled: true
