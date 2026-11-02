@@ -1,10 +1,10 @@
 # RoboHub Documentation Site
 
 Serves the RoboHub documentation as a static site. Collects the documentation
-every module of the ecosystem ships — the pages in each module's `docs/`
-directory — and builds them into one site, so that a reader can move from a
-platform to the devices on it to the interfaces they implement without leaving
-the documentation.
+every module, application and plugin of the ecosystem ships — the pages in each
+`docs/` directory — and builds them into one site, so that a reader can move from
+a platform to the devices on it to the interfaces they implement, then to the
+applications and modules built on top, without leaving the documentation.
 
 ## Building
 

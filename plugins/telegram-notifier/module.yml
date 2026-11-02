@@ -26,3 +26,11 @@ metadata:
     - alert
     - telegram
     - chat
+
+docs:
+  title: telegram-notifier
+  section: plugins
+  order: "40"
+  index: docs/index.md
+  sources:
+    - docs/index.md
