@@ -1,0 +1,7 @@
+module robohub.plugins.email_alert
+
+// A plugin is a Rho module. The manager reaches it through its transport in
+// manager.rho; this entry point is what makes the folder a Rho program and the
+// place a transport with its own code starts.
+fn main() void {
+}

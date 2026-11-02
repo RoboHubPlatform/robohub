@@ -1,0 +1,21 @@
+module robohub.providers.telegram
+
+// A chat message through the Telegram bot API. The provider knows the API
+// shape; the caller supplies the text.
+
+fn provider_telegram_send(config: string, text: string) u32 {
+    let token: string = plugin_config_value(config, "bot_token")
+    let chat: string = plugin_config_value(config, "chat_id")
+    if token == "" || chat == "" {
+        return 0
+    }
+    let url: string = "https://api.telegram.org/bot" + token + "/sendMessage"
+    let args: string = "-sS -X POST " + plugin_arg_quote(url) +
+        " --data-urlencode " + plugin_arg_quote("chat_id=" + chat) +
+        " --data-urlencode " + plugin_arg_quote("text=" + text)
+    let code: u32 = rho_exec("curl", args, plugin_report("telegram-provider"))
+    if code == 0 {
+        return 1
+    }
+    return 0
+}

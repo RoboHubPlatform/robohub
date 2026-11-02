@@ -1,0 +1,20 @@
+module robohub.providers.log
+
+// A file sink. It is the smallest provider and the one an alert channel falls
+// back to when nothing else is configured.
+
+fn provider_log_append(config: string, line: string) u32 {
+    var path: string = plugin_expand_home(plugin_config_value(config, "path"))
+    if path == "" {
+        path = plugin_home() + "/.rho/alerts.log"
+    }
+    let dir: string = plugin_parent_dir(path)
+    if dir != "" {
+        ignore_u32(rho_exec("mkdir", "-p " + dir, dir + "/mkdir.txt"))
+    }
+    let existing: string = rho_read_text(path)
+    if rho_write_text(path, existing + line + "\n") {
+        return 1
+    }
+    return 0
+}

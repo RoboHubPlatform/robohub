@@ -1,0 +1,1054 @@
+module robohub.plugins.manager
+
+// The plugin manager shared by the RoboHub applications.
+//
+// A plugin is a Rho module under plugins/<name> with a module.yml that says
+// what it is and how it is reached. An application names the plugins it uses in
+// its own module.yml:
+//
+//   plugins:
+//     - name: alert-log
+//       enabled: true
+//       config:
+//         path: "~/.rho/mesh/alerts.log"
+//     - name: email-alert
+//       enabled: false
+//       config:
+//         to_address: ops@robohub.internal
+//         severity_threshold: ERROR
+//
+// The manager reads that block, merges each plugin's defaults with the
+// application's settings, and dispatches an alert to every enabled plugin whose
+// threshold the alert reaches. The installed set is plugins/registry.yml; the
+// manager confirms each path on disk and dispatches by the transport the plugin
+// manifest names. A plugin with a `command` is a Rho program, which is how a
+// transport this manager does not know is added without rebuilding it.
+//
+// An application can also register one directly:
+//
+//   var registry: string = registry_new()
+//   registry = registry_register(registry, "alert-log", plugins_root())
+//   ignore_u32(registry_alert(registry, "WARNING", "message", "node=1"))
+
+include "../providers/log/src/provider.rho"
+include "../providers/email/src/provider.rho"
+include "../providers/telegram/src/provider.rho"
+include "../providers/webhook/src/provider.rho"
+
+/* -------------------------------------------------------------------------- */
+/*  Strings                                                                   */
+/* -------------------------------------------------------------------------- */
+
+fn plugin_trim(text: string) string {
+    var out: string = text
+    while rho_strlen(out) > 0 && rho_str_eq(rho_str_slice(out, 0, 1), " ") {
+        out = rho_str_slice(out, 1, u32(rho_strlen(out)) - 1)
+    }
+    while rho_strlen(out) > 0 &&
+        rho_str_eq(rho_str_slice(out, u32(rho_strlen(out)) - 1, 1), " ") {
+        out = rho_str_slice(out, 0, u32(rho_strlen(out)) - 1)
+    }
+    return out
+}
+
+fn plugin_unquote(text: string) string {
+    let value: string = plugin_trim(text)
+    if rho_strlen(value) >= 2 &&
+        (rho_str_eq(rho_str_slice(value, 0, 1), "\"") ||
+         rho_str_eq(rho_str_slice(value, 0, 1), "'")) {
+        let first: string = rho_str_slice(value, 0, 1)
+        let last: string = rho_str_slice(value, u32(rho_strlen(value)) - 1, 1)
+        if rho_str_eq(first, last) {
+            return rho_str_slice(value, 1, u32(rho_strlen(value)) - 2)
+        }
+    }
+    return value
+}
+
+fn plugin_indent(line: string) u32 {
+    var count: u32 = 0
+    while count < u32(rho_strlen(line)) &&
+        rho_str_eq(rho_str_slice(line, count, 1), " ") {
+        count = count + 1
+    }
+    return count
+}
+
+fn plugin_home() string {
+    let home: string = getenv("HOME")
+    if home == "" {
+        return "."
+    }
+    return home
+}
+
+fn plugin_expand_home(path: string) string {
+    if rho_str_index_of(path, "~/") == 0 {
+        return plugin_home() + rho_str_slice(path, 1, u32(rho_strlen(path)) - 1)
+    }
+    return path
+}
+
+fn plugin_state_dir() string {
+    let dir: string = plugin_home() + "/.rho/plugins"
+    ignore_u32(rho_exec("mkdir", "-p " + dir, dir + "/mkdir.txt"))
+    return dir
+}
+
+fn plugin_parent_dir(path: string) string {
+    var last: i32 = -1
+    var i: u32 = 0
+    while i < u32(rho_strlen(path)) {
+        if rho_str_eq(rho_str_slice(path, i, 1), "/") {
+            last = i32(i)
+        }
+        i = i + 1
+    }
+    if last <= 0 {
+        return ""
+    }
+    return rho_str_slice(path, 0, u32(last))
+}
+
+fn plugin_report(name: string) string {
+    ignore_u32(rho_exec("mkdir", "-p " + plugin_state_dir(),
+        plugin_state_dir() + "/mkdir.txt"))
+    return plugin_state_dir() + "/" + name + ".log"
+}
+
+fn plugin_urlencode(text: string) string {
+    var out: string = ""
+    var i: u32 = 0
+    let length: u32 = u32(rho_strlen(text))
+    while i < length {
+        let ch: string = rho_str_slice(text, i, 1)
+        if rho_str_eq(ch, " ") {
+            out = out + "+"
+        } else if rho_str_eq(ch, "&") {
+            out = out + "%26"
+        } else if rho_str_eq(ch, "=") {
+            out = out + "%3D"
+        } else if rho_str_eq(ch, "\n") {
+            out = out + "%0A"
+        } else {
+            out = out + ch
+        }
+        i = i + 1
+    }
+    return out
+}
+
+fn plugin_replace(text: string, needle: string, replacement: string) string {
+    if needle == "" {
+        return text
+    }
+    var out: string = ""
+    var rest: string = text
+    while rest != "" {
+        let at: i32 = rho_str_index_of(rest, needle)
+        if at < 0 {
+            out = out + rest
+            break
+        }
+        out = out + rho_str_slice(rest, 0, u32(at)) + replacement
+        rest = rho_str_slice(rest, u32(at) + u32(rho_strlen(needle)),
+            u32(rho_strlen(rest)) - u32(at) - u32(rho_strlen(needle)))
+    }
+    return out
+}
+
+fn plugin_render(template: string, level: string, message: string,
+    metadata: string, app: string, rule: string) string {
+    var out: string = template
+    out = plugin_replace(out, "{level}", level)
+    out = plugin_replace(out, "{message}", message)
+    out = plugin_replace(out, "{metadata}", metadata)
+    out = plugin_replace(out, "{app}", app)
+    out = plugin_replace(out, "{rule}", rule)
+    return out
+}
+
+fn plugin_shell_quote(value: string) string {
+    var out: string = "'"
+    var i: u32 = 0
+    let length: u32 = u32(rho_strlen(value))
+    while i < length {
+        let ch: string = rho_str_slice(value, i, 1)
+        if rho_str_eq(ch, "'") {
+            out = out + "'\\''"
+        } else {
+            out = out + ch
+        }
+        i = i + 1
+    }
+    return out + "'"
+}
+
+fn plugin_arg_quote(value: string) string {
+    return "\"" + value + "\""
+}
+
+fn plugin_shell(script: string, report: string) u32 {
+    return rho_exec("sh", "-c \"" + script + "\"", report)
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Plugin settings                                                           */
+/* -------------------------------------------------------------------------- */
+
+fn plugin_config_set(config: string, key: string, value: string) string {
+    var out: string = ""
+    var rest: string = config
+    while rest != "" {
+        let at: i32 = rho_str_index_of(rest, ";")
+        let item: string = ""
+        if at < 0 {
+            item = rest
+            rest = ""
+        } else {
+            item = rho_str_slice(rest, 0, u32(at))
+            rest = rho_str_slice(rest, u32(at) + 1, u32(rho_strlen(rest)) - u32(at) - 1)
+        }
+        if item == "" {
+            continue
+        }
+        let equals: i32 = rho_str_index_of(item, "=")
+        if equals >= 0 && rho_str_eq(rho_str_slice(item, 0, u32(equals)), key) {
+            continue
+        }
+        if rho_strlen(out) > 0 {
+            out = out + ";"
+        }
+        out = out + item
+    }
+    if value != "" {
+        if rho_strlen(out) > 0 {
+            out = out + ";"
+        }
+        out = out + key + "=" + value
+    }
+    return out
+}
+
+fn plugin_config_value(config: string, key: string) string {
+    var rest: string = config
+    while rest != "" {
+        let at: i32 = rho_str_index_of(rest, ";")
+        let item: string = ""
+        if at < 0 {
+            item = rest
+            rest = ""
+        } else {
+            item = rho_str_slice(rest, 0, u32(at))
+            rest = rho_str_slice(rest, u32(at) + 1, u32(rho_strlen(rest)) - u32(at) - 1)
+        }
+        let equals: i32 = rho_str_index_of(item, "=")
+        if equals >= 0 && rho_str_eq(rho_str_slice(item, 0, u32(equals)), key) {
+            return rho_str_slice(item, u32(equals) + 1,
+                u32(rho_strlen(item)) - u32(equals) - 1)
+        }
+    }
+    return ""
+}
+
+fn plugin_config_merge(defaults: string, overrides: string) string {
+    var out: string = defaults
+    var rest: string = overrides
+    while rest != "" {
+        let at: i32 = rho_str_index_of(rest, ";")
+        let item: string = ""
+        if at < 0 {
+            item = rest
+            rest = ""
+        } else {
+            item = rho_str_slice(rest, 0, u32(at))
+            rest = rho_str_slice(rest, u32(at) + 1, u32(rho_strlen(rest)) - u32(at) - 1)
+        }
+        let equals: i32 = rho_str_index_of(item, "=")
+        if equals >= 0 {
+            out = plugin_config_set(out, rho_str_slice(item, 0, u32(equals)),
+                rho_str_slice(item, u32(equals) + 1,
+                    u32(rho_strlen(item)) - u32(equals) - 1))
+        }
+    }
+    return out
+}
+
+fn plugin_severity_rank(level: string) u32 {
+    if rho_str_eq(level, "CRITICAL") {
+        return 3
+    }
+    if rho_str_eq(level, "ERROR") {
+        return 2
+    }
+    if rho_str_eq(level, "WARNING") {
+        return 1
+    }
+    return 0
+}
+
+fn plugin_threshold_passes(level: string, threshold: string) bool {
+    if threshold == "" {
+        return true
+    }
+    return plugin_severity_rank(level) >= plugin_severity_rank(threshold)
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Manifests                                                                 */
+/* -------------------------------------------------------------------------- */
+
+fn plugin_location(root: string, name: string) string {
+    var rest: string = plugin_db_entries(root)
+    while rest != "" {
+        let at: i32 = rho_str_index_of(rest, "\n")
+        let line: string = ""
+        if at < 0 {
+            line = rest
+            rest = ""
+        } else {
+            line = rho_str_slice(rest, 0, u32(at))
+            rest = rho_str_slice(rest, u32(at) + 1, u32(rho_strlen(rest)) - u32(at) - 1)
+        }
+        let pipe: i32 = rho_str_index_of(line, "|")
+        if pipe >= 0 && rho_str_eq(rho_str_slice(line, 0, u32(pipe)), name) {
+            let location: string = rho_str_slice(line, u32(pipe) + 1,
+                u32(rho_strlen(line)) - u32(pipe) - 1)
+            if location != "" {
+                return location
+            }
+        }
+    }
+    return name
+}
+
+fn plugin_manifest(root: string, name: string) string {
+    return root + "/" + plugin_location(root, name) + "/module.yml"
+}
+
+// plugin_rows lists every plugin in the registry database:
+//   name|kind|transport|summary|manifest|present
+// The path is checked on disk on every call; a row whose directory is gone is
+// still shown, marked not present, rather than silently disappearing.
+fn plugin_rows(root: string) string {
+    var out: string = ""
+    let entries: string = plugin_db_entries(root)
+    if entries != "" {
+        var rest: string = entries
+        while rest != "" {
+            let at: i32 = rho_str_index_of(rest, "\n")
+            let line: string = ""
+            if at < 0 {
+                line = rest
+                rest = ""
+            } else {
+                line = rho_str_slice(rest, 0, u32(at))
+                rest = rho_str_slice(rest, u32(at) + 1, u32(rho_strlen(rest)) - u32(at) - 1)
+            }
+            let pipe: i32 = rho_str_index_of(line, "|")
+            if pipe < 0 {
+                continue
+            }
+            let name: string = rho_str_slice(line, 0, u32(pipe))
+            let location: string = rho_str_slice(line, u32(pipe) + 1,
+                u32(rho_strlen(line)) - u32(pipe) - 1)
+            if location == "" {
+                location = name
+            }
+            let manifest: string = root + "/" + location + "/module.yml"
+            var present: string = "true"
+            if !rho_path_exists(manifest) {
+                present = "false"
+            }
+            var kind: string = ""
+            var transport: string = ""
+            var summary: string = "not found on disk"
+            if rho_str_eq(present, "true") {
+                kind = yaml.value(manifest, "plugin.kind")
+                transport = yaml.value(manifest, "plugin.transport")
+                summary = yaml.value(manifest, "module.description")
+                if summary == ">" {
+                    summary = ""
+                }
+                if summary == "" {
+                    summary = yaml.value(manifest, "plugin.summary")
+                }
+            }
+            out = out + name + "|" + kind + "|" + transport + "|" + summary + "|" +
+                manifest + "|" + present + "\n"
+        }
+        return out
+    }
+    // A checkout that has never had a registry file uses the folder as the
+    // database. The first install writes the file.
+    let report: string = plugin_state_dir() + "/find.txt"
+    ignore_u32(rho_exec("mkdir", "-p " + plugin_state_dir(), report))
+    let code: u32 = rho_exec("find", root + " -maxdepth 2 -type f -name module.yml", report)
+    if code != 0 {
+        return ""
+    }
+    var rest: string = rho_read_text(report)
+    while rest != "" {
+        let at: i32 = rho_str_index_of(rest, "\n")
+        let manifest: string = ""
+        if at < 0 {
+            manifest = rest
+            rest = ""
+        } else {
+            manifest = rho_str_slice(rest, 0, u32(at))
+            rest = rho_str_slice(rest, u32(at) + 1, u32(rho_strlen(rest)) - u32(at) - 1)
+        }
+        if manifest == "" {
+            continue
+        }
+        let name: string = yaml.value(manifest, "module.name")
+        if name == "" {
+            continue
+        }
+        let kind: string = yaml.value(manifest, "plugin.kind")
+        let transport: string = yaml.value(manifest, "plugin.transport")
+        var summary: string = yaml.value(manifest, "module.description")
+        if summary == ">" {
+            summary = ""
+        }
+        if summary == "" {
+            summary = yaml.value(manifest, "plugin.summary")
+        }
+        out = out + name + "|" + kind + "|" + transport + "|" + summary + "|" +
+            manifest + "|true\n"
+    }
+    return out
+}
+
+fn plugin_kind(root: string, name: string) string {
+    let manifest: string = plugin_manifest(root, name)
+    if !rho_path_exists(manifest) {
+        return "alert"
+    }
+    let kind: string = yaml.value(manifest, "plugin.kind")
+    if kind == "" {
+        return "alert"
+    }
+    return kind
+}
+
+fn plugin_transport(root: string, name: string) string {
+    let manifest: string = plugin_manifest(root, name)
+    if !rho_path_exists(manifest) {
+        return "log"
+    }
+    let transport: string = yaml.value(manifest, "plugin.transport")
+    if transport == "" {
+        return "log"
+    }
+    return transport
+}
+
+// app_plugin_entries reads the application's plugins block:
+//   name|enabled|config
+// The settings are kept in the order they are written; a config block is the
+// keys under it, joined as key=value with ';' between them.
+fn app_plugin_entries(manifest_path: string) string {
+    let text: string = rho_read_text(manifest_path)
+    let start: i32 = rho_str_index_of(text, "\nplugins:\n")
+    if start < 0 {
+        if rho_str_index_of(text, "plugins:\n") == 0 {
+            start = -1
+        } else {
+            return ""
+        }
+    }
+    var out: string = ""
+    var name: string = ""
+    var enabled: string = "true"
+    var config: string = ""
+    var in_config: bool = false
+    var config_indent: u32 = 0
+    var i: u32 = 0
+    if start >= 0 {
+        i = u32(start) + 10
+    }
+    while i < u32(rho_strlen(text)) {
+        let at: i32 = rho_str_index_of(
+            rho_str_slice(text, i, u32(rho_strlen(text)) - i), "\n")
+        let end: u32 = u32(rho_strlen(text))
+        if at >= 0 {
+            end = i + u32(at)
+        }
+        let line: string = rho_str_slice(text, i, end - i)
+        let trimmed: string = plugin_trim(line)
+        if trimmed == "" {
+            i = end + 1
+            continue
+        }
+        if plugin_indent(line) == 0 && !rho_str_eq(trimmed, "plugins:") {
+            break
+        }
+        if rho_str_index_of(trimmed, "- name:") == 0 {
+            if name != "" {
+                out = out + name + "|" + enabled + "|" + config + "\n"
+            }
+            name = plugin_unquote(rho_str_slice(trimmed, 7,
+                u32(rho_strlen(trimmed)) - 7))
+            enabled = "true"
+            config = ""
+            in_config = false
+            config_indent = 0
+        } else if rho_str_index_of(trimmed, "enabled:") == 0 {
+            enabled = plugin_unquote(rho_str_slice(trimmed, 8,
+                u32(rho_strlen(trimmed)) - 8))
+        } else if rho_str_index_of(trimmed, "config:") == 0 {
+            in_config = true
+            config_indent = plugin_indent(line)
+        } else if in_config && plugin_indent(line) > config_indent {
+            let colon: i32 = rho_str_index_of(trimmed, ":")
+            if colon > 0 {
+                let key: string = plugin_unquote(rho_str_slice(trimmed, 0, u32(colon)))
+                let value: string = plugin_unquote(rho_str_slice(trimmed, u32(colon) + 1,
+                    u32(rho_strlen(trimmed)) - u32(colon) - 1))
+                config = plugin_config_set(config, key, value)
+            }
+        }
+        i = end + 1
+    }
+    if name != "" {
+        out = out + name + "|" + enabled + "|" + config + "\n"
+    }
+    return out
+}
+
+fn plugin_state_override(state_path: string, name: string) string {
+    let text: string = rho_read_text(state_path)
+    var rest: string = text
+    while rest != "" {
+        let at: i32 = rho_str_index_of(rest, "\n")
+        let line: string = ""
+        if at < 0 {
+            line = rest
+            rest = ""
+        } else {
+            line = rho_str_slice(rest, 0, u32(at))
+            rest = rho_str_slice(rest, u32(at) + 1, u32(rho_strlen(rest)) - u32(at) - 1)
+        }
+        let equals: i32 = rho_str_index_of(line, "=")
+        if equals >= 0 && rho_str_eq(rho_str_slice(line, 0, u32(equals)), name) {
+            return rho_str_slice(line, u32(equals) + 1,
+                u32(rho_strlen(line)) - u32(equals) - 1)
+        }
+    }
+    return ""
+}
+
+/* -------------------------------------------------------------------------- */
+/*  The registry                                                              */
+/* -------------------------------------------------------------------------- */
+
+// A registry row is:
+//   name|kind|transport|enabled|config|manifest
+
+fn plugin_default_config(root: string, name: string) string {
+    let transport: string = plugin_transport(root, name)
+    if rho_str_eq(transport, "dispatcher") {
+        return "targets=alert-log;severity_threshold=INFO"
+    }
+    if rho_str_eq(transport, "log") {
+        return "path=" + plugin_home() + "/.rho/alerts.log;severity_threshold=INFO"
+    }
+    if rho_str_eq(transport, "email") {
+        return "provider=local;from_address=alerts@robohub.internal;to_address=" +
+            "subject_template=[RoboHub {app}] {level}: {rule};" +
+            "body_template={message} ({app});severity_threshold=ERROR"
+    }
+    if rho_str_eq(transport, "telegram") {
+        return "bot_token=;chat_id=;severity_threshold=WARNING"
+    }
+    if rho_str_eq(transport, "webhook") {
+        return "url=;severity_threshold=ERROR"
+    }
+    return "severity_threshold=INFO"
+}
+
+fn alert_dispatcher_targets(config: string) string {
+    let targets: string = plugin_config_value(config, "targets")
+    if targets == "" {
+        return "alert-log"
+    }
+    return targets
+}
+
+fn plugin_alert_email(config: string, level: string, message: string,
+    metadata: string) u32 {
+    let to: string = plugin_config_value(config, "to_address")
+    if to == "" {
+        return 0
+    }
+    var from: string = plugin_config_value(config, "from_address")
+    if from == "" {
+        from = "alerts@robohub.internal"
+    }
+    var app: string = plugin_config_value(config, "app")
+    if app == "" {
+        app = "RoboHub"
+    }
+    var subject_template: string = plugin_config_value(config, "subject_template")
+    if subject_template == "" {
+        subject_template = "[RoboHub {app}] {level}: {rule}"
+    }
+    var body_template: string = plugin_config_value(config, "body_template")
+    if body_template == "" {
+        body_template = "{message} ({app})"
+    }
+    var rule: string = plugin_config_value(config, "rule")
+    if rule == "" {
+        rule = metadata
+    }
+    if rule == "" {
+        rule = "alert"
+    }
+    let subject: string = plugin_render(subject_template, level, message, metadata, app, rule)
+    let body: string = plugin_render(body_template, level, message, metadata, app, rule)
+    var provider: string = plugin_config_value(config, "provider")
+    if provider == "" {
+        provider = plugin_config_value(config, "mode")
+    }
+    if provider == "" {
+        provider = "local"
+    }
+    return provider_email_send(provider, config, from, to, subject, body)
+}
+
+fn plugin_alert_telegram(config: string, level: string, message: string,
+    metadata: string) u32 {
+    var text: string = "[" + level + "] " + message
+    if metadata != "" {
+        text = text + "\n" + metadata
+    }
+    return provider_telegram_send(config, text)
+}
+
+fn plugin_alert_webhook(config: string, level: string, message: string,
+    metadata: string) u32 {
+    let body: string = "level=" + plugin_urlencode(level) +
+        "&message=" + plugin_urlencode(message) +
+        "&metadata=" + plugin_urlencode(metadata)
+    return provider_http_post(config, body)
+}
+
+fn plugin_command_send(root: string, name: string, config: string, level: string,
+    message: string, metadata: string) u32 {
+    let manifest: string = plugin_manifest(root, name)
+    let command: string = yaml.value(manifest, "plugin.command")
+    if command == "" {
+        return 0
+    }
+    let binary: string = root + "/" + name + "/" + command
+    if !rho_path_exists(binary) {
+        return 0
+    }
+    let request: string = plugin_state_dir() + "/request-" + name + ".txt"
+    let payload: string = "level=" + level + "\nmessage=" + message +
+        "\nmetadata=" + metadata + "\nconfig=" + config + "\n"
+    ignore_bool(rho_write_text(request, payload))
+    let code: u32 = rho_exec(binary, plugin_arg_quote(request), plugin_report(name))
+    if code == 0 {
+        return 1
+    }
+    return 0
+}
+
+// The transports are the generic half of the plugin system. A plugin manifest
+// names one; an application can also call a provider directly for a message
+// that is not an alert. A plugin with a `command` is a Rho program and is run
+// instead, which is how a transport this file does not know can be added.
+fn plugin_transport_send(root: string, name: string, transport: string,
+    config: string, level: string, message: string, metadata: string) u32 {
+    if rho_str_eq(transport, "log") {
+        var line: string = "[" + level + "] " + message
+        if metadata != "" {
+            line = line + " " + metadata
+        }
+        return provider_log_append(config, line)
+    }
+    if rho_str_eq(transport, "email") {
+        return plugin_alert_email(config, level, message, metadata)
+    }
+    if rho_str_eq(transport, "telegram") {
+        return plugin_alert_telegram(config, level, message, metadata)
+    }
+    if rho_str_eq(transport, "webhook") {
+        return plugin_alert_webhook(config, level, message, metadata)
+    }
+    if rho_str_eq(transport, "dispatcher") {
+        return 0
+    }
+    return plugin_command_send(root, name, config, level, message, metadata)
+}
+
+/* -------------------------------------------------------------------------- */
+/*  The registry database                                                     */
+/* -------------------------------------------------------------------------- */
+
+// plugins/registry.yml is the installed set, one entry per plugin:
+//
+//   plugins:
+//     - name: alert-log
+//       path: alert-log
+//       enabled: true
+//
+// It is the database the manager reads. A directory under plugins/ that is not
+// in it is not loaded; an entry whose path has no module.yml is reported as
+// missing rather than dispatched to. With no database the folder itself is the
+// database, so a checkout that has never had one installed still works.
+fn plugin_registry_file(root: string) string {
+    return root + "/registry.yml"
+}
+
+fn plugin_db_entries(root: string) string {
+    let path: string = plugin_registry_file(root)
+    if !rho_path_exists(path) {
+        return ""
+    }
+    let text: string = rho_read_text(path)
+    var out: string = ""
+    var name: string = ""
+    var location: string = ""
+    var i: u32 = 0
+    while i < u32(rho_strlen(text)) {
+        let at: i32 = rho_str_index_of(
+            rho_str_slice(text, i, u32(rho_strlen(text)) - i), "\n")
+        let end: u32 = u32(rho_strlen(text))
+        if at >= 0 {
+            end = i + u32(at)
+        }
+        let line: string = rho_str_slice(text, i, end - i)
+        let trimmed: string = plugin_trim(line)
+        if rho_str_index_of(trimmed, "- name:") == 0 {
+            if name != "" {
+                out = out + name + "|" + location + "\n"
+            }
+            name = plugin_unquote(rho_str_slice(trimmed, 7,
+                u32(rho_strlen(trimmed)) - 7))
+            location = name
+        } else if rho_str_index_of(trimmed, "path:") == 0 {
+            location = plugin_unquote(rho_str_slice(trimmed, 5,
+                u32(rho_strlen(trimmed)) - 5))
+        }
+        i = end + 1
+    }
+    if name != "" {
+        out = out + name + "|" + location + "\n"
+    }
+    return out
+}
+
+fn plugin_db_add(root: string, name: string) bool {
+    let path: string = plugin_registry_file(root)
+    let text: string = rho_read_text(path)
+    if rho_str_index_of(text, "  - name: " + name + "\n") >= 0 {
+        return true
+    }
+    var out: string = text
+    if rho_strlen(out) == 0 {
+        out = "plugins:\n"
+    }
+    out = out + "  - name: " + name + "\n    path: " + name + "\n    enabled: true\n"
+    return rho_write_text(path, out)
+}
+
+fn plugin_db_remove(root: string, name: string) bool {
+    let path: string = plugin_registry_file(root)
+    let text: string = rho_read_text(path)
+    var out: string = ""
+    var skip: bool = false
+    var rest: string = text
+    while rest != "" {
+        let at: i32 = rho_str_index_of(rest, "\n")
+        let line: string = ""
+        if at < 0 {
+            line = rest
+            rest = ""
+        } else {
+            line = rho_str_slice(rest, 0, u32(at))
+            rest = rho_str_slice(rest, u32(at) + 1, u32(rho_strlen(rest)) - u32(at) - 1)
+        }
+        let trimmed: string = plugin_trim(line)
+        if rho_str_index_of(trimmed, "- name:") == 0 {
+            let found: string = plugin_unquote(rho_str_slice(trimmed, 7,
+                u32(rho_strlen(trimmed)) - 7))
+            skip = rho_str_eq(found, name)
+        }
+        if !skip {
+            out = out + line + "\n"
+        }
+    }
+    return rho_write_text(path, out)
+}
+
+fn plugin_installed(root: string, name: string) bool {
+    let entries: string = plugin_db_entries(root)
+    if entries == "" {
+        // No database: the folders under plugins/ are the registry.
+        return rho_path_exists(root + "/" + name + "/module.yml")
+    }
+    var rest: string = entries
+    while rest != "" {
+        let at: i32 = rho_str_index_of(rest, "\n")
+        let line: string = ""
+        if at < 0 {
+            line = rest
+            rest = ""
+        } else {
+            line = rho_str_slice(rest, 0, u32(at))
+            rest = rho_str_slice(rest, u32(at) + 1, u32(rho_strlen(rest)) - u32(at) - 1)
+        }
+        let pipe: i32 = rho_str_index_of(line, "|")
+        if pipe >= 0 && rho_str_eq(rho_str_slice(line, 0, u32(pipe)), name) {
+            let location: string = rho_str_slice(line, u32(pipe) + 1,
+                u32(rho_strlen(line)) - u32(pipe) - 1)
+            if location == "" {
+                location = name
+            }
+            return rho_path_exists(root + "/" + location + "/module.yml")
+        }
+    }
+    return false
+}
+
+fn registry_new() string {
+    return ""
+}
+
+fn registry_find(registry: string, name: string) string {
+    var rest: string = registry
+    while rest != "" {
+        let at: i32 = rho_str_index_of(rest, "\n")
+        let line: string = ""
+        if at < 0 {
+            line = rest
+            rest = ""
+        } else {
+            line = rho_str_slice(rest, 0, u32(at))
+            rest = rho_str_slice(rest, u32(at) + 1, u32(rho_strlen(rest)) - u32(at) - 1)
+        }
+        let pipe: i32 = rho_str_index_of(line, "|")
+        if pipe >= 0 && rho_str_eq(rho_str_slice(line, 0, u32(pipe)), name) {
+            return line
+        }
+    }
+    return ""
+}
+
+fn registry_register(registry: string, name: string, root: string) string {
+    if registry_find(registry, name) != "" || name == "" || !plugin_installed(root, name) {
+        return registry
+    }
+    let config: string = plugin_default_config(root, name)
+    let row: string = name + "|" + plugin_kind(root, name) + "|" +
+        plugin_transport(root, name) + "|true|" + config + "|" +
+        plugin_manifest(root, name)
+    if rho_strlen(registry) > 0 {
+        return registry + "\n" + row
+    }
+    return row
+}
+
+fn registry_load_app(root: string, manifest_path: string, state_path: string) string {
+    var registry: string = ""
+    var rest: string = app_plugin_entries(manifest_path)
+    while rest != "" {
+        let at: i32 = rho_str_index_of(rest, "\n")
+        let line: string = ""
+        if at < 0 {
+            line = rest
+            rest = ""
+        } else {
+            line = rho_str_slice(rest, 0, u32(at))
+            rest = rho_str_slice(rest, u32(at) + 1, u32(rho_strlen(rest)) - u32(at) - 1)
+        }
+        if line == "" {
+            continue
+        }
+        let first: i32 = rho_str_index_of(line, "|")
+        if first < 0 {
+            continue
+        }
+        let name: string = rho_str_slice(line, 0, u32(first))
+        let tail: string = rho_str_slice(line, u32(first) + 1,
+            u32(rho_strlen(line)) - u32(first) - 1)
+        let second: i32 = rho_str_index_of(tail, "|")
+        var enabled: string = "true"
+        var config: string = ""
+        if second >= 0 {
+            enabled = rho_str_slice(tail, 0, u32(second))
+            config = rho_str_slice(tail, u32(second) + 1,
+                u32(rho_strlen(tail)) - u32(second) - 1)
+        }
+        if !plugin_installed(root, name) {
+            continue
+        }
+        let override: string = plugin_state_override(state_path, name)
+        if override == "0" || rho_str_eq(override, "false") {
+            enabled = "false"
+        } else if override == "1" || rho_str_eq(override, "true") {
+            enabled = "true"
+        }
+        config = plugin_config_merge(plugin_default_config(root, name), config)
+        let app_name: string = yaml.value(manifest_path, "module.name")
+        if app_name != "" && plugin_config_value(config, "app") == "" {
+            config = plugin_config_set(config, "app", app_name)
+        }
+        let row: string = name + "|" + plugin_kind(root, name) + "|" +
+            plugin_transport(root, name) + "|" + enabled + "|" + config + "|" +
+            plugin_manifest(root, name)
+        if rho_strlen(registry) > 0 {
+            registry = registry + "\n"
+        }
+        registry = registry + row
+    }
+    return registry
+}
+
+fn registry_enabled(registry: string, name: string) bool {
+    let row: string = registry_find(registry, name)
+    if row == "" {
+        return false
+    }
+    let first: i32 = rho_str_index_of(row, "|")
+    if first < 0 {
+        return false
+    }
+    let tail: string = rho_str_slice(row, u32(first) + 1,
+        u32(rho_strlen(row)) - u32(first) - 1)
+    let second: i32 = rho_str_index_of(tail, "|")
+    if second < 0 {
+        return false
+    }
+    let after_kind: string = rho_str_slice(tail, u32(second) + 1,
+        u32(rho_strlen(tail)) - u32(second) - 1)
+    let third: i32 = rho_str_index_of(after_kind, "|")
+    if third < 0 {
+        return false
+    }
+    let enabled: string = rho_str_slice(after_kind, u32(third) + 1,
+        u32(rho_strlen(after_kind)) - u32(third) - 1)
+    let fourth: i32 = rho_str_index_of(enabled, "|")
+    var value: string = enabled
+    if fourth >= 0 {
+        value = rho_str_slice(enabled, 0, u32(fourth))
+    }
+    return rho_str_eq(value, "true")
+}
+
+fn registry_config(registry: string, name: string) string {
+    let row: string = registry_find(registry, name)
+    if row == "" {
+        return ""
+    }
+    var rest: string = row
+    var index: u32 = 0
+    while index < 4 {
+        let at: i32 = rho_str_index_of(rest, "|")
+        if at < 0 {
+            return ""
+        }
+        rest = rho_str_slice(rest, u32(at) + 1,
+            u32(rho_strlen(rest)) - u32(at) - 1)
+        index = index + 1
+    }
+    let end: i32 = rho_str_index_of(rest, "|")
+    if end < 0 {
+        return rest
+    }
+    return rho_str_slice(rest, 0, u32(end))
+}
+
+// registry_alert sends to every enabled plugin whose threshold the level
+// reaches, and returns how many plugins accepted it. The root is the plugins
+// folder the registry was loaded from; a plugin with a `command` is run from
+// there.
+fn registry_alert_target(root: string, registry: string, name: string, level: string,
+    message: string, metadata: string) u32 {
+    if name == "" || name == "alert-dispatcher" ||
+        !registry_enabled(registry, name) {
+        return 0
+    }
+    let config: string = registry_config(registry, name)
+    let threshold: string = plugin_config_value(config, "severity_threshold")
+    if !plugin_threshold_passes(level, threshold) {
+        return 0
+    }
+    let transport: string = plugin_transport(root, name)
+    return plugin_transport_send(root, name, transport, config, level, message, metadata)
+}
+
+// registry_alert is the unified dispatcher. When an application enables the
+// alert-dispatcher plugin, that plugin's target list is the set of channels and
+// each channel keeps its own threshold and settings. Without a dispatcher the
+// registry falls back to every enabled plugin, which is what a small
+// application with one channel wants.
+fn registry_alert(root: string, registry: string, level: string, message: string,
+    metadata: string) u32 {
+    if registry_find(registry, "alert-dispatcher") != "" &&
+        registry_enabled(registry, "alert-dispatcher") {
+        let config: string = registry_config(registry, "alert-dispatcher")
+        let threshold: string = plugin_config_value(config, "severity_threshold")
+        if !plugin_threshold_passes(level, threshold) {
+            return 0
+        }
+        var sent: u32 = 0
+        var rest: string = alert_dispatcher_targets(config)
+        while rest != "" {
+            let comma: i32 = rho_str_index_of(rest, ",")
+            var target: string = ""
+            if comma < 0 {
+                target = rest
+                rest = ""
+            } else {
+                target = rho_str_slice(rest, 0, u32(comma))
+                rest = rho_str_slice(rest, u32(comma) + 1,
+                    u32(rho_strlen(rest)) - u32(comma) - 1)
+            }
+            target = plugin_trim(target)
+            sent = sent + registry_alert_target(root, registry, target, level, message,
+                metadata)
+        }
+        return sent
+    }
+
+    var sent: u32 = 0
+    var rest: string = registry
+    while rest != "" {
+        let at: i32 = rho_str_index_of(rest, "\n")
+        let line: string = ""
+        if at < 0 {
+            line = rest
+            rest = ""
+        } else {
+            line = rho_str_slice(rest, 0, u32(at))
+            rest = rho_str_slice(rest, u32(at) + 1, u32(rho_strlen(rest)) - u32(at) - 1)
+        }
+        if line == "" {
+            continue
+        }
+        let name_end: i32 = rho_str_index_of(line, "|")
+        if name_end < 0 {
+            continue
+        }
+        let name: string = rho_str_slice(line, 0, u32(name_end))
+        sent = sent + registry_alert_target(root, registry, name, level, message, metadata)
+    }
+    return sent
+}
+
+fn registry_alert_one(root: string, registry: string, name: string, level: string,
+    message: string, metadata: string) u32 {
+    if registry_find(registry, name) == "" {
+        return 0
+    }
+    if name == "alert-dispatcher" {
+        return registry_alert(root, registry, level, message, metadata)
+    }
+    let config: string = registry_config(registry, name)
+    return plugin_transport_send(root, name, plugin_transport(root, name), config,
+        level, message, metadata)
+}

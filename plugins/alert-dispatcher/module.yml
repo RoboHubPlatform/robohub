@@ -1,0 +1,31 @@
+#
+# alert-dispatcher — the one alert plugin an application wires its rules to.
+#
+# It does not deliver anything itself. It names the channels that do, and the
+# manager fans an alert out to those channels with each one's own threshold and
+# settings. A new channel is added by writing its plugin and naming it here; the
+# application keeps calling one dispatcher.
+#
+module:
+  name: alert-dispatcher
+  type: module
+  version: 0.1.0
+  description: Fans an alert out to the configured alert channels.
+  maintainer: "Aurel Miron"
+  license: "MIT"
+  created: "2026-11-02"
+
+main: src/main.rho
+
+plugin:
+  kind: alert
+  transport: dispatcher
+  defaults:
+    targets: "alert-log"
+    severity_threshold: INFO
+
+metadata:
+  tags:
+    - plugin
+    - alert
+    - dispatcher

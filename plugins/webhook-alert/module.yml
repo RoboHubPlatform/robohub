@@ -1,0 +1,27 @@
+#
+# webhook-alert — the generic HTTP provider.
+#
+module:
+  name: webhook-alert
+  type: module
+  version: 0.1.0
+  description: Posts an alert to an HTTP endpoint.
+  maintainer: "Aurel Miron"
+  license: "MIT"
+  created: "2026-11-02"
+
+main: src/main.rho
+
+plugin:
+  kind: alert
+  transport: webhook
+  defaults:
+    url: ""
+    severity_threshold: ERROR
+
+metadata:
+  tags:
+    - plugin
+    - alert
+    - webhook
+    - http
