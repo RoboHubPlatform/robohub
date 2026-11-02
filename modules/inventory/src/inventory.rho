@@ -84,11 +84,12 @@ fn inventory_host_config(key: string) string {
         return ""
     }
     let text: string = rho_read_text(manifest)
-    let start: i32 = rho_str_index_of(text, "\napp_modules:\n")
+    let marker: string = "\napp_modules:\n"
+    let start: i32 = rho_str_index_of(text, marker)
     if start < 0 {
         return ""
     }
-    var i: u32 = u32(start) + 13
+    var i: u32 = u32(start) + u32(rho_strlen(marker))
     var mine: bool = false
     var in_config: bool = false
     var config_indent: u32 = 0
