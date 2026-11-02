@@ -71,6 +71,40 @@ of that kind that are enabled.
 A registry that holds a test which does not work is a registry that will fail a
 run for a reason nobody can see, so a test is added only after it has passed.
 
+## Applications
+
+`applications/keeper` is the dashboard and registry; `applications/mesh` plans
+and runs gateway deployments; `applications/aquarium` is the first modular
+monolith. The aquarium is one service on one port, and the inventory module is
+included into it and serves `/expenses` on the same router.
+
+## Modules
+
+A module is a reusable application: backend, pages and storage, under
+`modules/`. It has no port of its own. The host application includes it and the
+module registers its routes on the host's router — the aquarium application is
+one service on one port, with the inventory module serving `/expenses`.
+
+`modules/registry.yml` is the installed set; the keeper's `/app-modules` page
+lists it, installs and removes modules, and links to the application that hosts
+one. A module's records and settings live in the workspace of the application
+that consumes it (`$ROBOHUB_APP_WORKSPACE/modules/<name>/`), so two applications
+can use the same module without sharing a database.
+
+## Plugins
+
+An application names its plugins and their settings in its own `module.yml`.
+`plugins/registry.yml` is the installed set; the manager checks each path on
+disk and dispatches by transport. `applications/keeper` has a `/plugins` page to
+install, remove, enable and test them. The alert dispatcher fans out to the
+channels an application wires, and the rule engine in `plugins/alert/rule.rho`
+adds hysteresis, pending and cooldown windows and a rate limit around a
+reading.
+
+The transports live in `providers/` and are ordinary Rho: `log`, `email`
+(SMTP or a local outbox), `telegram` and `webhook`. An application that only
+needs to send a message can call a provider directly.
+
 ## The schemas
 
 The shapes the ecosystem's files are written in are in `schemas/`, one file per
