@@ -269,17 +269,29 @@ fn widget_json_number_field(text: string, key: string) string {
     return out
 }
 
+fn widget_write_setting(key: string, value: string) void {
+    let workspace: string = getenv("ROBOHUB_APP_WORKSPACE")
+    if workspace == "" {
+        workspace = getenv("HOME") + "/.rho/modules/widgets"
+    }
+    let dir: string = workspace + "/data"
+    ignore_u32(rho_exec("mkdir", "-p " + dir, dir + "/mkdir.txt"))
+    ignore_bool(rho_write_text(dir + "/" + key, value))
+}
+
 fn widget_gateway_url() string {
     let mesh: string = widget_setting("mesh_url")
-    if mesh != "" {
+    let project: string = widget_setting("mesh_project")
+    if mesh != "" && project != "" {
         let report: string = widget_report("mesh-gateway")
         let code: u32 = rho_exec("curl", "-fsS -m 2 " +
-            widget_arg_quote(mesh + "/mesh/api/gateway"), report)
+            widget_arg_quote(mesh + "/mesh/api/projects/" + project + "/gateway"), report)
         if code == 0 {
             let text: string = rho_read_text(report)
             if rho_str_index_of(text, "\"available\":true") >= 0 {
                 let url: string = widget_json_string_field(text, "url")
                 if url != "" {
+                    widget_write_setting("gateway_url", url)
                     return url
                 }
             }
