@@ -2,6 +2,11 @@
 
 All notable changes to this module are recorded here, one section per release.
 
+## [0.3.1] - 2026-11-03
+
+A module's documentation is copied with its images, so a page that shows a
+screenshot carries it into the assembled site.
+
 ## [0.3.0] - 2026-11-02
 
 The site now collects applications, modules and plugins as well as the

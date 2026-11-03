@@ -69,8 +69,8 @@ fn assemble_module(tree: string, name: string, path: string) void {
     if !rho_path_exists(path + "/docs/index.md") {
         return
     }
-    rho_exec("sh", "-c \"mkdir -p " + tree + "/" + name + "/docs && cp -f " +
-        path + "/docs/index.md " + tree + "/" + name + "/docs/index.md && cp -f " +
+    rho_exec("sh", "-c \"mkdir -p " + tree + "/" + name + "/docs && cp -Rf " +
+        path + "/docs/. " + tree + "/" + name + "/docs/ && cp -f " +
         path + "/module.yml " + tree + "/" + name + "/module.yml && if [ -f " +
         path + "/CHANGELOG.md ]; then printf '\\n\\n## Release history\\n\\n' >> " +
         tree + "/" + name + "/docs/index.md && sed '/^# Changelog$/d' " +
