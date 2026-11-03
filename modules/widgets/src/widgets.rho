@@ -84,6 +84,14 @@ fn widget_report(name: string) string {
     return dir + "/" + name + ".txt"
 }
 
+fn widget_curl(url: string, report: string) string {
+    let code: u32 = rho_exec("curl", "-fsS -m 3 " + widget_arg_quote(url), report)
+    if code != 0 {
+        return ""
+    }
+    return rho_read_text(report)
+}
+
 fn widget_parse_milli(text: string) i64 {
     var value: string = widget_trim(text)
     var sign: i64 = 1
@@ -354,9 +362,10 @@ fn widget_card(db: SqlDb, widget: Widgets) string {
     let latest: string = widget_latest_text(db, u32(widget.id))
     let unit: string = widget.unit
     if rho_str_eq(widget.kind, "button") {
-        return "<div class=\"widget-card\"><h3><a href=\"/widgets/edit?id=" +
+        return "<div class=\"widget-card\" data-widget-id=\"" + rho_int_to_str(u32(widget.id)) +
+            "\"><h3><a href=\"/widgets/edit?id=" +
             rho_int_to_str(u32(widget.id)) + "\">" + escape_html(widget.title) +
-            "</a></h3><p><small>Button</small></p><form method=\"post\" action=\"/widgets/press\">" +
+            "</a></h3><p><small>Button</small></p><form class=\"widget-press\" method=\"post\" action=\"/widgets/press\">" +
             "<input type=\"hidden\" name=\"id\" value=\"" + rho_int_to_str(u32(widget.id)) +
             "\"><input type=\"hidden\" name=\"return\" value=\"dashboard\">" +
             "<button type=\"submit\">Press</button></form></div>"
@@ -369,19 +378,21 @@ fn widget_card(db: SqlDb, widget: Widgets) string {
             on_class = " on"
             label = "On"
         }
-        return "<div class=\"widget-card toggle-card\"><h3><a href=\"/widgets/edit?id=" +
+        return "<div class=\"widget-card toggle-card\" data-widget-id=\"" +
+            rho_int_to_str(u32(widget.id)) + "\"><h3><a href=\"/widgets/edit?id=" +
             rho_int_to_str(u32(widget.id)) + "\">" + escape_html(widget.title) +
-            "</a></h3><form method=\"post\" action=\"/widgets/press\">" +
+            "</a></h3><form class=\"widget-press\" method=\"post\" action=\"/widgets/press\">" +
             "<input type=\"hidden\" name=\"id\" value=\"" + rho_int_to_str(u32(widget.id)) +
             "\"><input type=\"hidden\" name=\"return\" value=\"dashboard\">" +
             "<button type=\"submit\" class=\"switch" + on_class + "\">" +
-            "<span></span>" + label + "</button></form></div>"
+            "<span></span><span class=\"switch-text\">" + label + "</span></button></form></div>"
     }
     let chart: string = ""
     if rho_str_eq(widget.kind, "chart") {
         chart = widget_chart(values, count)
     }
-    return "<div class=\"widget-card\"><h3><a href=\"/widgets/edit?id=" +
+    return "<div class=\"widget-card\" data-widget-id=\"" + rho_int_to_str(u32(widget.id)) +
+        "\"><h3><a href=\"/widgets/edit?id=" +
         rho_int_to_str(u32(widget.id)) + "\">" + escape_html(widget.title) + "</a></h3>" +
         chart + "<div class=\"widget-value\">" + escape_html(latest) + " " +
         escape_html(unit) + "</div><p><small>" + rho_int_to_str(count) +
@@ -692,15 +703,143 @@ fn widgets_press(req: Request) Response {
     sql_close(db)
     let back: string = widget_form_value(body, "return")
     if rho_str_eq(back, "dashboard") {
+        var ok: string = "true"
         if code != 0 {
-            return html(status_ok(), "<meta http-equiv=\"refresh\" content=\"0;url=/?widget_error=1\">")
+            ok = "false"
         }
-        return html(status_ok(), "<meta http-equiv=\"refresh\" content=\"0;url=/\">")
+        return json(status_ok(), "{\"ok\":" + ok + ",\"state\":" +
+            json_string(new_state) + "}")
     }
     if code != 0 {
         return widgets_page_message("The hook for " + widget.title + " failed.")
     }
     return widgets_page_message(widget.title + " was pressed.")
+}
+
+extern fn sse_file(path: string, interval_ms: u32) Response
+
+fn widgets_events_file() string {
+    return widget_state_dir() + "/events.log"
+}
+
+fn widget_state_dir() string {
+    let workspace: string = getenv("ROBOHUB_APP_WORKSPACE")
+    if workspace == "" {
+        workspace = getenv("HOME") + "/.rho/modules/widgets"
+    }
+    let dir: string = workspace + "/data"
+    ignore_u32(rho_exec("mkdir", "-p " + dir, dir + "/mkdir.txt"))
+    return dir
+}
+
+fn widget_event(widget_id: u32, state: string) void {
+    let file: string = widgets_events_file()
+    let line: string = "widget:" + rho_int_to_str(widget_id) + ":" + state + "\n"
+    let old: string = rho_read_text(file)
+    ignore_bool(rho_write_text(file, old + line))
+}
+
+fn widgets_events(req: Request) Response {
+    let file: string = widgets_events_file()
+    if !rho_path_exists(file) {
+        ignore_bool(rho_write_text(file, ""))
+    }
+    return sse_file(file, 1000)
+}
+
+fn widget_device_states() string {
+    let gateway: string = widget_gateway_url()
+    if gateway == "" {
+        return ""
+    }
+    let text: string = widget_curl(gateway + "/api/v1/devices",
+        widget_report("refresh-devices"))
+    if text == "" {
+        return ""
+    }
+    var out: string = ""
+    var rest: string = text
+    while rho_strlen(rest) > 0 {
+        let at: i32 = rho_str_index_of(rest, "},{")
+        var object: string = ""
+        if at < 0 {
+            object = rest
+            rest = ""
+        } else {
+            object = rho_str_slice(rest, 0, u32(at) + 1)
+            rest = rho_str_slice(rest, u32(at) + 3, u32(rho_strlen(rest)) - u32(at) - 3)
+        }
+        let id: string = widget_json_number_field(object, "id")
+        let state: string = widget_json_string_field(object, "state")
+        if id != "" && state != "" {
+            out = out + id + ":" + state + "\n"
+        }
+    }
+    return out
+}
+
+fn widgets_refresh(req: Request) Response {
+    let states: string = widget_device_states()
+    if states == "" {
+        return json(status_ok(), "{\"updated\":0}")
+    }
+    let opened: Result[SqlDb, string] = sql_open(widget_db_path())
+    if !opened.is_ok {
+        return json(status_ok(), "{\"updated\":0}")
+    }
+    let db: SqlDb = opened.ok
+    ignore_u32(sql_apply(db, ""))
+    let widgets: Widgets[128]
+    let slice: Slice[Widgets] = Slice[Widgets]{ Ptr[Widgets](&widgets[0]), WIDGET_CAPACITY }
+    let listed: Result[u32, SqlError] = ListWidgets(db, slice, WIDGET_CAPACITY)
+    var count: u32 = 0
+    if listed.is_ok {
+        count = listed.ok
+    }
+    var updated: u32 = 0
+    var i: u32 = 0
+    while i < count {
+        let widget: Widgets = widgets[i]
+        if rho_str_eq(widget.kind, "toggle") {
+            let marker: i32 = rho_str_index_of(widget.source, "/api/v1/devices/")
+            if marker >= 0 {
+                let tail: string = rho_str_slice(widget.source, u32(marker) + 16,
+                    u32(rho_strlen(widget.source)) - u32(marker) - 16)
+                let slash: i32 = rho_str_index_of(tail, "/")
+                if slash > 0 {
+                    let device_id: string = rho_str_slice(tail, 0, u32(slash))
+                    var rest: string = states
+                    var state: string = ""
+                    while rest != "" {
+                        let at: i32 = rho_str_index_of(rest, "\n")
+                        let line: string = ""
+                        if at < 0 {
+                            line = rest
+                            rest = ""
+                        } else {
+                            line = rho_str_slice(rest, 0, u32(at))
+                            rest = rho_str_slice(rest, u32(at) + 1,
+                                u32(rho_strlen(rest)) - u32(at) - 1)
+                        }
+                        let colon: i32 = rho_str_index_of(line, ":")
+                        if colon > 0 && rho_str_eq(rho_str_slice(line, 0, u32(colon)), device_id) {
+                            state = rho_str_slice(line, u32(colon) + 1,
+                                u32(rho_strlen(line)) - u32(colon) - 1)
+                        }
+                    }
+                    if state != "" && !rho_str_eq(widget_toggle_state(db, u32(widget.id)), state) {
+                        widget_ignore_result(InsertWidgetValue(rho_int_to_str(u32(widget.id)), state,
+                            "0", rho_int_to_str(widget_now()), db))
+                        widget_event(u32(widget.id), state)
+                        updated = updated + 1
+                    }
+                }
+            }
+        }
+        i = i + 1
+    }
+    sql_close(db)
+    return json(status_ok(), "{\"updated\":" + rho_int_to_str(updated) + "}")
 }
 
 /* -------------------------------------------------------------------------- */
