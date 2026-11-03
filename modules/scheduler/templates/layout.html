@@ -47,10 +47,34 @@
 <body>
 <header class="topbar">
   <div class="brand">RoboHub <em>Aquarium</em> · Scheduler</div>
-  <nav><a href="/">Home</a><a href="/expenses">Inventory</a><a href="/scheduler" class="active">Scheduler</a>{{{ keeper }}}</nav>
+  <nav>
+    <a href="/">Home</a>
+    <a href="/expenses">Inventory</a>
+    <a href="/scheduler">Scheduler</a>
+    <a href="/widgets">Widgets</a>
+    <a href="/equipment">Equipment</a>
+    <a href="/automation">Automation</a>
+    <a href="/chemistry">Chemistry</a>
+    <a href="/modes">Modes</a>
+    <a href="/events">Events</a>
+    <a href="/settings">Settings</a>
+    {{{ keeper }}}
+  </nav>
 </header>
 <main>{{{ body }}}</main>
-<footer class="bottombar"><span>Chores, due and overdue.</span><nav><a href="/">Back to aquarium</a><a href="/scheduler">Scheduler</a>{{{ keeper }}}</nav></footer>
+<footer class="bottombar"><span>Chores, due and overdue.</span><nav>
+    <a href="/">Home</a>
+    <a href="/expenses">Inventory</a>
+    <a href="/scheduler">Scheduler</a>
+    <a href="/widgets">Widgets</a>
+    <a href="/equipment">Equipment</a>
+    <a href="/automation">Automation</a>
+    <a href="/chemistry">Chemistry</a>
+    <a href="/modes">Modes</a>
+    <a href="/events">Events</a>
+    <a href="/settings">Settings</a>
+    {{{ keeper }}}
+  </nav></footer>
 <script>
 (function () {
   document.querySelectorAll(".keeper[data-keeper-port]").forEach(function (el) {

@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.1.1] - 2026-11-03
+
+The scheduler page carries the same full application menu as the dashboard.
+
 ## [0.1.0] - 2026-11-02
 
 The scheduler module. Interval, cron, one-time and usage-based chores; due and

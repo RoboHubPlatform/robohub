@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.1.1] - 2026-11-03
+
+The inventory page carries the same full application menu as the dashboard.
+
 ## [0.1.0] - 2026-11-02
 
 The inventory and expense module. Stock on hand, reorder levels, categories,

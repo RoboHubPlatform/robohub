@@ -9,7 +9,7 @@
 module:
   name: inventory
   type: module
-  version: 0.1.0
+  version: 0.1.1
   description: >
     An inventory and expense tracker for an aquarium or any other long-running
     project: stock on hand, reorder levels, purchases, prices, stores, dates,

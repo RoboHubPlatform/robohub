@@ -354,10 +354,12 @@ fn widget_card(db: SqlDb, widget: Widgets) string {
     let latest: string = widget_latest_text(db, u32(widget.id))
     let unit: string = widget.unit
     if rho_str_eq(widget.kind, "button") {
-        return "<div class=\"widget-card\"><h3>" + escape_html(widget.title) +
-            "</h3><p><small>Button</small></p><form method=\"post\" action=\"/widgets/press\">" +
+        return "<div class=\"widget-card\"><h3><a href=\"/widgets/edit?id=" +
+            rho_int_to_str(u32(widget.id)) + "\">" + escape_html(widget.title) +
+            "</a></h3><p><small>Button</small></p><form method=\"post\" action=\"/widgets/press\">" +
             "<input type=\"hidden\" name=\"id\" value=\"" + rho_int_to_str(u32(widget.id)) +
-            "\"><button type=\"submit\">Press</button></form></div>"
+            "\"><input type=\"hidden\" name=\"return\" value=\"dashboard\">" +
+            "<button type=\"submit\">Press</button></form></div>"
     }
     if rho_str_eq(widget.kind, "toggle") {
         let state: string = widget_toggle_state(db, u32(widget.id))
@@ -367,17 +369,20 @@ fn widget_card(db: SqlDb, widget: Widgets) string {
             on_class = " on"
             label = "On"
         }
-        return "<div class=\"widget-card\"><h3>" + escape_html(widget.title) +
-            "</h3><p><small>Switch</small></p><form method=\"post\" action=\"/widgets/press\">" +
+        return "<div class=\"widget-card toggle-card\"><h3><a href=\"/widgets/edit?id=" +
+            rho_int_to_str(u32(widget.id)) + "\">" + escape_html(widget.title) +
+            "</a></h3><form method=\"post\" action=\"/widgets/press\">" +
             "<input type=\"hidden\" name=\"id\" value=\"" + rho_int_to_str(u32(widget.id)) +
-            "\"><button type=\"submit\" class=\"switch" + on_class + "\">" +
+            "\"><input type=\"hidden\" name=\"return\" value=\"dashboard\">" +
+            "<button type=\"submit\" class=\"switch" + on_class + "\">" +
             "<span></span>" + label + "</button></form></div>"
     }
     let chart: string = ""
     if rho_str_eq(widget.kind, "chart") {
         chart = widget_chart(values, count)
     }
-    return "<div class=\"widget-card\"><h3>" + escape_html(widget.title) + "</h3>" +
+    return "<div class=\"widget-card\"><h3><a href=\"/widgets/edit?id=" +
+        rho_int_to_str(u32(widget.id)) + "\">" + escape_html(widget.title) + "</a></h3>" +
         chart + "<div class=\"widget-value\">" + escape_html(latest) + " " +
         escape_html(unit) + "</div><p><small>" + rho_int_to_str(count) +
         " values · " + escape_html(widget.sourceKind) + "</small></p></div>"
@@ -685,6 +690,13 @@ fn widgets_press(req: Request) Response {
     widget_ignore_result(InsertEvent("INFO", "widget", event_message,
         rho_int_to_str(widget_now()), db))
     sql_close(db)
+    let back: string = widget_form_value(body, "return")
+    if rho_str_eq(back, "dashboard") {
+        if code != 0 {
+            return html(status_ok(), "<meta http-equiv=\"refresh\" content=\"0;url=/?widget_error=1\">")
+        }
+        return html(status_ok(), "<meta http-equiv=\"refresh\" content=\"0;url=/\">")
+    }
     if code != 0 {
         return widgets_page_message("The hook for " + widget.title + " failed.")
     }
