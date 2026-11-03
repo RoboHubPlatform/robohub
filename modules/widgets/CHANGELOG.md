@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.1.2] - 2026-11-03
+
+The widget device list resolves the gateway through a selected Mesh project
+(`/mesh/api/projects/{project}/gateway`) instead of a gateway address stored by
+Mesh.
+
 ## [0.1.1] - 2026-11-03
 
 The widget editor can list devices from a connected Mesh/gateway and fill the

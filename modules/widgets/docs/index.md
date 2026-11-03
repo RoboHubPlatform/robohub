@@ -37,9 +37,8 @@ database and the workspace.
 
 ## A switch for a Shelly plug
 
-A toggle widget can drive a plug through the gateway device API. Set the Mesh URL
-in Aquarium settings; the widget editor then lists the devices from Mesh and the
-gateway. Choose one in **Mesh device**, kind **Switch**, and the URL is filled
+A toggle widget can drive a plug through the gateway device API. Set the Mesh URL and project in Aquarium settings; the widget editor then lists
+the devices from the project's gateway. Choose one in **Mesh device**, kind **Switch**, and the URL is filled
 with the gateway switch endpoint:
 
 ```
