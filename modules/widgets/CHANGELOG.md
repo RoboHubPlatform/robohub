@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.7] - 2026-11-03
+
+A widget can bind to a Mesh project's signals: number, chart and table widgets
+see inputs, while buttons and switches see outputs. Choosing a source fills its
+URL, method and unit, so a part's unit is shown without retyping it. There is a
+new **Table** kind whose rows are the widget's point count.
+
 ## [0.1.6] - 2026-11-03
 
 A dashboard render syncs the toggle states from the gateway before painting, and

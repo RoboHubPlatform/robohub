@@ -192,6 +192,10 @@ fn widget_refresh(widget: Widgets) string {
     }
     let db: SqlDb = opened.ok
     ignore_u32(sql_apply(db, ""))
+    if rho_str_eq(widget_latest_text(db, u32(widget.id)), text) {
+        sql_close(db)
+        return ""
+    }
     widget_ignore_result(InsertWidgetValue(rho_int_to_str(u32(widget.id)), text,
         rho_int_to_str(u32(widget_parse_milli(text))), rho_int_to_str(widget_now()), db))
     sql_close(db)
@@ -238,6 +242,24 @@ fn widget_setting(key: string) string {
     let dir: string = workspace + "/data"
     ignore_u32(rho_exec("mkdir", "-p " + dir, dir + "/mkdir.txt"))
     return widget_trim(rho_read_text(dir + "/" + key))
+}
+
+fn widget_field(line: string, index: u32) string {
+    var rest: string = line
+    var i: u32 = 0
+    while i < index {
+        let at: i32 = rho_str_index_of(rest, "|")
+        if at < 0 {
+            return ""
+        }
+        rest = rho_str_slice(rest, u32(at) + 1, u32(rho_strlen(rest)) - u32(at) - 1)
+        i = i + 1
+    }
+    let at: i32 = rho_str_index_of(rest, "|")
+    if at < 0 {
+        return rest
+    }
+    return rho_str_slice(rest, 0, u32(at))
 }
 
 fn widget_json_string_field(text: string, key: string) string {
@@ -349,6 +371,156 @@ fn widget_device_options(selected: string) string {
     return out
 }
 
+// widget_mesh_sources reads the active Mesh project's signals: the inputs a
+// number, chart or table can show and the outputs a button or switch can drive.
+fn widget_mesh_sources() string {
+    let mesh: string = widget_setting("mesh_url")
+    let project: string = widget_setting("mesh_project")
+    if mesh == "" || project == "" {
+        return ""
+    }
+    return widget_curl(mesh + "/mesh/api/projects/" + project + "/sources",
+        widget_report("mesh-sources"))
+}
+
+fn widget_mesh_source_options(selected: string) string {
+    let mesh: string = widget_setting("mesh_url")
+    let project: string = widget_setting("mesh_project")
+    if mesh == "" || project == "" {
+        return "<option value=\"\">Set Mesh URL and project in Aquarium Settings</option>"
+    }
+    let text: string = widget_mesh_sources()
+    var out: string = "<option value=\"\">Choose a Mesh source</option>"
+    if text == "" {
+        return out
+    }
+    var rest: string = text
+    while rho_strlen(rest) > 0 {
+        let at: i32 = rho_str_index_of(rest, "},{")
+        var object: string = ""
+        if at < 0 {
+            object = rest
+            rest = ""
+        } else {
+            object = rho_str_slice(rest, 0, u32(at) + 1)
+            rest = rho_str_slice(rest, u32(at) + 3, u32(rho_strlen(rest)) - u32(at) - 3)
+        }
+        let id: string = widget_json_string_field(object, "id")
+        let owner: string = widget_json_string_field(object, "owner")
+        let label: string = widget_json_string_field(object, "label")
+        let direction: string = widget_json_string_field(object, "direction")
+        let unit: string = widget_json_string_field(object, "unit")
+        let kinds: string = widget_json_string_field(object, "kinds")
+        let value_path: string = widget_json_string_field(object, "value_path")
+        let action_path: string = widget_json_string_field(object, "action_path")
+        if id == "" || direction == "" {
+            continue
+        }
+        let value_url: string = mesh + value_path
+        let action_url: string = mesh + action_path
+        var mark: string = ""
+        if (selected != "" && rho_str_eq(value_url, selected)) ||
+            (selected != "" && rho_str_eq(action_url, selected)) {
+            mark = " selected"
+        }
+        var text_label: string = owner
+        if label != "" {
+            text_label = text_label + " · " + label
+        }
+        if unit != "" {
+            text_label = text_label + " (" + unit + ")"
+        }
+        if rho_str_eq(direction, "output") {
+            text_label = text_label + " — output"
+        }
+        out = out + "<option value=\"" + escape_html(id) + "\"" +
+            " data-direction=\"" + escape_html(direction) + "\"" +
+            " data-kinds=\"" + escape_html(kinds) + "\"" +
+            " data-unit=\"" + escape_html(unit) + "\"" +
+            " data-value=\"" + escape_html(value_url) + "\"" +
+            " data-action=\"" + escape_html(action_url) + "\"" + mark + ">" +
+            escape_html(text_label) + "</option>"
+    }
+    return out
+}
+
+fn widget_kind_options(selected: string) string {
+    var out: string = ""
+    let kinds: string = "numeric|Number\nchart|Chart\ntable|Table\nbutton|Button\ntoggle|Switch"
+    var rest: string = kinds
+    while rest != "" {
+        let at: i32 = rho_str_index_of(rest, "\n")
+        var line: string = rest
+        if at < 0 {
+            rest = ""
+        } else {
+            line = rho_str_slice(rest, 0, u32(at))
+            rest = rho_str_slice(rest, u32(at) + 1, u32(rho_strlen(rest)) - u32(at) - 1)
+        }
+        var mark: string = ""
+        if rho_str_eq(widget_field(line, 0), selected) {
+            mark = " selected"
+        }
+        out = out + "<option value=\"" + escape_html(widget_field(line, 0)) + "\"" + mark + ">" +
+            escape_html(widget_field(line, 1)) + "</option>"
+    }
+    return out
+}
+
+fn widget_source_kind_options(selected: string) string {
+    var out: string = ""
+    let kinds: string = "manual|Manual\nurl|URL / hook"
+    var rest: string = kinds
+    while rest != "" {
+        let at: i32 = rho_str_index_of(rest, "\n")
+        var line: string = rest
+        if at < 0 {
+            rest = ""
+        } else {
+            line = rho_str_slice(rest, 0, u32(at))
+            rest = rho_str_slice(rest, u32(at) + 1, u32(rho_strlen(rest)) - u32(at) - 1)
+        }
+        var mark: string = ""
+        if rho_str_eq(widget_field(line, 0), selected) {
+            mark = " selected"
+        }
+        out = out + "<option value=\"" + escape_html(widget_field(line, 0)) + "\"" + mark + ">" +
+            escape_html(widget_field(line, 1)) + "</option>"
+    }
+    return out
+}
+
+fn widget_method_options(selected: string) string {
+    var out: string = ""
+    if !rho_str_eq(selected, "POST") {
+        out = "<option value=\"GET\" selected>GET</option><option value=\"POST\">POST</option>"
+    } else {
+        out = "<option value=\"GET\">GET</option><option value=\"POST\" selected>POST</option>"
+    }
+    return out
+}
+
+fn widget_table(values: WidgetValues[100], count: u32, rows: u32, unit: string) string {
+    var out: string = "<table class=\"widget-table\"><thead><tr><th>Time</th><th>Value</th></tr></thead><tbody>"
+    var limit: u32 = rows
+    if limit > count {
+        limit = count
+    }
+    if limit == 0 {
+        out = out + "<tr><td colspan=\"2\"><small>No values yet.</small></td></tr>"
+    }
+    var i: u32 = 0
+    while i < limit {
+        let value: WidgetValues = values[i]
+        let epoch: u32 = u32(value.recordedEpoch)
+        out = out + "<tr><td><span class=\"local-time\" data-s=\"" +
+            rho_int_to_str(epoch) + "\">" + rho_int_to_str(epoch) + "</span></td><td>" +
+            escape_html(value.valueText) + " " + escape_html(unit) + "</td></tr>"
+        i = i + 1
+    }
+    return out + "</tbody></table>"
+}
+
 fn widget_card(db: SqlDb, widget: Widgets) string {
     let values: WidgetValues[100]
     let slice: Slice[WidgetValues] = Slice[WidgetValues]{
@@ -387,6 +559,14 @@ fn widget_card(db: SqlDb, widget: Widgets) string {
             "<button type=\"submit\" class=\"switch" + on_class + "\">" +
             "<span></span><span class=\"switch-text\">" + label + "</span></button></form></div>"
     }
+    if rho_str_eq(widget.kind, "table") {
+        return "<div class=\"widget-card\" data-widget-id=\"" + rho_int_to_str(u32(widget.id)) +
+            "\"><h3><a href=\"/widgets/edit?id=" +
+            rho_int_to_str(u32(widget.id)) + "\">" + escape_html(widget.title) + "</a></h3>" +
+            widget_table(values, count, u32(widget.points), unit) +
+            "<p><small>" + rho_int_to_str(count) + " values · " +
+            escape_html(widget.sourceKind) + "</small></p></div>"
+    }
     let chart: string = ""
     if rho_str_eq(widget.kind, "chart") {
         chart = widget_chart(values, count)
@@ -399,10 +579,14 @@ fn widget_card(db: SqlDb, widget: Widgets) string {
         " values · " + escape_html(widget.sourceKind) + "</small></p></div>"
 }
 
-fn widgets_dashboard_cards() string {
+fn widgets_dashboard_cards(refresh: bool) string {
     // A page load reads the gateway before it renders, so a plug switched in
-    // another tab or application is already correct in the first paint.
-    ignore_u32(widgets_sync_state())
+    // another tab or application is already correct in the first paint. The
+    // fragment route re-renders what is stored and does not fetch again, so a
+    // client that follows an event does not start another fetch.
+    if refresh {
+        ignore_u32(widgets_sync_state())
+    }
     let opened: Result[SqlDb, string] = sql_open(widget_db_path())
     if !opened.is_ok {
         return ""
@@ -419,7 +603,9 @@ fn widgets_dashboard_cards() string {
     var out: string = ""
     var i: u32 = 0
     while i < count {
-        widget_ignore_string(widget_refresh(widgets[i]))
+        if refresh {
+            widget_ignore_string(widget_refresh(widgets[i]))
+        }
         out = out + widget_card(db, widgets[i])
         i = i + 1
     }
@@ -476,8 +662,11 @@ fn widgets_page_message(message: string) Response {
     }
     let body: string = template_fill(widget_template("widgets"),
         vars("notice", notice) + vars("rows", rows_html) +
-        vars("device_options", widget_device_options("")) +
-        vars("preview", widgets_dashboard_cards()))
+        vars("device_options", widget_mesh_source_options("")) +
+        vars("kind_options", widget_kind_options("numeric")) +
+        vars("source_kind_options", widget_source_kind_options("manual")) +
+        vars("method_options", widget_method_options("GET")) +
+        vars("preview", widgets_dashboard_cards(true)))
     let document: string = template_fill(widget_template("layout"),
         vars("title", "Widgets") + vars("body", body))
     return html(status_ok(), document)
@@ -568,7 +757,10 @@ fn widget_edit_page(req: Request) Response {
         vars("source_kind", escape_html(widget.sourceKind)) +
         vars("source", escape_html(widget.source)) +
         vars("method", escape_html(widget.method)) +
-        vars("device_options", widget_device_options(widget.source)) +
+        vars("kind_options", widget_kind_options(widget.kind)) +
+        vars("source_kind_options", widget_source_kind_options(widget.sourceKind)) +
+        vars("method_options", widget_method_options(widget.method)) +
+        vars("device_options", widget_mesh_source_options(widget.source)) +
         vars("unit", escape_html(widget.unit)) +
         vars("points", rho_int_to_str(u32(widget.points))))
     let document: string = template_fill(widget_template("layout"),
@@ -811,11 +1003,26 @@ fn widget_device_states() string {
     return out
 }
 
+// widget_mesh_state reads the state behind a Mesh action source. A switch
+// source is the action path; its value path is the same URL with the last
+// segment changed, so a toggle is correct on the first paint even when the
+// device is not registered on a gateway.
+fn widget_mesh_state(widget: Widgets) string {
+    let action: i32 = rho_str_index_of(widget.source, "/action")
+    if rho_str_index_of(widget.source, "/mesh/api/") < 0 || action < 0 {
+        return ""
+    }
+    let value_url: string = rho_str_slice(widget.source, 0, u32(action)) + "/value"
+    let state: string = widget_trim(widget_curl(value_url,
+        widget_report("mesh-state-" + rho_int_to_str(u32(widget.id)))))
+    if rho_str_eq(state, "on") || rho_str_eq(state, "off") {
+        return state
+    }
+    return ""
+}
+
 fn widgets_sync_state() u32 {
     let states: string = widget_device_states()
-    if states == "" {
-        return 0
-    }
     let opened: Result[SqlDb, string] = sql_open(widget_db_path())
     if !opened.is_ok {
         return 0
@@ -868,6 +1075,13 @@ fn widgets_sync_state() u32 {
                     }
                 }
             }
+            let mesh_state: string = widget_mesh_state(widget)
+            if mesh_state != "" && !rho_str_eq(widget_toggle_state(db, u32(widget.id)), mesh_state) {
+                widget_ignore_result(InsertWidgetValue(rho_int_to_str(u32(widget.id)), mesh_state,
+                    "0", rho_int_to_str(widget_now()), db))
+                widget_event(u32(widget.id), mesh_state)
+                updated = updated + 1
+            }
         }
         i = i + 1
     }
@@ -875,9 +1089,49 @@ fn widgets_sync_state() u32 {
     return updated
 }
 
+fn widgets_refresh_values() u32 {
+    let opened: Result[SqlDb, string] = sql_open(widget_db_path())
+    if !opened.is_ok {
+        return 0
+    }
+    let db: SqlDb = opened.ok
+    ignore_u32(sql_apply(db, ""))
+    let widgets: Widgets[128]
+    let slice: Slice[Widgets] = Slice[Widgets]{ Ptr[Widgets](&widgets[0]), WIDGET_CAPACITY }
+    let listed: Result[u32, SqlError] = ListWidgets(db, slice, WIDGET_CAPACITY)
+    var count: u32 = 0
+    if listed.is_ok {
+        count = listed.ok
+    }
+    var changed: u32 = 0
+    var i: u32 = 0
+    while i < count {
+        if widget_refresh(widgets[i]) != "" {
+            changed = changed + 1
+        }
+        i = i + 1
+    }
+    sql_close(db)
+    return changed
+}
+
+fn widget_event_cards() void {
+    let file: string = widgets_events_file()
+    ignore_bool(rho_write_text(file, rho_read_text(file) + "cards:changed\n"))
+}
+
 fn widgets_refresh(req: Request) Response {
     let updated: u32 = widgets_sync_state()
-    return json(status_ok(), "{\"updated\":" + rho_int_to_str(updated) + "}")
+    let changed: u32 = widgets_refresh_values()
+    if changed > 0 {
+        widget_event_cards()
+    }
+    return json(status_ok(), "{\"updated\":" + rho_int_to_str(updated) +
+        ",\"changed\":" + rho_int_to_str(changed) + "}")
+}
+
+fn widgets_cards(req: Request) Response {
+    return html(status_ok(), widgets_dashboard_cards(false))
 }
 
 /* -------------------------------------------------------------------------- */

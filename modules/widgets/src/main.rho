@@ -21,6 +21,7 @@ route POST "/widgets/delete"              => widgets_delete
 route POST "/widgets/value"               => widgets_value
 route POST "/widgets/press"               => widgets_press
 route GET  "/widgets/events"              => widgets_events
+route GET  "/widgets/cards"               => widgets_cards
 route POST "/widgets/refresh"             => widgets_refresh
 route GET  "/api/widgets"                 => widgets_api_list
 route POST "/api/widgets/{id}/value"      => widgets_api_value
