@@ -222,6 +222,113 @@ fn widget_chart(values: WidgetValues[100], count: u32) string {
         points + "\"/></svg>"
 }
 
+fn widget_setting(key: string) string {
+    let workspace: string = getenv("ROBOHUB_APP_WORKSPACE")
+    if workspace == "" {
+        workspace = getenv("HOME") + "/.rho/modules/widgets"
+    }
+    let dir: string = workspace + "/data"
+    ignore_u32(rho_exec("mkdir", "-p " + dir, dir + "/mkdir.txt"))
+    return widget_trim(rho_read_text(dir + "/" + key))
+}
+
+fn widget_json_string_field(text: string, key: string) string {
+    let at: i32 = rho_str_index_of(text, "\"" + key + "\":\"")
+    if at < 0 {
+        return ""
+    }
+    let start: u32 = u32(at) + u32(rho_strlen(key)) + 4
+    let rest: string = rho_str_slice(text, start, u32(rho_strlen(text)) - start)
+    let end: i32 = rho_str_index_of(rest, "\"")
+    if end < 0 {
+        return ""
+    }
+    return rho_str_slice(rest, 0, u32(end))
+}
+
+fn widget_json_number_field(text: string, key: string) string {
+    let at: i32 = rho_str_index_of(text, "\"" + key + "\":")
+    if at < 0 {
+        return ""
+    }
+    let start: u32 = u32(at) + u32(rho_strlen(key)) + 3
+    var rest: string = rho_str_slice(text, start, u32(rho_strlen(text)) - start)
+    var out: string = ""
+    var i: u32 = 0
+    while i < u32(rho_strlen(rest)) {
+        let ch: string = rho_str_slice(rest, i, 1)
+        if (ch >= "0" && ch <= "9") {
+            out = out + ch
+            i = i + 1
+        } else if out == "" && (rho_str_eq(ch, " ") || rho_str_eq(ch, "\t")) {
+            i = i + 1
+        } else {
+            break
+        }
+    }
+    return out
+}
+
+fn widget_gateway_url() string {
+    let mesh: string = widget_setting("mesh_url")
+    if mesh != "" {
+        let report: string = widget_report("mesh-gateway")
+        let code: u32 = rho_exec("curl", "-fsS -m 2 " +
+            widget_arg_quote(mesh + "/mesh/api/gateway"), report)
+        if code == 0 {
+            let text: string = rho_read_text(report)
+            if rho_str_index_of(text, "\"available\":true") >= 0 {
+                let url: string = widget_json_string_field(text, "url")
+                if url != "" {
+                    return url
+                }
+            }
+        }
+    }
+    return widget_setting("gateway_url")
+}
+
+fn widget_device_options(selected: string) string {
+    let gateway: string = widget_gateway_url()
+    if gateway == "" {
+        return "<option value=\"\">Set Mesh or Gateway URL in Aquarium Settings</option>"
+    }
+    let report: string = widget_report("gateway-devices")
+    let code: u32 = rho_exec("curl", "-fsS -m 3 " +
+        widget_arg_quote(gateway + "/api/v1/devices"), report)
+    if code != 0 {
+        return "<option value=\"\">No gateway device list at " + escape_html(gateway) + "</option>"
+    }
+    let text: string = rho_read_text(report)
+    var out: string = "<option value=\"\">Choose a Mesh device</option>"
+    var rest: string = text
+    while rho_strlen(rest) > 0 {
+        let at: i32 = rho_str_index_of(rest, "},{")
+        var object: string = ""
+        if at < 0 {
+            object = rest
+            rest = ""
+        } else {
+            object = rho_str_slice(rest, 0, u32(at) + 1)
+            rest = rho_str_slice(rest, u32(at) + 3, u32(rho_strlen(rest)) - u32(at) - 3)
+        }
+        let id: string = widget_json_number_field(object, "id")
+        let name: string = widget_json_string_field(object, "name")
+        if id == "" || name == "" {
+            continue
+        }
+        let state: string = widget_json_string_field(object, "state")
+        let url: string = gateway + "/api/v1/devices/" + id + "/switch"
+        var mark: string = ""
+        if rho_str_eq(url, selected) {
+            mark = " selected"
+        }
+        out = out + "<option value=\"" + escape_html(url) + "\"" + mark + ">" +
+            escape_html(name) + " (" + escape_html(id) + ", " + escape_html(state) + ")</option>"
+    }
+    return out
+}
+
 fn widget_card(db: SqlDb, widget: Widgets) string {
     let values: WidgetValues[100]
     let slice: Slice[WidgetValues] = Slice[WidgetValues]{
@@ -337,6 +444,7 @@ fn widgets_page_message(message: string) Response {
     }
     let body: string = template_fill(widget_template("widgets"),
         vars("notice", notice) + vars("rows", rows_html) +
+        vars("device_options", widget_device_options("")) +
         vars("preview", widgets_dashboard_cards()))
     let document: string = template_fill(widget_template("layout"),
         vars("title", "Widgets") + vars("body", body))
@@ -361,10 +469,16 @@ fn widgets_add(req: Request) Response {
     if rho_strlen(source_kind) == 0 {
         source_kind = "manual"
     }
-    let source: string = widget_trim(widget_form_value(body, "source"))
+    var source: string = widget_trim(widget_form_value(body, "source"))
     var method: string = widget_trim(widget_form_value(body, "method"))
     if rho_strlen(method) == 0 {
         method = "GET"
+    }
+    var device_url: string = widget_trim(widget_form_value(body, "device_url"))
+    if device_url != "" {
+        source = device_url
+        method = "POST"
+        source_kind = "url"
     }
     let unit: string = widget_trim(widget_form_value(body, "unit"))
     var points: u32 = rho_int_from_str(widget_trim(widget_form_value(body, "points")))
@@ -422,6 +536,7 @@ fn widget_edit_page(req: Request) Response {
         vars("source_kind", escape_html(widget.sourceKind)) +
         vars("source", escape_html(widget.source)) +
         vars("method", escape_html(widget.method)) +
+        vars("device_options", widget_device_options(widget.source)) +
         vars("unit", escape_html(widget.unit)) +
         vars("points", rho_int_to_str(u32(widget.points))))
     let document: string = template_fill(widget_template("layout"),
@@ -441,13 +556,22 @@ fn widgets_edit_save(req: Request) Response {
     }
     let db: SqlDb = opened.ok
     ignore_u32(sql_apply(db, ""))
+    var source: string = widget_trim(widget_form_value(body, "source"))
+    var method: string = widget_trim(widget_form_value(body, "method"))
+    var source_kind: string = widget_form_value(body, "source_kind")
+    let device_url: string = widget_trim(widget_form_value(body, "device_url"))
+    if device_url != "" {
+        source = device_url
+        method = "POST"
+        source_kind = "url"
+    }
     let points: u32 = rho_int_from_str(widget_trim(widget_form_value(body, "points")))
     let updated: Result[u32, SqlError] = UpdateWidget(
         widget_trim(widget_form_value(body, "title")),
         widget_form_value(body, "kind"),
-        widget_form_value(body, "source_kind"),
-        widget_trim(widget_form_value(body, "source")),
-        widget_trim(widget_form_value(body, "method")),
+        source_kind,
+        source,
+        method,
         widget_trim(widget_form_value(body, "unit")),
         i64(points), i64(id), db)
     sql_close(db)
