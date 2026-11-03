@@ -48,3 +48,11 @@ http://gateway:8080/api/v1/devices/1/switch
 The widget appends `?state=on` or `?state=off` (or substitutes `{state}` if the
 URL contains it). Register the plug on the gateway first; the gateway's
 `/api/v1/devices` API polls it and keeps its state.
+
+
+## Live updates
+
+The dashboard opens `/widgets/events` as Server-Sent Events. A refresh request
+(`POST /widgets/refresh`) reads the gateway's device states and emits a
+`widget:<id>:<state>` event when a toggle changed, so a plug switched outside
+the page updates without a reload.

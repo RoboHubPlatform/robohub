@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.4] - 2026-11-03
+
+Widgets update live: a switch is refreshed from the gateway and the change is
+delivered as a Server-Sent Event (`/widgets/events`), so a plug switched outside
+the page changes its card without a reload. Pressing a switch stays on the
+dashboard and updates the control in place.
+
 ## [0.1.3] - 2026-11-03
 
 A switch card shows only the switch, larger and without the card border; its
