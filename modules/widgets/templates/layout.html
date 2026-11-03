@@ -47,6 +47,10 @@
   .widget-card h3 { margin:0 0 .5rem; font-family:"Palatino Linotype",Georgia,serif; font-weight:500; font-size:1rem; }
   .widget-value { font-family:"Palatino Linotype",Georgia,serif; font-size:1.8rem; color:var(--gold); }
   .spark { width:100%; height:48px; display:block; margin:.4rem 0; }
+  .widget-table { width:100%; border-collapse:collapse; background:transparent; border:0; font-size:.78rem; }
+  .widget-table th, .widget-table td { padding:.22rem .3rem; border-bottom:1px solid var(--line); }
+  .widget-table th { background:transparent; color:var(--faint); font-size:.62rem; }
+  .widget-table td:last-child { text-align:right; white-space:nowrap; }
   .switch { display:inline-flex; align-items:center; gap:.45rem; background:transparent; color:var(--muted); border:1px solid var(--line); padding:.35rem .6rem; }
   .switch span:first-child { width:1.5rem; height:.85rem; border-radius:999px; background:rgba(255,255,255,.15); position:relative; display:inline-block; }
   .switch span:first-child::after { content:""; position:absolute; top:.1rem; left:.1rem; width:.65rem; height:.65rem; border-radius:50%; background:var(--muted); transition:left .15s ease; }
@@ -95,6 +99,10 @@
   document.querySelectorAll(".keeper[data-keeper-port]").forEach(function (el) {
     var port = el.getAttribute("data-keeper-port");
     if (port) { el.href = location.protocol + "//" + location.hostname + ":" + port + "/"; }
+  });
+  document.querySelectorAll(".local-time[data-s]").forEach(function (el) {
+    var seconds = Number(el.getAttribute("data-s"));
+    if (seconds > 0) { el.textContent = new Date(seconds * 1000).toLocaleString(); }
   });
 })();
 </script>

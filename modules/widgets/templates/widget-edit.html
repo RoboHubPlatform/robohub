@@ -3,26 +3,63 @@
   <input type="hidden" name="id" value="{{{ id }}}">
   <div class="grid">
     <label>Title<input name="title" value="{{{ title }}}" required></label>
-    <label>Kind
-      <select name="kind">
-        <option value="numeric">Number</option>
-        <option value="chart">Chart</option>
-        <option value="button">Button</option>
-        <option value="toggle">Switch</option>
-      </select>
-    </label>
-    <label>Source
-      <select name="source_kind">
-        <option value="manual">Manual</option>
-        <option value="url">URL / hook</option>
-      </select>
-    </label>
-    <label>Mesh device<select name="device_url">{{{ device_options }}}</select><small>Choosing one replaces the URL below with its switch endpoint.</small></label>
+    <label>Kind<select name="kind">{{{ kind_options }}}</select></label>
+    <label>Source<select name="source_kind">{{{ source_kind_options }}}</select></label>
+    <label>Mesh source<select name="mesh_source">{{{ device_options }}}</select><small>Inputs feed numbers, charts and tables; outputs feed buttons and switches.</small></label>
     <label>URL or hook<input name="source" value="{{{ source }}}" placeholder="hook?state={state}"></label>
-    <label>Method<select name="method"><option>GET</option><option>POST</option></select></label>
+    <label>Method<select name="method">{{{ method_options }}}</select></label>
     <label>Unit<input name="unit" value="{{{ unit }}}"></label>
-    <label>Chart points<input name="points" value="{{{ points }}}" inputmode="numeric"></label>
+    <label>Chart points / table rows<input name="points" value="{{{ points }}}" inputmode="numeric"></label>
   </div>
   <div class="form-actions"><button type="submit">Save widget</button></div>
 </form>
+<script>
+(function () {
+  var form = document.currentScript.previousElementSibling;
+  if (!form || !form.classList.contains("panel-form")) {
+    form = document.querySelector("form.panel-form");
+  }
+  if (!form) { return; }
+  var kind = form.querySelector("select[name=kind]");
+  var mesh = form.querySelector("select[name=mesh_source]");
+  var source = form.querySelector("input[name=source]");
+  var unit = form.querySelector("input[name=unit]");
+  var method = form.querySelector("select[name=method]");
+  var sourceKind = form.querySelector("select[name=source_kind]");
+  if (!kind || !mesh || !source) { return; }
+  function outputKind() {
+    return kind.value === "toggle" || kind.value === "button";
+  }
+  function filter() {
+    var output = outputKind();
+    for (var i = 0; i < mesh.options.length; i++) {
+      var option = mesh.options[i];
+      if (!option.dataset.direction) { continue; }
+      var allowed = (option.dataset.kinds || "").split(/\s+/).indexOf(kind.value) >= 0;
+      if (output) {
+        allowed = allowed && option.dataset.direction === "output";
+      } else {
+        allowed = allowed && option.dataset.direction === "input";
+      }
+      option.hidden = !allowed;
+      option.disabled = !allowed;
+    }
+    if (mesh.selectedIndex >= 0 && mesh.options[mesh.selectedIndex].disabled) {
+      mesh.value = "";
+    }
+  }
+  function pick() {
+    var option = mesh.options[mesh.selectedIndex];
+    if (!option || !option.dataset.direction) { return; }
+    var output = outputKind();
+    source.value = output ? (option.dataset.action || "") : (option.dataset.value || "");
+    if (unit) { unit.value = output ? "" : (option.dataset.unit || ""); }
+    if (method) { method.value = output ? "POST" : "GET"; }
+    if (sourceKind) { sourceKind.value = "url"; }
+  }
+  kind.addEventListener("change", function () { filter(); pick(); });
+  mesh.addEventListener("change", pick);
+  filter();
+})();
+</script>
 <p><a href="/widgets">← Widgets</a></p>

@@ -8,6 +8,8 @@ keeps its tables in the host's main SQL database.
 
 - **Number** — the latest value, with its unit.
 - **Chart** — the latest values as an inline sparkline.
+- **Table** — the latest values as rows; the widget's point count is also the
+  number of rows to show.
 - **Button** — calls a configured hook or API when pressed.
 - **Switch** — toggles between on and off, calls the hook with the new state, and
   shows the current state in the card. The hook may use `{state}`; without it,
@@ -19,6 +21,12 @@ keeps its tables in the host's main SQL database.
 `POST /api/widgets/{id}/value`. `url` values are fetched from a URL that returns
 a plain number; the manager stores each fetch as a new value. A button or switch
 uses the URL as a hook.
+
+With a Mesh URL and project in Aquarium settings, **Mesh source** lists the
+project's signals. The list is separated by kind: number, chart and table
+widgets see only inputs; buttons and switches see only outputs. Choosing a
+source fills the URL, method and unit, so a DS18B20 temperature shows `°C` and a
+Shelly plug's power shows `W` without the widget knowing either part.
 
 ## API
 
@@ -38,8 +46,8 @@ database and the workspace.
 ## A switch for a Shelly plug
 
 A toggle widget can drive a plug through the gateway device API. Set the Mesh URL and project in Aquarium settings; the widget editor then lists
-the devices from the project's gateway. Choose one in **Mesh device**, kind **Switch**, and the URL is filled
-with the gateway switch endpoint:
+the project's signals. Choose the plug's **Switch** in **Mesh source**, kind **Switch**, and the URL is filled
+with the Mesh action endpoint, which drives the gateway switch endpoint:
 
 ```
 http://gateway:8080/api/v1/devices/1/switch
