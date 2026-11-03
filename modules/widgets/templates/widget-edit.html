@@ -17,6 +17,7 @@
         <option value="url">URL / hook</option>
       </select>
     </label>
+    <label>Mesh device<select name="device_url">{{{ device_options }}}</select><small>Choosing one replaces the URL below with its switch endpoint.</small></label>
     <label>URL or hook<input name="source" value="{{{ source }}}" placeholder="hook?state={state}"></label>
     <label>Method<select name="method"><option>GET</option><option>POST</option></select></label>
     <label>Unit<input name="unit" value="{{{ unit }}}"></label>

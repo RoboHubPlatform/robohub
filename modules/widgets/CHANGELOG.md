@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.1.1] - 2026-11-03
+
+The widget editor can list devices from a connected Mesh/gateway and fill the
+source with a chosen device's switch endpoint.
+
 ## [0.1.0] - 2026-11-02
 
 Dashboard widgets with a configurable source: a number, a chart of recent

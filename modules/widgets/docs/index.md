@@ -37,9 +37,10 @@ database and the workspace.
 
 ## A switch for a Shelly plug
 
-A toggle widget can drive a plug through the gateway device API. Choose kind
-**Switch**, source kind **URL / hook**, method **POST**, and the gateway's
-device switch URL:
+A toggle widget can drive a plug through the gateway device API. Set the Mesh URL
+in Aquarium settings; the widget editor then lists the devices from Mesh and the
+gateway. Choose one in **Mesh device**, kind **Switch**, and the URL is filled
+with the gateway switch endpoint:
 
 ```
 http://gateway:8080/api/v1/devices/1/switch
