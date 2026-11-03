@@ -52,7 +52,7 @@ URL contains it). Register the plug on the gateway first; the gateway's
 
 ## Live updates
 
-The dashboard opens `/widgets/events` as Server-Sent Events. A refresh request
-(`POST /widgets/refresh`) reads the gateway's device states and emits a
-`widget:<id>:<state>` event when a toggle changed, so a plug switched outside
-the page updates without a reload.
+The dashboard opens `/widgets/events` as Server-Sent Events and also reads
+`/api/widgets` every two seconds as a fallback. A page render reads the gateway
+before painting, so a plug switched in another tab or application is correct on
+the first paint; a press emits `widget:<id>:<state>` immediately.

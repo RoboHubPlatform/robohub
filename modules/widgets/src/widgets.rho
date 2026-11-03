@@ -400,6 +400,9 @@ fn widget_card(db: SqlDb, widget: Widgets) string {
 }
 
 fn widgets_dashboard_cards() string {
+    // A page load reads the gateway before it renders, so a plug switched in
+    // another tab or application is already correct in the first paint.
+    ignore_u32(widgets_sync_state())
     let opened: Result[SqlDb, string] = sql_open(widget_db_path())
     if !opened.is_ok {
         return ""
@@ -450,6 +453,7 @@ fn widget_rows(db: SqlDb, widgets: Widgets[128], count: u32) string {
 }
 
 fn widgets_page_message(message: string) Response {
+    ignore_u32(widgets_sync_state())
     let opened: Result[SqlDb, string] = sql_open(widget_db_path())
     if !opened.is_ok {
         return html(status_internal(), "<h1>Widgets</h1><p>The database could not be opened: " +
@@ -693,6 +697,9 @@ fn widgets_press(req: Request) Response {
     if rho_str_eq(widget.kind, "toggle") && code == 0 {
         widget_ignore_result(InsertWidgetValue(rho_int_to_str(id), new_state,
             "0", rho_int_to_str(widget_now()), db))
+        // A second dashboard is listening to the stream; the press itself is
+        // the event, not only the difference a poll would find later.
+        widget_event(id, new_state)
     }
     var event_message: string = "Button " + widget.title + " pressed"
     if code != 0 {
@@ -804,14 +811,14 @@ fn widget_device_states() string {
     return out
 }
 
-fn widgets_refresh(req: Request) Response {
+fn widgets_sync_state() u32 {
     let states: string = widget_device_states()
     if states == "" {
-        return json(status_ok(), "{\"updated\":0}")
+        return 0
     }
     let opened: Result[SqlDb, string] = sql_open(widget_db_path())
     if !opened.is_ok {
-        return json(status_ok(), "{\"updated\":0}")
+        return 0
     }
     let db: SqlDb = opened.ok
     ignore_u32(sql_apply(db, ""))
@@ -865,6 +872,11 @@ fn widgets_refresh(req: Request) Response {
         i = i + 1
     }
     sql_close(db)
+    return updated
+}
+
+fn widgets_refresh(req: Request) Response {
+    let updated: u32 = widgets_sync_state()
     return json(status_ok(), "{\"updated\":" + rho_int_to_str(updated) + "}")
 }
 
@@ -974,6 +986,7 @@ fn widgets_api_press(req: Request) Response {
     if rho_str_eq(widget.kind, "toggle") && code == 0 {
         widget_ignore_result(InsertWidgetValue(id, new_state, "0",
             rho_int_to_str(widget_now()), db))
+        widget_event(found_id, new_state)
     }
     widget_ignore_result(InsertEvent("INFO", "widget",
         "Button " + widget.title + " pressed", rho_int_to_str(widget_now()), db))
