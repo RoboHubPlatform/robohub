@@ -8,7 +8,7 @@
 module:
   name: scheduler
   type: module
-  version: 0.1.0
+  version: 0.1.1
   description: >
     A chore scheduler for maintenance tasks: interval, cron, one-time and
     usage-based schedules, due and overdue states, completion notes and

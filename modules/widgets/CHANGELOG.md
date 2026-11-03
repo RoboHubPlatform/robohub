@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.3] - 2026-11-03
+
+A switch card shows only the switch, larger and without the card border; its
+title opens the widget settings. Pressing it from a dashboard stays there,
+while the manager's Press button stays in the manager. A dashboard can always
+offer **+ Add widget**.
+
 ## [0.1.2] - 2026-11-03
 
 The widget device list resolves the gateway through a selected Mesh project
