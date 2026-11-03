@@ -8,7 +8,7 @@
 module:
   name: widgets
   type: module
-  version: 0.1.4
+  version: 0.1.5
   description: >
     Dashboard widgets with a configurable source: a number, a chart of recent
     values, or a button that calls a hook or API.

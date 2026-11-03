@@ -739,12 +739,38 @@ fn widget_event(widget_id: u32, state: string) void {
     ignore_bool(rho_write_text(file, old + line))
 }
 
-fn widgets_events(req: Request) Response {
-    let file: string = widgets_events_file()
-    if !rho_path_exists(file) {
-        ignore_bool(rho_write_text(file, ""))
+fn widgets_snapshot() void {
+    let opened: Result[SqlDb, string] = sql_open(widget_db_path())
+    if !opened.is_ok {
+        return
     }
-    return sse_file(file, 1000)
+    let db: SqlDb = opened.ok
+    ignore_u32(sql_apply(db, ""))
+    let widgets: Widgets[128]
+    let slice: Slice[Widgets] = Slice[Widgets]{ Ptr[Widgets](&widgets[0]), WIDGET_CAPACITY }
+    let listed: Result[u32, SqlError] = ListWidgets(db, slice, WIDGET_CAPACITY)
+    var count: u32 = 0
+    if listed.is_ok {
+        count = listed.ok
+    }
+    var out: string = ""
+    var i: u32 = 0
+    while i < count {
+        if rho_str_eq(widgets[i].kind, "toggle") {
+            out = out + "widget:" + rho_int_to_str(u32(widgets[i].id)) + ":" +
+                widget_toggle_state(db, u32(widgets[i].id)) + "\n"
+        }
+        i = i + 1
+    }
+    sql_close(db)
+    ignore_bool(rho_write_text(widgets_events_file(), out))
+}
+
+fn widgets_events(req: Request) Response {
+    // A reconnect must show the current state, not replay every state the card
+    // has ever had. The stream starts from a fresh snapshot.
+    widgets_snapshot()
+    return sse_file(widgets_events_file(), 1000)
 }
 
 fn widget_device_states() string {

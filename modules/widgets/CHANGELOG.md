@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.1.5] - 2026-11-03
+
+The switch text is no longer styled as a second switch track, and an SSE
+connection starts from a snapshot of the current states instead of replaying
+the event history.
+
 ## [0.1.4] - 2026-11-03
 
 Widgets update live: a switch is refreshed from the gateway and the change is
