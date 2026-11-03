@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.1.6] - 2026-11-03
+
+A dashboard render syncs the toggle states from the gateway before painting, and
+a press emits its SSE event. The dashboard also falls back to `/api/widgets`
+every two seconds if the event stream is unavailable.
+
 ## [0.1.5] - 2026-11-03
 
 The switch text is no longer styled as a second switch track, and an SSE
