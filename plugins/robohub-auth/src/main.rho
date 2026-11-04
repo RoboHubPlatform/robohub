@@ -1,0 +1,7 @@
+module robohub.plugins.robohub_auth
+
+// The SSO plugin identity. The request middleware is generated from the
+// application's project.yml `auth` middleware; this plugin names the provider
+// and carries the defaults every application shares.
+fn main() void {
+}

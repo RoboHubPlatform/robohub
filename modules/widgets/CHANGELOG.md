@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.1.8] - 2026-11-04
+
+Widget fetches and press hooks send the gateway service token, so a widget pointing at a protected Mesh source still reads values and drives outputs.
+
 ## [0.1.7] - 2026-11-03
 
 A widget can bind to a Mesh project's signals: number, chart and table widgets

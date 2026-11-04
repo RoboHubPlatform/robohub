@@ -18,6 +18,7 @@ extern fn rho_arg(index: i32) string
 extern fn rho_exec(program: string, arguments: string, output_path: string) u32
 extern fn rho_path_exists(path: string) bool
 extern fn rho_read_text(path: string) string
+extern fn rho_write_text(path: string, text: string) bool
 extern fn rho_strlen(s: string) u64
 extern fn rho_str_index_of(s: string, needle: string) i32
 extern fn rho_str_slice(s: string, start: u32, length: u32) string
@@ -49,7 +50,7 @@ fn main() void {
 fn assemble(tree: string) void {
     // The orchestrator's own documentation and manifest.
     rho_exec("sh", "-c \"mkdir -p " + tree + "/docs\"", "build/reports/assemble.txt")
-    rho_exec("sh", "-c \"cp -f docs/index.md " + tree + "/docs/index.md && if [ -f CHANGELOG.md ]; then printf '\\n\\n## Release history\\n\\n' >> " + tree + "/docs/index.md && sed '/^# Changelog$/d' CHANGELOG.md >> " + tree + "/docs/index.md; fi\"", "build/reports/assemble2.txt")
+    rho_exec("sh", "-c \"cp -f docs/index.md " + tree + "/docs/index.md && if [ -f CHANGELOG.md ]; then printf '\\n\\n## Release history\\n\\n' >> " + tree + "/docs/index.md && awk -f applications/docsite/templates/normalize-changelog.awk CHANGELOG.md >> " + tree + "/docs/index.md; fi\"", "build/reports/assemble2.txt")
     rho_exec("sh", "-c \"sed \'s/name: robohub/name: build/\' module.yml > " + tree + "/module.yml\"", "build/reports/assemble3.txt")
     rho_exec("sh", "-c \"mkdir -p " + tree + "/src && cp -f src/main.rho " + tree + "/src/main.rho\"", "build/reports/assemble4.txt")
 
@@ -61,6 +62,17 @@ fn assemble(tree: string) void {
 
     // The site is the toolchain's own build of the tree.
     rho_exec("rho", "doc " + tree + " -title RoboHub -api /dev/null -out " + SITE, "build/reports/doc.txt")
+
+    // A landing page in the same shape as the Rho docsite: the ecosystem's
+    // entry points, its repository, and its release history.
+    rho_exec("sh", "-c \"awk -f applications/docsite/templates/release-rows.awk CHANGELOG.md > build/reports/release-rows.html\"",
+        "build/reports/release-rows.txt")
+    let version: string = yaml.value("module.yml", "module.version")
+    var landing: string = rho_read_text("applications/docsite/templates/landing.html")
+    landing = replace_all(landing, "{{VERSION}}", version)
+    landing = replace_once(landing, "<!--RELEASES-->",
+        rho_read_text("build/reports/release-rows.html"))
+    rho_write_text(SITE + "/index.html", landing)
 }
 
 // assemble_module copies one module's page, manifest and release history into
@@ -73,7 +85,7 @@ fn assemble_module(tree: string, name: string, path: string) void {
         path + "/docs/. " + tree + "/" + name + "/docs/ && cp -f " +
         path + "/module.yml " + tree + "/" + name + "/module.yml && if [ -f " +
         path + "/CHANGELOG.md ]; then printf '\\n\\n## Release history\\n\\n' >> " +
-        tree + "/" + name + "/docs/index.md && sed '/^# Changelog$/d' " +
+        tree + "/" + name + "/docs/index.md && awk -f applications/docsite/templates/normalize-changelog.awk " +
         path + "/CHANGELOG.md >> " + tree + "/" + name + "/docs/index.md; fi\"",
         "build/reports/assemble-" + name + ".txt")
 }
@@ -140,4 +152,26 @@ fn assemble_registry(tree: string) void {
                 "build/reports/section-" + name + ".txt")
         }
     }
+}
+
+fn replace_once(text: string, needle: string, value: string) string {
+    let at: i32 = rho_str_index_of(text, needle)
+    if at < 0 {
+        return text
+    }
+    return rho_str_slice(text, 0, u32(at)) + value +
+        rho_str_slice(text, u32(at) + u32(rho_strlen(needle)),
+            u32(rho_strlen(text)) - u32(at) - u32(rho_strlen(needle)))
+}
+
+fn replace_all(text: string, needle: string, value: string) string {
+    var out: string = text
+    var at: i32 = rho_str_index_of(out, needle)
+    while at >= 0 {
+        out = rho_str_slice(out, 0, u32(at)) + value +
+            rho_str_slice(out, u32(at) + u32(rho_strlen(needle)),
+                u32(rho_strlen(out)) - u32(at) - u32(rho_strlen(needle)))
+        at = rho_str_index_of(out, needle)
+    }
+    return out
 }

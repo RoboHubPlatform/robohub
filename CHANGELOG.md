@@ -6,6 +6,15 @@ says what changed, which is what tells two versions of one module apart. The
 section for the version being published travels with it, so a registry shows it
 against that version.
 
+## [0.3.5] - 2026-11-04
+
+Keeper authentication and SSO across applications. Keeper is the authorization
+server: it holds an ES256 signing key, mints short-lived single-use tickets, and
+protects its own admin UI. Aquarium and Mesh verify sessions locally with the
+public key, support direct WAN and reverse-proxy origins, and Mesh accepts
+signed service JWTs for server-to-server API calls. A robohub-auth plugin and
+provider registry make the auth provider selectable.
+
 ## [0.3.4] - 2026-11-02
 
 The aquarium framework: equipment and devices, automation rules with an

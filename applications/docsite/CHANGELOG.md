@@ -2,6 +2,34 @@
 
 All notable changes to this module are recorded here, one section per release.
 
+## [0.3.6] - 2026-11-04
+
+Landing and module changelogs use the same paragraph extraction: wrapped source
+lines are joined into paragraphs, so there are no half-empty lines and spacing
+is consistent.
+
+## [0.3.5] - 2026-11-04
+
+Landing and module changelogs both preserve line breaks, shown as line breaks
+rather than one wrapped block.
+
+## [0.3.4] - 2026-11-04
+
+The landing release history now shows the full changelog note for each
+release, not only its first line.
+
+## [0.3.3] - 2026-11-04
+
+Module release histories preserve changelog paragraphs consistently, and the
+landing page lists the five most recent releases sorted by version.
+
+## [0.3.2] - 2026-11-04
+
+The site has a landing page in the Rho docsite style: an overview of the
+ecosystem, links to the documentation and the main applications, the repository,
+and the current release. Release histories in module pages preserve the
+changelog line breaks.
+
 ## [0.3.1] - 2026-11-03
 
 A module's documentation is copied with its images, so a page that shows a

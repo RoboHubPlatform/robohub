@@ -25,3 +25,6 @@ plugins:
   - name: mesh-gateway
     path: mesh-gateway
     enabled: true
+  - name: robohub-auth
+    path: robohub-auth
+    enabled: true
