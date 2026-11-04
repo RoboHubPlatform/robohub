@@ -1,0 +1,101 @@
+module robohub.providers.mesh
+
+// The Mesh gateway provider.
+//
+// Every request in the Mesh API that another application needs is here, not in
+// the application. Aquarium and a future dashboard ask the gateway contract
+// for projects, a gateway, sources, device states and a source state; this
+// provider is the one that knows those paths are under /mesh/api.
+
+fn provider_mesh_base(config: string) string {
+    var url: string = gateway_config_value(config, "url")
+    while rho_strlen(url) > 0 &&
+        rho_str_eq(rho_str_slice(url, u32(rho_strlen(url)) - 1, 1), "/") {
+        url = rho_str_slice(url, 0, u32(rho_strlen(url)) - 1)
+    }
+    return url
+}
+
+fn provider_mesh_project(config: string) string {
+    return gateway_config_value(config, "project")
+}
+
+fn provider_mesh_fetch(url: string, name: string) string {
+    let report: string = gateway_report(name)
+    if rho_exec("curl", "-fsS -m 4 " + gateway_arg_quote(url), report) != 0 {
+        return ""
+    }
+    return rho_read_text(report)
+}
+
+fn provider_mesh_projects(config: string) string {
+    let base: string = provider_mesh_base(config)
+    if base == "" {
+        return ""
+    }
+    return provider_mesh_fetch(base + "/mesh/api/projects", "mesh-projects")
+}
+
+fn provider_mesh_gateway(config: string) string {
+    let base: string = provider_mesh_base(config)
+    let project: string = provider_mesh_project(config)
+    if base == "" || project == "" {
+        return ""
+    }
+    let text: string = provider_mesh_fetch(base + "/mesh/api/projects/" + project + "/gateway",
+        "mesh-gateway")
+    if rho_str_index_of(text, "\"available\":true") < 0 {
+        return ""
+    }
+    return gateway_json_string_field(text, "url")
+}
+
+fn provider_mesh_sources(config: string) string {
+    let base: string = provider_mesh_base(config)
+    let project: string = provider_mesh_project(config)
+    if base == "" || project == "" {
+        return ""
+    }
+    return provider_mesh_fetch(base + "/mesh/api/projects/" + project +
+        "/sources?base=" + gateway_urlencode(base), "mesh-sources")
+}
+
+fn provider_mesh_device_states(config: string) string {
+    let gateway: string = provider_mesh_gateway(config)
+    if gateway == "" {
+        return ""
+    }
+    let text: string = provider_mesh_fetch(gateway + "/api/v1/devices",
+        "mesh-devices")
+    var out: string = ""
+    var rest: string = text
+    while rho_strlen(rest) > 0 {
+        let at: i32 = rho_str_index_of(rest, "},{")
+        var object: string = rest
+        if at < 0 {
+            rest = ""
+        } else {
+            object = rho_str_slice(rest, 0, u32(at) + 1)
+            rest = rho_str_slice(rest, u32(at) + 3, u32(rho_strlen(rest)) - u32(at) - 3)
+        }
+        let id: string = gateway_json_number_field(object, "id")
+        let state: string = gateway_json_string_field(object, "state")
+        if id != "" && state != "" {
+            out = out + id + ":" + state + "\n"
+        }
+    }
+    return out
+}
+
+fn provider_mesh_source_state(config: string, source: string) string {
+    let action: i32 = rho_str_index_of(source, "/action")
+    if rho_str_index_of(source, "/mesh/api/") < 0 || action < 0 {
+        return ""
+    }
+    let value_url: string = rho_str_slice(source, 0, u32(action)) + "/value"
+    let state: string = gateway_trim(provider_mesh_fetch(value_url, "mesh-state"))
+    if rho_str_eq(state, "on") || rho_str_eq(state, "off") {
+        return state
+    }
+    return ""
+}

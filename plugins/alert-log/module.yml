@@ -18,6 +18,7 @@ main: src/main.rho
 
 plugin:
   kind: alert
+  provider: robohub-provider-log
   transport: log
   # The file the manager appends to. An application overrides it in its own
   # plugins block; without an override the file is beside the process.

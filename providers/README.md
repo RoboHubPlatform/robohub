@@ -1,17 +1,30 @@
 # Providers
 
-The transports the plugin system uses, and any application may use directly.
-They are Rho functions rather than plugins, so the same e-mail path can carry an
-alert, a report or a one-off message without going through a plugin registry.
+Providers are modules, not plugins. Each one has an identity, a version, docs
+and a changelog, and implements one contract's transport:
 
-| Provider | Function | What it does |
-|----------|----------|--------------|
-| `log` | `provider_log_append(config, line)` | appends a line to `path` |
-| `email` | `provider_email_send(provider, config, from, to, subject, body)` | `local` writes to `~/.rho/plugins/email-outbox.eml`; `smtp` uploads with curl |
-| `telegram` | `provider_telegram_send(config, text)` | posts to the Telegram bot API |
-| `webhook` | `provider_http_post(config, body)` | posts a body to `url`, with `content_type` and optional `authorization` |
+| Module | Contract | Transport | Functions |
+|--------|----------|-----------|-----------|
+| `robohub-provider-log` | alert | log | `provider_log_append(config, line)` |
+| `robohub-provider-email` | alert | email | `provider_email_send(provider, config, from, to, subject, body)` |
+| `robohub-provider-telegram` | alert | telegram | `provider_telegram_send(config, text)` |
+| `robohub-provider-webhook` | alert | webhook | `provider_http_post(config, body)` |
+| `robohub-provider-mesh` | gateway | mesh | `provider_mesh_*` behind the gateway contract |
 
-An application includes the provider it needs:
+The installed, selectable unit an application names is a **plugin**:
+`alert-log`, `email-alert`, `telegram-notifier`, `webhook-alert` or
+`mesh-gateway`. Each plugin names the provider it dispatches to in
+`plugin.provider`, so the keeper can show the plugin a person installs and the
+provider it carries.
+
+`providers/registry.yml` is the installed provider set, read the same way
+`plugins/registry.yml` is. It is what the keeper lists and what an install or
+uninstall edits. It does not compete with the plugin registry: the provider
+registry says what is installed, and the plugin registry says what an
+application may enable. A provider is not selected directly by an application.
+
+An application includes the provider it needs directly when it is not using the
+manager:
 
 ```rho
 include "../../providers/email/src/provider.rho"
@@ -27,10 +40,9 @@ let sent: u32 = provider_email_send(
 )
 ```
 
-The config is the same `key=value;key=value` string an alert plugin receives. A
+The config is the same `key=value;key=value` string a plugin receives. A
 provider returns `1` when it accepted the message and `0` when it was incomplete
-or the transport failed; the caller decides what that means. The alert manager
-counts accepted sends and leaves delivery policy to the rule and the dispatcher.
+or the transport failed; the caller decides what that means.
 
 `email` templates are rendered before the provider sees them, so a non-alert
 caller passes the subject and body it wants directly. The alert dispatcher's

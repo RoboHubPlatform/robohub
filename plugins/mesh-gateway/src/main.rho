@@ -1,0 +1,7 @@
+module robohub.plugins.mesh_gateway
+
+// The provider contract lives in contracts/gateway/manager.rho and
+// providers/mesh/src/provider.rho. This entry point is what makes the folder a
+// Rho module; the manager includes the provider source directly.
+fn main() void {
+}

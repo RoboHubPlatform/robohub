@@ -121,7 +121,7 @@ does not rebuild the manager.
 
 ### Alert rules
 
-`plugins/alert/rule.rho` is the state machine above the dispatcher: hysteresis,
+`contracts/alert/rule.rho` is the state machine above the dispatcher: hysteresis,
 a pending window that ignores a momentary spike, a cooldown after an alert
 clears, and a rolling rate limit. An application evaluates a sample and, when
 the result says it fired, hands the message to the alert dispatcher. The rule

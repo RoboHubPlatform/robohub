@@ -309,88 +309,15 @@ fn widget_write_setting(key: string, value: string) void {
     ignore_bool(rho_write_text(dir + "/" + key, value))
 }
 
-fn widget_gateway_url() string {
-    let mesh: string = widget_setting("mesh_url")
-    let project: string = widget_setting("mesh_project")
-    if mesh != "" && project != "" {
-        let report: string = widget_report("mesh-gateway")
-        let code: u32 = rho_exec("curl", "-fsS -m 2 " +
-            widget_arg_quote(mesh + "/mesh/api/projects/" + project + "/gateway"), report)
-        if code == 0 {
-            let text: string = rho_read_text(report)
-            if rho_str_index_of(text, "\"available\":true") >= 0 {
-                let url: string = widget_json_string_field(text, "url")
-                if url != "" {
-                    widget_write_setting("gateway_url", url)
-                    return url
-                }
-            }
-        }
-    }
-    return widget_setting("gateway_url")
+// The host's gateway contract supplies the sources. The widgets module knows
+// only the fields of a source, not which provider produced them.
+fn widget_gateway_sources() string {
+    return gateway_sources()
 }
 
-fn widget_device_options(selected: string) string {
-    let gateway: string = widget_gateway_url()
-    if gateway == "" {
-        return "<option value=\"\">Set Mesh or Gateway URL in Aquarium Settings</option>"
-    }
-    let report: string = widget_report("gateway-devices")
-    let code: u32 = rho_exec("curl", "-fsS -m 3 " +
-        widget_arg_quote(gateway + "/api/v1/devices"), report)
-    if code != 0 {
-        return "<option value=\"\">No gateway device list at " + escape_html(gateway) + "</option>"
-    }
-    let text: string = rho_read_text(report)
-    var out: string = "<option value=\"\">Choose a Mesh device</option>"
-    var rest: string = text
-    while rho_strlen(rest) > 0 {
-        let at: i32 = rho_str_index_of(rest, "},{")
-        var object: string = ""
-        if at < 0 {
-            object = rest
-            rest = ""
-        } else {
-            object = rho_str_slice(rest, 0, u32(at) + 1)
-            rest = rho_str_slice(rest, u32(at) + 3, u32(rho_strlen(rest)) - u32(at) - 3)
-        }
-        let id: string = widget_json_number_field(object, "id")
-        let name: string = widget_json_string_field(object, "name")
-        if id == "" || name == "" {
-            continue
-        }
-        let state: string = widget_json_string_field(object, "state")
-        let url: string = gateway + "/api/v1/devices/" + id + "/switch"
-        var mark: string = ""
-        if rho_str_eq(url, selected) {
-            mark = " selected"
-        }
-        out = out + "<option value=\"" + escape_html(url) + "\"" + mark + ">" +
-            escape_html(name) + " (" + escape_html(id) + ", " + escape_html(state) + ")</option>"
-    }
-    return out
-}
-
-// widget_mesh_sources reads the active Mesh project's signals: the inputs a
-// number, chart or table can show and the outputs a button or switch can drive.
-fn widget_mesh_sources() string {
-    let mesh: string = widget_setting("mesh_url")
-    let project: string = widget_setting("mesh_project")
-    if mesh == "" || project == "" {
-        return ""
-    }
-    return widget_curl(mesh + "/mesh/api/projects/" + project + "/sources",
-        widget_report("mesh-sources"))
-}
-
-fn widget_mesh_source_options(selected: string) string {
-    let mesh: string = widget_setting("mesh_url")
-    let project: string = widget_setting("mesh_project")
-    if mesh == "" || project == "" {
-        return "<option value=\"\">Set Mesh URL and project in Aquarium Settings</option>"
-    }
-    let text: string = widget_mesh_sources()
-    var out: string = "<option value=\"\">Choose a Mesh source</option>"
+fn widget_gateway_source_options(selected: string) string {
+    let text: string = widget_gateway_sources()
+    var out: string = "<option value=\"\">Choose a gateway source</option>"
     if text == "" {
         return out
     }
@@ -411,13 +338,11 @@ fn widget_mesh_source_options(selected: string) string {
         let direction: string = widget_json_string_field(object, "direction")
         let unit: string = widget_json_string_field(object, "unit")
         let kinds: string = widget_json_string_field(object, "kinds")
-        let value_path: string = widget_json_string_field(object, "value_path")
-        let action_path: string = widget_json_string_field(object, "action_path")
-        if id == "" || direction == "" {
+        let value_url: string = widget_json_string_field(object, "value_url")
+        let action_url: string = widget_json_string_field(object, "action_url")
+        if id == "" || direction == "" || value_url == "" {
             continue
         }
-        let value_url: string = mesh + value_path
-        let action_url: string = mesh + action_path
         var mark: string = ""
         if (selected != "" && rho_str_eq(value_url, selected)) ||
             (selected != "" && rho_str_eq(action_url, selected)) {
@@ -662,7 +587,7 @@ fn widgets_page_message(message: string) Response {
     }
     let body: string = template_fill(widget_template("widgets"),
         vars("notice", notice) + vars("rows", rows_html) +
-        vars("device_options", widget_mesh_source_options("")) +
+        vars("device_options", widget_gateway_source_options("")) +
         vars("kind_options", widget_kind_options("numeric")) +
         vars("source_kind_options", widget_source_kind_options("manual")) +
         vars("method_options", widget_method_options("GET")) +
@@ -760,7 +685,7 @@ fn widget_edit_page(req: Request) Response {
         vars("kind_options", widget_kind_options(widget.kind)) +
         vars("source_kind_options", widget_source_kind_options(widget.sourceKind)) +
         vars("method_options", widget_method_options(widget.method)) +
-        vars("device_options", widget_mesh_source_options(widget.source)) +
+        vars("device_options", widget_gateway_source_options(widget.source)) +
         vars("unit", escape_html(widget.unit)) +
         vars("points", rho_int_to_str(u32(widget.points))))
     let document: string = template_fill(widget_template("layout"),
@@ -973,52 +898,13 @@ fn widgets_events(req: Request) Response {
 }
 
 fn widget_device_states() string {
-    let gateway: string = widget_gateway_url()
-    if gateway == "" {
-        return ""
-    }
-    let text: string = widget_curl(gateway + "/api/v1/devices",
-        widget_report("refresh-devices"))
-    if text == "" {
-        return ""
-    }
-    var out: string = ""
-    var rest: string = text
-    while rho_strlen(rest) > 0 {
-        let at: i32 = rho_str_index_of(rest, "},{")
-        var object: string = ""
-        if at < 0 {
-            object = rest
-            rest = ""
-        } else {
-            object = rho_str_slice(rest, 0, u32(at) + 1)
-            rest = rho_str_slice(rest, u32(at) + 3, u32(rho_strlen(rest)) - u32(at) - 3)
-        }
-        let id: string = widget_json_number_field(object, "id")
-        let state: string = widget_json_string_field(object, "state")
-        if id != "" && state != "" {
-            out = out + id + ":" + state + "\n"
-        }
-    }
-    return out
+    return gateway_device_states()
 }
 
-// widget_mesh_state reads the state behind a Mesh action source. A switch
-// source is the action path; its value path is the same URL with the last
-// segment changed, so a toggle is correct on the first paint even when the
-// device is not registered on a gateway.
-fn widget_mesh_state(widget: Widgets) string {
-    let action: i32 = rho_str_index_of(widget.source, "/action")
-    if rho_str_index_of(widget.source, "/mesh/api/") < 0 || action < 0 {
-        return ""
-    }
-    let value_url: string = rho_str_slice(widget.source, 0, u32(action)) + "/value"
-    let state: string = widget_trim(widget_curl(value_url,
-        widget_report("mesh-state-" + rho_int_to_str(u32(widget.id)))))
-    if rho_str_eq(state, "on") || rho_str_eq(state, "off") {
-        return state
-    }
-    return ""
+// widget_gateway_state reads the state behind a source URL. The provider knows
+// how its own URL answers; the widget only passes the source it stored.
+fn widget_gateway_state(widget: Widgets) string {
+    return gateway_source_state(widget.source)
 }
 
 fn widgets_sync_state() u32 {
@@ -1075,11 +961,11 @@ fn widgets_sync_state() u32 {
                     }
                 }
             }
-            let mesh_state: string = widget_mesh_state(widget)
-            if mesh_state != "" && !rho_str_eq(widget_toggle_state(db, u32(widget.id)), mesh_state) {
-                widget_ignore_result(InsertWidgetValue(rho_int_to_str(u32(widget.id)), mesh_state,
+            let gateway_state: string = widget_gateway_state(widget)
+            if gateway_state != "" && !rho_str_eq(widget_toggle_state(db, u32(widget.id)), gateway_state) {
+                widget_ignore_result(InsertWidgetValue(rho_int_to_str(u32(widget.id)), gateway_state,
                     "0", rho_int_to_str(widget_now()), db))
-                widget_event(u32(widget.id), mesh_state)
+                widget_event(u32(widget.id), gateway_state)
                 updated = updated + 1
             }
         }

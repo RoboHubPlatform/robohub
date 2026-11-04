@@ -19,6 +19,7 @@ main: src/main.rho
 
 plugin:
   kind: alert
+  provider: robohub-provider-email
   transport: email
   defaults:
     provider: local

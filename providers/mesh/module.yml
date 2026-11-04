@@ -1,0 +1,36 @@
+#
+# robohub-provider-mesh — the Mesh gateway transport.
+#
+# The plugin `mesh-gateway` is the installed identity; this module is the
+# implementation it dispatches to. It is versioned and documented on its own so
+# a plugin can name it as a dependency.
+#
+module:
+  name: robohub-provider-mesh
+  type: provider
+  version: 0.1.0
+  description: Serves Mesh projects, sources and gateway state to the gateway contract.
+  maintainer: "Aurel Miron"
+  license: "MIT"
+  created: "2026-11-04"
+
+main: src/provider.rho
+
+provider:
+  contract: gateway
+  transport: mesh
+  summary: The /mesh/api paths behind the gateway contract.
+
+metadata:
+  tags:
+    - provider
+    - gateway
+    - mesh
+
+docs:
+  title: robohub-provider-mesh
+  section: providers
+  order: "50"
+  index: README.md
+  sources:
+    - README.md
