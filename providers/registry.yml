@@ -1,0 +1,33 @@
+# The provider registry.
+#
+# This is the installed set, read the same way plugins/registry.yml is. Each
+# provider is a module of its own with a module.yml identity; this file is what
+# the keeper lists and what an install or uninstall edits. A provider is not
+# selected by an application — the plugin that names it is — but it is a module
+# a person can install and inspect like any other.
+providers:
+  - name: robohub-provider-log
+    path: log
+    contract: alert
+    transport: log
+    enabled: true
+  - name: robohub-provider-email
+    path: email
+    contract: alert
+    transport: email
+    enabled: true
+  - name: robohub-provider-telegram
+    path: telegram
+    contract: alert
+    transport: telegram
+    enabled: true
+  - name: robohub-provider-webhook
+    path: webhook
+    contract: alert
+    transport: webhook
+    enabled: true
+  - name: robohub-provider-mesh
+    path: mesh
+    contract: gateway
+    transport: mesh
+    enabled: true

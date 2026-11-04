@@ -1,0 +1,32 @@
+#
+# robohub-provider-email — the e-mail transport.
+#
+module:
+  name: robohub-provider-email
+  type: provider
+  version: 0.1.0
+  description: Sends an alert by local outbox or SMTP.
+  maintainer: "Aurel Miron"
+  license: "MIT"
+  created: "2026-11-02"
+
+main: src/provider.rho
+
+provider:
+  contract: alert
+  transport: email
+  summary: A local outbox file or an SMTP upload.
+
+metadata:
+  tags:
+    - provider
+    - alert
+    - email
+
+docs:
+  title: robohub-provider-email
+  section: providers
+  order: "20"
+  index: README.md
+  sources:
+    - README.md

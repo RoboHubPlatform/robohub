@@ -1,0 +1,36 @@
+#
+# robohub-provider-log — the local log transport.
+#
+# A provider is a module with an identity: a contract, a transport, a version
+# and documentation. It is not selected by an application; the alert plugin
+# that names it is.
+#
+module:
+  name: robohub-provider-log
+  type: provider
+  version: 0.1.0
+  description: Appends an alert line to a file on the machine.
+  maintainer: "Aurel Miron"
+  license: "MIT"
+  created: "2026-11-02"
+
+main: src/provider.rho
+
+provider:
+  contract: alert
+  transport: log
+  summary: The file sink an alert channel falls back to.
+
+metadata:
+  tags:
+    - provider
+    - alert
+    - log
+
+docs:
+  title: robohub-provider-log
+  section: providers
+  order: "10"
+  index: README.md
+  sources:
+    - README.md

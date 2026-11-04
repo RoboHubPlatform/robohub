@@ -1,0 +1,414 @@
+module robohub.plugins.gateway
+
+// The gateway contract.
+//
+// An application that needs a mesh gateway asks for one of these functions; it
+// does not know a provider's URLs. The provider named by the application's
+// `plugins:` block — or by the `gateway.conf` its settings page wrote — is the
+// one that answers. Mesh is the provider carried here; another gateway is
+// added by writing its provider and naming it in the same block.
+//
+//   gateway_projects()        the projects the provider serves
+//   gateway_gateway()         the provider's gateway URL
+//   gateway_sources()         the project's inputs and outputs
+//   gateway_device_states()   id:state lines for switch synchronisation
+//   gateway_source_state(s)   the state behind one source URL
+
+include "../../providers/mesh/src/provider.rho"
+
+/* -------------------------------------------------------------------------- */
+/*  Strings and settings                                                      */
+/* -------------------------------------------------------------------------- */
+
+fn gateway_trim(text: string) string {
+    var out: string = text
+    while rho_strlen(out) > 0 && rho_str_eq(rho_str_slice(out, 0, 1), " ") {
+        out = rho_str_slice(out, 1, u32(rho_strlen(out)) - 1)
+    }
+    while rho_strlen(out) > 0 &&
+        rho_str_eq(rho_str_slice(out, u32(rho_strlen(out)) - 1, 1), " ") {
+        out = rho_str_slice(out, 0, u32(rho_strlen(out)) - 1)
+    }
+    return out
+}
+
+fn gateway_unquote(text: string) string {
+    let value: string = gateway_trim(text)
+    if rho_strlen(value) >= 2 &&
+        (rho_str_eq(rho_str_slice(value, 0, 1), "\"") ||
+         rho_str_eq(rho_str_slice(value, 0, 1), "'")) {
+        let first: string = rho_str_slice(value, 0, 1)
+        let last: string = rho_str_slice(value, u32(rho_strlen(value)) - 1, 1)
+        if rho_str_eq(first, last) {
+            return rho_str_slice(value, 1, u32(rho_strlen(value)) - 2)
+        }
+    }
+    return value
+}
+
+fn gateway_field(line: string, index: u32) string {
+    var rest: string = line
+    var i: u32 = 0
+    while i < index {
+        let at: i32 = rho_str_index_of(rest, "|")
+        if at < 0 {
+            return ""
+        }
+        rest = rho_str_slice(rest, u32(at) + 1, u32(rho_strlen(rest)) - u32(at) - 1)
+        i = i + 1
+    }
+    let at: i32 = rho_str_index_of(rest, "|")
+    if at < 0 {
+        return rest
+    }
+    return rho_str_slice(rest, 0, u32(at))
+}
+
+fn gateway_config_value(config: string, key: string) string {
+    var rest: string = config
+    while rest != "" {
+        let at: i32 = rho_str_index_of(rest, ";")
+        let item: string = ""
+        if at < 0 {
+            item = rest
+            rest = ""
+        } else {
+            item = rho_str_slice(rest, 0, u32(at))
+            rest = rho_str_slice(rest, u32(at) + 1, u32(rho_strlen(rest)) - u32(at) - 1)
+        }
+        let equals: i32 = rho_str_index_of(item, "=")
+        if equals >= 0 && rho_str_eq(rho_str_slice(item, 0, u32(equals)), key) {
+            return rho_str_slice(item, u32(equals) + 1,
+                u32(rho_strlen(item)) - u32(equals) - 1)
+        }
+    }
+    return ""
+}
+
+fn gateway_config_set(config: string, key: string, value: string) string {
+    var out: string = ""
+    var found: bool = false
+    var rest: string = config
+    while rest != "" {
+        let at: i32 = rho_str_index_of(rest, ";")
+        var item: string = rest
+        if at < 0 {
+            rest = ""
+        } else {
+            item = rho_str_slice(rest, 0, u32(at))
+            rest = rho_str_slice(rest, u32(at) + 1, u32(rho_strlen(rest)) - u32(at) - 1)
+        }
+        let equals: i32 = rho_str_index_of(item, "=")
+        if equals >= 0 && rho_str_eq(rho_str_slice(item, 0, u32(equals)), key) {
+            item = key + "=" + value
+            found = true
+        }
+        if item != "" {
+            if out != "" {
+                out = out + ";"
+            }
+            out = out + item
+        }
+    }
+    if !found && value != "" {
+        if out != "" {
+            out = out + ";"
+        }
+        out = out + key + "=" + value
+    }
+    return out
+}
+
+fn gateway_config_merge(defaults: string, overrides: string) string {
+    var out: string = defaults
+    var rest: string = overrides
+    while rest != "" {
+        let at: i32 = rho_str_index_of(rest, ";")
+        var item: string = rest
+        if at < 0 {
+            rest = ""
+        } else {
+            item = rho_str_slice(rest, 0, u32(at))
+            rest = rho_str_slice(rest, u32(at) + 1, u32(rho_strlen(rest)) - u32(at) - 1)
+        }
+        let equals: i32 = rho_str_index_of(item, "=")
+        if equals >= 0 {
+            let key: string = gateway_trim(rho_str_slice(item, 0, u32(equals)))
+            let value: string = gateway_trim(rho_str_slice(item, u32(equals) + 1,
+                u32(rho_strlen(item)) - u32(equals) - 1))
+            if key != "" {
+                out = gateway_config_set(out, key, value)
+            }
+        }
+    }
+    return out
+}
+
+fn gateway_home() string {
+    let home: string = getenv("HOME")
+    if home == "" {
+        return "."
+    }
+    return home
+}
+
+fn gateway_state_dir() string {
+    let workspace: string = getenv("ROBOHUB_APP_WORKSPACE")
+    var dir: string = gateway_home() + "/.rho/robohub"
+    if workspace != "" {
+        dir = workspace + "/data"
+    }
+    ignore_u32(rho_exec("mkdir", "-p " + dir, dir + "/mkdir.txt"))
+    return dir
+}
+
+fn gateway_state_file() string {
+    return gateway_state_dir() + "/gateway.conf"
+}
+
+fn gateway_report(name: string) string {
+    return gateway_state_dir() + "/" + name + ".log"
+}
+
+fn gateway_arg_quote(value: string) string {
+    return "\"" + value + "\""
+}
+
+fn gateway_urlencode(text: string) string {
+    var out: string = ""
+    var i: u32 = 0
+    while i < u32(rho_strlen(text)) {
+        let ch: string = rho_str_slice(text, i, 1)
+        if rho_str_eq(ch, ":") {
+            out = out + "%3A"
+        } else if rho_str_eq(ch, "/") {
+            out = out + "%2F"
+        } else if rho_str_eq(ch, "?") {
+            out = out + "%3F"
+        } else if rho_str_eq(ch, "&") {
+            out = out + "%26"
+        } else if rho_str_eq(ch, "=") {
+            out = out + "%3D"
+        } else if rho_str_eq(ch, " ") {
+            out = out + "+"
+        } else {
+            out = out + ch
+        }
+        i = i + 1
+    }
+    return out
+}
+
+fn gateway_json_string_field(text: string, key: string) string {
+    let at: i32 = rho_str_index_of(text, "\"" + key + "\":\"")
+    if at < 0 {
+        return ""
+    }
+    let start: u32 = u32(at) + u32(rho_strlen(key)) + 4
+    let rest: string = rho_str_slice(text, start, u32(rho_strlen(text)) - start)
+    let end: i32 = rho_str_index_of(rest, "\"")
+    if end < 0 {
+        return ""
+    }
+    return rho_str_slice(rest, 0, u32(end))
+}
+
+fn gateway_json_number_field(text: string, key: string) string {
+    let at: i32 = rho_str_index_of(text, "\"" + key + "\":")
+    if at < 0 {
+        return ""
+    }
+    var rest: string = rho_str_slice(text, u32(at) + u32(rho_strlen(key)) + 3,
+        u32(rho_strlen(text)) - u32(at) - u32(rho_strlen(key)) - 3)
+    var out: string = ""
+    var i: u32 = 0
+    while i < u32(rho_strlen(rest)) {
+        let ch: string = rho_str_slice(rest, i, 1)
+        if ch == "-" || (ch >= "0" && ch <= "9") || ch == "." {
+            out = out + ch
+            i = i + 1
+        } else {
+            break
+        }
+    }
+    return out
+}
+
+/* -------------------------------------------------------------------------- */
+/*  The application's plugin block                                            */
+/* -------------------------------------------------------------------------- */
+
+fn gateway_app_manifest() string {
+    let path: string = getenv("ROBOHUB_APP_MANIFEST")
+    if path != "" {
+        return path
+    }
+    return "module.yml"
+}
+
+// gateway_manifest_plugins reads the `plugins:` block of an application
+// manifest into name|enabled|url|project|token rows. The block is a list of
+// maps, so it is read by its lines: `- name:` opens a row and the indented
+// keys fill it.
+fn gateway_manifest_plugins(path: string) string {
+    if !rho_path_exists(path) {
+        return ""
+    }
+    let text: string = rho_read_text(path)
+    let start: i32 = rho_str_index_of(text, "\nplugins:")
+    if start < 0 {
+        return ""
+    }
+    var i: u32 = u32(start) + 9
+    let after: i32 = rho_str_index_of(rho_str_slice(text, i,
+        u32(rho_strlen(text)) - i), "\n")
+    if after < 0 {
+        return ""
+    }
+    i = i + u32(after) + 1
+    var out: string = ""
+    var name: string = ""
+    var enabled: string = ""
+    var url: string = ""
+    var project: string = ""
+    var token: string = ""
+    while i < u32(rho_strlen(text)) {
+        let at: i32 = rho_str_index_of(rho_str_slice(text, i,
+            u32(rho_strlen(text)) - i), "\n")
+        var end: u32 = u32(rho_strlen(text))
+        if at >= 0 {
+            end = i + u32(at)
+        }
+        let line: string = rho_str_slice(text, i, end - i)
+        let trimmed: string = gateway_trim(line)
+        let indent: u32 = u32(rho_strlen(line)) - u32(rho_strlen(trimmed))
+        if rho_strlen(trimmed) == 0 {
+            i = end + 1
+            continue
+        }
+        if indent == 0 && !rho_str_starts_with(trimmed, "- ") {
+            break
+        }
+        var field_text: string = trimmed
+        let new_entry: bool = rho_str_starts_with(trimmed, "- ")
+        if new_entry {
+            if name != "" {
+                out = out + name + "|" + enabled + "|" + url + "|" + project + "|" + token + "\n"
+            }
+            name = ""
+            enabled = ""
+            url = ""
+            project = ""
+            token = ""
+            field_text = gateway_trim(rho_str_slice(trimmed, 2,
+                u32(rho_strlen(trimmed)) - 2))
+        }
+        let colon: i32 = rho_str_index_of(field_text, ":")
+        if colon > 0 {
+            let key: string = gateway_trim(rho_str_slice(field_text, 0, u32(colon)))
+            let value: string = gateway_unquote(rho_str_slice(field_text, u32(colon) + 1,
+                u32(rho_strlen(field_text)) - u32(colon) - 1))
+            if key == "name" {
+                name = value
+            } else if key == "enabled" {
+                enabled = value
+            } else if key == "url" || key == "mesh_url" {
+                url = value
+            } else if key == "project" || key == "mesh_project" {
+                project = value
+            } else if key == "token" || key == "mesh_token" {
+                token = value
+            }
+        }
+        i = end + 1
+    }
+    if name != "" {
+        out = out + name + "|" + enabled + "|" + url + "|" + project + "|" + token + "\n"
+    }
+    return out
+}
+
+fn gateway_transport(name: string) string {
+    if name == "mesh-gateway" {
+        return "mesh"
+    }
+    return ""
+}
+
+fn gateway_config() string {
+    var chosen: string = ""
+    var rows: string = gateway_manifest_plugins(gateway_app_manifest())
+    while rows != "" {
+        let at: i32 = rho_str_index_of(rows, "\n")
+        var line: string = rows
+        if at < 0 {
+            rows = ""
+        } else {
+            line = rho_str_slice(rows, 0, u32(at))
+            rows = rho_str_slice(rows, u32(at) + 1, u32(rho_strlen(rows)) - u32(at) - 1)
+        }
+        let name: string = gateway_field(line, 0)
+        let enabled: string = gateway_field(line, 1)
+        if chosen == "" && gateway_transport(name) != "" &&
+            (enabled == "" || enabled == "true") {
+            chosen = line
+        }
+    }
+    var config: string = "provider=none;transport=none"
+    if chosen != "" {
+        let name: string = gateway_field(chosen, 0)
+        config = "provider=" + name + ";transport=" + gateway_transport(name) +
+            ";url=" + gateway_field(chosen, 2) +
+            ";project=" + gateway_field(chosen, 3) +
+            ";token=" + gateway_field(chosen, 4)
+    }
+    let overrides: string = rho_read_text(gateway_state_file())
+    if overrides != "" {
+        config = gateway_config_merge(config, overrides)
+    }
+    return config
+}
+
+/* -------------------------------------------------------------------------- */
+/*  The contract                                                              */
+/* -------------------------------------------------------------------------- */
+
+fn gateway_projects() string {
+    let config: string = gateway_config()
+    if gateway_config_value(config, "transport") == "mesh" {
+        return provider_mesh_projects(config)
+    }
+    return ""
+}
+
+fn gateway_gateway() string {
+    let config: string = gateway_config()
+    if gateway_config_value(config, "transport") == "mesh" {
+        return provider_mesh_gateway(config)
+    }
+    return ""
+}
+
+fn gateway_sources() string {
+    let config: string = gateway_config()
+    if gateway_config_value(config, "transport") == "mesh" {
+        return provider_mesh_sources(config)
+    }
+    return ""
+}
+
+fn gateway_device_states() string {
+    let config: string = gateway_config()
+    if gateway_config_value(config, "transport") == "mesh" {
+        return provider_mesh_device_states(config)
+    }
+    return ""
+}
+
+fn gateway_source_state(source: string) string {
+    let config: string = gateway_config()
+    if gateway_config_value(config, "transport") == "mesh" {
+        return provider_mesh_source_state(config, source)
+    }
+    return ""
+}

@@ -22,3 +22,6 @@ plugins:
   - name: webhook-alert
     path: webhook-alert
     enabled: false
+  - name: mesh-gateway
+    path: mesh-gateway
+    enabled: true

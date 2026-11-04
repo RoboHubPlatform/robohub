@@ -98,7 +98,7 @@ An application names its plugins and their settings in its own `module.yml`.
 `plugins/registry.yml` is the installed set; the manager checks each path on
 disk and dispatches by transport. `applications/keeper` has a `/plugins` page to
 install, remove, enable and test them. The alert dispatcher fans out to the
-channels an application wires, and the rule engine in `plugins/alert/rule.rho`
+channels an application wires, and the rule engine in `contracts/alert/rule.rho`
 adds hysteresis, pending and cooldown windows and a rate limit around a
 reading.
 

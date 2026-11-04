@@ -1,0 +1,41 @@
+#
+# mesh-gateway — the RoboHub Mesh gateway provider.
+#
+# An application that needs a mesh asks the gateway contract for projects,
+# sources and states; this plugin is the provider that knows those answers are
+# under Mesh's /mesh/api. A different mesh is another plugin with the same
+# `plugin.kind: gateway` and its own transport.
+#
+module:
+  name: mesh-gateway
+  type: module
+  version: 0.1.0
+  description: Serves a RoboHub Mesh project's projects, sources and gateway to an application.
+  maintainer: "Aurel Miron"
+  license: "MIT"
+  created: "2026-11-04"
+
+main: src/main.rho
+
+plugin:
+  kind: gateway
+  provider: robohub-provider-mesh
+  transport: mesh
+  defaults:
+    url: "http://127.0.0.1:8478"
+    project: ""
+    token: ""
+
+metadata:
+  tags:
+    - plugin
+    - gateway
+    - mesh
+
+docs:
+  title: mesh-gateway
+  section: plugins
+  order: "30"
+  index: docs/index.md
+  sources:
+    - docs/index.md

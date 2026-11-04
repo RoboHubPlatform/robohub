@@ -1,0 +1,32 @@
+#
+# robohub-provider-webhook — the generic HTTP transport.
+#
+module:
+  name: robohub-provider-webhook
+  type: provider
+  version: 0.1.0
+  description: Posts an alert body to an HTTP endpoint.
+  maintainer: "Aurel Miron"
+  license: "MIT"
+  created: "2026-11-02"
+
+main: src/provider.rho
+
+provider:
+  contract: alert
+  transport: webhook
+  summary: A POST to a URL the user configures.
+
+metadata:
+  tags:
+    - provider
+    - alert
+    - webhook
+
+docs:
+  title: robohub-provider-webhook
+  section: providers
+  order: "40"
+  index: README.md
+  sources:
+    - README.md

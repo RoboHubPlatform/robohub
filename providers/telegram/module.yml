@@ -1,0 +1,32 @@
+#
+# robohub-provider-telegram — the Telegram transport.
+#
+module:
+  name: robohub-provider-telegram
+  type: provider
+  version: 0.1.0
+  description: Posts an alert to a Telegram chat through the bot API.
+  maintainer: "Aurel Miron"
+  license: "MIT"
+  created: "2026-11-02"
+
+main: src/provider.rho
+
+provider:
+  contract: alert
+  transport: telegram
+  summary: A chat message through a bot.
+
+metadata:
+  tags:
+    - provider
+    - alert
+    - telegram
+
+docs:
+  title: robohub-provider-telegram
+  section: providers
+  order: "30"
+  index: README.md
+  sources:
+    - README.md
