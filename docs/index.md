@@ -289,3 +289,13 @@ at `/mesh` lists them with their gateway status, and opening one shows the plan
 wizard. The full guide is
 [the keeper's Mesh guide](https://github.com/RoboHubPlatform/robohub/blob/main/applications/keeper/docs/mesh.md).
 
+
+## Authentication
+
+RoboHub applications use Keeper as a local SSO authorization server. Keeper holds
+the ES256 signing key and mints short-lived, single-use login tickets. Each
+application verifies tickets locally with the public key, keeps its own session,
+and can run on a direct WAN address or behind a reverse proxy. Server-to-server
+calls use a signed service JWT, so Mesh APIs stay protected while Aquarium still
+reads and drives them. The `robohub-auth` plugin names the provider; the gateway
+and session details live under `contracts/` and `providers/`.

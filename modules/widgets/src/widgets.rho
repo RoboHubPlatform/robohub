@@ -85,11 +85,19 @@ fn widget_report(name: string) string {
 }
 
 fn widget_curl(url: string, report: string) string {
-    let code: u32 = rho_exec("curl", "-fsS -m 3 " + widget_arg_quote(url), report)
+    let code: u32 = rho_exec("curl", "-fsS -m 3" + widget_auth_header() + " " + widget_arg_quote(url), report)
     if code != 0 {
         return ""
     }
     return rho_read_text(report)
+}
+
+fn widget_auth_header() string {
+    let token: string = gateway_service_token()
+    if token == "" {
+        return ""
+    }
+    return " -H " + widget_arg_quote("Authorization: Bearer " + token)
 }
 
 fn widget_parse_milli(text: string) i64 {
@@ -178,7 +186,7 @@ fn widget_refresh(widget: Widgets) string {
         return ""
     }
     let report: string = widget_report("fetch-" + rho_int_to_str(u32(widget.id)))
-    let code: u32 = rho_exec("curl", "-fsS -m 3 " + widget_arg_quote(widget.source), report)
+    let code: u32 = rho_exec("curl", "-fsS -m 3" + widget_auth_header() + " " + widget_arg_quote(widget.source), report)
     if code != 0 {
         return ""
     }
@@ -810,7 +818,7 @@ fn widgets_press(req: Request) Response {
     let method: string = widget.method
     let report: string = widget_report("press-" + rho_int_to_str(id))
     let code: u32 = rho_exec("curl",
-        "-fsS -m 5 -X " + method + " " + widget_arg_quote(hook), report)
+        "-fsS -m 5 -X " + method + widget_auth_header() + " " + widget_arg_quote(hook), report)
     if rho_str_eq(widget.kind, "toggle") && code == 0 {
         widget_ignore_result(InsertWidgetValue(rho_int_to_str(id), new_state,
             "0", rho_int_to_str(widget_now()), db))
@@ -1122,7 +1130,7 @@ fn widgets_api_press(req: Request) Response {
     }
     let report: string = widget_report("api-press-" + id)
     let code: u32 = rho_exec("curl",
-        "-fsS -m 5 -X " + widget.method + " " + widget_arg_quote(hook), report)
+        "-fsS -m 5 -X " + widget.method + widget_auth_header() + " " + widget_arg_quote(hook), report)
     if rho_str_eq(widget.kind, "toggle") && code == 0 {
         widget_ignore_result(InsertWidgetValue(id, new_state, "0",
             rho_int_to_str(widget_now()), db))

@@ -20,7 +20,7 @@
 module:
   name: robohub
   type: rho
-  version: 0.3.4
+  version: 0.3.5
   description: >
     The orchestrator of the RoboHub ecosystem: a registry of its modules, and
     the tools that run over all of them — static analysis, unit tests, software

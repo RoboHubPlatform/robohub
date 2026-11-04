@@ -1,0 +1,38 @@
+#
+# robohub-auth — the SSO plugin applications name to use rho-auth.
+#
+module:
+  name: robohub-auth
+  type: module
+  version: 0.1.0
+  description: Wires an application into rho-auth SSO through the Keeper.
+  maintainer: "Aurel Miron"
+  license: "MIT"
+  created: "2026-11-04"
+
+main: src/main.rho
+
+plugin:
+  kind: auth
+  provider: rho-auth
+  transport: keeper
+  defaults:
+    issuer: keeper
+    cookie: rho_session
+    login_url: /auth/login
+    mode: direct
+    public_key: "~/.rho/auth/public.pem"
+
+metadata:
+  tags:
+    - plugin
+    - auth
+    - sso
+
+docs:
+  title: robohub-auth
+  section: plugins
+  order: "40"
+  index: docs/index.md
+  sources:
+    - docs/index.md

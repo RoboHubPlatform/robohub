@@ -389,6 +389,10 @@ fn gateway_gateway() string {
     return ""
 }
 
+fn gateway_service_token() string {
+    return gateway_config_value(gateway_config(), "token")
+}
+
 fn gateway_sources() string {
     let config: string = gateway_config()
     if gateway_config_value(config, "transport") == "mesh" {
