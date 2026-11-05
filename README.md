@@ -176,3 +176,22 @@ at `/mesh` lists them with their gateway status, and opening one shows the plan
 wizard. The full guide is
 [the keeper's Mesh guide](https://github.com/RoboHubPlatform/robohub/blob/main/applications/keeper/docs/mesh.md).
 
+## Telemetry
+
+The telemetry path is one contract from a board to an application. A generated
+node firmware publishes a `SensorReading` per fitted module; `robohub-gateway`
+normalizes each reading into a sequenced, durable outbox and can require a
+bearer token; Mesh polls that outbox into a SQLite store with latest values,
+raw history, one-minute and hourly rollups, and per-project retention. Drivers
+and board modules describe what they can read in `telemetry_fields` and
+`signals`; HTTP devices describe their JSON paths and scales. Aquarium and the
+widgets module read the store through the `mesh-gateway` provider: a number is
+the latest value, a chart is a time-range series, and an output is the source's
+action URL.
+
+See [Mesh](applications/mesh/docs/index.md),
+[Aquarium](applications/aquarium/docs/index.md),
+[widgets](modules/widgets/docs/index.md),
+[mesh-gateway](plugins/mesh-gateway/docs/index.md),
+[robohub-devices](https://github.com/RoboHubPlatform/robohub-devices) and
+[robohub-drivers](https://github.com/RoboHubPlatform/robohub-drivers).

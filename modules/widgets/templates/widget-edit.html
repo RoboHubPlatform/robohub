@@ -52,10 +52,12 @@
     var option = mesh.options[mesh.selectedIndex];
     if (!option || !option.dataset.direction) { return; }
     var output = outputKind();
-    source.value = output ? (option.dataset.action || "") : (option.dataset.value || "");
+    // An input asks Mesh for a series, so the ID is what it stores. An output
+    // still needs the action URL the provider gave the source.
+    source.value = output ? (option.dataset.action || "") : option.value;
     if (unit) { unit.value = output ? "" : (option.dataset.unit || ""); }
     if (method) { method.value = output ? "POST" : "GET"; }
-    if (sourceKind) { sourceKind.value = "url"; }
+    if (sourceKind) { sourceKind.value = output ? "url" : "mesh"; }
   }
   kind.addEventListener("change", function () { filter(); pick(); });
   mesh.addEventListener("change", pick);

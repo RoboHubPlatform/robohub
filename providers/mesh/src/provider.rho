@@ -105,6 +105,28 @@ fn provider_mesh_source_state(config: string, source: string) string {
     return ""
 }
 
+// provider_mesh_source_id accepts the forms a caller may have stored: the
+// source ID gateway_sources returned, a value or action URL, or a URL with a
+// `source=` query. All three name the same series.
+fn provider_mesh_source_id(source: string) string {
+    let marker: i32 = rho_str_index_of(source, "source=")
+    if marker >= 0 {
+        return rho_str_slice(source, u32(marker) + 7,
+            u32(rho_strlen(source)) - u32(marker) - 7)
+    }
+    let sources: i32 = rho_str_index_of(source, "/sources/")
+    if sources >= 0 {
+        let start: u32 = u32(sources) + 9
+        let rest: string = rho_str_slice(source, start, u32(rho_strlen(source)) - start)
+        let slash: i32 = rho_str_index_of(rest, "/")
+        if slash < 0 {
+            return rest
+        }
+        return rho_str_slice(rest, 0, u32(slash))
+    }
+    return source
+}
+
 // provider_mesh_source_history asks Mesh for a source's series. The source ID
 // is the one gateway_sources returned, so an application never has to know
 // which area, node or field the reading was stored under.
@@ -114,14 +136,7 @@ fn provider_mesh_source_history(config: string, source: string, from_ms: string,
     if base == "" || project == "" || source == "" {
         return ""
     }
-    // A caller may hand back the source ID from gateway_sources or the value
-    // URL that object carried; the query is the same source either way.
-    var id: string = source
-    let marker: i32 = rho_str_index_of(source, "source=")
-    if marker >= 0 {
-        id = rho_str_slice(source, u32(marker) + 7,
-            u32(rho_strlen(source)) - u32(marker) - 7)
-    }
+    let id: string = provider_mesh_source_id(source)
     var url: string = base + "/mesh/api/projects/" + project +
         "/telemetry/series?source=" + gateway_urlencode(id)
     if from_ms != "" {
@@ -151,6 +166,10 @@ fn provider_mesh_source_latest(config: string, source: string) string {
     var value_url: string = ""
     if rho_str_index_of(source, "/mesh/api/") >= 0 && action >= 0 {
         value_url = rho_str_slice(source, 0, u32(action)) + "/value"
+    } else if rho_str_index_of(source, "/mesh/api/") >= 0 &&
+        rho_str_index_of(source, "/value") >= 0 {
+        // A widget may store the value URL itself; it is already the endpoint.
+        value_url = source
     } else if source != "" {
         value_url = provider_mesh_base(config) + "/mesh/api/projects/" +
             provider_mesh_project(config) + "/sources/" + source + "/value"

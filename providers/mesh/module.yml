@@ -8,8 +8,8 @@
 module:
   name: robohub-provider-mesh
   type: provider
-  version: 0.1.1
-  description: Serves Mesh projects, sources and gateway state to the gateway contract.
+  version: 0.2.0
+  description: Serves Mesh projects, sources, gateway state and telemetry to the gateway contract.
   maintainer: "Aurel Miron"
   license: "MIT"
   created: "2026-11-04"

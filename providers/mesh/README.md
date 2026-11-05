@@ -19,3 +19,6 @@ The config is `url=...;project=...;token=...`; `url` is the Mesh application and
 `project` is the project whose gateway and sources are used. The plugin
 `mesh-gateway` supplies defaults and the application may override them in
 `gateway.conf`.
+
+A source may be named by ID, by the value or action URL a widget stored, or by a
+URL carrying `source=`. The provider extracts the same ID for all three.
