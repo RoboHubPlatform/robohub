@@ -133,6 +133,19 @@ fn widget_parse_milli(text: string) i64 {
     return sign * i64(whole_value * 1000 + frac_value)
 }
 
+fn widget_epoch_seconds(text: string) u32 {
+    let value: string = widget_trim(text)
+    if rho_strlen(value) <= 3 {
+        return rho_int_from_str(value)
+    }
+    return rho_int_from_str(rho_str_slice(value, 0, u32(rho_strlen(value)) - 3))
+}
+
+fn widget_mesh_source(widget: Widgets) bool {
+    return rho_str_eq(widget.sourceKind, "mesh") ||
+        rho_str_index_of(widget.source, "/mesh/api/") >= 0
+}
+
 fn widget_latest_text(db: SqlDb, widget_id: u32) string {
     let values: WidgetValues[100]
     let slice: Slice[WidgetValues] = Slice[WidgetValues]{
@@ -180,6 +193,9 @@ fn widget_ignore_string(value: string) void {
 }
 
 fn widget_refresh(widget: Widgets) string {
+    if rho_str_eq(widget.sourceKind, "mesh") {
+        return gateway_source_latest(widget.source)
+    }
     if rho_str_eq(widget.kind, "button") || rho_str_eq(widget.kind, "toggle") ||
         !rho_str_eq(widget.sourceKind, "url") ||
         rho_strlen(widget.source) == 0 {
@@ -226,8 +242,13 @@ fn widget_chart(values: WidgetValues[100], count: u32) string {
         }
         i = i + 1
     }
-    if low == high {
-        high = low + 1
+    // A stable reading is a real answer, not a flat line pinned to an edge.
+    // Give a nearly constant series a small window around its middle so the
+    // card shows it where a person expects a value to sit.
+    if high - low < 1000 {
+        let middle: i64 = (low + high) / 2
+        low = middle - 500
+        high = middle + 500
     }
     var points: string = ""
     i = 0
@@ -402,7 +423,7 @@ fn widget_kind_options(selected: string) string {
 
 fn widget_source_kind_options(selected: string) string {
     var out: string = ""
-    let kinds: string = "manual|Manual\nurl|URL / hook"
+    let kinds: string = "manual|Manual\nurl|URL / hook\nmesh|Mesh telemetry"
     var rest: string = kinds
     while rest != "" {
         let at: i32 = rho_str_index_of(rest, "\n")
@@ -456,16 +477,73 @@ fn widget_table(values: WidgetValues[100], count: u32, rows: u32, unit: string) 
 
 fn widget_card(db: SqlDb, widget: Widgets) string {
     let values: WidgetValues[100]
-    let slice: Slice[WidgetValues] = Slice[WidgetValues]{
-        Ptr[WidgetValues](&values[0]), VALUE_CAPACITY }
-    let listed: Result[u32, SqlError] = ListWidgetValues(i64(u32(widget.id)), db, slice,
-        VALUE_CAPACITY)
     var count: u32 = 0
-    if listed.is_ok {
-        count = listed.ok
-    }
-    let latest: string = widget_latest_text(db, u32(widget.id))
+    var latest: string = ""
     let unit: string = widget.unit
+    let mesh_source: bool = widget_mesh_source(widget)
+    if mesh_source && (rho_str_eq(widget.kind, "chart") || rho_str_eq(widget.kind, "table")) {
+        let history: string = gateway_source_history(widget.source, "", "", "60000")
+        let marker: i32 = rho_str_index_of(history, "\"points\":[")
+        if marker >= 0 {
+            var rest: string = rho_str_slice(history, u32(marker) + 10,
+                u32(rho_strlen(history)) - u32(marker) - 10)
+            // The series may hold a day of minute buckets; the card wants the
+            // newest VALUE_CAPACITY of them, not the oldest.
+            while rest != "" && count < 5000 {
+                let at: i32 = rho_str_index_of(rest, "},{")
+                var object: string = rest
+                if at < 0 {
+                    rest = ""
+                } else {
+                    object = rho_str_slice(rest, 0, u32(at) + 1)
+                    rest = rho_str_slice(rest, u32(at) + 3,
+                        u32(rho_strlen(rest)) - u32(at) - 3)
+                }
+                let value_text: string = widget_json_number_field(object, "v")
+                if value_text != "" {
+                    var held: WidgetValues
+                    held.valueText = value_text
+                    held.valueMilli = widget_parse_milli(value_text)
+                    held.recordedEpoch = i64(widget_epoch_seconds(
+                        widget_json_number_field(object, "t")))
+                    if count < VALUE_CAPACITY {
+                        values[count] = held
+                        count = count + 1
+                    } else {
+                        var j: u32 = 0
+                        while j + 1 < VALUE_CAPACITY {
+                            values[j] = values[j + 1]
+                            j = j + 1
+                        }
+                        values[VALUE_CAPACITY - 1] = held
+                    }
+                }
+            }
+        }
+        // The series is oldest first; the card shows the newest first.
+        var i: u32 = 0
+        while i < count / 2 {
+            let held: WidgetValues = values[i]
+            values[i] = values[count - 1 - i]
+            values[count - 1 - i] = held
+            i = i + 1
+        }
+        latest = gateway_source_latest(widget.source)
+        if latest == "" && count > 0 {
+            latest = values[0].valueText
+        }
+    } else if mesh_source {
+        latest = gateway_source_latest(widget.source)
+    } else {
+        let slice: Slice[WidgetValues] = Slice[WidgetValues]{
+            Ptr[WidgetValues](&values[0]), VALUE_CAPACITY }
+        let listed: Result[u32, SqlError] = ListWidgetValues(i64(u32(widget.id)), db, slice,
+            VALUE_CAPACITY)
+        if listed.is_ok {
+            count = listed.ok
+        }
+        latest = widget_latest_text(db, u32(widget.id))
+    }
     if rho_str_eq(widget.kind, "button") {
         return "<div class=\"widget-card\" data-widget-id=\"" + rho_int_to_str(u32(widget.id)) +
             "\"><h3><a href=\"/widgets/edit?id=" +
@@ -1033,7 +1111,10 @@ fn widgets_cards(req: Request) Response {
 /* -------------------------------------------------------------------------- */
 
 fn widget_json(db: SqlDb, widget: Widgets) string {
-    let latest: string = widget_latest_text(db, u32(widget.id))
+    var latest: string = widget_latest_text(db, u32(widget.id))
+    if widget_mesh_source(widget) {
+        latest = gateway_source_latest(widget.source)
+    }
     return "{\"id\":" + rho_int_to_str(u32(widget.id)) +
         ",\"title\":" + json_string(widget.title) +
         ",\"kind\":" + json_string(widget.kind) +

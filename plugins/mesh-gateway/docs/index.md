@@ -20,3 +20,18 @@ plugins:
 The settings an application exposes can override the config by writing
 `gateway.conf` beside its database; the manager merges it over the manifest's
 values.
+
+## Telemetry
+
+`gateway_source_latest(source)`, `gateway_source_history(source, from_ms,
+to_ms, step_ms)` and `gateway_telemetry_status()` are the telemetry half of the
+same contract. The source may be the ID from `gateway_sources`, a value or
+action URL, or a URL carrying `source=`; all three name the same series.
+
+`gateway_source_history` with empty `from` and `to` means the last 24 hours, and
+an empty `step` means raw readings. A step is in milliseconds; a chart that
+wants a day at a readable resolution asks for `900000`.
+
+Aquarium's existing widgets already store Mesh value URLs; they resolve to the
+same series through this provider, so a chart began using Mesh history without a
+stored-source migration.

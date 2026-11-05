@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.0] - 2026-11-05
+
+A chart or table bound to a Mesh source now reads the source's telemetry
+history rather than the widget's local value snapshots. Existing widgets that
+stored a Mesh value URL are recognized without migration; new widgets can choose
+**Mesh telemetry** and store the source ID. A numeric widget still reads the
+latest value, which Mesh serves from its store.
+
 ## [0.1.8] - 2026-11-04
 
 Widget fetches and press hooks send the gateway service token, so a widget pointing at a protected Mesh source still reads values and drives outputs.

@@ -64,3 +64,15 @@ The dashboard opens `/widgets/events` as Server-Sent Events and also reads
 `/api/widgets` every two seconds as a fallback. A page render reads the gateway
 before painting, so a plug switched in another tab or application is correct on
 the first paint; a press emits `widget:<id>:<state>` immediately.
+
+## Mesh telemetry history
+
+A chart or table bound to a Mesh source calls `gateway_source_history` and draws
+the returned series; it does not rely on the widget's local value snapshots. A
+day is requested at 15-minute resolution, so a chart stays readable and a table
+shows the newest points first. Existing widgets that stored a Mesh value URL are
+recognized automatically. New widgets can choose **Mesh telemetry** in the
+source-kind selector, which stores the source ID instead of its URL.
+
+A numeric widget keeps reading the source's latest value, which Mesh serves from
+its telemetry store before falling back to the device.
