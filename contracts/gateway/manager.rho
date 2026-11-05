@@ -13,6 +13,10 @@ module robohub.plugins.gateway
 //   gateway_sources()         the project's inputs and outputs
 //   gateway_device_states()   id:state lines for switch synchronisation
 //   gateway_source_state(s)   the state behind one source URL
+//   gateway_source_latest(s)  the newest reading of one source (ID or URL)
+//   gateway_source_history(s, from_ms, to_ms, step_ms)
+//                             the readings of one source (ID or URL) over a range
+//   gateway_telemetry_status() the store's own account of what it holds
 
 include "../../providers/mesh/src/provider.rho"
 
@@ -413,6 +417,33 @@ fn gateway_source_state(source: string) string {
     let config: string = gateway_config()
     if gateway_config_value(config, "transport") == "mesh" {
         return provider_mesh_source_state(config, source)
+    }
+    return ""
+}
+
+// gateway_source_history answers a series for one source. The times are Unix
+// milliseconds as text because they are 64-bit and a caller may pass them
+// through unchanged; an empty step asks for raw readings.
+fn gateway_source_latest(source: string) string {
+    let config: string = gateway_config()
+    if gateway_config_value(config, "transport") == "mesh" {
+        return provider_mesh_source_latest(config, source)
+    }
+    return ""
+}
+
+fn gateway_source_history(source: string, from_ms: string, to_ms: string, step_ms: string) string {
+    let config: string = gateway_config()
+    if gateway_config_value(config, "transport") == "mesh" {
+        return provider_mesh_source_history(config, source, from_ms, to_ms, step_ms)
+    }
+    return ""
+}
+
+fn gateway_telemetry_status() string {
+    let config: string = gateway_config()
+    if gateway_config_value(config, "transport") == "mesh" {
+        return provider_mesh_telemetry_status(config)
     }
     return ""
 }

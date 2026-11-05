@@ -104,3 +104,59 @@ fn provider_mesh_source_state(config: string, source: string) string {
     }
     return ""
 }
+
+// provider_mesh_source_history asks Mesh for a source's series. The source ID
+// is the one gateway_sources returned, so an application never has to know
+// which area, node or field the reading was stored under.
+fn provider_mesh_source_history(config: string, source: string, from_ms: string, to_ms: string, step_ms: string) string {
+    let base: string = provider_mesh_base(config)
+    let project: string = provider_mesh_project(config)
+    if base == "" || project == "" || source == "" {
+        return ""
+    }
+    // A caller may hand back the source ID from gateway_sources or the value
+    // URL that object carried; the query is the same source either way.
+    var id: string = source
+    let marker: i32 = rho_str_index_of(source, "source=")
+    if marker >= 0 {
+        id = rho_str_slice(source, u32(marker) + 7,
+            u32(rho_strlen(source)) - u32(marker) - 7)
+    }
+    var url: string = base + "/mesh/api/projects/" + project +
+        "/telemetry/series?source=" + gateway_urlencode(id)
+    if from_ms != "" {
+        url = url + "&from=" + gateway_urlencode(from_ms)
+    }
+    if to_ms != "" {
+        url = url + "&to=" + gateway_urlencode(to_ms)
+    }
+    if step_ms != "" {
+        url = url + "&step=" + gateway_urlencode(step_ms)
+    }
+    return provider_mesh_fetch(config, url, "mesh-source-history")
+}
+
+fn provider_mesh_telemetry_status(config: string) string {
+    let base: string = provider_mesh_base(config)
+    let project: string = provider_mesh_project(config)
+    if base == "" || project == "" {
+        return ""
+    }
+    return provider_mesh_fetch(config, base + "/mesh/api/projects/" + project +
+        "/telemetry/status", "mesh-telemetry-status")
+}
+
+fn provider_mesh_source_latest(config: string, source: string) string {
+    let action: i32 = rho_str_index_of(source, "/action")
+    var value_url: string = ""
+    if rho_str_index_of(source, "/mesh/api/") >= 0 && action >= 0 {
+        value_url = rho_str_slice(source, 0, u32(action)) + "/value"
+    } else if source != "" {
+        value_url = provider_mesh_base(config) + "/mesh/api/projects/" +
+            provider_mesh_project(config) + "/sources/" + source + "/value"
+    }
+    if value_url == "" {
+        return ""
+    }
+    return gateway_trim(provider_mesh_fetch(config, value_url, "mesh-source-latest"))
+}
