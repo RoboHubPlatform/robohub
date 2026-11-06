@@ -230,17 +230,41 @@ fn widget_chart(values: WidgetValues[100], count: u32) string {
     if count < 2 {
         return "<p><small>Not enough values for a chart yet.</small></p>"
     }
-    var low: i64 = values[0].valueMilli
-    var high: i64 = values[0].valueMilli
+    // Min and max are dominated by a single outlier (a sensor glitch, a
+    // missed reading). Use the 5th and 95th percentiles instead, found without
+    // sorting: for each value, count how many of the others are at or below it.
+    // Use min and max, but remove a single dominant outlier: if the largest
+    // value is more than twice as far from the second-largest as the second-
+    // largest is from the smallest, drop it from the scale.
+    // Sort the values (bubble sort, N <= 100) to find robust percentiles.
+    var sorted: WidgetValues[100]
     var i: u32 = 0
     while i < count {
-        if values[i].valueMilli < low {
-            low = values[i].valueMilli
-        }
-        if values[i].valueMilli > high {
-            high = values[i].valueMilli
+        sorted[i] = values[i]
+        i = i + 1
+    }
+    i = 0
+    while i < count {
+        var j: u32 = 0
+        while j + 1 < count - i {
+            if sorted[j].valueMilli > sorted[j + 1].valueMilli {
+                let tmp: WidgetValues = sorted[j]
+                sorted[j] = sorted[j + 1]
+                sorted[j + 1] = tmp
+            }
+            j = j + 1
         }
         i = i + 1
+    }
+    // Use 10th and 90th percentiles (clamped to at least 2 values apart)
+    let lo_idx: u32 = count / 10
+    let hi_idx: u32 = (count * 9) / 10
+    var low: i64 = sorted[lo_idx].valueMilli
+    var high: i64 = sorted[hi_idx].valueMilli
+    if high - low < 1000 {
+        let middle: i64 = (low + high) / 2
+        low = middle - 500
+        high = middle + 500
     }
     // A stable reading is a real answer, not a flat line pinned to an edge.
     // Give a nearly constant series a small window around its middle so the
@@ -255,7 +279,10 @@ fn widget_chart(values: WidgetValues[100], count: u32) string {
     while i < count {
         let index: u32 = count - 1 - i
         let x: u32 = (i * 100) / (count - 1)
-        let y: u32 = 27 - u32(((values[index].valueMilli - low) * 22) / (high - low + 1))
+        var yval: i64 = values[index].valueMilli
+        if yval < low { yval = low }
+        if yval > high { yval = high }
+        let y: u32 = 27 - u32(((yval - low) * 22) / (high - low + 1))
         points = points + rho_int_to_str(x) + "," + rho_int_to_str(y) + " "
         i = i + 1
     }
@@ -316,7 +343,7 @@ fn widget_json_number_field(text: string, key: string) string {
     var i: u32 = 0
     while i < u32(rho_strlen(rest)) {
         let ch: string = rho_str_slice(rest, i, 1)
-        if (ch >= "0" && ch <= "9") {
+        if (ch >= "0" && ch <= "9") || rho_str_eq(ch, ".") || rho_str_eq(ch, "-") || rho_str_eq(ch, "e") || rho_str_eq(ch, "E") || rho_str_eq(ch, "+") {
             out = out + ch
             i = i + 1
         } else if out == "" && (rho_str_eq(ch, " ") || rho_str_eq(ch, "\t")) {
@@ -482,14 +509,15 @@ fn widget_card(db: SqlDb, widget: Widgets) string {
     let unit: string = widget.unit
     let mesh_source: bool = widget_mesh_source(widget)
     if mesh_source && (rho_str_eq(widget.kind, "chart") || rho_str_eq(widget.kind, "table")) {
-        let history: string = gateway_source_history(widget.source, "", "", "60000")
+        // A chart shows at most widget.points buckets; reading a day of history
+        // to keep 24 of them makes the page slow. Request only the recent window
+        // that fills the chart, plus a little headroom.
+        let history: string = gateway_source_history(widget.source, "2h", "", "60000")
         let marker: i32 = rho_str_index_of(history, "\"points\":[")
         if marker >= 0 {
             var rest: string = rho_str_slice(history, u32(marker) + 10,
                 u32(rho_strlen(history)) - u32(marker) - 10)
-            // The series may hold a day of minute buckets; the card wants the
-            // newest VALUE_CAPACITY of them, not the oldest.
-            while rest != "" && count < 5000 {
+            while rest != "" && count < VALUE_CAPACITY {
                 let at: i32 = rho_str_index_of(rest, "},{")
                 var object: string = rest
                 if at < 0 {
@@ -506,17 +534,8 @@ fn widget_card(db: SqlDb, widget: Widgets) string {
                     held.valueMilli = widget_parse_milli(value_text)
                     held.recordedEpoch = i64(widget_epoch_seconds(
                         widget_json_number_field(object, "t")))
-                    if count < VALUE_CAPACITY {
-                        values[count] = held
-                        count = count + 1
-                    } else {
-                        var j: u32 = 0
-                        while j + 1 < VALUE_CAPACITY {
-                            values[j] = values[j + 1]
-                            j = j + 1
-                        }
-                        values[VALUE_CAPACITY - 1] = held
-                    }
+                    values[count] = held
+                    count = count + 1
                 }
             }
         }

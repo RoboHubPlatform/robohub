@@ -11,3 +11,7 @@ widget or page does not have to be rewritten.
 
 The Mesh gateway provider, behind the gateway contract: projects, a project's
 gateway, its sources, device states and a source's state.
+
+## [0.2.1] - 2026-11-06
+
+Telemetry provider now serves latest, history, and status for mesh sources.

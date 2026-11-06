@@ -9,7 +9,7 @@
 module:
   name: mesh-gateway
   type: module
-  version: 0.2.0
+  version: 0.2.1
   description: Serves a RoboHub Mesh project's projects, sources, gateway state and telemetry to an application.
   maintainer: "Aurel Miron"
   license: "MIT"
