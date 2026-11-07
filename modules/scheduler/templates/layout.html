@@ -76,19 +76,18 @@
   </nav>
 </header>
 <main>{{{ body }}}</main>
-<footer class="bottombar"><span>Chores, due and overdue.</span><nav>
-    <a href="/">Home</a>
+<footer class="bottombar">
+  <span id="status-inventory">Items: —</span>
+  <span id="status-scheduler">Tasks: —</span>
+  <span id="status-widgets"></span>
+  <nav>
     <a href="/expenses">Inventory</a>
     <a href="/scheduler">Scheduler</a>
     <a href="/widgets">Widgets</a>
-    <a href="/equipment">Equipment</a>
-    <a href="/automation">Automation</a>
-    <a href="/chemistry">Chemistry</a>
-    <a href="/modes">Modes</a>
-    <a href="/events">Events</a>
-    <a href="/settings">Settings</a>
+    <a href="/docs">Documentation</a>
     {{{ keeper }}}
-  </nav></footer>
+  </nav>
+</footer>
 <script>
 (function () {
   document.querySelectorAll(".keeper[data-keeper-port]").forEach(function (el) {

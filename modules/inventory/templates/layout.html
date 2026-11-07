@@ -102,21 +102,29 @@
 </header>
 <main>{{{ body }}}</main>
 <footer class="bottombar">
-  <span>Stock, purchases and what they cost.</span>
+  <span id="status-inventory">Items: —</span>
+  <span id="status-scheduler">Tasks: —</span>
+  <span id="status-widgets"></span>
   <nav>
-    <a href="/">Home</a>
     <a href="/expenses">Inventory</a>
     <a href="/scheduler">Scheduler</a>
     <a href="/widgets">Widgets</a>
-    <a href="/equipment">Equipment</a>
-    <a href="/automation">Automation</a>
-    <a href="/chemistry">Chemistry</a>
-    <a href="/modes">Modes</a>
-    <a href="/events">Events</a>
-    <a href="/settings">Settings</a>
+    <a href="/docs">Documentation</a>
     {{{ keeper }}}
   </nav>
 </footer>
+<script>
+(function () {
+  function updateStatusBar() {
+    fetch("/api/expenses/data").then(function (r) { return r.json(); }).then(function (d) {
+      var el = document.getElementById("status-inventory");
+      if (el) { el.textContent = "Items: " + (d.item_count || 0); }
+    }).catch(function () {});
+  }
+  updateStatusBar();
+  setInterval(updateStatusBar, 5000);
+})();
+</script>
 <script>
 (function () {
   document.querySelectorAll(".keeper[data-keeper-port]").forEach(function (el) {

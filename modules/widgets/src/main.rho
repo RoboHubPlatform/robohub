@@ -22,6 +22,7 @@ route POST "/widgets/edit"                => widgets_edit_save
 route POST "/widgets/delete"              => widgets_delete
 route POST "/widgets/move"                => widgets_move
 route POST "/widgets/resize"              => widgets_resize
+route POST "/widgets/pin"                 => widgets_pin
 route POST "/widgets/value"               => widgets_value
 route POST "/widgets/press"               => widgets_press
 route GET  "/widgets/events"              => widgets_events
