@@ -875,7 +875,8 @@ fn widget_edit_page(req: Request) Response {
         vars("method_options", widget_method_options(widget.method)) +
         vars("device_options", widget_gateway_source_options(widget.source)) +
         vars("unit", escape_html(widget.unit)) +
-        vars("points", rho_int_to_str(u32(widget.points))))
+        vars("points", rho_int_to_str(u32(widget.points))) +
+        vars("decimals", rho_int_to_str(u32(widget.decimals))))
     let document: string = template_fill(widget_template("layout"),
         vars("title", "Edit widget") + vars("body", body))
     return html(status_ok(), document)

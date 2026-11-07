@@ -10,6 +10,7 @@
     <label>Method<select name="method">{{{ method_options }}}</select></label>
     <label>Unit<input name="unit" value="{{{ unit }}}"></label>
     <label>Chart points / table rows<input name="points" value="{{{ points }}}" inputmode="numeric"></label>
+    <label class="decimals-field">Decimals (0-3)<input name="decimals" value="{{{ decimals }}}" inputmode="numeric" min="0" max="3"></label>
   </div>
   <div class="form-actions"><button type="submit">Save widget</button></div>
 </form>
@@ -59,7 +60,14 @@
     if (method) { method.value = output ? "POST" : "GET"; }
     if (sourceKind) { sourceKind.value = output ? "url" : "mesh"; }
   }
-  kind.addEventListener("change", function () { filter(); pick(); });
+  function toggleDecimals() {
+    var dec = form.querySelector(".decimals-field");
+    if (!dec) { return; }
+    var k = kind.value;
+    dec.style.display = (k === "button" || k === "toggle") ? "none" : "";
+  }
+  kind.addEventListener("change", function () { filter(); pick(); toggleDecimals(); });
+  toggleDecimals();
   mesh.addEventListener("change", pick);
   filter();
 })();

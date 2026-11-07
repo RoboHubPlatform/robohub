@@ -30,6 +30,13 @@
           <label>Method<select name="method">{{{ method_options }}}</select></label>
           <label>Unit<input name="unit" placeholder="°C"></label>
           <label>Chart points / table rows<input name="points" value="24" inputmode="numeric"></label>
+    <label class="decimals-field">Decimals (0-3)
+      <select name="decimals">
+        <option value="0">0</option>
+        <option value="1">0.1</option>
+        <option value="2" selected>0.01</option>
+        <option value="3">0.001</option>
+      </select></label>
         </div>
         <div class="form-actions"><button type="submit">Add widget</button></div>
       </form>
