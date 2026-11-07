@@ -10,70 +10,130 @@ there. A purchase increases stock and is recorded as spending in one step.</p>
   <div><small>Purchases</small><br><strong>{{{ expense_count }}}</strong></div>
 </div>
 
-<h2>Add an item</h2>
-<form class="panel-form" method="post" action="/expenses/items/add">
-  <div class="grid">
-    <label>Name<input name="name" required placeholder="Filter sock"></label>
-    <label>Category<select name="category_id">{{{ category_options }}}</select></label>
-    <label>Unit<input name="unit" value="unit" placeholder="unit, kg, L"></label>
-    <label>Opening quantity<input name="quantity" value="0" inputmode="decimal"></label>
-    <label>Reorder at<input name="reorder" value="0" inputmode="decimal"></label>
-    <label>Location<input name="location" placeholder="Sump cabinet"></label>
-    <label>Notes<input name="notes" placeholder="Optional"></label>
+<div class="tabs">
+  <nav class="vtabnav">
+    <a class="active" data-tab="items"><b>Items</b><small>{{{ item_count }}}</small></a>
+    <a data-tab="reorder"><b>Reorder</b><small>{{{ low_count }}}</small></a>
+    <a data-tab="purchases"><b>Purchases</b><small>{{{ expense_count }}}</small></a>
+    <a data-tab="add"><b>Add item</b></a>
+    <a data-tab="purchase"><b>Record purchase</b></a>
+    <a data-tab="consume"><b>Remove stock</b></a>
+    <a data-tab="categories"><b>Categories</b></a>
+    <a data-tab="docs"><b>Docs</b></a>
+    <a data-tab="settings"><b>Settings</b></a>
+  </nav>
+  <div class="tabpanels">
+    <section id="tab-items" class="tab active">
+      <h2>All items</h2>
+      <table>
+        <thead><tr><th>Item</th><th>Category</th><th class="num">On hand</th><th>Unit</th><th class="num">Reorder</th><th>Location</th><th>Notes</th><th></th></tr></thead>
+        <tbody>{{{ item_rows }}}</tbody>
+      </table>
+    </section>
+    <section id="tab-reorder" class="tab">
+      <h2>Reorder</h2>
+      <table>
+        <thead><tr><th>Item</th><th>On hand</th><th>Reorder at</th><th>Location</th></tr></thead>
+        <tbody>{{{ low_rows }}}</tbody>
+      </table>
+    </section>
+    <section id="tab-purchases" class="tab">
+      <h2>Purchases</h2>
+      <table>
+        <thead><tr><th>Item</th><th>Category</th><th class="num">Qty</th><th class="num">Unit</th><th class="num">Total</th><th>Store</th><th>Date</th><th>Comment</th><th></th></tr></thead>
+        <tbody>{{{ expense_rows }}}</tbody>
+      </table>
+    </section>
+    <section id="tab-add" class="tab">
+      <h2>Add an item</h2>
+      <form class="panel-form" method="post" action="/expenses/items/add">
+        <div class="grid">
+          <label>Name<input name="name" required placeholder="Filter sock"></label>
+          <label>Category<select name="category_id">{{{ category_options }}}</select></label>
+          <label>Unit<input name="unit" value="unit" placeholder="unit, kg, L"></label>
+          <label>Opening quantity<input name="quantity" value="0" inputmode="decimal"></label>
+          <label>Reorder at<input name="reorder" value="0" inputmode="decimal"></label>
+          <label>Location<input name="location" placeholder="Sump cabinet"></label>
+          <label>Notes<input name="notes" placeholder="Optional"></label>
+        </div>
+        <div class="form-actions"><button type="submit">Add item</button></div>
+      </form>
+    </section>
+    <section id="tab-purchase" class="tab">
+      <h2>Record a purchase</h2>
+      <form class="panel-form" method="post" action="/expenses/purchases/add">
+        <div class="grid">
+          <label>Item<select name="item_id" required>{{{ item_options }}}</select></label>
+          <label>Quantity<input name="quantity" value="1" inputmode="decimal"></label>
+          <label>Unit price<input name="unit_price" inputmode="decimal" required placeholder="0.00"></label>
+          <label>Category<select name="category_id">{{{ category_options }}}</select></label>
+          <label>Store / source<input name="source" placeholder="Local shop"></label>
+          <label>Date<input type="date" name="purchased_at" value="{{{ today }}}"></label>
+          <label>Comment<input name="comment" placeholder="Optional note"></label>
+        </div>
+        <div class="form-actions"><button type="submit">Record purchase</button></div>
+      </form>
+    </section>
+    <section id="tab-consume" class="tab">
+      <h2>Remove from stock</h2>
+      <form class="panel-form" method="post" action="/expenses/items/consume">
+        <div class="grid">
+          <label>Item<select name="item_id" required>{{{ item_options }}}</select></label>
+          <label>Quantity<input name="quantity" inputmode="decimal" required></label>
+          <label>Reason<input name="comment" placeholder="Used, spilled, expired"></label>
+        </div>
+        <div class="form-actions"><button type="submit" class="quiet">Remove stock</button></div>
+      </form>
+    </section>
+    <section id="tab-categories" class="tab">
+      <h2>Categories</h2>
+      <table>
+        <thead><tr><th>Category</th></tr></thead>
+        <tbody>{{{ category_rows }}}</tbody>
+      </table>
+      <form class="panel-form category-form" method="post" action="/expenses/categories/add">
+        <div class="grid"><label>New category<input name="category" placeholder="Consumables" required></label></div>
+        <div class="form-actions"><button type="submit" class="quiet">Add category</button></div>
+      </form>
+    </section>
+    <section id="tab-docs" class="tab">
+      <h2>Documentation</h2>
+      <pre class="docs">{{{ docs }}}</pre>
+    </section>
+    <section id="tab-settings" class="tab">
+      <h2>Settings</h2>
+      <p>Tab layout for this module.</p>
+      <label>Orientation
+        <select id="inv-tab-orientation">
+          <option value="vertical">Vertical</option>
+          <option value="horizontal">Horizontal</option>
+        </select>
+      </label>
+    </section>
   </div>
-  <div class="form-actions"><button type="submit">Add item</button></div>
-</form>
+</div>
 
-<h2>Record a purchase</h2>
-<form class="panel-form" method="post" action="/expenses/purchases/add">
-  <div class="grid">
-    <label>Item<select name="item_id" required>{{{ item_options }}}</select></label>
-    <label>Quantity<input name="quantity" value="1" inputmode="decimal"></label>
-    <label>Unit price<input name="unit_price" inputmode="decimal" required placeholder="0.00"></label>
-    <label>Category<select name="category_id">{{{ category_options }}}</select></label>
-    <label>Store / source<input name="source" placeholder="Local shop"></label>
-    <label>Date<input type="date" name="purchased_at" value="{{{ today }}}"></label>
-    <label>Comment<input name="comment" placeholder="Optional note"></label>
-  </div>
-  <div class="form-actions"><button type="submit">Record purchase</button></div>
-</form>
+{{{ notifications }}}
 
-<h2>Remove from stock</h2>
-<form class="panel-form" method="post" action="/expenses/items/consume">
-  <div class="grid">
-    <label>Item<select name="item_id" required>{{{ item_options }}}</select></label>
-    <label>Quantity<input name="quantity" inputmode="decimal" required></label>
-    <label>Reason<input name="comment" placeholder="Used, spilled, expired"></label>
-  </div>
-  <div class="form-actions"><button type="submit" class="quiet">Remove stock</button></div>
-</form>
-
-<h2 id="reorder">Reorder</h2>
-<table>
-<thead><tr><th>Item</th><th>On hand</th><th>Reorder at</th><th>Location</th></tr></thead>
-<tbody>
-{{{ low_rows }}}
-</tbody>
-</table>
-
-<h2>Inventory</h2>
-<table>
-<thead><tr><th>Item</th><th>Category</th><th class="num">On hand</th><th>Unit</th><th class="num">Reorder</th><th>Location</th><th>Notes</th><th></th></tr></thead>
-<tbody>
-{{{ item_rows }}}
-</tbody>
-</table>
-
-<h2>Categories</h2>
-<form class="panel-form category-form" method="post" action="/expenses/categories/add">
-  <div class="grid"><label>New category<input name="category" placeholder="Consumables" required></label></div>
-  <div class="form-actions"><button type="submit" class="quiet">Add category</button></div>
-</form>
-
-<h2 id="purchases">Purchases</h2>
-<table>
-<thead><tr><th>Item</th><th>Category</th><th class="num">Qty</th><th class="num">Unit</th><th class="num">Total</th><th>Store</th><th>Date</th><th>Comment</th><th></th></tr></thead>
-<tbody>
-{{{ expense_rows }}}
-</tbody>
-</table>
+<script>
+(function () {
+  var nav = document.querySelectorAll(".vtabnav a");
+  var tabs = document.querySelectorAll(".tabpanels .tab");
+  function select(key) {
+    nav.forEach(function (a) { a.classList.toggle("active", a.getAttribute("data-tab") === key); });
+    tabs.forEach(function (s) { s.classList.toggle("active", s.id === "tab-" + key); });
+    history.replaceState(null, "", "#" + key);
+  }
+  nav.forEach(function (a) { a.addEventListener("click", function (e) { e.preventDefault(); select(a.getAttribute("data-tab")); }); });
+  var hash = (location.hash || "").replace("#", "");
+  select(hash || "items");
+  var box = document.querySelector(".tabs");
+  var sel = document.getElementById("inv-tab-orientation");
+  var key = "inv-tab-orientation";
+  var saved = localStorage.getItem(key) || "vertical";
+  if (sel) { sel.value = saved; }
+  function apply(v) { if (box) { box.classList.toggle("horizontal", v === "horizontal"); } }
+  apply(saved);
+  if (sel) { sel.addEventListener("change", function () { localStorage.setItem(key, sel.value); apply(sel.value); }); }
+})();
+</script>

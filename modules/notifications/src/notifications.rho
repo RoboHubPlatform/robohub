@@ -1,0 +1,272 @@
+module notifications
+
+import std.sql
+import std.web.http
+import std.web.template
+
+const NOTIFICATION_INFO: string = "info"
+const NOTIFICATION_WARNING: string = "warning"
+const NOTIFICATION_ERROR: string = "error"
+
+const NOTIFICATION_DEFAULT_TIMEOUT: u32 = 5
+
+fn notification_color(level: string) string {
+    if rho_str_eq(level, "warning") { return "#f59e0b" }
+    if rho_str_eq(level, "error") { return "#ef4444" }
+    return "#3b82f6"
+}
+
+fn notification_icon(level: string) string {
+    if rho_str_eq(level, "warning") { return "⚠" }
+    if rho_str_eq(level, "error") { return "✕" }
+    return "ℹ"
+}
+
+fn notification_open_db() Result[SqlDb, string] {
+    let opened: Result[SqlDb, string] = sql_open(notification_db_path())
+    if !opened.is_ok {
+        return opened
+    }
+    let db: SqlDb = opened.ok
+    ignore_u32(sql_apply(db, notification_schema()))
+    return Result[SqlDb, string]{ true, db, "" }
+}
+
+fn notification_insert(db: SqlDb, message: string, level: string, now: u32, expires: u32) bool {
+    var values: SqlValue[4]
+    values[0] = text_value(level)
+    values[1] = text_value(message)
+    values[2] = int_value(i64(now))
+    values[3] = int_value(i64(expires))
+    let values_slice: Slice[SqlValue] = Slice[SqlValue]{ Ptr[SqlValue](&values[0]), 4 }
+    var affected: u32 = 0
+    let status: u32 = sql_exec(db, "notification_insert",
+        "INSERT INTO notifications (level, message, created_at, expires_at) VALUES (?, ?, ?, ?)",
+        values_slice, Ptr[u32](&affected))
+    return status != 0
+}
+
+fn notification_push_level(message: string, level: string, timeout: u32) u32 {
+    let db_path: string = notification_db_path()
+    let now: u32 = notification_now()
+    let t: u32 = timeout
+    if t == 0 { t = NOTIFICATION_DEFAULT_TIMEOUT }
+    let expires: u32 = now + t
+    let opened: Result[SqlDb, string] = notification_open_db()
+    if !opened.is_ok { return 0 }
+    let db: SqlDb = opened.ok
+    let stored: bool = notification_insert(db, message, level, now, expires)
+    sql_close(db)
+    if !stored { return 0 }
+    notification_live_event(level, message)
+    return 1
+}
+
+/* -------------------------------------------------------------------------- */
+/*  The live stream and the embed                                             */
+/* -------------------------------------------------------------------------- */
+
+// The live feed is a file one JSON event per line, streamed to any page that
+// subscribes. It is how a change anywhere in the host reaches every open page
+// without a refresh: the action appends a line, and the page the embed drew the
+// EventSource on hears it.
+fn notification_live_path() string {
+    let dir: string = notification_workspace() + "/data"
+    ignore_u32(rho_exec("mkdir", "-p " + dir, dir + "/mkdir.txt"))
+    return dir + "/live.events"
+}
+
+// notification_live_event appends one event to the live feed, and nothing to
+// the store, so it is a page-to-page message rather than another saved
+// notification.
+fn notification_live_event(kind: string, message: string) void {
+    ignore_bool(rho_append_text(notification_live_path(),
+        "{\"kind\":" + json_string(kind) + ",\"message\":" + json_string(message) + "}\n"))
+}
+
+// notification_events streams the live feed as Server-Sent Events. The feed
+// file is made first so an empty stream still holds the connection open until
+// the first event arrives.
+fn notification_events(req: Request) Response {
+    ignore_bool(rho_append_text(notification_live_path(), ""))
+    return sse_file(notification_live_path(), 1000)
+}
+
+// notification_embed is the one piece of UI every page shows: a toast and the
+// EventSource that keeps it fed. A host injects it into its page body and has
+// the whole host speak the same language — a save here is a toast everywhere.
+// Every incoming event is rendered as a toast and re-sent on the document as
+// `rho:event`, so a page that cares about the change can refresh its own data
+// without knowing where the event came from.
+fn notification_template(name: string) string {
+    let path: string = notification_root() + "/templates/" + name + ".html"
+    if rho_path_exists(path) {
+        return rho_read_text(path)
+    }
+    return rho_read_text("templates/" + name + ".html")
+}
+
+
+fn notification_embed() string {
+    return notification_template("embed")
+}
+
+
+fn notifications_push(req: Request) Response {
+    let body: string = request_body(req)
+    let message: string = notification_form_value(body, "message")
+    if message == "" {
+        return json(400, "{\"ok\":false,\"error\":\"message is required\"}")
+    }
+    let level: string = notification_form_value(body, "level")
+    let lvl: string = level
+    if lvl == "" { lvl = NOTIFICATION_INFO }
+    let timeout_str: string = notification_form_value(body, "timeout")
+    let timeout: u32 = 0
+    if timeout_str != "" { timeout = rho_int_from_str(timeout_str) }
+    let code: u32 = notification_push_level(message, lvl, timeout)
+    if code == 0 {
+        return json(500, "{\"ok\":false,\"error\":\"could not store notification\"}")
+    }
+    return json(200, "{\"ok\":true}")
+}
+
+fn notifications_list(req: Request) Response {
+    let opened: Result[SqlDb, string] = notification_open_db()
+    if !opened.is_ok { return json(500, "{\"ok\":false}") }
+    let db: SqlDb = opened.ok
+    let now: u32 = notification_now()
+    let sql: string = "SELECT id, level, message, created_at, expires_at FROM notifications WHERE dismissed = 0 AND expires_at > ? ORDER BY created_at DESC"
+    var stmt: SqlStmt
+    let stmt_slice: Slice[SqlStmt] = Slice[SqlStmt]{ Ptr[SqlStmt](&stmt), 1 }
+    let prep: u32 = sql_prepare(db, sql, stmt_slice.ptr)
+    if prep == 0 {
+        sql_close(db)
+        return json(500, "{\"ok\":false}")
+    }
+    ignore_u32(sql_bind(stmt, 1, int_value(i64(now))))
+    var more: u32 = 1
+    var out: string = "["
+    var first: bool = true
+    while more == 1 {
+        let more_slice: Slice[u32] = Slice[u32]{ Ptr[u32](&more), 1 }
+        let ok: u32 = sql_run(stmt, more_slice.ptr)
+        if ok == 0 { break }
+        if more == 0 && ok == 1 {
+            // last row processed, more is 0
+        }
+        // Read columns
+        let v0: SqlValue = null_value()
+        let v1: SqlValue = null_value()
+        let v2: SqlValue = null_value()
+        let v3: SqlValue = null_value()
+        let v4: SqlValue = null_value()
+        let rp0: Slice[SqlValue] = Slice[SqlValue]{ Ptr[SqlValue](&v0), 1 }
+        let rp1: Slice[SqlValue] = Slice[SqlValue]{ Ptr[SqlValue](&v1), 1 }
+        let rp2: Slice[SqlValue] = Slice[SqlValue]{ Ptr[SqlValue](&v2), 1 }
+        let rp3: Slice[SqlValue] = Slice[SqlValue]{ Ptr[SqlValue](&v3), 1 }
+        let rp4: Slice[SqlValue] = Slice[SqlValue]{ Ptr[SqlValue](&v4), 1 }
+        ignore_u32(sql_read_column(stmt, 0, rp0.ptr))
+        ignore_u32(sql_read_column(stmt, 1, rp1.ptr))
+        ignore_u32(sql_read_column(stmt, 2, rp2.ptr))
+        ignore_u32(sql_read_column(stmt, 3, rp3.ptr))
+        ignore_u32(sql_read_column(stmt, 4, rp4.ptr))
+        if !first { out = out + "," }
+        first = false
+        out = out + "{\"id\":" + rho_int_to_str(u32(v0.integer)) +
+            ",\"level\":\"" + notification_escape(v1.text) + "\"" +
+            ",\"message\":\"" + notification_escape(v2.text) + "\"" +
+            ",\"created_at\":" + rho_int_to_str(u32(v3.integer)) +
+            ",\"expires_at\":" + rho_int_to_str(u32(v4.integer)) + "}"
+        if more == 0 { break }
+    }
+    sql_finalize(stmt)
+    sql_close(db)
+    out = out + "]"
+    return Response{ 200, out, "application/json", "" }
+}
+
+fn notifications_dismiss(req: Request) Response {
+    let body: string = request_body(req)
+    let id_str: string = notification_form_value(body, "id")
+    if id_str == "" {
+        return json(400, "{\"ok\":false,\"error\":\"id is required\"}")
+    }
+    let opened: Result[SqlDb, string] = notification_open_db()
+    if !opened.is_ok { return json(500, "{\"ok\":false}") }
+    let db: SqlDb = opened.ok
+    let sql: string = "UPDATE notifications SET dismissed = 1 WHERE id = ?"
+    var stmt: SqlStmt
+    let stmt_slice: Slice[SqlStmt] = Slice[SqlStmt]{ Ptr[SqlStmt](&stmt), 1 }
+    let prep: u32 = sql_prepare(db, sql, stmt_slice.ptr)
+    if prep == 0 {
+        sql_close(db)
+        return json(500, "{\"ok\":false}")
+    }
+    ignore_u32(sql_bind(stmt, 1, int_value(i64(rho_int_from_str(id_str)))))
+    var more: u32 = 0
+    let more_slice3: Slice[u32] = Slice[u32]{ Ptr[u32](&more), 1 }
+    ignore_u32(sql_run(stmt, more_slice3.ptr))
+    sql_finalize(stmt)
+    sql_close(db)
+    return json(200, "{\"ok\":true}")
+}
+
+fn notifications_render(req: Request) Response {
+    let opened: Result[SqlDb, string] = notification_open_db()
+    if !opened.is_ok { return Response{ 200, "", "text/html", "" } }
+    let db: SqlDb = opened.ok
+    let now: u32 = notification_now()
+    let sql: string = "SELECT id, level, message, created_at, expires_at FROM notifications WHERE dismissed = 0 AND expires_at > ? ORDER BY created_at DESC"
+    var stmt: SqlStmt
+    let stmt_slice: Slice[SqlStmt] = Slice[SqlStmt]{ Ptr[SqlStmt](&stmt), 1 }
+    let prep: u32 = sql_prepare(db, sql, stmt_slice.ptr)
+    if prep == 0 {
+        sql_close(db)
+        return Response{ 200, "", "text/html", "" }
+    }
+    ignore_u32(sql_bind(stmt, 1, int_value(i64(now))))
+    var more: u32 = 1
+    var out: string = ""
+    while more == 1 {
+        let more_slice: Slice[u32] = Slice[u32]{ Ptr[u32](&more), 1 }
+        let ok: u32 = sql_run(stmt, more_slice.ptr)
+        if ok == 0 { break }
+        let v0: SqlValue = null_value()
+        let v1: SqlValue = null_value()
+        let v2: SqlValue = null_value()
+        let v3: SqlValue = null_value()
+        let v4: SqlValue = null_value()
+        let rp0: Slice[SqlValue] = Slice[SqlValue]{ Ptr[SqlValue](&v0), 1 }
+        let rp1: Slice[SqlValue] = Slice[SqlValue]{ Ptr[SqlValue](&v1), 1 }
+        let rp2: Slice[SqlValue] = Slice[SqlValue]{ Ptr[SqlValue](&v2), 1 }
+        let rp3: Slice[SqlValue] = Slice[SqlValue]{ Ptr[SqlValue](&v3), 1 }
+        let rp4: Slice[SqlValue] = Slice[SqlValue]{ Ptr[SqlValue](&v4), 1 }
+        ignore_u32(sql_read_column(stmt, 0, rp0.ptr))
+        ignore_u32(sql_read_column(stmt, 1, rp1.ptr))
+        ignore_u32(sql_read_column(stmt, 2, rp2.ptr))
+        ignore_u32(sql_read_column(stmt, 3, rp3.ptr))
+        ignore_u32(sql_read_column(stmt, 4, rp4.ptr))
+        let level: string = v1.text
+        let message: string = v2.text
+        let expires: i64 = v4.integer
+        let color: string = notification_color(level)
+        let icon: string = notification_icon(level)
+        let remaining: u32 = u32(expires) - now
+        out = out + "<div class=\"notification notification-" + level + "\" " +
+            "style=\"border-left:4px solid " + color + ";background:" + color + "18;padding:.75rem 1rem;margin:.5rem 0;border-radius:6px;display:flex;align-items:center;gap:.75rem;\">" +
+            "<span style=\"color:" + color + ";font-size:1.2rem\">" + icon + "</span>" +
+            "<span style=\"flex:1\">" + notification_escape(message) + "</span>" +
+            "<span style=\"color:#8a929e;font-size:.8rem\">" + rho_int_to_str(remaining) + "s</span>" +
+            "<button onclick=\"this.parentElement.remove()\" style=\"background:none;border:none;cursor:pointer;color:#8a929e;font-size:1.2rem\">✕</button>" +
+            "</div>"
+        if more == 0 { break }
+    }
+    sql_finalize(stmt)
+    sql_close(db)
+    return Response{ 200, out, "text/html", "" }
+}
+
+fn notifications_api_list(req: Request) Response {
+    return notifications_list(req)
+}

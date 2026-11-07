@@ -4,6 +4,9 @@
 module:
   name: webhook-alert
   type: module
+  plugin_kind: alert
+  plugin_provider: robohub-provider-webhook
+  plugin_transport: webhook
   version: 0.1.0
   description: Posts an alert to an HTTP endpoint.
   maintainer: "Aurel Miron"
@@ -12,13 +15,6 @@ module:
 
 main: src/main.rho
 
-plugin:
-  kind: alert
-  provider: robohub-provider-webhook
-  transport: webhook
-  defaults:
-    url: ""
-    severity_threshold: ERROR
 
 metadata:
   tags:

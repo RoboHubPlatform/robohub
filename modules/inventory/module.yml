@@ -9,6 +9,8 @@
 module:
   name: inventory
   type: module
+  title: Inventory & expenses
+  category: inventory
   version: 0.1.1
   description: >
     An inventory and expense tracker for an aquarium or any other long-running
@@ -24,13 +26,12 @@ main: src/main.rho
 # — backend, pages and storage — but it owns no port and no instance settings:
 # the application that includes it declares the route, the database and the
 # workspace in its own module.yml.
-module_app:
-  title: Inventory & expenses
-  category: inventory
-  description: Stock on hand, reorder levels, purchases, categories and totals.
 
 deps:
   rho-log: ">=0.1.0"
+  robohub:
+    notifications: ">=0.1.0"
+    forms: ">=0.1.0"
 
 docs:
   title: Inventory & expenses

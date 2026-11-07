@@ -297,6 +297,18 @@ fn scheduler_completion_rows(rows: ListCompletionsRow[64], count: u32) string {
     return out
 }
 
+fn scheduler_docs() string {
+    let root: string = getenv("ROBOHUB_WORKSPACE")
+    var path: string = "modules/scheduler/docs/index.md"
+    if root != "" {
+        path = root + "/modules/scheduler/docs/index.md"
+    }
+    if rho_path_exists(path) {
+        return rho_read_text(path)
+    }
+    return "No documentation found."
+}
+
 fn scheduler_page_message(message: string) Response {
     let opened: Result[SqlDb, string] = sql_open(scheduler_db_path())
     if !opened.is_ok {
@@ -331,10 +343,13 @@ fn scheduler_page_message(message: string) Response {
     let body: string = template_fill(scheduler_template("scheduler"),
         vars("notice", notice) +
         vars("rows", scheduler_rows(chores, count, now)) +
-        vars("completions", scheduler_completion_rows(completions, completion_count)))
+        vars("completions", scheduler_completion_rows(completions, completion_count)) +
+        vars("docs", scheduler_docs()) +
+        vars("notifications", notification_embed()))
     let document: string = template_fill(scheduler_template("layout"),
         vars("title", "Scheduler") + vars("body", body) +
-        vars("keeper", scheduler_keeper_link()))
+        vars("keeper", scheduler_keeper_link()) +
+        vars("notifications", notification_embed()))
     return html(status_ok(), document)
 }
 
@@ -403,8 +418,11 @@ fn chores_add(req: Request) Response {
         db)
     sql_close(db)
     if !added.is_ok {
+        notification_push_level("Chore could not be saved: " + added.err.message, "error", 10)
         return scheduler_page_message("The chore could not be saved: " + added.err.message)
     }
+    notification_push_level("Chore added.", "info", 10)
+    notification_live_event("info", "Chore added.")
     return scheduler_page_message("Chore added.")
 }
 

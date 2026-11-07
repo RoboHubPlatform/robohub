@@ -8,20 +8,23 @@ module widgets
 
 include "text.rho"
 include "widgets.rho"
+include "modules/notifications/src/main.rho"
 
 import std.sql
 import std.web.http
 import std.web.template
 
 route GET  "/widgets"                     => widgets_page
+route GET  "/widgets/cards"              => widgets_cards_endpoint
 route POST "/widgets/add"                 => widgets_add
 route GET  "/widgets/edit"                => widget_edit_page
 route POST "/widgets/edit"                => widgets_edit_save
 route POST "/widgets/delete"              => widgets_delete
+route POST "/widgets/move"                => widgets_move
+route POST "/widgets/resize"              => widgets_resize
 route POST "/widgets/value"               => widgets_value
 route POST "/widgets/press"               => widgets_press
 route GET  "/widgets/events"              => widgets_events
-route GET  "/widgets/cards"               => widgets_cards
 route POST "/widgets/refresh"             => widgets_refresh
 route GET  "/api/widgets"                 => widgets_api_list
 route POST "/api/widgets/{id}/value"      => widgets_api_value

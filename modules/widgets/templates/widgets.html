@@ -1,80 +1,79 @@
 <h1>Widgets</h1>
-<p>Numbers, charts and switches for the application's home page. A widget reads
-a manual value, a URL that returns a plain number, or a hook called by a button
-or switch.</p>
+<p>Numbers, charts and switches for the application's home page.</p>
 {{{ notice }}}
 
-<h2>Add a widget</h2>
-<form class="panel-form" method="post" action="/widgets/add">
-  <div class="grid">
-    <label>Title<input name="title" required placeholder="Water temperature"></label>
-    <label>Kind<select name="kind">{{{ kind_options }}}</select></label>
-    <label>Source<select name="source_kind">{{{ source_kind_options }}}</select></label>
-    <label>Mesh source<select name="mesh_source">{{{ device_options }}}</select><small>Inputs feed numbers, charts and tables; outputs feed buttons and switches.</small></label>
-    <label>URL or hook<input name="source" placeholder="http://host/api or hook?state={state}"></label>
-    <label>Method<select name="method">{{{ method_options }}}</select></label>
-    <label>Unit<input name="unit" placeholder="°C"></label>
-    <label>Chart points / table rows<input name="points" value="24" inputmode="numeric"></label>
+<div class="tabs">
+  <nav class="vtabnav">
+    <a class="active" data-tab="all"><b>All widgets</b></a>
+    <a data-tab="add"><b>Add widget</b></a>
+    <a data-tab="preview"><b>Preview</b></a>
+    <a data-tab="docs"><b>Docs</b></a>
+    <a data-tab="settings"><b>Settings</b></a>
+  </nav>
+  <div class="tabpanels">
+    <section id="tab-all" class="tab active">
+      <h2>All widgets</h2>
+      <table>
+        <thead><tr><th>Title</th><th>Kind</th><th>Source</th><th>Latest</th><th></th></tr></thead>
+        <tbody>{{{ rows }}}</tbody>
+      </table>
+    </section>
+    <section id="tab-add" class="tab">
+      <h2>Add a widget</h2>
+      <form class="panel-form" method="post" action="/widgets/add">
+        <div class="grid">
+          <label>Title<input name="title" required placeholder="Water temperature"></label>
+          <label>Kind<select name="kind">{{{ kind_options }}}</select></label>
+          <label>Source<select name="source_kind">{{{ source_kind_options }}}</select></label>
+          <label>Mesh source<select name="mesh_source">{{{ device_options }}}</select></label>
+          <label>URL or hook<input name="source" placeholder="http://host/api or hook?state={state}"></label>
+          <label>Method<select name="method">{{{ method_options }}}</select></label>
+          <label>Unit<input name="unit" placeholder="°C"></label>
+          <label>Chart points / table rows<input name="points" value="24" inputmode="numeric"></label>
+        </div>
+        <div class="form-actions"><button type="submit">Add widget</button></div>
+      </form>
+    </section>
+    <section id="tab-preview" class="tab">
+      <h2>Preview</h2>
+      {{{ preview }}}
+    </section>
+    <section id="tab-docs" class="tab">
+      <h2>Documentation</h2>
+      <pre class="docs">{{{ docs }}}</pre>
+    </section>
+    <section id="tab-settings" class="tab">
+      <h2>Settings</h2>
+      <p>Tab layout for this module.</p>
+      <label>Orientation
+        <select id="wid-tab-orientation">
+          <option value="vertical">Vertical</option>
+          <option value="horizontal">Horizontal</option>
+        </select>
+      </label>
+    </section>
   </div>
-  <div class="form-actions"><button type="submit">Add widget</button></div>
-</form>
+{{{ notifications }}}
+
 <script>
 (function () {
-  var form = document.currentScript.previousElementSibling;
-  if (!form || !form.classList.contains("panel-form")) {
-    form = document.querySelector("form.panel-form");
+  var nav = document.querySelectorAll(".vtabnav a");
+  var tabs = document.querySelectorAll(".tabpanels .tab");
+  function select(key) {
+    nav.forEach(function (a) { a.classList.toggle("active", a.getAttribute("data-tab") === key); });
+    tabs.forEach(function (s) { s.classList.toggle("active", s.id === "tab-" + key); });
+    history.replaceState(null, "", "#" + key);
   }
-  if (!form) { return; }
-  var kind = form.querySelector("select[name=kind]");
-  var mesh = form.querySelector("select[name=mesh_source]");
-  var source = form.querySelector("input[name=source]");
-  var unit = form.querySelector("input[name=unit]");
-  var method = form.querySelector("select[name=method]");
-  var sourceKind = form.querySelector("select[name=source_kind]");
-  if (!kind || !mesh || !source) { return; }
-  function outputKind() {
-    return kind.value === "toggle" || kind.value === "button";
-  }
-  function filter() {
-    var output = outputKind();
-    for (var i = 0; i < mesh.options.length; i++) {
-      var option = mesh.options[i];
-      if (!option.dataset.direction) { continue; }
-      var allowed = (option.dataset.kinds || "").split(/\s+/).indexOf(kind.value) >= 0;
-      if (output) {
-        allowed = allowed && option.dataset.direction === "output";
-      } else {
-        allowed = allowed && option.dataset.direction === "input";
-      }
-      option.hidden = !allowed;
-      option.disabled = !allowed;
-    }
-    if (mesh.selectedIndex >= 0 && mesh.options[mesh.selectedIndex].disabled) {
-      mesh.value = "";
-    }
-  }
-  function pick() {
-    var option = mesh.options[mesh.selectedIndex];
-    if (!option || !option.dataset.direction) { return; }
-    var output = outputKind();
-    source.value = output ? (option.dataset.action || "") : (option.dataset.value || "");
-    if (unit) { unit.value = output ? "" : (option.dataset.unit || ""); }
-    if (method) { method.value = output ? "POST" : "GET"; }
-    if (sourceKind) { sourceKind.value = "url"; }
-  }
-  kind.addEventListener("change", function () { filter(); pick(); });
-  mesh.addEventListener("change", pick);
-  filter();
+  nav.forEach(function (a) { a.addEventListener("click", function (e) { e.preventDefault(); select(a.getAttribute("data-tab")); }); });
+  var hash = (location.hash || "").replace("#", "");
+  select(hash || "all");
+  var box = document.querySelector(".tabs");
+  var sel = document.getElementById("wid-tab-orientation");
+  var key = "wid-tab-orientation";
+  var saved = localStorage.getItem(key) || "vertical";
+  if (sel) { sel.value = saved; }
+  function apply(v) { if (box) { box.classList.toggle("horizontal", v === "horizontal"); } }
+  apply(saved);
+  if (sel) { sel.addEventListener("change", function () { localStorage.setItem(key, sel.value); apply(sel.value); }); }
 })();
 </script>
-
-<h2>Preview</h2>
-{{{ preview }}}
-
-<h2>All widgets</h2>
-<table>
-<thead><tr><th>Title</th><th>Kind</th><th>Source</th><th>Latest</th><th></th></tr></thead>
-<tbody>
-{{{ rows }}}
-</tbody>
-</table>

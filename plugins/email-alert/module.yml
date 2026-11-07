@@ -9,6 +9,9 @@
 module:
   name: email-alert
   type: module
+  plugin_kind: alert
+  plugin_provider: local
+  plugin_transport: email
   version: 0.1.0
   description: Sends an alert by e-mail through SMTP or a local outbox.
   maintainer: "Aurel Miron"
@@ -17,17 +20,6 @@ module:
 
 main: src/main.rho
 
-plugin:
-  kind: alert
-  provider: robohub-provider-email
-  transport: email
-  defaults:
-    provider: local
-    from_address: "alerts@robohub.internal"
-    to_address: ""
-    subject_template: "[RoboHub] {level}: {rule}"
-    body_template: "{message} ({app})"
-    severity_threshold: ERROR
 
 metadata:
   tags:

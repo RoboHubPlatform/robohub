@@ -1,0 +1,71 @@
+module forms
+
+// The schema: what a form is. A form is a list of field descriptors and
+// nothing else; the engine renders them, and whatever the engine renders is
+// every form a host has, so each control and each error is maintained once.
+//
+// The consumer owns the array the fields live in and hands the engine a slice
+// over it, the same way it hands the SQL layer a slice of rows. The engine
+// reads the descriptors to render and validates, and writes the submitted
+// value and the error back into the caller's array, so after a round trip the
+// caller's array carries exactly what the user typed and why, field by field.
+
+import std.core.ptr
+import std.core.slice
+
+// FormField is one field of a form: its identity, how it is drawn, what rules
+// it is checked against, and the answer the user gave it.
+struct FormField {
+    // name is the field's key: the `name` of the input and the key of the
+    // value in the payload this engine hands back.
+    name: string
+    // kind is how the field is drawn: text, password, number, select,
+    // textarea, toggle, hidden.
+    kind: string
+    // label is what the user reads next to the control.
+    label: string
+    // hint is a short sentence under the control explaining what it is for.
+    hint: string
+    // placeholder is the ghost text inside the control, and for a select it is
+    // the prompt shown before a choice is made.
+    placeholder: string
+    // required says the field has to be filled before a submit is accepted.
+    required: bool
+    // pattern is a named rule the value is checked against: ip, number, host,
+    // email, url, plain, or "" for no check.
+    pattern: string
+    // options for a select, as "value|label,value|label". A single string per
+    // field keeps the schema a plain value the engine can split on its own.
+    options: string
+    // value is what the user submitted, written back by forms_read and read by
+    // the consumer once validation has passed.
+    value: string
+    // error is the message for this field when its value failed a rule; empty
+    // when the field is valid.
+    err: string
+}
+
+// The field kinds a schema may name. They are constants so a declaration
+// spells the same word a switch reads, and so a misspelling is caught once
+// here rather than at every use.
+const FORM_TEXT: string = "text"
+const FORM_PASSWORD: string = "password"
+const FORM_NUMBER: string = "number"
+const FORM_SELECT: string = "select"
+const FORM_TEXTAREA: string = "textarea"
+const FORM_TOGGLE: string = "toggle"
+const FORM_HIDDEN: string = "hidden"
+
+// The named patterns a field may be validated against.
+const FORM_IP: string = "ip"
+const FORM_NUMBER_PATTERN: string = "number"
+const FORM_HOST: string = "host"
+const FORM_EMAIL: string = "email"
+const FORM_URL: string = "url"
+const FORM_PLAIN: string = "plain"
+
+// forms_field is a shorthand for a field with nothing but its identity and
+// label, which is how most fields begin.
+fn forms_field(name: string, kind: string, label: string) FormField {
+    return FormField{ name, kind, label, "", "", false, "", "", "", "" }
+}

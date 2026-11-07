@@ -4,6 +4,9 @@
 module:
   name: robohub-auth
   type: module
+  plugin_kind: auth
+  plugin_provider: rho-auth
+  plugin_transport: keeper
   version: 0.1.0
   description: Wires an application into rho-auth SSO through the Keeper.
   maintainer: "Aurel Miron"
@@ -12,16 +15,6 @@ module:
 
 main: src/main.rho
 
-plugin:
-  kind: auth
-  provider: rho-auth
-  transport: keeper
-  defaults:
-    issuer: keeper
-    cookie: rho_session
-    login_url: /auth/login
-    mode: direct
-    public_key: "~/.rho/auth/public.pem"
 
 metadata:
   tags:

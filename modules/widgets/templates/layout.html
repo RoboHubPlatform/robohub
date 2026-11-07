@@ -61,6 +61,20 @@
   .widget-actions input { padding:.25rem .4rem; font-size:.76rem; }
   .widget-actions button { padding:.25rem .5rem; font-size:.72rem; }
   .keeper[data-keeper-port] { color:var(--teal); }
+  .tabs { display: flex; gap: 1rem; align-items: stretch; margin-top: 1.2rem; }
+  .vtabnav { flex: 0 0 178px; display: flex; flex-direction: column; gap: .3rem; padding: .6rem; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; backdrop-filter: blur(10px); position: sticky; top: 5.2rem; align-self: flex-start; }
+  .vtabnav a { display: flex; justify-content: space-between; align-items: center; gap: .6rem; padding: .5rem .65rem; border-radius: 8px; color: var(--muted); font-size: .82rem; letter-spacing: .03em; }
+  .vtabnav a b { font-weight: 600; }
+  .vtabnav a:hover { color: var(--gold); }
+  .vtabnav a.active { background: var(--gold); color: #1a1308; }
+  .tabpanels { flex: 1 1 auto; min-width: 0; }
+  .tab { display: none; }
+  .tab.active { display: block; }
+  .tab > .panel-form { margin-top: 1rem; }
+  .docs { white-space: pre-wrap; font-family: ui-monospace, monospace; font-size: .78rem; background: rgba(15,20,21,.55); border: 1px solid var(--line); border-radius: 8px; padding: .8rem; max-height: none; overflow: visible; backdrop-filter: blur(6px); }
+  .tabs.horizontal { flex-direction: column; }
+  .tabs.horizontal .vtabnav { flex-direction: row; flex: none; position: static; }
+  .tabs.horizontal .vtabnav a { flex: 1 1 auto; justify-content: center; }
 </style>
 </head>
 <body>

@@ -8,6 +8,7 @@ module scheduler
 
 include "text.rho"
 include "scheduler.rho"
+include "modules/notifications/src/main.rho"
 
 import std.sql
 import std.web.http

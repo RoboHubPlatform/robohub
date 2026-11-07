@@ -9,6 +9,8 @@
 module:
   name: alert-dispatcher
   type: module
+  plugin_kind: alert
+  plugin_transport: dispatcher
   version: 0.1.0
   description: Fans an alert out to the configured alert channels.
   maintainer: "Aurel Miron"
@@ -17,12 +19,6 @@ module:
 
 main: src/main.rho
 
-plugin:
-  kind: alert
-  transport: dispatcher
-  defaults:
-    targets: "alert-log"
-    severity_threshold: INFO
 
 metadata:
   tags:

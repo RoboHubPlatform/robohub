@@ -8,6 +8,8 @@
 module:
   name: widgets
   type: module
+  title: Widgets
+  category: dashboard
   version: 0.2.1
   description: >
     Dashboard widgets with a configurable source: a number, a chart of recent
@@ -18,14 +20,10 @@ module:
 
 main: src/main.rho
 
-module_app:
-  title: Widgets
-  category: dashboard
-  description: Numbers, charts and buttons; charts read Mesh telemetry history.
-  version: 0.1.0
 
 deps:
   rho-log: ">=0.1.0"
+  notifications: ">=0.1.0"
 
 docs:
   title: Widgets

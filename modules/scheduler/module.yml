@@ -8,6 +8,8 @@
 module:
   name: scheduler
   type: module
+  title: Scheduler
+  category: maintenance
   version: 0.1.1
   description: >
     A chore scheduler for maintenance tasks: interval, cron, one-time and
@@ -19,13 +21,10 @@ module:
 
 main: src/main.rho
 
-module_app:
-  title: Scheduler
-  category: maintenance
-  description: Chores, due and overdue states, completions and snoozing.
 
 deps:
   rho-log: ">=0.1.0"
+  notifications: ">=0.1.0"
 
 docs:
   title: Scheduler

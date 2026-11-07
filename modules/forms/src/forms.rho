@@ -1,0 +1,518 @@
+module forms
+
+// The engine: rendering, state, validation and the payload. A consumer builds
+// a schema over its own array and calls these functions; nothing here knows
+// what the data means, only what a field is drawn with and what rules a value
+// is checked against.
+
+import std.core.ptr
+import std.core.slice
+
+/* -------------------------------------------------------------------------- */
+/*  Escaping and text                                                           */
+/* -------------------------------------------------------------------------- */
+
+// forms_escape makes a value safe to place inside HTML: the characters that
+// begin markup are turned into entities so a submitted value cannot change the
+// page's structure.
+fn forms_root() string {
+    let root: string = getenv("ROBOHUB_WORKSPACE")
+    if root != "" {
+        if rho_path_exists(root + "/modules/forms/module.yml") {
+            return root + "/modules/forms"
+        }
+    }
+    if rho_path_exists("module.yml") && rho_path_exists("templates/assets/forms.css") {
+        return "."
+    }
+    let home: string = getenv("HOME")
+    if home != "" {
+        return home + "/.rho/modules/forms"
+    }
+    return "."
+}
+
+fn forms_template(name: string) string {
+    let path: string = forms_root() + "/templates/" + name
+    if rho_path_exists(path) {
+        return rho_read_text(path)
+    }
+    return rho_read_text("templates/" + name)
+}
+
+// forms_style is the module's own CSS, read from its template assets, so any
+// host that renders a form can drop it into its <head> and the form looks
+// right without copying a single rule.
+fn forms_style() string {
+    return "<style>" + forms_template("assets/forms.css") + "</style>"
+}
+
+fn forms_escape(text: string) string {
+    var out: string = ""
+    var i: u32 = 0
+    while i < u32(rho_strlen(text)) {
+        let ch: string = rho_str_slice(text, i, 1)
+        if rho_str_eq(ch, "&") {
+            out = out + "&amp;"
+        } else if rho_str_eq(ch, "<") {
+            out = out + "&lt;"
+        } else if rho_str_eq(ch, ">") {
+            out = out + "&gt;"
+        } else if rho_str_eq(ch, "\"") {
+            out = out + "&quot;"
+        } else {
+            out = out + ch
+        }
+        i = i + 1
+    }
+    return out
+}
+
+// forms_digit reports whether a single character is a decimal digit.
+fn forms_digit(ch: string) bool {
+    if rho_str_eq(ch, "0") { return true }
+    if rho_str_eq(ch, "1") { return true }
+    if rho_str_eq(ch, "2") { return true }
+    if rho_str_eq(ch, "3") { return true }
+    if rho_str_eq(ch, "4") { return true }
+    if rho_str_eq(ch, "5") { return true }
+    if rho_str_eq(ch, "6") { return true }
+    if rho_str_eq(ch, "7") { return true }
+    if rho_str_eq(ch, "8") { return true }
+    if rho_str_eq(ch, "9") { return true }
+    return false
+}
+
+// forms_digits_ok reports whether a string is entirely decimal digits.
+fn forms_digits_ok(v: string) bool {
+    if v == "" { return false }
+    var i: u32 = 0
+    while i < u32(rho_strlen(v)) {
+        if !forms_digit(rho_str_slice(v, i, 1)) { return false }
+        i = i + 1
+    }
+    return true
+}
+
+// forms_count is how many times a character appears in a string.
+fn forms_count(text: string, needle: string) u32 {
+    var count: u32 = 0
+    var rest: string = text
+    while rho_strlen(rest) > 0 {
+        let at: i32 = rho_str_index_of(rest, needle)
+        if at < 0 { break }
+        count = count + 1
+        rest = rho_str_slice(rest, u32(at) + 1, u32(rho_strlen(rest)) - u32(at) - 1)
+    }
+    return count
+}
+
+// forms_hexval is a single hex character's value, for decoding percent-escaped
+// form bodies.
+fn forms_hexval(ch: string) u32 {
+    if rho_str_eq(ch, "a") || rho_str_eq(ch, "A") { return 10 }
+    if rho_str_eq(ch, "b") || rho_str_eq(ch, "B") { return 11 }
+    if rho_str_eq(ch, "c") || rho_str_eq(ch, "C") { return 12 }
+    if rho_str_eq(ch, "d") || rho_str_eq(ch, "D") { return 13 }
+    if rho_str_eq(ch, "e") || rho_str_eq(ch, "E") { return 14 }
+    if rho_str_eq(ch, "f") || rho_str_eq(ch, "F") { return 15 }
+    return rho_int_from_str(ch)
+}
+
+// forms_decode turns a percent-encoded form value back into text: `+` becomes a
+// space and `%XX` becomes the byte it spells.
+fn forms_decode(value: string) string {
+    var out: string = ""
+    var i: u32 = 0
+    let n: u32 = u32(rho_strlen(value))
+    while i < n {
+        let ch: string = rho_str_slice(value, i, 1)
+        if rho_str_eq(ch, "+") {
+            out = out + " "
+            i = i + 1
+        } else if rho_str_eq(ch, "%") && i + 2 < n {
+            out = out + rho_str_from_byte(u8(forms_hexval(rho_str_slice(value, i + 1, 1)) * 16 +
+                forms_hexval(rho_str_slice(value, i + 2, 1))))
+            i = i + 3
+        } else {
+            out = out + ch
+            i = i + 1
+        }
+    }
+    return out
+}
+
+// forms_parse is one field's value out of a submitted `application/x-www-form-`
+// `urlencoded` body, decoded.
+fn forms_parse(body: string, name: string) string {
+    var rest: string = body + "&"
+    while rho_strlen(rest) > 0 {
+        let amp: i32 = rho_str_index_of(rest, "&")
+        if amp < 0 { break }
+        let pair: string = rho_str_slice(rest, 0, u32(amp))
+        rest = rho_str_slice(rest, u32(amp) + 1, u32(rho_strlen(rest)) - u32(amp) - 1)
+        let equals: i32 = rho_str_index_of(pair, "=")
+        if equals < 0 { continue }
+        if rho_str_eq(rho_str_slice(pair, 0, u32(equals)), name) {
+            return forms_decode(rho_str_slice(pair, u32(equals) + 1,
+                u32(rho_strlen(pair)) - u32(equals) - 1))
+        }
+    }
+    return ""
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Validation                                                                   */
+/* -------------------------------------------------------------------------- */
+
+// The named patterns, each checking one ordinary shape of input.
+
+fn forms_number_ok(v: string) bool {
+    if v == "" { return false }
+    var i: u32 = 0
+    let n: u32 = u32(rho_strlen(v))
+    var digits: u32 = 0
+    var dots: u32 = 0
+    while i < n {
+        let ch: string = rho_str_slice(v, i, 1)
+        if rho_str_eq(ch, "-") || rho_str_eq(ch, "+") {
+            if i != 0 { return false }
+        } else if rho_str_eq(ch, ".") {
+            dots = dots + 1
+            if dots > 1 { return false }
+        } else if forms_digit(ch) {
+            digits = digits + 1
+        } else {
+            return false
+        }
+        i = i + 1
+    }
+    return digits > 0
+}
+
+fn forms_ip_ok(v: string) bool {
+    if v == "" { return false }
+    if forms_count(v, ".") != 3 { return false }
+    var rest: string = v + "."
+    var n: u32 = 0
+    while rho_strlen(rest) > 0 {
+        let dot: i32 = rho_str_index_of(rest, ".")
+        if dot <= 0 { return false }
+        let octet: string = rho_str_slice(rest, 0, u32(dot))
+        if !forms_digits_ok(octet) { return false }
+        let val: u32 = rho_int_from_str(octet)
+        if val > 255 { return false }
+        rest = rho_str_slice(rest, u32(dot) + 1, u32(rho_strlen(rest)) - u32(dot) - 1)
+        if rest == "" { break }
+        n = n + 1
+    }
+    return n == 3
+}
+
+fn forms_host_ok(v: string) bool {
+    if v == "" { return false }
+    var i: u32 = 0
+    while i < u32(rho_strlen(v)) {
+        let ch: string = rho_str_slice(v, i, 1)
+        if rho_str_eq(ch, " ") || rho_str_eq(ch, "\n") || rho_str_eq(ch, "/") ||
+            rho_str_eq(ch, "<") || rho_str_eq(ch, ">") {
+            return false
+        }
+        i = i + 1
+    }
+    return true
+}
+
+fn forms_email_ok(v: string) bool {
+    let at: i32 = rho_str_index_of(v, "@")
+    if at <= 0 { return false }
+    let after: string = rho_str_slice(v, u32(at) + 1, u32(rho_strlen(v)) - u32(at) - 1)
+    return rho_str_index_of(after, ".") > 0
+}
+
+fn forms_plain_ok(v: string) bool {
+    return rho_str_index_of(v, "<") < 0 && rho_str_index_of(v, ">") < 0
+}
+
+// forms_match is whether a value passes a named pattern. An unknown name is a
+// schema that asked for no check, so it is accepted.
+fn forms_match(pattern: string, value: string) bool {
+    if rho_str_eq(pattern, "ip") { return forms_ip_ok(value) }
+    if rho_str_eq(pattern, "number") { return forms_number_ok(value) }
+    if rho_str_eq(pattern, "host") { return forms_host_ok(value) }
+    if rho_str_eq(pattern, "email") { return forms_email_ok(value) }
+    if rho_str_eq(pattern, "plain") { return forms_plain_ok(value) }
+    if rho_str_eq(pattern, "url") {
+        let http: bool = rho_str_starts_with(value, "http://")
+        let https: bool = rho_str_starts_with(value, "https://")
+        return http || https
+    }
+    return true
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Rendering                                                                     */
+/* -------------------------------------------------------------------------- */
+
+// forms_select_options renders the `<option>` elements of a select. Each option
+// in the comma string is `value|label`, or a bare value that is also its
+// label; the option held by the field is marked selected.
+fn forms_select_options(options: string, selected: string) string {
+    var out: string = ""
+    var rest: string = options
+    while rho_strlen(rest) > 0 {
+        let comma: i32 = rho_str_index_of(rest, ",")
+        var item: string = ""
+        if comma < 0 {
+            item = rest
+            rest = ""
+        } else {
+            item = rho_str_slice(rest, 0, u32(comma))
+            rest = rho_str_slice(rest, u32(comma) + 1, u32(rho_strlen(rest)) - u32(comma) - 1)
+        }
+        let pipe: i32 = rho_str_index_of(item, "|")
+        var value: string = item
+        var label: string = item
+        if pipe > 0 {
+            value = rho_str_slice(item, 0, u32(pipe))
+            label = rho_str_slice(item, u32(pipe) + 1, u32(rho_strlen(item)) - u32(pipe) - 1)
+        }
+        var mark: string = ""
+        if rho_str_eq(value, selected) { mark = " selected" }
+        out = out + "<option value=\"" + forms_escape(value) + "\"" + mark + ">" +
+            forms_escape(label) + "</option>"
+        if rest == "" { break }
+    }
+    return out
+}
+
+// forms_field_html renders one field: its label, its control, its hint and - if
+// the last submit failed it - its error message.
+fn forms_field_html(f: FormField) string {
+    var required_mark: string = ""
+    if f.required { required_mark = " <span class=\"req\">*</span>" }
+    var out: string = "<label>" + forms_escape(f.label) + required_mark
+    if rho_str_eq(f.kind, "select") {
+        var prompt: string = ""
+        if f.placeholder != "" {
+            prompt = "<option value=\"\">" + forms_escape(f.placeholder) + "</option>"
+        }
+        out = out + "<select name=\"" + forms_escape(f.name) + "\">" + prompt +
+            forms_select_options(f.options, f.value) + "</select>"
+    } else if rho_str_eq(f.kind, "textarea") {
+        out = out + "<textarea name=\"" + forms_escape(f.name) + "\">" +
+            forms_escape(f.value) + "</textarea>"
+    } else if rho_str_eq(f.kind, "toggle") {
+        var checked: string = ""
+        if rho_str_eq(f.value, "on") || rho_str_eq(f.value, "true") { checked = " checked" }
+        out = out + "<input type=\"checkbox\" name=\"" + forms_escape(f.name) +
+            "\" value=\"on\"" + checked + ">"
+    } else if rho_str_eq(f.kind, "hidden") {
+        return "<input type=\"hidden\" name=\"" + forms_escape(f.name) +
+            "\" value=\"" + forms_escape(f.value) + "\">"
+    } else {
+        out = out + "<input type=\"" + forms_escape(f.kind) + "\" name=\"" +
+            forms_escape(f.name) + "\" value=\"" + forms_escape(f.value) +
+            "\" placeholder=\"" + forms_escape(f.placeholder) + "\""
+        if f.required { out = out + " required" }
+        out = out + ">"
+    }
+    if f.err != "" {
+        out = out + "<small class=\"err\">" + forms_escape(f.err) + "</small>"
+    }
+    if f.hint != "" {
+        out = out + "<small>" + forms_escape(f.hint) + "</small>"
+    }
+    return out + "</label>"
+}
+
+// forms_body renders the fields of a form, without the `<form>` round it.
+//
+// The fields are a dynamic array `[FormField]` (a `[]FormField` in Go, a
+// `FormField*` in C) so the engine can index them on either backend; an
+// enclosing `Slice[FormField]` carries its storage through a pointer that Go
+// cannot index. The caller brings its own fixed array and its length.
+fn forms_body(fields: [FormField], count: u32) string {
+    // Hidden fields are not part of the visible grid: render them first so
+    // they do not occupy a cell and push the visible fields out of line.
+    var hidden: string = ""
+    var out: string = "<div class=\"grid\">"
+    var i: u32 = 0
+    while i < count {
+        if rho_str_eq(fields[i].kind, "hidden") {
+            hidden = hidden + forms_field_html(fields[i])
+        } else {
+            out = out + forms_field_html(fields[i])
+        }
+        i = i + 1
+    }
+    return hidden + out + "</div>"
+}
+
+/* -------------------------------------------------------------------------- */
+/*  CSRF                                                                          */
+/* -------------------------------------------------------------------------- */
+
+// Every form drawn here carries a per-install token, and a submit is accepted
+// only when that same token comes back. A cross-site request cannot read the
+// token in the victim's own page, so it cannot echo it, and the forged post is
+// refused. The token is stored with the application so render and submit are
+// the same answer.
+
+// The workspace the token is kept in, mirroring the host's own data directory.
+fn forms_workspace() string {
+    let workspace: string = getenv("ROBOHUB_APP_WORKSPACE")
+    if workspace == "" {
+        workspace = getenv("HOME") + "/.rho/modules/forms"
+    }
+    return workspace
+}
+
+fn forms_token_file() string {
+    let dir: string = forms_workspace() + "/data"
+    ignore_u32(rho_exec("mkdir", "-p " + dir, dir + "/stamp.txt"))
+    return dir + "/csrf.txt"
+}
+
+fn forms_trim(text: string) string {
+    var out: string = text
+    while rho_strlen(out) > 0 {
+        let last: string = rho_str_slice(out, u32(rho_strlen(out)) - 1, 1)
+        if rho_str_eq(last, " ") || rho_str_eq(last, "\n") || rho_str_eq(last, "\r") || rho_str_eq(last, "\t") {
+            out = rho_str_slice(out, 0, u32(rho_strlen(out)) - 1)
+        } else {
+            break
+        }
+    }
+    while rho_strlen(out) > 0 && rho_str_eq(rho_str_slice(out, 0, 1), " ") {
+        out = rho_str_slice(out, 1, u32(rho_strlen(out)) - 1)
+    }
+    return out
+}
+
+fn forms_now() u32 {
+    let report: string = forms_token_file() + ".now"
+    if rho_exec("date", "+%s", report) == 0 {
+        return rho_int_from_str(forms_trim(rho_read_text(report)))
+    }
+    return 0
+}
+
+// forms_token is the application's stored CSRF token, minted on first use. The
+// secret is taken from the host's environment so the token is not predictable
+// to a site that has never seen it; the token itself never leaves the server
+// except inside a form the app itself rendered.
+fn forms_token() string {
+    let path: string = forms_token_file()
+    let existing: string = rho_read_text(path)
+    if existing != "" {
+        return existing
+    }
+    let secret: string = getenv("RHO_APP_SECRET")
+    if secret == "" {
+        secret = getenv("ROBOHUB_SECRET")
+    }
+    if secret == "" {
+        secret = forms_workspace()
+    }
+    let token: string = secret + ":" + rho_int_to_str(forms_now())
+    ignore_bool(rho_write_text(path, token))
+    return token
+}
+
+// forms_csrf_field is the hidden input every form must carry so a submit can
+// prove it came from the page this server drew.
+fn forms_csrf_field() string {
+    return "<input type=\"hidden\" name=\"csrf\" value=\"" + forms_escape(forms_token()) + "\">"
+}
+
+// forms_csrf_ok is whether a submitted body carries the token the server drew
+// the form with. A consumer calls it before acting on any POST; a mismatch is
+// a request a cross-site page forged, and it is refused.
+fn forms_csrf_ok(body: string) bool {
+    return rho_str_eq(forms_parse(body, "csrf"), forms_token())
+}
+
+// forms_open renders a whole submit form for a schema: the `<form>` action, the
+// fields, the CSRF token and the submit button. The consumer drops the result
+// into its page body, and verifies the token with forms_csrf_ok when the form
+// comes back.
+fn forms_open(fields: [FormField], count: u32, action: string, submit: string) string {
+    var label: string = submit
+    if label == "" { label = "Save" }
+    return "<form class=\"panel-form\" method=\"post\" action=\"" + forms_escape(action) + "\">" +
+        forms_csrf_field() + forms_body(fields, count) +
+        "<div class=\"form-actions\"><button type=\"submit\">" + forms_escape(label) +
+        "</button></div></form>"
+}
+
+/* -------------------------------------------------------------------------- */
+/*  State and payload                                                             */
+/* -------------------------------------------------------------------------- */
+
+// forms_read takes a submitted body and writes each field's value into the
+// caller's schema. After a submit the caller's array holds what the user
+// typed, ready to validate and then to persist.
+fn forms_read(fields: [FormField], count: u32, body: string) void {
+    var i: u32 = 0
+    while i < count {
+        fields[i].value = forms_parse(body, fields[i].name)
+        i = i + 1
+    }
+}
+
+// forms_validate checks every field against its rules, writes the per-field
+// error into the schema, and answers whether every field passed.
+fn forms_validate(fields: [FormField], count: u32) bool {
+    let ok: bool = true
+    var i: u32 = 0
+    while i < count {
+        let v: string = fields[i].value
+        if fields[i].required && v == "" {
+            fields[i].err = "This field is required."
+            ok = false
+        } else if fields[i].pattern != "" && !forms_match(fields[i].pattern, v) {
+            fields[i].err = "This value is invalid."
+            ok = false
+        } else {
+            fields[i].err = ""
+        }
+        i = i + 1
+    }
+    return ok
+}
+
+// forms_reset_errors clears any error from an earlier submit, so a freshly
+// rendered page does not carry a previous failure's highlights.
+fn forms_reset_errors(fields: [FormField], count: u32) void {
+    var i: u32 = 0
+    while i < count {
+        fields[i].err = ""
+        i = i + 1
+    }
+}
+
+// forms_value is one field's submitted value, by name, for a consumer that
+// persists a payload.
+fn forms_value(fields: [FormField], count: u32, name: string) string {
+    var i: u32 = 0
+    while i < count {
+        if rho_str_eq(fields[i].name, name) { return fields[i].value }
+        i = i + 1
+    }
+    return ""
+}
+
+// forms_payload is the whole form as `name=value&name=value`, the shape an API
+// call or a store takes. Values are already the decoded text the user typed,
+// so they are handed across unchanged.
+fn forms_payload(fields: [FormField], count: u32) string {
+    var out: string = ""
+    var i: u32 = 0
+    while i < count {
+        if i > 0 { out = out + "&" }
+        out = out + fields[i].name + "=" + fields[i].value
+        i = i + 1
+    }
+    return out
+}

@@ -1,0 +1,12 @@
+/* Forms module — owned styles for every field the engine renders. */
+.panel-form { background: var(--panel, rgba(15,20,21,.6)); border: 1px solid var(--line, rgba(228,184,102,.18)); border-radius: 12px; padding: 1rem 1.1rem; backdrop-filter: blur(10px); }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: .7rem; }
+.grid label { display: flex; flex-direction: column; gap: .25rem; font-size: .85rem; color: var(--ink, #f4efe4); }
+.grid input, .grid select, .grid textarea { background: var(--panel-strong, rgba(15,20,21,.8)); border: 1px solid var(--line, rgba(228,184,102,.18)); border-radius: 8px; padding: .45rem .6rem; color: var(--ink, #f4efe4); font: inherit; }
+.grid input:focus, .grid select:focus, .grid textarea:focus { outline: none; border-color: var(--gold, #e4b866); }
+.grid small { color: var(--muted, #b8a98a); font-size: .72rem; }
+.grid small.err { color: var(--warn, #f0a06a); }
+.req { color: var(--warn, #f0a06a); }
+.form-actions { margin-top: .85rem; display: flex; gap: .5rem; }
+.form-actions button { background: var(--gold, #e4b866); color: #1a1308; border: none; border-radius: 8px; padding: .5rem 1rem; font-weight: 600; cursor: pointer; }
+.form-actions button:hover { filter: brightness(1.08); }

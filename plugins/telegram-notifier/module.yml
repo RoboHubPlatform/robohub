@@ -4,6 +4,9 @@
 module:
   name: telegram-notifier
   type: module
+  plugin_kind: alert
+  plugin_provider: robohub-provider-telegram
+  plugin_transport: telegram
   version: 0.1.0
   description: Sends an alert to a Telegram chat through a bot.
   maintainer: "Aurel Miron"
@@ -12,14 +15,6 @@ module:
 
 main: src/main.rho
 
-plugin:
-  kind: alert
-  provider: robohub-provider-telegram
-  transport: telegram
-  defaults:
-    bot_token: ""
-    chat_id: ""
-    severity_threshold: WARNING
 
 metadata:
   tags:

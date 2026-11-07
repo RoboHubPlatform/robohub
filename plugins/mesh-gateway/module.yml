@@ -9,6 +9,9 @@
 module:
   name: mesh-gateway
   type: module
+  plugin_kind: gateway
+  plugin_provider: robohub-provider-mesh
+  plugin_transport: mesh
   version: 0.2.1
   description: Serves a RoboHub Mesh project's projects, sources, gateway state and telemetry to an application.
   maintainer: "Aurel Miron"
@@ -17,14 +20,6 @@ module:
 
 main: src/main.rho
 
-plugin:
-  kind: gateway
-  provider: robohub-provider-mesh
-  transport: mesh
-  defaults:
-    url: "http://127.0.0.1:8478"
-    project: ""
-    token: ""
 
 metadata:
   tags:

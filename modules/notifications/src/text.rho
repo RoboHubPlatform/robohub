@@ -1,0 +1,111 @@
+module notifications
+
+fn notification_space(ch: string) bool {
+    return rho_str_eq(ch, " ") || rho_str_eq(ch, "\n") ||
+        rho_str_eq(ch, "\r") || rho_str_eq(ch, "\t")
+}
+
+fn notification_trim(text: string) string {
+    var out: string = text
+    while rho_strlen(out) > 0 && notification_space(rho_str_slice(out, 0, 1)) {
+        out = rho_str_slice(out, 1, u32(rho_strlen(out)) - 1)
+    }
+    while rho_strlen(out) > 0 &&
+        notification_space(rho_str_slice(out, u32(rho_strlen(out)) - 1, 1)) {
+        out = rho_str_slice(out, 0, u32(rho_strlen(out)) - 1)
+    }
+    return out
+}
+
+fn notification_form_value(body: string, name: string) string {
+    var rest: string = body + "&"
+    while rho_strlen(rest) > 0 {
+        let amp: i32 = rho_str_index_of(rest, "&")
+        if amp < 0 {
+            break
+        }
+        let pair: string = rho_str_slice(rest, 0, u32(amp))
+        rest = rho_str_slice(rest, u32(amp) + 1, u32(rho_strlen(rest)) - u32(amp) - 1)
+        let equals: i32 = rho_str_index_of(pair, "=")
+        if equals < 0 {
+            continue
+        }
+        if rho_str_eq(notification_trim(rho_str_slice(pair, 0, u32(equals))), name) {
+            return notification_trim(rho_str_slice(pair, u32(equals) + 1,
+                u32(rho_strlen(pair)) - u32(equals) - 1))
+        }
+    }
+    return ""
+}
+
+fn notification_escape(text: string) string {
+    var out: string = ""
+    var i: u32 = 0
+    while i < u32(rho_strlen(text)) {
+        let ch: string = rho_str_slice(text, i, 1)
+        if rho_str_eq(ch, "<") {
+            out = out + "&lt;"
+        } else if rho_str_eq(ch, ">") {
+            out = out + "&gt;"
+        } else if rho_str_eq(ch, "&") {
+            out = out + "&amp;"
+        } else if rho_str_eq(ch, "\"") {
+            out = out + "&quot;"
+        } else {
+            out = out + ch
+        }
+        i = i + 1
+    }
+    return out
+}
+
+fn notification_root() string {
+    if rho_path_exists("module.yml") &&
+        yaml.value("module.yml", "module.name") == "notifications" {
+        return "."
+    }
+    let root: string = getenv("ROBOHUB_WORKSPACE")
+    if root != "" {
+        if rho_path_exists(root + "/modules/notifications/module.yml") {
+            return root + "/modules/notifications"
+        }
+        if rho_path_exists(root + "/robohub/modules/notifications/module.yml") {
+            return root + "/robohub/modules/notifications"
+        }
+    }
+    return "modules/notifications"
+}
+
+fn notification_workspace() string {
+    let workspace: string = getenv("ROBOHUB_APP_WORKSPACE")
+    if workspace == "" {
+        workspace = getenv("HOME") + "/.rho/modules/notifications"
+    }
+    return workspace
+}
+
+fn notification_db_path() string {
+    let override: string = getenv("RHO_NOTIFICATIONS_DB")
+    if override != "" {
+        return override
+    }
+    let dir: string = notification_workspace() + "/data"
+    ignore_u32(rho_exec("mkdir", "-p " + dir, dir + "/mkdir.txt"))
+    return dir + "/app.db"
+}
+
+fn notification_schema() string {
+    let path: string = notification_root() + "/db/schema.sql"
+    if rho_path_exists(path) {
+        return rho_read_text(path)
+    }
+    return rho_read_text("db/schema.sql")
+}
+
+fn notification_now() u32 {
+    let report: string = notification_root() + "/now.txt"
+    if rho_exec("date", "+%s", report) == 0 {
+        return rho_int_from_str(trim(rho_read_text(report)))
+    }
+    return 0
+}

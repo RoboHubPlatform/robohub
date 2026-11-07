@@ -1,0 +1,12 @@
+module forms
+
+// A schema-driven form engine for a host application.
+//
+// A form is data: a module declares its fields and this engine renders the
+// controls, tracks the submitted values, reports the errors and hands the
+// payload back. The host includes this module and registers its own routes;
+// the routes here are the engine's building blocks, and a host wires them to
+// its own URLs.
+
+include "schema.rho"
+include "forms.rho"

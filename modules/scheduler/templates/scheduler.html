@@ -1,42 +1,89 @@
 <h1>Maintenance schedule</h1>
-<p>Chores, their next due time, and the log of what was already done.
-A purchase or a completed chore is never remembered twice in one place.</p>
+<p>Chores, their next due time, and the log of what was already done.</p>
 {{{ notice }}}
 
-<h2>Add a chore</h2>
-<form class="panel-form" method="post" action="/scheduler/chores/add">
-  <div class="grid">
-    <label>Title<input name="title" required placeholder="Change filter sock"></label>
-    <label>Schedule
-      <select name="kind">
-        <option value="interval">Every N hours</option>
-        <option value="cron">Cron (M H * * *)</option>
-        <option value="one_time">One time</option>
-        <option value="usage">After N hours of use</option>
-      </select>
-    </label>
-    <label>Cron / date<input name="value" placeholder="0 9 * * 1 or 2026-11-03T09:00"></label>
-    <label>Interval hours<input name="interval_hours" inputmode="numeric" placeholder="72"></label>
-    <label>Usage hours<input name="usage_hours" inputmode="numeric" placeholder="4000"></label>
-    <label>Grace hours<input name="grace_hours" inputmode="numeric" placeholder="12"></label>
-    <label>Priority<input name="priority" value="normal" placeholder="normal"></label>
-    <label>Description<input name="description" placeholder="Optional"></label>
+<div class="tabs">
+  <nav class="vtabnav">
+    <a class="active" data-tab="chores"><b>Chores</b></a>
+    <a data-tab="add"><b>Add chore</b></a>
+    <a data-tab="completed"><b>Completed</b></a>
+    <a data-tab="docs"><b>Docs</b></a>
+    <a data-tab="settings"><b>Settings</b></a>
+  </nav>
+  <div class="tabpanels">
+    <section id="tab-chores" class="tab active">
+      <h2>Chores</h2>
+      <table>
+        <thead><tr><th>State</th><th>Chore</th><th>Schedule</th><th>Due</th><th>Priority</th><th></th></tr></thead>
+        <tbody>{{{ rows }}}</tbody>
+      </table>
+    </section>
+    <section id="tab-add" class="tab">
+      <h2>Add a chore</h2>
+      <form class="panel-form" method="post" action="/scheduler/chores/add">
+        <div class="grid">
+          <label>Title<input name="title" required placeholder="Change filter sock"></label>
+          <label>Schedule
+            <select name="kind">
+              <option value="interval">Every N hours</option>
+              <option value="cron">Cron (M H * * *)</option>
+              <option value="one_time">One time</option>
+              <option value="usage">After N hours of use</option>
+            </select>
+          </label>
+          <label>Cron / date<input name="value" placeholder="0 9 * * 1 or 2026-11-03T09:00"></label>
+          <label>Interval hours<input name="interval_hours" inputmode="numeric" placeholder="72"></label>
+          <label>Usage hours<input name="usage_hours" inputmode="numeric" placeholder="4000"></label>
+          <label>Grace hours<input name="grace_hours" inputmode="numeric" placeholder="12"></label>
+          <label>Priority<input name="priority" value="normal" placeholder="normal"></label>
+          <label>Description<input name="description" placeholder="Optional"></label>
+        </div>
+        <div class="form-actions"><button type="submit">Add chore</button></div>
+      </form>
+    </section>
+    <section id="tab-completed" class="tab">
+      <h2>Completed</h2>
+      <table>
+        <thead><tr><th>Chore</th><th>When</th><th>Note</th></tr></thead>
+        <tbody>{{{ completions }}}</tbody>
+      </table>
+    </section>
+    <section id="tab-docs" class="tab">
+      <h2>Documentation</h2>
+      <pre class="docs">{{{ docs }}}</pre>
+    </section>
+    <section id="tab-settings" class="tab">
+      <h2>Settings</h2>
+      <p>Tab layout for this module.</p>
+      <label>Orientation
+        <select id="sched-tab-orientation">
+          <option value="vertical">Vertical</option>
+          <option value="horizontal">Horizontal</option>
+        </select>
+      </label>
+    </section>
   </div>
-  <div class="form-actions"><button type="submit">Add chore</button></div>
-</form>
+{{{ notifications }}}
 
-<h2>Chores</h2>
-<table>
-<thead><tr><th>State</th><th>Chore</th><th>Schedule</th><th>Due</th><th>Priority</th><th></th></tr></thead>
-<tbody>
-{{{ rows }}}
-</tbody>
-</table>
-
-<h2>Completed</h2>
-<table>
-<thead><tr><th>Chore</th><th>When</th><th>Note</th></tr></thead>
-<tbody>
-{{{ completions }}}
-</tbody>
-</table>
+<script>
+(function () {
+  var nav = document.querySelectorAll(".vtabnav a");
+  var tabs = document.querySelectorAll(".tabpanels .tab");
+  function select(key) {
+    nav.forEach(function (a) { a.classList.toggle("active", a.getAttribute("data-tab") === key); });
+    tabs.forEach(function (s) { s.classList.toggle("active", s.id === "tab-" + key); });
+    history.replaceState(null, "", "#" + key);
+  }
+  nav.forEach(function (a) { a.addEventListener("click", function (e) { e.preventDefault(); select(a.getAttribute("data-tab")); }); });
+  var hash = (location.hash || "").replace("#", "");
+  select(hash || "chores");
+  var box = document.querySelector(".tabs");
+  var sel = document.getElementById("sched-tab-orientation");
+  var key = "sched-tab-orientation";
+  var saved = localStorage.getItem(key) || "vertical";
+  if (sel) { sel.value = saved; }
+  function apply(v) { if (box) { box.classList.toggle("horizontal", v === "horizontal"); } }
+  apply(saved);
+  if (sel) { sel.addEventListener("change", function () { localStorage.setItem(key, sel.value); apply(sel.value); }); }
+})();
+</script>

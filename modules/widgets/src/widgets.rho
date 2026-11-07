@@ -135,7 +135,7 @@ fn widget_parse_milli(text: string) i64 {
 
 fn widget_epoch_seconds(text: string) u32 {
     let value: string = widget_trim(text)
-    if rho_strlen(value) <= 3 {
+    if rho_strlen(value) <= 10 {
         return rho_int_from_str(value)
     }
     return rho_int_from_str(rho_str_slice(value, 0, u32(rho_strlen(value)) - 3))
@@ -481,14 +481,42 @@ fn widget_method_options(selected: string) string {
     return out
 }
 
-fn widget_table(values: WidgetValues[100], count: u32, rows: u32, unit: string) string {
-    var out: string = "<table class=\"widget-table\"><thead><tr><th>Time</th><th>Value</th></tr></thead><tbody>"
-    var limit: u32 = rows
-    if limit > count {
-        limit = count
+
+
+fn widget_round(value: string, decimals: u32) string {
+    let v: string = widget_trim(value)
+    if v == "" {
+        return v
     }
+    let dot: i32 = rho_str_index_of(v, ".")
+    if dot < 0 {
+        return v
+    } else {
+        let intpart: string = rho_str_slice(v, 0, u32(dot))
+        let frac: string = rho_str_slice(v, u32(dot) + 1, u32(rho_strlen(v)) - u32(dot) - 1)
+        if decimals == 0 {
+            return intpart
+        } else {
+            var n: u32 = decimals
+            if n > 3 { n = 3 }
+            if u32(rho_strlen(frac)) <= n {
+                return v
+            } else {
+                let kept: string = rho_str_slice(frac, 0, n)
+                return intpart + "." + kept
+            }
+        }
+    }
+}
+
+fn widget_table(values: WidgetValues[100], count: u32, rows: u32, unit: string, decimals: u32) string {
+    var limit: u32 = rows
+    if limit == 0 { limit = 10 }
+    if limit > 100 { limit = 100 }
+    if limit > count { limit = count }
+    var out: string = "<table class=\"widget-table\"><thead><tr><th>Date / Time</th><th>Value</th><th>Unit</th></tr></thead><tbody>"
     if limit == 0 {
-        out = out + "<tr><td colspan=\"2\"><small>No values yet.</small></td></tr>"
+        out = out + "<tr><td colspan=\"3\"><small>No values yet.</small></td></tr>"
     }
     var i: u32 = 0
     while i < limit {
@@ -496,10 +524,23 @@ fn widget_table(values: WidgetValues[100], count: u32, rows: u32, unit: string) 
         let epoch: u32 = u32(value.recordedEpoch)
         out = out + "<tr><td><span class=\"local-time\" data-s=\"" +
             rho_int_to_str(epoch) + "\">" + rho_int_to_str(epoch) + "</span></td><td>" +
-            escape_html(value.valueText) + " " + escape_html(unit) + "</td></tr>"
+            escape_html(widget_round(value.valueText, decimals)) + "</td><td>" + escape_html(unit) + "</td></tr>"
         i = i + 1
     }
     return out + "</tbody></table>"
+}
+
+
+fn widget_card_controls(id: u32) string {
+    let sid: string = rho_int_to_str(id)
+    return "<div class=\"wctl-size\">" +
+        "<form method=\"post\" action=\"/widgets/resize\" style=\"display:inline\"><input type=\"hidden\" name=\"id\" value=\"" + sid + "\"><input type=\"hidden\" name=\"delta\" value=\"dec\"><button type=\"submit\" class=\"icon-btn\" title=\"Decrease size\">−</button></form>" +
+        "<form method=\"post\" action=\"/widgets/resize\" style=\"display:inline\"><input type=\"hidden\" name=\"id\" value=\"" + sid + "\"><input type=\"hidden\" name=\"delta\" value=\"inc\"><button type=\"submit\" class=\"icon-btn\" title=\"Increase size\">+</button></form>" +
+        "</div>" +
+        "<div class=\"wctl-move\">" +
+        "<form method=\"post\" action=\"/widgets/move\" style=\"display:inline\"><input type=\"hidden\" name=\"id\" value=\"" + sid + "\"><input type=\"hidden\" name=\"delta\" value=\"-1\"><button type=\"submit\" class=\"icon-btn\" title=\"Move left\">←</button></form>" +
+        "<form method=\"post\" action=\"/widgets/move\" style=\"display:inline\"><input type=\"hidden\" name=\"id\" value=\"" + sid + "\"><input type=\"hidden\" name=\"delta\" value=\"1\"><button type=\"submit\" class=\"icon-btn\" title=\"Move right\">→</button></form>" +
+        "</div>"
 }
 
 fn widget_card(db: SqlDb, widget: Widgets) string {
@@ -564,11 +605,12 @@ fn widget_card(db: SqlDb, widget: Widgets) string {
         latest = widget_latest_text(db, u32(widget.id))
     }
     if rho_str_eq(widget.kind, "button") {
-        return "<div class=\"widget-card\" data-widget-id=\"" + rho_int_to_str(u32(widget.id)) +
-            "\"><h3><a href=\"/widgets/edit?id=" +
-            rho_int_to_str(u32(widget.id)) + "\">" + escape_html(widget.title) +
-            "</a></h3><p><small>Button</small></p><form class=\"widget-press\" method=\"post\" action=\"/widgets/press\">" +
-            "<input type=\"hidden\" name=\"id\" value=\"" + rho_int_to_str(u32(widget.id)) +
+        let sid: string = rho_int_to_str(u32(widget.id))
+        return "<div class=\"widget-card size-" + widget.size + "\" data-widget-id=\"" + sid +
+            "\"><h3><a href=\"/widgets/edit?id=" + sid + "\">" + escape_html(widget.title) +
+            "</a></h3>" + widget_card_controls(u32(widget.id)) +
+            "<p><small>Button</small></p><form class=\"widget-press\" method=\"post\" action=\"/widgets/press\">" +
+            "<input type=\"hidden\" name=\"id\" value=\"" + sid +
             "\"><input type=\"hidden\" name=\"return\" value=\"dashboard\">" +
             "<button type=\"submit\">Press</button></form></div>"
     }
@@ -580,20 +622,22 @@ fn widget_card(db: SqlDb, widget: Widgets) string {
             on_class = " on"
             label = "On"
         }
-        return "<div class=\"widget-card toggle-card\" data-widget-id=\"" +
-            rho_int_to_str(u32(widget.id)) + "\"><h3><a href=\"/widgets/edit?id=" +
-            rho_int_to_str(u32(widget.id)) + "\">" + escape_html(widget.title) +
-            "</a></h3><form class=\"widget-press\" method=\"post\" action=\"/widgets/press\">" +
-            "<input type=\"hidden\" name=\"id\" value=\"" + rho_int_to_str(u32(widget.id)) +
+        let sid: string = rho_int_to_str(u32(widget.id))
+        return "<div class=\"widget-card toggle-card size-" + widget.size + "\" data-widget-id=\"" + sid +
+            "\"><h3><a href=\"/widgets/edit?id=" + sid + "\">" + escape_html(widget.title) +
+            "</a></h3>" + widget_card_controls(u32(widget.id)) +
+            "<form class=\"widget-press\" method=\"post\" action=\"/widgets/press\">" +
+            "<input type=\"hidden\" name=\"id\" value=\"" + sid +
             "\"><input type=\"hidden\" name=\"return\" value=\"dashboard\">" +
-            "<button type=\"submit\" class=\"switch" + on_class + "\">" +
+            "<button type=\"submit\" class=\"switch" + on_class + "\"> " +
             "<span></span><span class=\"switch-text\">" + label + "</span></button></form></div>"
     }
     if rho_str_eq(widget.kind, "table") {
-        return "<div class=\"widget-card\" data-widget-id=\"" + rho_int_to_str(u32(widget.id)) +
-            "\"><h3><a href=\"/widgets/edit?id=" +
-            rho_int_to_str(u32(widget.id)) + "\">" + escape_html(widget.title) + "</a></h3>" +
-            widget_table(values, count, u32(widget.points), unit) +
+        let sid: string = rho_int_to_str(u32(widget.id))
+        return "<div class=\"widget-card size-" + widget.size + "\" data-widget-id=\"" + sid +
+            "\"><h3><a href=\"/widgets/edit?id=" + sid + "\">" + escape_html(widget.title) + "</a></h3>" +
+            widget_card_controls(u32(widget.id)) +
+            widget_table(values, count, u32(widget.points), unit, u32(widget.decimals)) +
             "<p><small>" + rho_int_to_str(count) + " values · " +
             escape_html(widget.sourceKind) + "</small></p></div>"
     }
@@ -601,12 +645,14 @@ fn widget_card(db: SqlDb, widget: Widgets) string {
     if rho_str_eq(widget.kind, "chart") {
         chart = widget_chart(values, count)
     }
-    return "<div class=\"widget-card\" data-widget-id=\"" + rho_int_to_str(u32(widget.id)) +
-        "\"><h3><a href=\"/widgets/edit?id=" +
-        rho_int_to_str(u32(widget.id)) + "\">" + escape_html(widget.title) + "</a></h3>" +
-        chart + "<div class=\"widget-value\">" + escape_html(latest) + " " +
-        escape_html(unit) + "</div><p><small>" + rho_int_to_str(count) +
-        " values · " + escape_html(widget.sourceKind) + "</small></p></div>"
+    let sid: string = rho_int_to_str(u32(widget.id))
+    return "<div class=\"widget-card size-" + widget.size + "\" data-widget-id=\"" + sid +
+        "\"><h3><a href=\"/widgets/edit?id=" + sid + "\">" + escape_html(widget.title) + "</a></h3>" +
+        widget_card_controls(u32(widget.id)) +
+        chart +
+        "<div class=\"widget-value-wrap\">" +
+        "<span class=\"widget-unit\">" + escape_html(unit) + "</span>" +
+        "<div class=\"widget-value widget-value-big\">" + escape_html(widget_round(latest, u32(widget.decimals))) + "</div></div></div>"
 }
 
 fn widgets_dashboard_cards(refresh: bool) string {
@@ -668,6 +714,18 @@ fn widget_rows(db: SqlDb, widgets: Widgets[128], count: u32) string {
     return out
 }
 
+fn widgets_docs() string {
+    let root: string = getenv("ROBOHUB_WORKSPACE")
+    var path: string = "modules/widgets/docs/index.md"
+    if root != "" {
+        path = root + "/modules/widgets/docs/index.md"
+    }
+    if rho_path_exists(path) {
+        return rho_read_text(path)
+    }
+    return "No documentation found."
+}
+
 fn widgets_page_message(message: string) Response {
     ignore_u32(widgets_sync_state())
     let opened: Result[SqlDb, string] = sql_open(widget_db_path())
@@ -696,10 +754,17 @@ fn widgets_page_message(message: string) Response {
         vars("kind_options", widget_kind_options("numeric")) +
         vars("source_kind_options", widget_source_kind_options("manual")) +
         vars("method_options", widget_method_options("GET")) +
-        vars("preview", widgets_dashboard_cards(true)))
+        vars("preview", widgets_dashboard_cards(true)) +
+        vars("docs", widgets_docs()) +
+        vars("notifications", notification_embed()))
     let document: string = template_fill(widget_template("layout"),
-        vars("title", "Widgets") + vars("body", body))
+        vars("title", "Widgets") + vars("body", body) +
+        vars("notifications", notification_embed()))
     return html(status_ok(), document)
+}
+
+fn widgets_cards_endpoint(req: Request) Response {
+    return html(status_ok(), widgets_dashboard_cards(true))
 }
 
 fn widgets_page(req: Request) Response {
@@ -743,11 +808,16 @@ fn widgets_add(req: Request) Response {
     let db: SqlDb = opened.ok
     ignore_u32(sql_apply(db, ""))
     let added: Result[u32, SqlError] = InsertWidget(title, kind, source_kind, source,
-        method, unit, rho_int_to_str(points), rho_int_to_str(widget_now()), db)
+        method, unit, rho_int_to_str(points), "0", "small", "2",
+        "", "", "", "", "", "",
+        rho_int_to_str(widget_now()), db)
     sql_close(db)
     if !added.is_ok {
+        notification_push_level("Widget could not be saved: " + added.err.message, "error", 10)
         return widgets_page_message("The widget could not be saved: " + added.err.message)
     }
+    notification_push_level("Widget added.", "info", 10)
+    notification_live_event("info", "Widget added.")
     return widgets_page_message("Widget added.")
 }
 
@@ -820,6 +890,8 @@ fn widgets_edit_save(req: Request) Response {
         source_kind = "url"
     }
     let points: u32 = rho_int_from_str(widget_trim(widget_form_value(body, "points")))
+    var decimals: u32 = rho_int_from_str(widget_trim(widget_form_value(body, "decimals")))
+    if decimals > 3 { decimals = 3 }
     let updated: Result[u32, SqlError] = UpdateWidget(
         widget_trim(widget_form_value(body, "title")),
         widget_form_value(body, "kind"),
@@ -827,7 +899,7 @@ fn widgets_edit_save(req: Request) Response {
         source,
         method,
         widget_trim(widget_form_value(body, "unit")),
-        i64(points), i64(id), db)
+        i64(points), i64(decimals), i64(id), db)
     sql_close(db)
     if !updated.is_ok {
         return widgets_page_message("The widget could not be saved: " + updated.err.message)
@@ -850,6 +922,121 @@ fn widgets_delete(req: Request) Response {
         return widgets_page_message("The widget could not be removed: " + removed.err.message)
     }
     return widgets_page_message("Widget removed.")
+}
+
+fn widgets_move(req: Request) Response {
+    let body: string = request_body(req)
+    let id: u32 = rho_int_from_str(widget_trim(widget_form_value(body, "id")))
+    let delta_str: string = widget_trim(widget_form_value(body, "delta"))
+    var delta: i32 = 0
+    if rho_str_eq(delta_str, "-1") || rho_str_eq(delta_str, "-") {
+        delta = -1
+    } else if rho_str_eq(delta_str, "1") || rho_str_eq(delta_str, "+") {
+        delta = 1
+    }
+    if id == 0 {
+        return widgets_page_message("No such widget.")
+    }
+    let opened: Result[SqlDb, string] = sql_open(widget_db_path())
+    if !opened.is_ok {
+        return widgets_page_message("The database could not be opened: " + opened.err)
+    }
+    let db: SqlDb = opened.ok
+    ignore_u32(sql_apply(db, ""))
+    let widgets: Widgets[128]
+    let slice: Slice[Widgets] = Slice[Widgets]{ Ptr[Widgets](&widgets[0]), WIDGET_CAPACITY }
+    let listed: Result[u32, SqlError] = ListWidgets(db, slice, WIDGET_CAPACITY)
+    var count: u32 = 0
+    if listed.is_ok { count = listed.ok }
+    var idx: i32 = -1
+    var i: u32 = 0
+    while i < count {
+        if u32(widgets[i].id) == id {
+            idx = i32(i)
+        }
+        i = i + 1
+    }
+    if idx < 0 {
+        sql_close(db)
+        return widgets_page_message("No such widget.")
+    }
+    var n: u32 = 0
+    while n < count {
+        ignore_result(MoveWidget(i64(n), i64(u32(widgets[n].id)), db))
+        widgets[n].position = i64(n)
+        n = n + 1
+    }
+    var target: i32 = idx + delta
+    if target < 0 { target = 0 }
+    if target >= i32(count) { target = i32(count) - 1 }
+    if target == idx {
+        sql_close(db)
+        return widgets_page_message("Widget moved.")
+    }
+    let ai: u32 = u32(idx)
+    let bi: u32 = u32(target)
+    let a_id: u32 = u32(widgets[ai].id)
+    let b_id: u32 = u32(widgets[bi].id)
+    ignore_result(MoveWidget(i64(target), i64(a_id), db))
+    ignore_result(MoveWidget(i64(idx), i64(b_id), db))
+    sql_close(db)
+    notification_push_level("Widget moved.", "info", 5)
+    notification_live_event("info", "Widget moved.")
+    return widgets_page_message("Widget moved.")
+}
+
+fn widgets_resize(req: Request) Response {
+    let body: string = request_body(req)
+    let id: u32 = rho_int_from_str(widget_trim(widget_form_value(body, "id")))
+    if id == 0 {
+        return widgets_page_message("No such widget.")
+    }
+    let delta: string = widget_trim(widget_form_value(body, "delta"))
+    let size_in: string = widget_trim(widget_form_value(body, "size"))
+    var size: string = size_in
+    if delta != "" {
+        let opened0: Result[SqlDb, string] = sql_open(widget_db_path())
+        if !opened0.is_ok {
+            return widgets_page_message("The database could not be opened: " + opened0.err)
+        }
+        let db0: SqlDb = opened0.ok
+        ignore_u32(sql_apply(db0, ""))
+        let widgets: Widgets[128]
+        let slice: Slice[Widgets] = Slice[Widgets]{ Ptr[Widgets](&widgets[0]), WIDGET_CAPACITY }
+        let listed: Result[u32, SqlError] = ListWidgets(db0, slice, WIDGET_CAPACITY)
+        var cur: string = "small"
+        var i: u32 = 0
+        var count: u32 = 0
+        if listed.is_ok { count = listed.ok }
+        while i < count {
+            if u32(widgets[i].id) == id {
+                cur = widgets[i].size
+            }
+            i = i + 1
+        }
+        sql_close(db0)
+        if rho_str_eq(delta, "inc") {
+            if rho_str_eq(cur, "small") { size = "medium" }
+            else if rho_str_eq(cur, "medium") { size = "big" }
+            else { size = "big" }
+        } else {
+            if rho_str_eq(cur, "big") { size = "medium" }
+            else if rho_str_eq(cur, "medium") { size = "small" }
+            else { size = "small" }
+        }
+    }
+    if size == "" { size = "small" }
+    let opened: Result[SqlDb, string] = sql_open(widget_db_path())
+    if !opened.is_ok {
+        return widgets_page_message("The database could not be opened: " + opened.err)
+    }
+    let db: SqlDb = opened.ok
+    ignore_u32(sql_apply(db, ""))
+    ignore_result(ResizeWidget(size, i64(id), db))
+    sql_close(db)
+    notification_push_level("Widget resized.", "info", 5)
+    notification_live_event("info", "Widget resized.")
+    return widgets_page_message("Widget resized.")
 }
 
 fn widgets_value(req: Request) Response {

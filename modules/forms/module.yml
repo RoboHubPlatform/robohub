@@ -1,0 +1,32 @@
+#
+# forms — a schema-driven form engine for a host application.
+#
+# A form is data, not code: a module declares the fields (name, kind, label,
+# validation) and this engine renders the controls, tracks the current values,
+# reports the errors and hands the collected payload back. One engine, every
+# form; the styling, the error handling and the input controls are maintained
+# in one place rather than copied into every page.
+#
+module:
+  name: forms
+  type: module
+  title: Forms
+  category: forms
+  version: 0.1.0
+  description: >
+    A schema-driven form engine: a module declares its fields as data and the
+    engine renders the controls, validates the input and emits the payload.
+  maintainer: "Aurel Miron"
+  license: "MIT"
+  created: "2026-11-06"
+
+main: src/main.rho
+
+
+docs:
+  title: Forms
+  section: modules
+  order: "40"
+  index: docs/index.md
+  sources:
+    - docs/index.md
