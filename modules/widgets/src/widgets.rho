@@ -531,17 +531,21 @@ fn widget_table(values: WidgetValues[100], count: u32, rows: u32, unit: string, 
 }
 
 
-fn widget_card_controls(id: u32, pinned: u32) string {
+fn widget_card_controls(id: u32, pinned: u32, kind: string) string {
     let sid: string = rho_int_to_str(id)
-    var pin_val: string = "1"
-    var pin_icon: string = "📌"
-    var pin_title: string = "Pin to status bar"
-    if pinned == 1 {
-        pin_val = "0"
-        pin_icon = "📍"
-        pin_title = "Unpin"
+    var pin_html: string = ""
+    if rho_str_eq(kind, "numeric") || rho_str_eq(kind, "chart") {
+        var pin_val: string = "1"
+        var pin_icon: string = "📌"
+        var pin_title: string = "Pin to status bar"
+        if pinned == 1 {
+            pin_val = "0"
+            pin_icon = "📍"
+            pin_title = "Unpin"
+        }
+        pin_html = "<div class=\"wctl-pin\"><form method=\"post\" action=\"/widgets/pin\" style=\"display:inline\"><input type=\"hidden\" name=\"id\" value=\"" + sid + "\"><input type=\"hidden\" name=\"pinned\" value=\"" + pin_val + "\"><button type=\"submit\" class=\"icon-btn\" title=\"" + pin_title + "\">" + pin_icon + "</button></form></div>"
     }
-    return "<div class=\"wctl-pin\"><form method=\"post\" action=\"/widgets/pin\" style=\"display:inline\"><input type=\"hidden\" name=\"id\" value=\"" + sid + "\"><input type=\"hidden\" name=\"pinned\" value=\"" + pin_val + "\"><button type=\"submit\" class=\"icon-btn\" title=\"" + pin_title + "\">" + pin_icon + "</button></form></div>" +
+    return pin_html +
         "<div class=\"wctl-size\">" +
         "<form method=\"post\" action=\"/widgets/resize\" style=\"display:inline\"><input type=\"hidden\" name=\"id\" value=\"" + sid + "\"><input type=\"hidden\" name=\"delta\" value=\"dec\"><button type=\"submit\" class=\"icon-btn\" title=\"Decrease size\">−</button></form>" +
         "<form method=\"post\" action=\"/widgets/resize\" style=\"display:inline\"><input type=\"hidden\" name=\"id\" value=\"" + sid + "\"><input type=\"hidden\" name=\"delta\" value=\"inc\"><button type=\"submit\" class=\"icon-btn\" title=\"Increase size\">+</button></form>" +
@@ -618,7 +622,7 @@ fn widget_card(db: SqlDb, widget: Widgets) string {
         let sid: string = rho_int_to_str(u32(widget.id))
         return "<div class=\"widget-card size-" + widget.size + "\" data-widget-id=\"" + sid +
             "\"><h3><a href=\"/widgets/edit?id=" + sid + "\">" + escape_html(widget.title) +
-            "</a></h3>" + widget_card_controls(u32(widget.id), u32(widget.pinned)) +
+            "</a></h3>" + widget_card_controls(u32(widget.id), u32(widget.pinned), widget.kind) +
             "<p><small>Button</small></p><form class=\"widget-press\" method=\"post\" action=\"/widgets/press\">" +
             "<input type=\"hidden\" name=\"id\" value=\"" + sid +
             "\"><input type=\"hidden\" name=\"return\" value=\"dashboard\">" +
@@ -635,7 +639,7 @@ fn widget_card(db: SqlDb, widget: Widgets) string {
         let sid: string = rho_int_to_str(u32(widget.id))
         return "<div class=\"widget-card toggle-card size-" + widget.size + "\" data-widget-id=\"" + sid +
             "\"><h3><a href=\"/widgets/edit?id=" + sid + "\">" + escape_html(widget.title) +
-            "</a></h3>" + widget_card_controls(u32(widget.id), u32(widget.pinned)) +
+            "</a></h3>" + widget_card_controls(u32(widget.id), u32(widget.pinned), widget.kind) +
             "<form class=\"widget-press\" method=\"post\" action=\"/widgets/press\">" +
             "<input type=\"hidden\" name=\"id\" value=\"" + sid +
             "\"><input type=\"hidden\" name=\"return\" value=\"dashboard\">" +
@@ -646,7 +650,7 @@ fn widget_card(db: SqlDb, widget: Widgets) string {
         let sid: string = rho_int_to_str(u32(widget.id))
         return "<div class=\"widget-card size-" + widget.size + "\" data-widget-id=\"" + sid +
             "\"><h3><a href=\"/widgets/edit?id=" + sid + "\">" + escape_html(widget.title) + "</a></h3>" +
-            widget_card_controls(u32(widget.id), u32(widget.pinned)) +
+            widget_card_controls(u32(widget.id), u32(widget.pinned), widget.kind) +
             widget_table(values, count, u32(widget.points), unit, u32(widget.decimals)) +
             "<p><small>" + rho_int_to_str(count) + " values · " +
             escape_html(widget.sourceKind) + "</small></p></div>"
@@ -658,7 +662,7 @@ fn widget_card(db: SqlDb, widget: Widgets) string {
     let sid: string = rho_int_to_str(u32(widget.id))
     return "<div class=\"widget-card size-" + widget.size + "\" data-widget-id=\"" + sid +
         "\"><h3><a href=\"/widgets/edit?id=" + sid + "\">" + escape_html(widget.title) + "</a></h3>" +
-        widget_card_controls(u32(widget.id), u32(widget.pinned)) +
+        widget_card_controls(u32(widget.id), u32(widget.pinned), widget.kind) +
         chart +
         "<div class=\"widget-value-wrap\">" +
         "<span class=\"widget-unit\">" + escape_html(unit) + "</span>" +
