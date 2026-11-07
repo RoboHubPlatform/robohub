@@ -2,6 +2,7 @@
 # deploy-app.sh — build and restart a robohub application managed by the keeper
 # Usage: ./scripts/deploy-app.sh mesh
 set -euo pipefail
+export PATH=/usr/local/go/bin:$HOME/.rho/bin:$PATH
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROBOHUB="$(dirname "$HERE")"
