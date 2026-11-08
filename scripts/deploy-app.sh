@@ -49,6 +49,9 @@ COMMAND="${META#*$'\t'}"
 
 echo "Building $NAME …"
 cd "$APP"
+# A generated project can outlive the toolchain that wrote it; start from the
+# sources so a new template or locale feature is really in the build.
+rm -rf "$APP/build/generated"
 "$RHO" build . || { echo "BUILD FAILED"; exit 1; }
 
 if [[ -z "$PORT" || -z "$COMMAND" || ! -x "$APP/build/$COMMAND" ]]; then
