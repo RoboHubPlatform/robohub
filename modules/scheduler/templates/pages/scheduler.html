@@ -1,50 +1,50 @@
-<h1>Maintenance schedule</h1>
+<h1>{{t "scheduler.heading"}}</h1>
 <p>Chores, their next due time, and the log of what was already done.</p>
 {{{ notice }}}
 
 <div class="tabs">
   <nav class="vtabnav">
-    <a class="active" data-tab="chores"><b>Chores</b></a>
-    <a data-tab="add"><b>Add chore</b></a>
-    <a data-tab="completed"><b>Completed</b></a>
-    <a data-tab="docs"><b>Docs</b></a>
-    <a data-tab="settings"><b>Settings</b></a>
+    <a class="active" data-tab="chores"><b>{{t "scheduler.chores"}}</b></a>
+    <a data-tab="add"><b>{{t "scheduler.add_chore"}}</b></a>
+    <a data-tab="completed"><b>{{t "scheduler.completed"}}</b></a>
+    <a data-tab="docs"><b>{{t "scheduler.docs"}}</b></a>
+    <a data-tab="settings"><b>{{t "scheduler.settings"}}</b></a>
   </nav>
   <div class="tabpanels">
     <section id="tab-chores" class="tab active">
-      <h2>Chores</h2>
+      <h2>{{t "scheduler.chores"}}</h2>
       <table>
-        <thead><tr><th>State</th><th>Chore</th><th>Schedule</th><th>Due</th><th>Priority</th><th></th></tr></thead>
+        <thead><tr><th>{{t "scheduler.state"}}</th><th>{{t "scheduler.chore"}}</th><th>{{t "scheduler.schedule"}}</th><th>{{t "scheduler.due"}}</th><th>{{t "scheduler.priority"}}</th><th></th></tr></thead>
         <tbody>{{{ rows }}}</tbody>
       </table>
     </section>
     <section id="tab-add" class="tab">
-      <h2>Add a chore</h2>
+      <h2>{{t "scheduler.add_a_chore"}}</h2>
       <form class="panel-form" method="post" action="/scheduler/chores/add">
         <div class="grid">
-          <label>Title<input name="title" required placeholder="Change filter sock"></label>
+          <label>{{t "scheduler.title_field"}}<input name="title" required placeholder="Change filter sock"></label>
           <label>Schedule
             <select name="kind">
-              <option value="interval">Every N hours</option>
-              <option value="cron">Cron (M H * * *)</option>
-              <option value="one_time">One time</option>
-              <option value="usage">After N hours of use</option>
+              <option value="interval">{{t "scheduler.every_hours"}}</option>
+              <option value="cron">{{t "scheduler.cron"}}</option>
+              <option value="one_time">{{t "scheduler.one_time"}}</option>
+              <option value="usage">{{t "scheduler.after_use"}}</option>
             </select>
           </label>
-          <label>Cron / date<input name="value" placeholder="0 9 * * 1 or 2026-11-03T09:00"></label>
-          <label>Interval hours<input name="interval_hours" inputmode="numeric" placeholder="72"></label>
-          <label>Usage hours<input name="usage_hours" inputmode="numeric" placeholder="4000"></label>
-          <label>Grace hours<input name="grace_hours" inputmode="numeric" placeholder="12"></label>
-          <label>Priority<input name="priority" value="normal" placeholder="normal"></label>
-          <label>Description<input name="description" placeholder="Optional"></label>
+          <label>{{t "scheduler.cron_date"}}<input name="value" placeholder="0 9 * * 1 or 2026-11-03T09:00"></label>
+          <label>{{t "scheduler.interval_hours"}}<input name="interval_hours" inputmode="numeric" placeholder="72"></label>
+          <label>{{t "scheduler.usage_hours"}}<input name="usage_hours" inputmode="numeric" placeholder="4000"></label>
+          <label>{{t "scheduler.grace_hours"}}<input name="grace_hours" inputmode="numeric" placeholder="12"></label>
+          <label>{{t "scheduler.priority"}}<input name="priority" value="normal" placeholder="normal"></label>
+          <label>{{t "scheduler.description"}}<input name="description" placeholder="Optional"></label>
         </div>
-        <div class="form-actions"><button type="submit">Add chore</button></div>
+        <div class="form-actions"><button type="submit">{{t "scheduler.add_chore"}}</button></div>
       </form>
     </section>
     <section id="tab-completed" class="tab">
-      <h2>Completed</h2>
+      <h2>{{t "scheduler.completed"}}</h2>
       <table>
-        <thead><tr><th>Chore</th><th>When</th><th>Note</th></tr></thead>
+        <thead><tr><th>{{t "scheduler.chore"}}</th><th>{{t "scheduler.when"}}</th><th>{{t "scheduler.note"}}</th></tr></thead>
         <tbody>{{{ completions }}}</tbody>
       </table>
     </section>
@@ -53,7 +53,7 @@
       <pre class="docs">{{{ docs }}}</pre>
     </section>
     <section id="tab-settings" class="tab">
-      <h2>Settings</h2>
+      <h2>{{t "scheduler.settings"}}</h2>
       <p>Tab layout for this module.</p>
       <label>Orientation
         <select id="sched-tab-orientation">

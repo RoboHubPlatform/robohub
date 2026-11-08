@@ -311,7 +311,7 @@ fn scheduler_docs() string {
     return "No documentation found."
 }
 
-fn scheduler_page_message(message: string) Response {
+fn scheduler_page_message(req: Request, message: string) Response {
     let opened: Result[SqlDb, string] = sql_open(scheduler_db_path())
     if !opened.is_ok {
         return html(status_internal(), "<h1>Scheduler</h1><p>The database could not be opened: " +
@@ -340,23 +340,24 @@ fn scheduler_page_message(message: string) Response {
     let now: u32 = scheduler_now()
     let notice: string = ""
     if message != "" {
-        notice = "<p class=\"notice\">" + escape_html(message) + "</p>"
+        notice = template_fill(scheduler_template("parts/notice"), vars("message", message))
     }
     let body: string = template_fill(scheduler_template("pages/scheduler"),
+        i18n_vars(req) +
         vars("notice", notice) +
         vars("rows", scheduler_rows(chores, count, now)) +
         vars("completions", scheduler_completion_rows(completions, completion_count)) +
         vars("docs", scheduler_docs()) +
         vars("notifications", notification_embed()))
     let document: string = template_fill(scheduler_template("layouts/layout"),
-        vars("title", "Scheduler") + vars("body", body) +
+        vars("title", i18n_t(req, "scheduler.title")) + i18n_vars(req) + vars("body", body) +
         vars("keeper", scheduler_keeper_link()) +
         vars("notifications", notification_embed()))
     return html(status_ok(), document)
 }
 
 fn scheduler_page(req: Request) Response {
-    return scheduler_page_message("")
+    return scheduler_page_message(req, "")
 }
 
 fn scheduler_keeper_link() string {
@@ -387,7 +388,7 @@ fn chores_add(req: Request) Response {
     let body: string = request_body(req)
     let title: string = scheduler_trim(scheduler_form_value(body, "title"))
     if rho_strlen(title) == 0 {
-        return scheduler_page_message("A chore needs a title.")
+        return scheduler_page_message(req, "A chore needs a title.")
     }
     let kind: string = scheduler_form_value(body, "kind")
     let value: string = scheduler_trim(scheduler_form_value(body, "value"))
@@ -402,7 +403,7 @@ fn chores_add(req: Request) Response {
     let next: u32 = scheduler_next_due(kind, value, interval_hours, now)
     let opened: Result[SqlDb, string] = sql_open(scheduler_db_path())
     if !opened.is_ok {
-        return scheduler_page_message("The database could not be opened: " + opened.err)
+        return scheduler_page_message(req, "The database could not be opened: " + opened.err)
     }
     let db: SqlDb = opened.ok
     ignore_u32(sql_apply(db, scheduler_schema()))
@@ -421,25 +422,25 @@ fn chores_add(req: Request) Response {
     sql_close(db)
     if !added.is_ok {
         notification_push_level("Chore could not be saved: " + added.err.message, "error", 10)
-        return scheduler_page_message("The chore could not be saved: " + added.err.message)
+        return scheduler_page_message(req, "The chore could not be saved: " + added.err.message)
     }
     notification_push_level("Chore added.", "info", 10)
     notification_live_event("info", "Chore added.")
-    return scheduler_page_message("Chore added.")
+    return scheduler_page_message(req, "Chore added.")
 }
 
 fn chores_complete(req: Request) Response {
-    return chores_complete_body(request_body(req))
+    return chores_complete_body(req, request_body(req))
 }
 
-fn chores_complete_body(body: string) Response {
+fn chores_complete_body(req: Request, body: string) Response {
     let id: u32 = rho_int_from_str(scheduler_trim(scheduler_form_value(body, "id")))
     if id == 0 {
-        return scheduler_page_message("That chore was not found.")
+        return scheduler_page_message(req, "That chore was not found.")
     }
     let opened: Result[SqlDb, string] = sql_open(scheduler_db_path())
     if !opened.is_ok {
-        return scheduler_page_message("The database could not be opened: " + opened.err)
+        return scheduler_page_message(req, "The database could not be opened: " + opened.err)
     }
     let db: SqlDb = opened.ok
     ignore_u32(sql_apply(db, scheduler_schema()))
@@ -453,7 +454,7 @@ fn chores_complete_body(body: string) Response {
     let at: i32 = scheduler_find(chores, count, id)
     if at < 0 {
         sql_close(db)
-        return scheduler_page_message("That chore was not found.")
+        return scheduler_page_message(req, "That chore was not found.")
     }
     let index: u32 = u32(at)
     let chore: Chores = chores[index]
@@ -472,16 +473,16 @@ fn chores_complete_body(body: string) Response {
     }
     sql_close(db)
     if !updated.is_ok {
-        return scheduler_page_message("The chore could not be completed: " + updated.err.message)
+        return scheduler_page_message(req, "The chore could not be completed: " + updated.err.message)
     }
-    return scheduler_page_message("Chore completed.")
+    return scheduler_page_message(req, "Chore completed.")
 }
 
 fn chores_snooze(req: Request) Response {
-    return chores_snooze_body(request_body(req))
+    return chores_snooze_body(req, request_body(req))
 }
 
-fn chores_snooze_body(body: string) Response {
+fn chores_snooze_body(req: Request, body: string) Response {
     let id: u32 = rho_int_from_str(scheduler_trim(scheduler_form_value(body, "id")))
     var hours: u32 = rho_int_from_str(scheduler_trim(scheduler_form_value(body, "hours")))
     if hours == 0 {
@@ -489,7 +490,7 @@ fn chores_snooze_body(body: string) Response {
     }
     let opened: Result[SqlDb, string] = sql_open(scheduler_db_path())
     if !opened.is_ok {
-        return scheduler_page_message("The database could not be opened: " + opened.err)
+        return scheduler_page_message(req, "The database could not be opened: " + opened.err)
     }
     let db: SqlDb = opened.ok
     ignore_u32(sql_apply(db, scheduler_schema()))
@@ -497,24 +498,24 @@ fn chores_snooze_body(body: string) Response {
         i64(scheduler_now() + hours * 3600), i64(id), db)
     sql_close(db)
     if !updated.is_ok {
-        return scheduler_page_message("The chore could not be snoozed: " + updated.err.message)
+        return scheduler_page_message(req, "The chore could not be snoozed: " + updated.err.message)
     }
-    return scheduler_page_message("Chore snoozed.")
+    return scheduler_page_message(req, "Chore snoozed.")
 }
 
 fn chores_usage(req: Request) Response {
-    return chores_usage_body(request_body(req))
+    return chores_usage_body(req, request_body(req))
 }
 
-fn chores_usage_body(body: string) Response {
+fn chores_usage_body(req: Request, body: string) Response {
     let id: u32 = rho_int_from_str(scheduler_trim(scheduler_form_value(body, "id")))
     let hours: u32 = rho_int_from_str(scheduler_trim(scheduler_form_value(body, "hours")))
     if id == 0 || hours == 0 {
-        return scheduler_page_message("A usage update needs a chore and hours.")
+        return scheduler_page_message(req, "A usage update needs a chore and hours.")
     }
     let opened: Result[SqlDb, string] = sql_open(scheduler_db_path())
     if !opened.is_ok {
-        return scheduler_page_message("The database could not be opened: " + opened.err)
+        return scheduler_page_message(req, "The database could not be opened: " + opened.err)
     }
     let db: SqlDb = opened.ok
     ignore_u32(sql_apply(db, scheduler_schema()))
@@ -522,9 +523,9 @@ fn chores_usage_body(body: string) Response {
         i64(id), db)
     sql_close(db)
     if !updated.is_ok {
-        return scheduler_page_message("The usage could not be added: " + updated.err.message)
+        return scheduler_page_message(req, "The usage could not be added: " + updated.err.message)
     }
-    return scheduler_page_message("Runtime added.")
+    return scheduler_page_message(req, "Runtime added.")
 }
 
 /* -------------------------------------------------------------------------- */
@@ -584,7 +585,7 @@ fn scheduler_api_complete(req: Request) Response {
     if rho_strlen(id) == 0 {
         return json(status_bad_request(), "{\"ok\":false}")
     }
-    ignore_response(chores_complete_body(request_body(req) + "&id=" + id))
+    ignore_response(chores_complete_body(req, request_body(req) + "&id=" + id))
     return json(status_ok(), "{\"ok\":true}")
 }
 
@@ -593,7 +594,7 @@ fn scheduler_api_snooze(req: Request) Response {
     if rho_strlen(id) == 0 {
         return json(status_bad_request(), "{\"ok\":false}")
     }
-    ignore_response(chores_snooze_body(request_body(req) + "&id=" + id))
+    ignore_response(chores_snooze_body(req, request_body(req) + "&id=" + id))
     return json(status_ok(), "{\"ok\":true}")
 }
 
@@ -602,6 +603,6 @@ fn scheduler_api_usage(req: Request) Response {
     if rho_strlen(id) == 0 {
         return json(status_bad_request(), "{\"ok\":false}")
     }
-    ignore_response(chores_usage_body(request_body(req) + "&id=" + id))
+    ignore_response(chores_usage_body(req, request_body(req) + "&id=" + id))
     return json(status_ok(), "{\"ok\":true}")
 }

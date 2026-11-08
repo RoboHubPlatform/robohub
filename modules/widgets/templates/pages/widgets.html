@@ -1,35 +1,35 @@
-<h1>Widgets</h1>
-<p>Numbers, charts and switches for the application's home page.</p>
+<h1>{{t "widget.title"}}</h1>
+<p>{{t "widget.intro"}}</p>
 {{{ notice }}}
 
 <div class="tabs">
   <nav class="vtabnav">
-    <a class="active" data-tab="all"><b>All widgets</b></a>
-    <a data-tab="add"><b>Add widget</b></a>
-    <a data-tab="preview"><b>Preview</b></a>
-    <a data-tab="docs"><b>Docs</b></a>
-    <a data-tab="settings"><b>Settings</b></a>
+    <a class="active" data-tab="all"><b>{{t "widget.all"}}</b></a>
+    <a data-tab="add"><b>{{t "widget.add"}}</b></a>
+    <a data-tab="preview"><b>{{t "widget.preview"}}</b></a>
+    <a data-tab="docs"><b>{{t "widget.docs"}}</b></a>
+    <a data-tab="settings"><b>{{t "widget.settings"}}</b></a>
   </nav>
   <div class="tabpanels">
     <section id="tab-all" class="tab active">
-      <h2>All widgets</h2>
+      <h2>{{t "widget.all"}}</h2>
       <table>
-        <thead><tr><th>Title</th><th>Kind</th><th>Source</th><th>Latest</th><th></th></tr></thead>
+        <thead><tr><th>{{t "widget.field.title"}}</th><th>{{t "widget.field.kind"}}</th><th>{{t "widget.field.source"}}</th><th>{{t "widget.field.latest"}}</th><th></th></tr></thead>
         <tbody>{{{ rows }}}</tbody>
       </table>
     </section>
     <section id="tab-add" class="tab">
-      <h2>Add a widget</h2>
+      <h2>{{t "widget.form_title"}}</h2>
       <form class="panel-form" method="post" action="/widgets/add">
         <div class="grid">
-          <label>Title<input name="title" required placeholder="Water temperature"></label>
-          <label>Kind<select name="kind">{{{ kind_options }}}</select></label>
-          <label>Source<select name="source_kind">{{{ source_kind_options }}}</select></label>
-          <label>Mesh source<select name="mesh_source">{{{ device_options }}}</select></label>
-          <label>URL or hook<input name="source" placeholder="http://host/api or hook?state={state}"></label>
-          <label>Method<select name="method">{{{ method_options }}}</select></label>
-          <label>Unit<input name="unit" placeholder="°C"></label>
-          <label>Chart points / table rows<input name="points" value="24" inputmode="numeric"></label>
+          <label>{{t "widget.field.title"}}<input name="title" required placeholder="Water temperature"></label>
+          <label>{{t "widget.field.kind"}}<select name="kind">{{{ kind_options }}}</select></label>
+          <label>{{t "widget.field.source"}}<select name="source_kind">{{{ source_kind_options }}}</select></label>
+          <label>{{t "widget.field.mesh_source"}}<select name="mesh_source">{{{ device_options }}}</select></label>
+          <label>{{t "widget.field.url"}}<input name="source" placeholder="http://host/api or hook?state={state}"></label>
+          <label>{{t "widget.field.method"}}<select name="method">{{{ method_options }}}</select></label>
+          <label>{{t "widget.field.unit"}}<input name="unit" placeholder="°C"></label>
+          <label>{{t "widget.field.points"}}<input name="points" value="24" inputmode="numeric"></label>
     <label class="decimals-field">Decimals (0-3)
       <select name="decimals">
         <option value="0">0</option>
@@ -38,24 +38,24 @@
         <option value="3">0.001</option>
       </select></label>
         </div>
-        <div class="form-actions"><button type="submit">Add widget</button></div>
+        <div class="form-actions"><button type="submit">{{t "widget.add"}}</button></div>
       </form>
     </section>
     <section id="tab-preview" class="tab">
-      <h2>Preview</h2>
+      <h2>{{t "widget.preview"}}</h2>
       {{{ preview }}}
     </section>
     <section id="tab-docs" class="tab">
-      <h2>Documentation</h2>
+      <h2>{{t "widget.docs_title"}}</h2>
       <pre class="docs">{{{ docs }}}</pre>
     </section>
     <section id="tab-settings" class="tab">
-      <h2>Settings</h2>
-      <p>Tab layout for this module.</p>
+      <h2>{{t "widget.settings"}}</h2>
+      <p>{{t "widget.tab_layout"}}</p>
       <label>Orientation
         <select id="wid-tab-orientation">
-          <option value="vertical">Vertical</option>
-          <option value="horizontal">Horizontal</option>
+          <option value="vertical">{{t "widget.vertical"}}</option>
+          <option value="horizontal">{{t "widget.horizontal"}}</option>
         </select>
       </label>
     </section>

@@ -1,15 +1,15 @@
-<h1>Edit item</h1>
+<h1>{{t "inventory.edit_title"}}</h1>
 <form class="panel-form" method="post" action="/expenses/items/edit">
   <input type="hidden" name="id" value="{{ id }}">
   <div class="grid">
-    <label>Name<input name="name" value="{{ name }}" required></label>
-    <label>Category<select name="category_id">{{{ category_options }}}</select></label>
-    <label>Unit<input name="unit" value="{{ unit }}"></label>
-    <label>Current quantity<input value="{{ quantity }}" disabled></label>
-    <label>Reorder at<input name="reorder" value="{{ reorder }}" inputmode="decimal"></label>
-    <label>Location<input name="location" value="{{ location }}"></label>
-    <label>Notes<input name="notes" value="{{ notes }}"></label>
+    <label>{{t "inventory.name"}}<input name="name" value="{{ name }}" required></label>
+    <label>{{t "inventory.category"}}<select name="category_id">{{{ category_options }}}</select></label>
+    <label>{{t "inventory.unit"}}<input name="unit" value="{{ unit }}"></label>
+    <label>{{t "inventory.quantity"}}<input value="{{ quantity }}" disabled></label>
+    <label>{{t "inventory.reorder_at"}}<input name="reorder" value="{{ reorder }}" inputmode="decimal"></label>
+    <label>{{t "inventory.location"}}<input name="location" value="{{ location }}"></label>
+    <label>{{t "inventory.notes"}}<input name="notes" value="{{ notes }}"></label>
   </div>
-  <div class="form-actions"><button type="submit">Save item</button></div>
+  <div class="form-actions"><button type="submit">{{t "inventory.save_item"}}</button></div>
 </form>
 <p><a href="/expenses">← Inventory</a></p>

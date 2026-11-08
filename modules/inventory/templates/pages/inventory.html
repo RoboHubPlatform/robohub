@@ -1,44 +1,44 @@
-<h1>Inventory & expenses</h1>
+<h1>{{t "inventory.heading"}}</h1>
 <p>What is on the shelf, what needs reordering, and what it cost to put it
 there. A purchase increases stock and is recorded as spending in one step.</p>
 {{{ notice }}}
 
 <div class="summary">
   <div><small>Total spent {{{ currency }}}</small><br><strong>{{{ total }}}</strong></div>
-  <div><small>Items tracked</small><br><strong>{{{ item_count }}}</strong></div>
-  <div><small>Need reorder</small><br><strong>{{{ low_count }}}</strong></div>
-  <div><small>Purchases</small><br><strong>{{{ expense_count }}}</strong></div>
+  <div><small>{{t "inventory.items_tracked"}}</small><br><strong>{{{ item_count }}}</strong></div>
+  <div><small>{{t "inventory.need_reorder"}}</small><br><strong>{{{ low_count }}}</strong></div>
+  <div><small>{{t "inventory.purchases"}}</small><br><strong>{{{ expense_count }}}</strong></div>
 </div>
 
 <div class="tabs">
   <nav class="vtabnav">
-    <a class="active" data-tab="items"><b>Items</b><small>{{{ item_count }}}</small></a>
-    <a data-tab="reorder"><b>Reorder</b><small>{{{ low_count }}}</small></a>
-    <a data-tab="purchases"><b>Purchases</b><small>{{{ expense_count }}}</small></a>
-    <a data-tab="add"><b>Add item</b></a>
-    <a data-tab="purchase"><b>Record purchase</b></a>
-    <a data-tab="consume"><b>Remove stock</b></a>
-    <a data-tab="categories"><b>Categories</b></a>
-    <a data-tab="docs"><b>Docs</b></a>
-    <a data-tab="settings"><b>Settings</b></a>
+    <a class="active" data-tab="items"><b>{{t "inventory.items"}}</b><small>{{{ item_count }}}</small></a>
+    <a data-tab="reorder"><b>{{t "inventory.reorder"}}</b><small>{{{ low_count }}}</small></a>
+    <a data-tab="purchases"><b>{{t "inventory.purchases"}}</b><small>{{{ expense_count }}}</small></a>
+    <a data-tab="add"><b>{{t "inventory.add_item"}}</b></a>
+    <a data-tab="purchase"><b>{{t "inventory.record_purchase"}}</b></a>
+    <a data-tab="consume"><b>{{t "inventory.remove_stock"}}</b></a>
+    <a data-tab="categories"><b>{{t "inventory.categories"}}</b></a>
+    <a data-tab="docs"><b>{{t "inventory.docs"}}</b></a>
+    <a data-tab="settings"><b>{{t "inventory.settings"}}</b></a>
   </nav>
   <div class="tabpanels">
     <section id="tab-items" class="tab active">
       <h2>All items</h2>
       <table>
-        <thead><tr><th>Item</th><th>Category</th><th class="num">On hand</th><th>Unit</th><th class="num">Reorder</th><th>Location</th><th>Notes</th><th></th></tr></thead>
+        <thead><tr><th>Item</th><th>Category</th><th class="num">On hand</th><th>Unit</th><th class="num">{{t "inventory.reorder"}}</th><th>Location</th><th>Notes</th><th></th></tr></thead>
         <tbody>{{{ item_rows }}}</tbody>
       </table>
     </section>
     <section id="tab-reorder" class="tab">
-      <h2>Reorder</h2>
+      <h2>{{t "inventory.reorder"}}</h2>
       <table>
         <thead><tr><th>Item</th><th>On hand</th><th>Reorder at</th><th>Location</th></tr></thead>
         <tbody>{{{ low_rows }}}</tbody>
       </table>
     </section>
     <section id="tab-purchases" class="tab">
-      <h2>Purchases</h2>
+      <h2>{{t "inventory.purchases"}}</h2>
       <table>
         <thead><tr><th>Item</th><th>Category</th><th class="num">Qty</th><th class="num">Unit</th><th class="num">Total</th><th>Store</th><th>Date</th><th>Comment</th><th></th></tr></thead>
         <tbody>{{{ expense_rows }}}</tbody>
@@ -56,7 +56,7 @@ there. A purchase increases stock and is recorded as spending in one step.</p>
           <label>Location<input name="location" placeholder="Sump cabinet"></label>
           <label>Notes<input name="notes" placeholder="Optional"></label>
         </div>
-        <div class="form-actions"><button type="submit">Add item</button></div>
+        <div class="form-actions"><button type="submit">{{t "inventory.add_item"}}</button></div>
       </form>
     </section>
     <section id="tab-purchase" class="tab">
@@ -71,7 +71,7 @@ there. A purchase increases stock and is recorded as spending in one step.</p>
           <label>Date<input type="date" name="purchased_at" value="{{{ today }}}"></label>
           <label>Comment<input name="comment" placeholder="Optional note"></label>
         </div>
-        <div class="form-actions"><button type="submit">Record purchase</button></div>
+        <div class="form-actions"><button type="submit">{{t "inventory.record_purchase"}}</button></div>
       </form>
     </section>
     <section id="tab-consume" class="tab">
@@ -82,11 +82,11 @@ there. A purchase increases stock and is recorded as spending in one step.</p>
           <label>Quantity<input name="quantity" inputmode="decimal" required></label>
           <label>Reason<input name="comment" placeholder="Used, spilled, expired"></label>
         </div>
-        <div class="form-actions"><button type="submit" class="quiet">Remove stock</button></div>
+        <div class="form-actions"><button type="submit" class="quiet">{{t "inventory.remove_stock"}}</button></div>
       </form>
     </section>
     <section id="tab-categories" class="tab">
-      <h2>Categories</h2>
+      <h2>{{t "inventory.categories"}}</h2>
       <table>
         <thead><tr><th>Category</th></tr></thead>
         <tbody>{{{ category_rows }}}</tbody>
@@ -101,7 +101,7 @@ there. A purchase increases stock and is recorded as spending in one step.</p>
       <pre class="docs">{{{ docs }}}</pre>
     </section>
     <section id="tab-settings" class="tab">
-      <h2>Settings</h2>
+      <h2>{{t "inventory.settings"}}</h2>
       <p>Tab layout for this module.</p>
       <label>Orientation
         <select id="inv-tab-orientation">

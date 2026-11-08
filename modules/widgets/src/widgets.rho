@@ -226,9 +226,9 @@ fn widget_refresh(widget: Widgets) string {
     return text
 }
 
-fn widget_chart(values: WidgetValues[100], count: u32) string {
+fn widget_chart(values: WidgetValues[100], count: u32, locale: string) string {
     if count < 2 {
-        return template_fill(widget_template("cards/chart-empty"), "")
+        return template_fill(widget_template("cards/chart-empty"), vars("__locale", locale))
     }
     // Min and max are dominated by a single outlier (a sensor glitch, a
     // missed reading). Use the 5th and 95th percentiles instead, found without
@@ -286,7 +286,7 @@ fn widget_chart(values: WidgetValues[100], count: u32) string {
         points = points + rho_int_to_str(x) + "," + rho_int_to_str(y) + " "
         i = i + 1
     }
-    return template_fill(widget_template("cards/chart"), vars("points", widget_trim(points)))
+    return template_fill(widget_template("cards/chart"), vars("points", widget_trim(points)) + vars("__locale", locale))
 }
 
 fn widget_setting(key: string) string {
@@ -508,53 +508,55 @@ fn widget_round(value: string, decimals: u32) string {
     }
 }
 
-fn widget_table(values: WidgetValues[100], count: u32, rows: u32, unit: string, decimals: u32) string {
+fn widget_table(values: WidgetValues[100], count: u32, rows: u32, unit: string, decimals: u32, locale: string) string {
     var limit: u32 = rows
     if limit == 0 { limit = 10 }
     if limit > 100 { limit = 100 }
     if limit > count { limit = count }
     var out: string = ""
     if limit == 0 {
-        out = template_fill(widget_template("cards/table-empty"), "")
+        out = template_fill(widget_template("cards/table-empty"), vars("__locale", locale))
     }
     var i: u32 = 0
     while i < limit {
         let value: WidgetValues = values[i]
         let epoch: u32 = u32(value.recordedEpoch)
         out = out + template_fill(widget_template("cards/table-row"),
+            vars("__locale", locale) +
             vars("epoch", rho_int_to_str(epoch)) +
             vars("value", widget_round(value.valueText, decimals)) +
             vars("unit", unit))
         i = i + 1
     }
-    return template_fill(widget_template("cards/table"), vars("rows", out))
+    return template_fill(widget_template("cards/table"), vars("rows", out) + vars("__locale", locale))
 }
 
 
-fn widget_card_controls(id: u32, pinned: u32, kind: string) string {
+fn widget_card_controls(id: u32, pinned: u32, kind: string, locale: string) string {
     let sid: string = rho_int_to_str(id)
     var pinnable: string = ""
+    var pinned_flag: string = ""
     var pin_val: string = "1"
     var pin_icon: string = "📌"
-    var pin_title: string = "Pin to status bar"
     if rho_str_eq(kind, "numeric") || rho_str_eq(kind, "chart") {
         pinnable = "true"
         if pinned == 1 {
+            pinned_flag = "true"
             pin_val = "0"
             pin_icon = "📍"
-            pin_title = "Unpin"
         }
     }
     return template_fill(widget_template("cards/controls"),
+        vars("__locale", locale) +
         vars("id", sid) +
         vars("pinnable", pinnable) +
         vars("pin_value", pin_val) +
         vars("pin_icon", pin_icon) +
-        vars("pin_title", pin_title))
+        vars("pinned", pinned_flag))
 }
 
 
-fn widget_card(db: SqlDb, widget: Widgets) string {
+fn widget_card(db: SqlDb, widget: Widgets, locale: string) string {
     let values: WidgetValues[100]
     var count: u32 = 0
     var latest: string = ""
@@ -616,38 +618,42 @@ fn widget_card(db: SqlDb, widget: Widgets) string {
         latest = widget_latest_text(db, u32(widget.id))
     }
     let sid: string = rho_int_to_str(u32(widget.id))
-    let controls: string = widget_card_controls(u32(widget.id), u32(widget.pinned), widget.kind)
+    let controls: string = widget_card_controls(u32(widget.id), u32(widget.pinned), widget.kind, locale)
     if rho_str_eq(widget.kind, "button") {
         return template_fill(widget_template("cards/button"),
+            vars("__locale", locale) + vars("locale", locale) +
             vars("id", sid) + vars("size", widget.size) +
             vars("title", widget.title) + vars("controls", controls))
     }
     if rho_str_eq(widget.kind, "toggle") {
         let state: string = widget_toggle_state(db, u32(widget.id))
         var on_class: string = ""
-        var label: string = "Off"
+        var on_flag: string = ""
         if rho_str_eq(state, "on") {
             on_class = " on"
-            label = "On"
+            on_flag = "true"
         }
         return template_fill(widget_template("cards/toggle"),
+            vars("__locale", locale) + vars("locale", locale) +
             vars("id", sid) + vars("size", widget.size) +
             vars("title", widget.title) + vars("controls", controls) +
-            vars("on_class", on_class) + vars("state_label", label))
+            vars("on_class", on_class) + vars("on", on_flag))
     }
     if rho_str_eq(widget.kind, "table") {
         return template_fill(widget_template("cards/table-card"),
+            vars("__locale", locale) + vars("locale", locale) +
             vars("id", sid) + vars("size", widget.size) +
             vars("title", widget.title) + vars("controls", controls) +
-            vars("table", widget_table(values, count, u32(widget.points), unit, u32(widget.decimals))) +
+            vars("table", widget_table(values, count, u32(widget.points), unit, u32(widget.decimals), locale)) +
             vars("count", rho_int_to_str(count)) +
             vars("source_kind", widget.sourceKind))
     }
     var chart: string = ""
     if rho_str_eq(widget.kind, "chart") {
-        chart = widget_chart(values, count)
+        chart = widget_chart(values, count, locale)
     }
     return template_fill(widget_template("cards/numeric"),
+        vars("__locale", locale) + vars("locale", locale) +
         vars("id", sid) + vars("size", widget.size) +
         vars("title", widget.title) + vars("controls", controls) +
         vars("chart", chart) + vars("unit", unit) +
@@ -655,7 +661,7 @@ fn widget_card(db: SqlDb, widget: Widgets) string {
 
 }
 
-fn widgets_dashboard_cards(refresh: bool) string {
+fn widgets_dashboard_cards(refresh: bool, locale: string) string {
     // A page load reads the gateway before it renders, so a plug switched in
     // another tab or application is already correct in the first paint. The
     // fragment route re-renders what is stored and does not fetch again, so a
@@ -682,23 +688,24 @@ fn widgets_dashboard_cards(refresh: bool) string {
         if refresh {
             widget_ignore_string(widget_refresh(widgets[i]))
         }
-        out = out + widget_card(db, widgets[i])
+        out = out + widget_card(db, widgets[i], locale)
         i = i + 1
     }
     sql_close(db)
     if out == "" {
-        out = template_fill(widget_template("cards/empty"), "")
+        out = template_fill(widget_template("cards/empty"), vars("__locale", locale))
     }
-    return template_fill(widget_template("cards/grid"), vars("cards", out))
+    return template_fill(widget_template("cards/grid"), vars("cards", out) + vars("__locale", locale) + vars("locale", locale))
 }
 
-fn widget_rows(db: SqlDb, widgets: Widgets[128], count: u32) string {
+fn widget_rows(db: SqlDb, widgets: Widgets[128], count: u32, locale: string) string {
     var out: string = ""
     var i: u32 = 0
     while i < count {
         let widget: Widgets = widgets[i]
         let latest: string = widget_latest_text(db, u32(widget.id))
         out = out + template_fill(widget_template("rows/widget-row"),
+            vars("__locale", locale) +
             vars("id", rho_int_to_str(u32(widget.id))) +
             vars("title", widget.title) +
             vars("kind", widget.kind) +
@@ -725,7 +732,7 @@ fn widgets_docs() string {
     return "No documentation found."
 }
 
-fn widgets_page_message(message: string) Response {
+fn widgets_page_message(req: Request, message: string) Response {
     ignore_u32(widgets_sync_state())
     let opened: Result[SqlDb, string] = sql_open(widget_db_path())
     if !opened.is_ok {
@@ -741,40 +748,42 @@ fn widgets_page_message(message: string) Response {
     if listed.is_ok {
         count = listed.ok
     }
-    let rows_html: string = widget_rows(db, widgets, count)
+    let locale: string = i18n_locale(req)
+    let rows_html: string = widget_rows(db, widgets, count, locale)
     sql_close(db)
     let notice: string = ""
     if message != "" {
         notice = template_fill(widget_template("parts/notice"), vars("message", message))
     }
     let body: string = template_fill(widget_template("pages/widgets"),
+        i18n_vars(req) +
         vars("notice", notice) + vars("rows", rows_html) +
         vars("device_options", widget_gateway_source_options("")) +
         vars("kind_options", widget_kind_options("numeric")) +
         vars("source_kind_options", widget_source_kind_options("manual")) +
         vars("method_options", widget_method_options("GET")) +
-        vars("preview", widgets_dashboard_cards(true)) +
+        vars("preview", widgets_dashboard_cards(true, locale)) +
         vars("docs", widgets_docs()) +
         vars("notifications", notification_embed()))
     let document: string = template_fill(widget_template("layouts/layout"),
-        vars("title", "Widgets") + vars("body", body) +
+        vars("title", "Widgets") + i18n_vars(req) + vars("body", body) +
         vars("notifications", notification_embed()))
     return html(status_ok(), document)
 }
 
 fn widgets_cards_endpoint(req: Request) Response {
-    return html(status_ok(), widgets_dashboard_cards(true))
+    return html(status_ok(), widgets_dashboard_cards(true, i18n_locale(req)))
 }
 
 fn widgets_page(req: Request) Response {
-    return widgets_page_message("")
+    return widgets_page_message(req, "")
 }
 
 fn widgets_add(req: Request) Response {
     let body: string = request_body(req)
     let title: string = widget_trim(widget_form_value(body, "title"))
     if rho_strlen(title) == 0 {
-        return widgets_page_message("A widget needs a title.")
+        return widgets_page_message(req, "A widget needs a title.")
     }
     var kind: string = widget_form_value(body, "kind")
     if rho_strlen(kind) == 0 {
@@ -802,7 +811,7 @@ fn widgets_add(req: Request) Response {
     }
     let opened: Result[SqlDb, string] = sql_open(widget_db_path())
     if !opened.is_ok {
-        return widgets_page_message("The database could not be opened: " + opened.err)
+        return widgets_page_message(req, "The database could not be opened: " + opened.err)
     }
     let db: SqlDb = opened.ok
     ignore_u32(sql_apply(db, ""))
@@ -812,18 +821,18 @@ fn widgets_add(req: Request) Response {
     sql_close(db)
     if !added.is_ok {
         notification_push_level("Widget could not be saved: " + added.err.message, "error", 10)
-        return widgets_page_message("The widget could not be saved: " + added.err.message)
+        return widgets_page_message(req, "The widget could not be saved: " + added.err.message)
     }
     notification_push_level("Widget added.", "info", 10)
     notification_live_event("info", "Widget added.")
-    return widgets_page_message("Widget added.")
+    return widgets_page_message(req, "Widget added.")
 }
 
 fn widget_edit_page(req: Request) Response {
     let id: u32 = rho_int_from_str(request_query_param(req, "id"))
     let opened: Result[SqlDb, string] = sql_open(widget_db_path())
     if !opened.is_ok {
-        return widgets_page_message("The database could not be opened: " + opened.err)
+        return widgets_page_message(req, "The database could not be opened: " + opened.err)
     }
     let db: SqlDb = opened.ok
     ignore_u32(sql_apply(db, ""))
@@ -844,7 +853,7 @@ fn widget_edit_page(req: Request) Response {
         i = i + 1
     }
     if found < 0 {
-        return widgets_page_message("That widget was not found.")
+        return widgets_page_message(req, "That widget was not found.")
     }
     let index: u32 = u32(found)
     let widget: Widgets = widgets[index]
@@ -871,11 +880,11 @@ fn widgets_edit_save(req: Request) Response {
     let body: string = request_body(req)
     let id: u32 = rho_int_from_str(widget_trim(widget_form_value(body, "id")))
     if id == 0 {
-        return widgets_page_message("That widget was not found.")
+        return widgets_page_message(req, "That widget was not found.")
     }
     let opened: Result[SqlDb, string] = sql_open(widget_db_path())
     if !opened.is_ok {
-        return widgets_page_message("The database could not be opened: " + opened.err)
+        return widgets_page_message(req, "The database could not be opened: " + opened.err)
     }
     let db: SqlDb = opened.ok
     ignore_u32(sql_apply(db, ""))
@@ -901,9 +910,9 @@ fn widgets_edit_save(req: Request) Response {
         i64(points), i64(decimals), i64(id), db)
     sql_close(db)
     if !updated.is_ok {
-        return widgets_page_message("The widget could not be saved: " + updated.err.message)
+        return widgets_page_message(req, "The widget could not be saved: " + updated.err.message)
     }
-    return widgets_page_message("Widget saved.")
+    return widgets_page_message(req, "Widget saved.")
 }
 
 fn widgets_delete(req: Request) Response {
@@ -911,16 +920,16 @@ fn widgets_delete(req: Request) Response {
     let id: u32 = rho_int_from_str(widget_trim(widget_form_value(body, "id")))
     let opened: Result[SqlDb, string] = sql_open(widget_db_path())
     if !opened.is_ok {
-        return widgets_page_message("The database could not be opened: " + opened.err)
+        return widgets_page_message(req, "The database could not be opened: " + opened.err)
     }
     let db: SqlDb = opened.ok
     ignore_u32(sql_apply(db, ""))
     let removed: Result[u32, SqlError] = DeleteWidget(i64(id), db)
     sql_close(db)
     if !removed.is_ok {
-        return widgets_page_message("The widget could not be removed: " + removed.err.message)
+        return widgets_page_message(req, "The widget could not be removed: " + removed.err.message)
     }
-    return widgets_page_message("Widget removed.")
+    return widgets_page_message(req, "Widget removed.")
 }
 
 fn widgets_move(req: Request) Response {
@@ -934,11 +943,11 @@ fn widgets_move(req: Request) Response {
         delta = 1
     }
     if id == 0 {
-        return widgets_page_message("No such widget.")
+        return widgets_page_message(req, "No such widget.")
     }
     let opened: Result[SqlDb, string] = sql_open(widget_db_path())
     if !opened.is_ok {
-        return widgets_page_message("The database could not be opened: " + opened.err)
+        return widgets_page_message(req, "The database could not be opened: " + opened.err)
     }
     let db: SqlDb = opened.ok
     ignore_u32(sql_apply(db, ""))
@@ -957,7 +966,7 @@ fn widgets_move(req: Request) Response {
     }
     if idx < 0 {
         sql_close(db)
-        return widgets_page_message("No such widget.")
+        return widgets_page_message(req, "No such widget.")
     }
     var n: u32 = 0
     while n < count {
@@ -970,7 +979,7 @@ fn widgets_move(req: Request) Response {
     if target >= i32(count) { target = i32(count) - 1 }
     if target == idx {
         sql_close(db)
-        return widgets_page_message("Widget moved.")
+        return widgets_page_message(req, "Widget moved.")
     }
     let ai: u32 = u32(idx)
     let bi: u32 = u32(target)
@@ -981,14 +990,14 @@ fn widgets_move(req: Request) Response {
     sql_close(db)
     notification_push_level("Widget moved.", "info", 5)
     notification_live_event("info", "Widget moved.")
-    return widgets_page_message("Widget moved.")
+    return widgets_page_message(req, "Widget moved.")
 }
 
 fn widgets_resize(req: Request) Response {
     let body: string = request_body(req)
     let id: u32 = rho_int_from_str(widget_trim(widget_form_value(body, "id")))
     if id == 0 {
-        return widgets_page_message("No such widget.")
+        return widgets_page_message(req, "No such widget.")
     }
     let delta: string = widget_trim(widget_form_value(body, "delta"))
     let size_in: string = widget_trim(widget_form_value(body, "size"))
@@ -996,7 +1005,7 @@ fn widgets_resize(req: Request) Response {
     if delta != "" {
         let opened0: Result[SqlDb, string] = sql_open(widget_db_path())
         if !opened0.is_ok {
-            return widgets_page_message("The database could not be opened: " + opened0.err)
+            return widgets_page_message(req, "The database could not be opened: " + opened0.err)
         }
         let db0: SqlDb = opened0.ok
         ignore_u32(sql_apply(db0, ""))
@@ -1027,7 +1036,7 @@ fn widgets_resize(req: Request) Response {
     if size == "" { size = "small" }
     let opened: Result[SqlDb, string] = sql_open(widget_db_path())
     if !opened.is_ok {
-        return widgets_page_message("The database could not be opened: " + opened.err)
+        return widgets_page_message(req, "The database could not be opened: " + opened.err)
     }
     let db: SqlDb = opened.ok
     ignore_u32(sql_apply(db, ""))
@@ -1036,9 +1045,9 @@ fn widgets_resize(req: Request) Response {
     notification_push_level("Widget resized.", "info", 5)
     notification_live_event("info", "Widget resized.")
     if rho_str_eq(header_str(req, "HX-Request"), "true") {
-        return html(status_ok(), widget_card_html(id))
+        return html(status_ok(), widget_card_html(id, i18n_locale(req)))
     }
-    return widgets_page_message("Widget resized.")
+    return widgets_page_message(req, "Widget resized.")
 }
 
 
@@ -1047,11 +1056,11 @@ fn widgets_pin(req: Request) Response {
     let id: u32 = rho_int_from_str(widget_trim(widget_form_value(body, "id")))
     let pinned: string = widget_trim(widget_form_value(body, "pinned"))
     if id == 0 {
-        return widgets_page_message("No such widget.")
+        return widgets_page_message(req, "No such widget.")
     }
     let opened: Result[SqlDb, string] = sql_open(widget_db_path())
     if !opened.is_ok {
-        return widgets_page_message("The database could not be opened: " + opened.err)
+        return widgets_page_message(req, "The database could not be opened: " + opened.err)
     }
     let db: SqlDb = opened.ok
     ignore_u32(sql_apply(db, ""))
@@ -1062,9 +1071,9 @@ fn widgets_pin(req: Request) Response {
     ignore_result(PinWidget(pval, i64(id), db))
     sql_close(db)
     if rho_str_eq(header_str(req, "HX-Request"), "true") {
-        return html(status_ok(), widget_card_html(id))
+        return html(status_ok(), widget_card_html(id, i18n_locale(req)))
     }
-    return widgets_page_message("Widget pinned.")
+    return widgets_page_message(req, "Widget pinned.")
 }
 
 fn widgets_value(req: Request) Response {
@@ -1072,18 +1081,18 @@ fn widgets_value(req: Request) Response {
     let id: u32 = rho_int_from_str(widget_trim(widget_form_value(body, "id")))
     let value: string = widget_trim(widget_form_value(body, "value"))
     if id == 0 || rho_strlen(value) == 0 {
-        return widgets_page_message("A value needs a widget and a number.")
+        return widgets_page_message(req, "A value needs a widget and a number.")
     }
     let opened: Result[SqlDb, string] = sql_open(widget_db_path())
     if !opened.is_ok {
-        return widgets_page_message("The database could not be opened: " + opened.err)
+        return widgets_page_message(req, "The database could not be opened: " + opened.err)
     }
     let db: SqlDb = opened.ok
     ignore_u32(sql_apply(db, ""))
     widget_ignore_result(InsertWidgetValue(rho_int_to_str(id), value,
         rho_int_to_str(u32(widget_parse_milli(value))), rho_int_to_str(widget_now()), db))
     sql_close(db)
-    return widgets_page_message("Value recorded.")
+    return widgets_page_message(req, "Value recorded.")
 }
 
 fn widgets_press(req: Request) Response {
@@ -1091,7 +1100,7 @@ fn widgets_press(req: Request) Response {
     let id: u32 = rho_int_from_str(widget_trim(widget_form_value(body, "id")))
     let opened: Result[SqlDb, string] = sql_open(widget_db_path())
     if !opened.is_ok {
-        return widgets_page_message("The database could not be opened: " + opened.err)
+        return widgets_page_message(req, "The database could not be opened: " + opened.err)
     }
     let db: SqlDb = opened.ok
     ignore_u32(sql_apply(db, ""))
@@ -1112,7 +1121,7 @@ fn widgets_press(req: Request) Response {
     }
     if found < 0 {
         sql_close(db)
-        return widgets_page_message("That widget was not found.")
+        return widgets_page_message(req, "That widget was not found.")
     }
     let found_index: u32 = u32(found)
     let widget: Widgets = widgets[found_index]
@@ -1144,7 +1153,7 @@ fn widgets_press(req: Request) Response {
     }
     widget_ignore_result(InsertEvent("INFO", "widget", event_message,
         rho_int_to_str(widget_now()), db))
-    let card: string = widget_card(db, widget)
+    let card: string = widget_card(db, widget, i18n_locale(req))
     sql_close(db)
     if rho_str_eq(header_str(req, "HX-Request"), "true") {
         return html(status_ok(), card)
@@ -1159,9 +1168,9 @@ fn widgets_press(req: Request) Response {
             json_string(new_state) + "}")
     }
     if code != 0 {
-        return widgets_page_message("The hook for " + widget.title + " failed.")
+        return widgets_page_message(req, "The hook for " + widget.title + " failed.")
     }
-    return widgets_page_message(widget.title + " was pressed.")
+    return widgets_page_message(req, widget.title + " was pressed.")
 }
 
 extern fn sse_file(path: string, interval_ms: u32) Response
@@ -1186,7 +1195,7 @@ fn widget_state_dir() string {
 
 // widget_card_html renders one card by id, so an event can carry the same
 // fragment a page shows rather than a state a client would have to interpret.
-fn widget_card_html(widget_id: u32) string {
+fn widget_card_html(widget_id: u32, locale: string) string {
     let opened: Result[SqlDb, string] = sql_open(widget_db_path())
     if !opened.is_ok {
         return ""
@@ -1204,7 +1213,7 @@ fn widget_card_html(widget_id: u32) string {
     var i: u32 = 0
     while i < count {
         if u32(widgets[i].id) == widget_id {
-            out = widget_card(db, widgets[i])
+            out = widget_card(db, widgets[i], locale)
         }
         i = i + 1
     }
@@ -1217,14 +1226,24 @@ fn widget_event_json(event: string, data: string) string {
 }
 
 fn widget_event(widget_id: u32, state: string) void {
-    let card: string = widget_card_html(widget_id)
-    if card == "" {
-        return
-    }
     let file: string = widgets_events_file()
-    let old: string = rho_read_text(file)
-    ignore_bool(rho_write_text(file,
-        old + widget_event_json("widget-" + rho_int_to_str(widget_id), card)))
+    var lines: string = ""
+    var locales: string = "en\nro"
+    while locales != "" {
+        let at: i32 = rho_str_index_of(locales, "\n")
+        var code: string = locales
+        if at < 0 { locales = "" } else {
+            code = rho_str_slice(locales, 0, u32(at))
+            locales = rho_str_slice(locales, u32(at) + 1, u32(rho_strlen(locales)) - u32(at) - 1)
+        }
+        if code != "" {
+            let card: string = widget_card_html(widget_id, code)
+            if card != "" {
+                lines = lines + widget_event_json("widget-" + rho_int_to_str(widget_id) + "-" + code, card)
+            }
+        }
+    }
+    ignore_bool(rho_write_text(file, rho_read_text(file) + lines))
 }
 
 fn widgets_snapshot_events() void {
@@ -1244,8 +1263,19 @@ fn widgets_snapshot_events() void {
     var out: string = ""
     var i: u32 = 0
     while i < count {
-        out = out + widget_event_json("widget-" + rho_int_to_str(u32(widgets[i].id)),
-            widget_card(db, widgets[i]))
+        var locales: string = "en\nro"
+        while locales != "" {
+            let at: i32 = rho_str_index_of(locales, "\n")
+            var code: string = locales
+            if at < 0 { locales = "" } else {
+                code = rho_str_slice(locales, 0, u32(at))
+                locales = rho_str_slice(locales, u32(at) + 1, u32(rho_strlen(locales)) - u32(at) - 1)
+            }
+            if code != "" {
+                out = out + widget_event_json("widget-" + rho_int_to_str(u32(widgets[i].id)) + "-" + code,
+                    widget_card(db, widgets[i], code))
+            }
+        }
         i = i + 1
     }
     sql_close(db)
@@ -1364,13 +1394,24 @@ fn widgets_refresh_values() u32 {
 }
 
 fn widget_event_cards() void {
-    let grid: string = widgets_dashboard_cards(false)
-    if grid == "" {
-        return
-    }
     let file: string = widgets_events_file()
-    ignore_bool(rho_write_text(file,
-        rho_read_text(file) + widget_event_json("widget-cards", grid)))
+    var lines: string = ""
+    var locales: string = "en\nro"
+    while locales != "" {
+        let at: i32 = rho_str_index_of(locales, "\n")
+        var code: string = locales
+        if at < 0 { locales = "" } else {
+            code = rho_str_slice(locales, 0, u32(at))
+            locales = rho_str_slice(locales, u32(at) + 1, u32(rho_strlen(locales)) - u32(at) - 1)
+        }
+        if code != "" {
+            let grid: string = widgets_dashboard_cards(false, code)
+            if grid != "" {
+                lines = lines + widget_event_json("widget-cards-" + code, grid)
+            }
+        }
+    }
+    ignore_bool(rho_write_text(file, rho_read_text(file) + lines))
 }
 
 fn widgets_refresh(req: Request) Response {
@@ -1384,12 +1425,12 @@ fn widgets_refresh(req: Request) Response {
 }
 
 fn widgets_cards(req: Request) Response {
-    return html(status_ok(), widgets_dashboard_cards(false))
+    return html(status_ok(), widgets_dashboard_cards(false, i18n_locale(req)))
 }
 
 fn widgets_card_endpoint(req: Request) Response {
     let id: u32 = u32(rho_int_from_str(param(req, "id")))
-    let card: string = widget_card_html(id)
+    let card: string = widget_card_html(id, i18n_locale(req))
     if card == "" {
         return text(status_not_found(), "not found")
     }
