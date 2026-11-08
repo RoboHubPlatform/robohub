@@ -258,6 +258,7 @@ fn forms_match(pattern: string, value: string) bool {
 // in the comma string is `value|label`, or a bare value that is also its
 // label; the option held by the field is marked selected.
 fn forms_select_options(options: string, selected: string) string {
+    let option_template: string = forms_template("fields/option.html")
     var out: string = ""
     var rest: string = options
     while rho_strlen(rest) > 0 {
@@ -279,8 +280,10 @@ fn forms_select_options(options: string, selected: string) string {
         }
         var mark: string = ""
         if rho_str_eq(value, selected) { mark = " selected" }
-        out = out + "<option value=\"" + forms_escape(value) + "\"" + mark + ">" +
-            forms_escape(label) + "</option>"
+        out = out + template_fill(option_template,
+            vars("value", value) +
+            vars("selected", mark) +
+            vars("label", label))
         if rest == "" { break }
     }
     return out
@@ -291,41 +294,68 @@ fn forms_select_options(options: string, selected: string) string {
 fn forms_field_html(f: FormField) string {
     var required_mark: string = ""
     if f.required { required_mark = " <span class=\"req\">*</span>" }
-    var out: string = "<label>" + forms_escape(f.label) + required_mark
+    var error_html: string = ""
+    if f.err != "" {
+        error_html = "<small class=\"err\">" + forms_escape(f.err) + "</small>"
+    }
+    var hint_html: string = ""
+    if f.hint != "" {
+        hint_html = "<small>" + forms_escape(f.hint) + "</small>"
+    }
+    if rho_str_eq(f.kind, "hidden") {
+        return template_fill(forms_template("fields/hidden.html"),
+            vars("name", f.name) +
+            vars("value", f.value))
+    }
     if rho_str_eq(f.kind, "select") {
         var prompt: string = ""
         if f.placeholder != "" {
             prompt = "<option value=\"\">" + forms_escape(f.placeholder) + "</option>"
         }
-        out = out + "<select name=\"" + forms_escape(f.name) + "\">" + prompt +
-            forms_select_options(f.options, f.value) + "</select>"
-    } else if rho_str_eq(f.kind, "textarea") {
-        out = out + "<textarea name=\"" + forms_escape(f.name) + "\">" +
-            forms_escape(f.value) + "</textarea>"
-    } else if rho_str_eq(f.kind, "toggle") {
+        return template_fill(forms_template("fields/select.html"),
+            vars("label", f.label) +
+            vars("required_mark", required_mark) +
+            vars("name", f.name) +
+            vars("prompt", prompt) +
+            vars("options_html", forms_select_options(f.options, f.value)) +
+            vars("error_html", error_html) +
+            vars("hint_html", hint_html))
+    }
+    if rho_str_eq(f.kind, "textarea") {
+        return template_fill(forms_template("fields/textarea.html"),
+            vars("label", f.label) +
+            vars("required_mark", required_mark) +
+            vars("name", f.name) +
+            vars("value", f.value) +
+            vars("error_html", error_html) +
+            vars("hint_html", hint_html))
+    }
+    if rho_str_eq(f.kind, "toggle") {
         var checked: string = ""
         if rho_str_eq(f.value, "on") || rho_str_eq(f.value, "true") { checked = " checked" }
-        out = out + "<input type=\"checkbox\" name=\"" + forms_escape(f.name) +
-            "\" value=\"on\"" + checked + ">"
-    } else if rho_str_eq(f.kind, "hidden") {
-        return "<input type=\"hidden\" name=\"" + forms_escape(f.name) +
-            "\" value=\"" + forms_escape(f.value) + "\">"
-    } else {
-        out = out + "<input type=\"" + forms_escape(f.kind) + "\" name=\"" +
-            forms_escape(f.name) + "\" value=\"" + forms_escape(f.value) +
-            "\" placeholder=\"" + forms_escape(f.placeholder) + "\""
-        if f.required { out = out + " required" }
-        out = out + ">"
+        return template_fill(forms_template("fields/toggle.html"),
+            vars("label", f.label) +
+            vars("required_mark", required_mark) +
+            vars("name", f.name) +
+            vars("checked", checked) +
+            vars("error_html", error_html) +
+            vars("hint_html", hint_html))
     }
-    if f.err != "" {
-        out = out + "<small class=\"err\">" + forms_escape(f.err) + "</small>"
-    }
-    if f.hint != "" {
-        out = out + "<small>" + forms_escape(f.hint) + "</small>"
-    }
-    return out + "</label>"
+    var input_type: string = f.kind
+    if input_type == "" { input_type = "text" }
+    var required_attr: string = ""
+    if f.required { required_attr = "required" }
+    return template_fill(forms_template("fields/text.html"),
+        vars("label", f.label) +
+        vars("required_mark", required_mark) +
+        vars("input_type", input_type) +
+        vars("name", f.name) +
+        vars("value", f.value) +
+        vars("placeholder", f.placeholder) +
+        vars("required_attr", required_attr) +
+        vars("error_html", error_html) +
+        vars("hint_html", hint_html))
 }
-
 // forms_body renders the fields of a form, without the `<form>` round it.
 //
 // The fields are a dynamic array `[FormField]` (a `[]FormField` in Go, a
@@ -336,7 +366,7 @@ fn forms_body(fields: [FormField], count: u32) string {
     // Hidden fields are not part of the visible grid: render them first so
     // they do not occupy a cell and push the visible fields out of line.
     var hidden: string = ""
-    var out: string = "<div class=\"grid\">"
+    var out: string = ""
     var i: u32 = 0
     while i < count {
         if rho_str_eq(fields[i].kind, "hidden") {
@@ -346,7 +376,7 @@ fn forms_body(fields: [FormField], count: u32) string {
         }
         i = i + 1
     }
-    return hidden + out + "</div>"
+    return hidden + template_fill(forms_template("fields/body.html"), vars("fields", out))
 }
 
 /* -------------------------------------------------------------------------- */
@@ -423,7 +453,7 @@ fn forms_token() string {
 // forms_csrf_field is the hidden input every form must carry so a submit can
 // prove it came from the page this server drew.
 fn forms_csrf_field() string {
-    return "<input type=\"hidden\" name=\"csrf\" value=\"" + forms_escape(forms_token()) + "\">"
+    return template_fill(forms_template("fields/csrf.html"), vars("token", forms_token()))
 }
 
 // forms_csrf_ok is whether a submitted body carries the token the server drew
@@ -440,10 +470,11 @@ fn forms_csrf_ok(body: string) bool {
 fn forms_open(fields: [FormField], count: u32, action: string, submit: string) string {
     var label: string = submit
     if label == "" { label = "Save" }
-    return "<form class=\"panel-form\" method=\"post\" action=\"" + forms_escape(action) + "\">" +
-        forms_csrf_field() + forms_body(fields, count) +
-        "<div class=\"form-actions\"><button type=\"submit\">" + forms_escape(label) +
-        "</button></div></form>"
+    return template_fill(forms_template("fields/form.html"),
+        vars("action", action) +
+        vars("csrf", forms_csrf_field()) +
+        vars("fields", forms_body(fields, count)) +
+        vars("submit", label))
 }
 
 /* -------------------------------------------------------------------------- */

@@ -266,11 +266,11 @@ fn scheduler_rows(chores: Chores[256], count: u32, now: u32) string {
         let id: string = rho_int_to_str(u32(chore.id))
         let html: string = template_fill(scheduler_template("chore-row"),
             vars("id", id) +
-            vars("title", escape_html(chore.title)) +
-            vars("description", escape_html(chore.description)) +
-            vars("kind", escape_html(chore.scheduleKind)) +
-            vars("due", escape_html(scheduler_due_text(chore))) +
-            vars("priority", escape_html(chore.priority)) +
+            vars("title", chore.title) +
+            vars("description", chore.description) +
+            vars("kind", chore.scheduleKind) +
+            vars("due", scheduler_due_text(chore)) +
+            vars("priority", chore.priority) +
             vars("status", scheduler_status_badge(status)))
         out = out + html + "\n"
         i = i + 1
@@ -286,9 +286,11 @@ fn scheduler_completion_rows(rows: ListCompletionsRow[64], count: u32) string {
     var i: u32 = 0
     while i < count {
         let row: ListCompletionsRow = rows[i]
-        out = out + "<tr><td>" + escape_html(row.title) + "</td><td>" +
-            escape_html(scheduler_date(u32(row.completedEpoch))) + "</td><td>" +
-            escape_html(row.note) + "</td></tr>"
+        let html: string = template_fill(scheduler_template("completion-row"),
+            vars("title", row.title) +
+            vars("when", scheduler_date(u32(row.completedEpoch))) +
+            vars("note", row.note))
+        out = out + html + "\n"
         i = i + 1
     }
     if out == "" {

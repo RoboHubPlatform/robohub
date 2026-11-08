@@ -309,14 +309,14 @@ fn inventory_item_rows(items: ListItemsRow[512], count: u32) string {
         }
         let html: string = template_fill(inventory_template("item-row"),
             vars("id", id) +
-            vars("name", escape_html(row.name)) +
-            vars("category", escape_html(row.category)) +
-            vars("quantity", escape_html(inventory_quantity(row.quantityMilli))) +
-            vars("unit", escape_html(row.unit)) +
-            vars("reorder", escape_html(inventory_quantity(row.reorderMilli))) +
-            vars("location", escape_html(row.location)) +
+            vars("name", row.name) +
+            vars("category", row.category) +
+            vars("quantity", inventory_quantity(row.quantityMilli)) +
+            vars("unit", row.unit) +
+            vars("reorder", inventory_quantity(row.reorderMilli)) +
+            vars("location", row.location) +
             vars("low", low) +
-            vars("notes", escape_html(row.notes)))
+            vars("notes", row.notes))
         out = out + html + "\n"
         i = i + 1
     }
@@ -331,11 +331,13 @@ fn inventory_low_rows(rows: LowStockItemsRow[128], count: u32) string {
     var i: u32 = 0
     while i < count {
         let row: LowStockItemsRow = rows[i]
-        out = out + "<tr><td><strong>" + escape_html(row.name) + "</strong></td><td>" +
-            escape_html(inventory_quantity(row.quantityMilli)) + " " +
-            escape_html(row.unit) + "</td><td>" +
-            escape_html(inventory_quantity(row.reorderMilli)) + " " +
-            escape_html(row.unit) + "</td><td>" + escape_html(row.location) + "</td></tr>"
+        let html: string = template_fill(inventory_template("low-row"),
+            vars("name", row.name) +
+            vars("on_hand", inventory_quantity(row.quantityMilli)) +
+            vars("reorder_at", inventory_quantity(row.reorderMilli)) +
+            vars("unit", row.unit) +
+            vars("location", row.location))
+        out = out + html + "\n"
         i = i + 1
     }
     if out == "" {
@@ -351,14 +353,14 @@ fn inventory_expense_rows(rows: ListExpensesRow[512], count: u32) string {
         let row: ListExpensesRow = rows[i]
         let html: string = template_fill(inventory_template("expense-row"),
             vars("id", rho_int_to_str(u32(row.id))) +
-            vars("item", escape_html(row.item)) +
-            vars("category", escape_html(row.category)) +
-            vars("quantity", escape_html(inventory_quantity(row.quantityMilli))) +
-            vars("unit_price", escape_html(inventory_money(row.unitPriceCents))) +
-            vars("total", escape_html(inventory_money(row.totalCents))) +
-            vars("source", escape_html(row.source)) +
-            vars("date", escape_html(row.purchasedAt)) +
-            vars("comment", escape_html(row.comment)))
+            vars("item", row.item) +
+            vars("category", row.category) +
+            vars("quantity", inventory_quantity(row.quantityMilli)) +
+            vars("unit_price", inventory_money(row.unitPriceCents)) +
+            vars("total", inventory_money(row.totalCents)) +
+            vars("source", row.source) +
+            vars("date", row.purchasedAt) +
+            vars("comment", row.comment))
         out = out + html + "\n"
         i = i + 1
     }
@@ -400,7 +402,9 @@ fn inventory_category_rows(categories: Categories[64], count: u32) string {
     var out: string = ""
     var i: u32 = 0
     while i < count {
-        out = out + "<tr><td>" + escape_html(categories[i].name) + "</td></tr>"
+        let html: string = template_fill(inventory_template("category-row"),
+            vars("name", categories[i].name))
+        out = out + html + "\n"
         i = i + 1
     }
     if out == "" {
@@ -552,14 +556,14 @@ fn item_edit_page(req: Request) Response {
     let row: ListItemsRow = items[row_index]
     let body: string = template_fill(inventory_template("item-edit"),
         vars("id", rho_int_to_str(u32(row.id))) +
-        vars("name", escape_html(row.name)) +
+        vars("name", row.name) +
         vars("category_options", inventory_categories(categories, category_count,
             rho_int_to_str(u32(row.categoryId)))) +
-        vars("unit", escape_html(row.unit)) +
-        vars("quantity", escape_html(inventory_quantity(row.quantityMilli))) +
-        vars("reorder", escape_html(inventory_quantity(row.reorderMilli))) +
-        vars("location", escape_html(row.location)) +
-        vars("notes", escape_html(row.notes)))
+        vars("unit", row.unit) +
+        vars("quantity", inventory_quantity(row.quantityMilli)) +
+        vars("reorder", inventory_quantity(row.reorderMilli)) +
+        vars("location", row.location) +
+        vars("notes", row.notes))
     let document: string = template_fill(inventory_template("layout"),
         vars("title", "Edit item") + vars("body", body) +
         vars("keeper", inventory_keeper_link()))

@@ -1,16 +1,16 @@
 <h1>Edit widget</h1>
 <form class="panel-form" method="post" action="/widgets/edit">
-  <input type="hidden" name="id" value="{{{ id }}}">
+  <input type="hidden" name="id" value="{{ id }}">
   <div class="grid">
-    <label>Title<input name="title" value="{{{ title }}}" required></label>
+    <label>Title<input name="title" value="{{ title }}" required></label>
     <label>Kind<select name="kind">{{{ kind_options }}}</select></label>
     <label>Source<select name="source_kind">{{{ source_kind_options }}}</select></label>
     <label>Mesh source<select name="mesh_source">{{{ device_options }}}</select><small>Inputs feed numbers, charts and tables; outputs feed buttons and switches.</small></label>
-    <label>URL or hook<input name="source" value="{{{ source }}}" placeholder="hook?state={state}"></label>
+    <label>URL or hook<input name="source" value="{{ source }}" placeholder="hook?state={state}"></label>
     <label>Method<select name="method">{{{ method_options }}}</select></label>
-    <label>Unit<input name="unit" value="{{{ unit }}}"></label>
-    <label>Chart points / table rows<input name="points" value="{{{ points }}}" inputmode="numeric"></label>
-    <label class="decimals-field">Decimals (0-3)<input name="decimals" value="{{{ decimals }}}" inputmode="numeric" min="0" max="3"></label>
+    <label>Unit<input name="unit" value="{{ unit }}"></label>
+    <label>Chart points / table rows<input name="points" value="{{ points }}" inputmode="numeric"></label>
+    <label class="decimals-field">Decimals (0-3)<input name="decimals" value="{{ decimals }}" inputmode="numeric" min="0" max="3"></label>
   </div>
   <div class="form-actions"><button type="submit">Save widget</button></div>
 </form>

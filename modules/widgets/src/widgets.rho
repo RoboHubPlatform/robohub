@@ -714,12 +714,11 @@ fn widget_rows(db: SqlDb, widgets: Widgets[128], count: u32) string {
         let latest: string = widget_latest_text(db, u32(widget.id))
         out = out + template_fill(widget_template("widget-row"),
             vars("id", rho_int_to_str(u32(widget.id))) +
-            vars("title", escape_html(widget.title)) +
-            vars("kind", escape_html(widget.kind)) +
-            vars("source", escape_html(widget.sourceKind) + " · " +
-                escape_html(widget.source)) +
-            vars("latest", escape_html(latest) + " " + escape_html(widget.unit)) +
-            vars("method", escape_html(widget.method)))
+            vars("title", widget.title) +
+            vars("kind", widget.kind) +
+            vars("source", widget.sourceKind + " · " + widget.source) +
+            vars("latest", latest + " " + widget.unit) +
+            vars("method", widget.method))
         i = i + 1
     }
     if out == "" {
@@ -865,16 +864,16 @@ fn widget_edit_page(req: Request) Response {
     let widget: Widgets = widgets[index]
     let body: string = template_fill(widget_template("widget-edit"),
         vars("id", rho_int_to_str(u32(widget.id))) +
-        vars("title", escape_html(widget.title)) +
-        vars("kind", escape_html(widget.kind)) +
-        vars("source_kind", escape_html(widget.sourceKind)) +
-        vars("source", escape_html(widget.source)) +
-        vars("method", escape_html(widget.method)) +
+        vars("title", widget.title) +
+        vars("kind", widget.kind) +
+        vars("source_kind", widget.sourceKind) +
+        vars("source", widget.source) +
+        vars("method", widget.method) +
         vars("kind_options", widget_kind_options(widget.kind)) +
         vars("source_kind_options", widget_source_kind_options(widget.sourceKind)) +
         vars("method_options", widget_method_options(widget.method)) +
         vars("device_options", widget_gateway_source_options(widget.source)) +
-        vars("unit", escape_html(widget.unit)) +
+        vars("unit", widget.unit) +
         vars("points", rho_int_to_str(u32(widget.points))) +
         vars("decimals", rho_int_to_str(u32(widget.decimals))))
     let document: string = template_fill(widget_template("layout"),

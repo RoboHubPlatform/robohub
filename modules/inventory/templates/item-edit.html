@@ -1,14 +1,14 @@
 <h1>Edit item</h1>
 <form class="panel-form" method="post" action="/expenses/items/edit">
-  <input type="hidden" name="id" value="{{{ id }}}">
+  <input type="hidden" name="id" value="{{ id }}">
   <div class="grid">
-    <label>Name<input name="name" value="{{{ name }}}" required></label>
+    <label>Name<input name="name" value="{{ name }}" required></label>
     <label>Category<select name="category_id">{{{ category_options }}}</select></label>
-    <label>Unit<input name="unit" value="{{{ unit }}}"></label>
-    <label>Current quantity<input value="{{{ quantity }}}" disabled></label>
-    <label>Reorder at<input name="reorder" value="{{{ reorder }}}" inputmode="decimal"></label>
-    <label>Location<input name="location" value="{{{ location }}}"></label>
-    <label>Notes<input name="notes" value="{{{ notes }}}"></label>
+    <label>Unit<input name="unit" value="{{ unit }}"></label>
+    <label>Current quantity<input value="{{ quantity }}" disabled></label>
+    <label>Reorder at<input name="reorder" value="{{ reorder }}" inputmode="decimal"></label>
+    <label>Location<input name="location" value="{{ location }}"></label>
+    <label>Notes<input name="notes" value="{{ notes }}"></label>
   </div>
   <div class="form-actions"><button type="submit">Save item</button></div>
 </form>
