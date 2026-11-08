@@ -8,9 +8,9 @@ module widgets
 
 include "text.rho"
 include "widgets.rho"
-include "modules/notifications/src/main.rho"
-include "modules/forms/src/main.rho"
-include "modules/settings/src/main.rho"
+include "notifications"
+include "forms"
+include "settings"
 
 import std.sql
 import std.web.http
