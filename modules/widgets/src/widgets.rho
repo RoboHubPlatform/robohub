@@ -424,6 +424,48 @@ fn widget_gateway_source_options(selected: string) string {
     return out
 }
 
+fn widget_gateway_source_choices() string {
+    let text: string = widget_gateway_sources()
+    var out: string = ""
+    if text == "" {
+        return out
+    }
+    var rest: string = text
+    while rho_strlen(rest) > 0 {
+        let at: i32 = rho_str_index_of(rest, "},{")
+        var object: string = ""
+        if at < 0 {
+            object = rest
+            rest = ""
+        } else {
+            object = rho_str_slice(rest, 0, u32(at) + 1)
+            rest = rho_str_slice(rest, u32(at) + 3, u32(rho_strlen(rest)) - u32(at) - 3)
+        }
+        let id: string = widget_json_string_field(object, "id")
+        let owner: string = widget_json_string_field(object, "owner")
+        let label: string = widget_json_string_field(object, "label")
+        let unit: string = widget_json_string_field(object, "unit")
+        let direction: string = widget_json_string_field(object, "direction")
+        let value_url: string = widget_json_string_field(object, "value_url")
+        if id == "" || value_url == "" {
+            continue
+        }
+        var text_label: string = owner
+        if label != "" {
+            text_label = text_label + " · " + label
+        }
+        if unit != "" {
+            text_label = text_label + " (" + unit + ")"
+        }
+        if rho_str_eq(direction, "output") {
+            text_label = text_label + " — output"
+        }
+        if out != "" { out = out + "," }
+        out = out + id + "|" + text_label
+    }
+    return out
+}
+
 fn widget_kind_options(selected: string) string {
     var out: string = ""
     let kinds: string = "numeric|Number\nchart|Chart\ntable|Table\nbutton|Button\ntoggle|Switch"
@@ -755,13 +797,33 @@ fn widgets_page_message(req: Request, message: string) Response {
     if message != "" {
         notice = template_fill(widget_template("parts/notice"), vars("message", message))
     }
+    var add_fields: FormField[9]
+    add_fields[0] = FormField{ "title", "text", i18n_t(req, "widget.field.title"), "",
+        "Water temperature", true, "", "", "", "", "" }
+    add_fields[1] = FormField{ "kind", "select", i18n_t(req, "widget.field.kind"), "",
+        "", false, "", "numeric|Number,chart|Chart,table|Table,button|Button,toggle|Switch",
+        "numeric", "", "" }
+    add_fields[2] = FormField{ "source_kind", "select", i18n_t(req, "widget.field.source"), "",
+        "", false, "", "manual|Manual,url|URL / hook,mesh|Mesh telemetry", "manual", "", "" }
+    add_fields[3] = FormField{ "mesh_source", "select", i18n_t(req, "widget.field.mesh_source"), "",
+        i18n_t(req, "widget.choose_source"), false, "",
+        widget_gateway_source_choices(), "", "", "" }
+    add_fields[4] = FormField{ "source", "text", i18n_t(req, "widget.field.url"), "",
+        "http://host/api or hook?state={state}", false, "", "", "", "", "" }
+    add_fields[5] = FormField{ "method", "select", i18n_t(req, "widget.field.method"), "",
+        "", false, "", "GET|GET,POST|POST", "GET", "", "" }
+    add_fields[6] = FormField{ "unit", "text", i18n_t(req, "widget.field.unit"), "",
+        "°C", false, "", "", "", "", "" }
+    add_fields[7] = FormField{ "points", "text", i18n_t(req, "widget.field.points"), "",
+        "24", false, "", "", "24", "", "numeric" }
+    add_fields[8] = FormField{ "decimals", "select", i18n_t(req, "widget.field.decimals"), "",
+        "", false, "", "0|0,1|0.1,2|0.01,3|0.001", "2", "", "" }
+    let add_form: string = forms_open(add_fields, 9, "/widgets/add",
+        i18n_t(req, "widget.add"), i18n_locale(req))
     let body: string = template_fill(widget_template("pages/widgets"),
         i18n_vars(req) +
+        vars("add_form", add_form) +
         vars("notice", notice) + vars("rows", rows_html) +
-        vars("device_options", widget_gateway_source_options("")) +
-        vars("kind_options", widget_kind_options("numeric")) +
-        vars("source_kind_options", widget_source_kind_options("manual")) +
-        vars("method_options", widget_method_options("GET")) +
         vars("preview", widgets_dashboard_cards(true, locale)) +
         vars("docs", widgets_docs()) +
         vars("notifications", notification_embed()))
@@ -781,6 +843,9 @@ fn widgets_page(req: Request) Response {
 
 fn widgets_add(req: Request) Response {
     let body: string = request_body(req)
+    if !forms_csrf_ok(body) {
+        return widgets_page_message(req, i18n_t(req, "widget.csrf_refused"))
+    }
     let title: string = widget_trim(widget_form_value(body, "title"))
     if rho_strlen(title) == 0 {
         return widgets_page_message(req, "A widget needs a title.")

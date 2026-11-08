@@ -40,5 +40,10 @@
   "toast.stock_failed": "Stock could not be changed",
   "toast.stock_removed": "Stock removed.",
   "toast.purchase_failed": "Purchase could not be saved",
-  "toast.purchase_recorded": "Purchase recorded."
+  "toast.purchase_recorded": "Purchase recorded.",
+  "inventory.uncategorised": "Uncategorised",
+  "inventory.choose_item": "Choose an item",
+  "inventory.new_category": "New category",
+  "inventory.add_category": "Add category",
+  "inventory.csrf_refused": "Refused: the form token did not match."
 }

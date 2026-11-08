@@ -26,5 +26,6 @@
   "scheduler.when": "Când",
   "scheduler.note": "Notă",
   "toast.chore_failed": "Sarcina nu a putut fi salvată",
-  "toast.chore_added": "Sarcină adăugată."
+  "toast.chore_added": "Sarcină adăugată.",
+  "scheduler.csrf_refused": "Refuzat: tokenul formularului nu corespunde."
 }

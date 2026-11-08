@@ -43,6 +43,8 @@ struct FormField {
     // error is the message for this field when its value failed a rule; empty
     // when the field is valid.
     err: string
+    // input_mode is the mobile keyboard hint (`decimal`, `numeric`, ...).
+    input_mode: string
 }
 
 // The field kinds a schema may name. They are constants so a declaration
@@ -67,5 +69,5 @@ const FORM_PLAIN: string = "plain"
 // forms_field is a shorthand for a field with nothing but its identity and
 // label, which is how most fields begin.
 fn forms_field(name: string, kind: string, label: string) FormField {
-    return FormField{ name, kind, label, "", "", false, "", "", "", "" }
+    return FormField{ name, kind, label, "", "", false, "", "", "", "", "" }
 }

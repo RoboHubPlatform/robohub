@@ -342,8 +342,32 @@ fn scheduler_page_message(req: Request, message: string) Response {
     if message != "" {
         notice = template_fill(scheduler_template("parts/notice"), vars("message", message))
     }
+    let kinds: string = "interval|" + i18n_t(req, "scheduler.every_hours") +
+        ",cron|" + i18n_t(req, "scheduler.cron") +
+        ",one_time|" + i18n_t(req, "scheduler.one_time") +
+        ",usage|" + i18n_t(req, "scheduler.after_use")
+    var add_fields: FormField[8]
+    add_fields[0] = FormField{ "title", "text", i18n_t(req, "scheduler.title_field"), "",
+        "Change filter sock", true, "", "", "", "", "" }
+    add_fields[1] = FormField{ "kind", "select", i18n_t(req, "scheduler.schedule"), "",
+        "", false, "", kinds, "interval", "", "" }
+    add_fields[2] = FormField{ "value", "text", i18n_t(req, "scheduler.cron_date"), "",
+        "0 9 * * 1 or 2026-11-03T09:00", false, "", "", "", "", "" }
+    add_fields[3] = FormField{ "interval_hours", "text", i18n_t(req, "scheduler.interval_hours"), "",
+        "72", false, "", "", "", "", "numeric" }
+    add_fields[4] = FormField{ "usage_hours", "text", i18n_t(req, "scheduler.usage_hours"), "",
+        "4000", false, "", "", "", "", "numeric" }
+    add_fields[5] = FormField{ "grace_hours", "text", i18n_t(req, "scheduler.grace_hours"), "",
+        "12", false, "", "", "", "", "numeric" }
+    add_fields[6] = FormField{ "priority", "text", i18n_t(req, "scheduler.priority"), "",
+        "normal", false, "", "", "normal", "", "" }
+    add_fields[7] = FormField{ "description", "text", i18n_t(req, "scheduler.description"), "",
+        "", false, "", "", "", "", "" }
+    let add_form: string = forms_open(add_fields, 8, "/scheduler/chores/add",
+        i18n_t(req, "scheduler.add_chore"), i18n_locale(req))
     let body: string = template_fill(scheduler_template("pages/scheduler"),
         i18n_vars(req) +
+        vars("add_form", add_form) +
         vars("notice", notice) +
         vars("rows", scheduler_rows(chores, count, now)) +
         vars("completions", scheduler_completion_rows(completions, completion_count)) +
@@ -386,6 +410,9 @@ fn scheduler_find(chores: Chores[256], count: u32, id: u32) i32 {
 
 fn chores_add(req: Request) Response {
     let body: string = request_body(req)
+    if !forms_csrf_ok(body) {
+        return scheduler_page_message(req, i18n_t(req, "scheduler.csrf_refused"))
+    }
     let title: string = scheduler_trim(scheduler_form_value(body, "title"))
     if rho_strlen(title) == 0 {
         return scheduler_page_message(req, "A chore needs a title.")

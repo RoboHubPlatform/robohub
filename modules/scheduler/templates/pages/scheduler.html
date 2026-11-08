@@ -20,26 +20,7 @@
     </section>
     <section id="tab-add" class="tab">
       <h2>{{t "scheduler.add_a_chore"}}</h2>
-      <form class="panel-form" method="post" action="/scheduler/chores/add">
-        <div class="grid">
-          <label>{{t "scheduler.title_field"}}<input name="title" required placeholder="Change filter sock"></label>
-          <label>Schedule
-            <select name="kind">
-              <option value="interval">{{t "scheduler.every_hours"}}</option>
-              <option value="cron">{{t "scheduler.cron"}}</option>
-              <option value="one_time">{{t "scheduler.one_time"}}</option>
-              <option value="usage">{{t "scheduler.after_use"}}</option>
-            </select>
-          </label>
-          <label>{{t "scheduler.cron_date"}}<input name="value" placeholder="0 9 * * 1 or 2026-11-03T09:00"></label>
-          <label>{{t "scheduler.interval_hours"}}<input name="interval_hours" inputmode="numeric" placeholder="72"></label>
-          <label>{{t "scheduler.usage_hours"}}<input name="usage_hours" inputmode="numeric" placeholder="4000"></label>
-          <label>{{t "scheduler.grace_hours"}}<input name="grace_hours" inputmode="numeric" placeholder="12"></label>
-          <label>{{t "scheduler.priority"}}<input name="priority" value="normal" placeholder="normal"></label>
-          <label>{{t "scheduler.description"}}<input name="description" placeholder="Optional"></label>
-        </div>
-        <div class="form-actions"><button type="submit">{{t "scheduler.add_chore"}}</button></div>
-      </form>
+      {{{ add_form }}}
     </section>
     <section id="tab-completed" class="tab">
       <h2>{{t "scheduler.completed"}}</h2>

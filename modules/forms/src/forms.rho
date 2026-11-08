@@ -352,6 +352,7 @@ fn forms_field_html(f: FormField) string {
         vars("name", f.name) +
         vars("value", f.value) +
         vars("placeholder", f.placeholder) +
+        vars("input_mode", f.input_mode) +
         vars("required_attr", required_attr) +
         vars("error_html", error_html) +
         vars("hint_html", hint_html))

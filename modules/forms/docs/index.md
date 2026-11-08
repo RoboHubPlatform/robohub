@@ -39,7 +39,11 @@ The fields, in order:
 
 `kind` is `text`, `password`, `number`, `select`, `textarea`, `toggle` or
 `hidden`. `pattern` is one of `ip`, `number`, `host`, `email`, `url`, `plain`,
-or empty for none.
+or empty for none. `input_mode` gives a text field a mobile keyboard hint such as
+`decimal` or `numeric`.
+
+`forms_open` takes the active locale as its last argument and translates the
+default submit label; a caller may pass `i18n_t(req, "common.save")` instead.
 
 ## The round trip
 
@@ -56,7 +60,7 @@ fn my_page(req: Request) Response {
     var schema: FormField[2]
     my_schema(schema)
     forms_reset_errors(schema, 2)
-    let content: string = forms_open(schema, 2, "/configure", "Save")
+    let content: string = forms_open(schema, 2, "/configure", "", i18n_locale(req))
     return html(status_ok(), "<h1>Configure</h1>" + content)
 }
 
@@ -70,7 +74,7 @@ fn my_save(req: Request) Response {
     }
     forms_read(schema, 2, body)
     if !forms_validate(schema, 2) {
-        let content: string = forms_open(schema, 2, "/configure", "Save")
+        let content: string = forms_open(schema, 2, "/configure", "", i18n_locale(req))
         return html(status_ok(), "<h1>Configure</h1>" + content)
     }
     // Valid: use what the user typed.

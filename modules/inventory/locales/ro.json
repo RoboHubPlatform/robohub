@@ -40,5 +40,10 @@
   "toast.stock_failed": "Stocul nu a putut fi modificat",
   "toast.stock_removed": "Stoc retras.",
   "toast.purchase_failed": "Achiziția nu a putut fi salvată",
-  "toast.purchase_recorded": "Achiziție înregistrată."
+  "toast.purchase_recorded": "Achiziție înregistrată.",
+  "inventory.uncategorised": "Necategorizat",
+  "inventory.choose_item": "Alege un articol",
+  "inventory.new_category": "Categorie nouă",
+  "inventory.add_category": "Adaugă categorie",
+  "inventory.csrf_refused": "Refuzat: tokenul formularului nu corespunde."
 }

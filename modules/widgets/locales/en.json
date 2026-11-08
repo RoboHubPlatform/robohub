@@ -41,5 +41,8 @@
   "toast.widget_failed": "Widget could not be saved",
   "toast.widget_added": "Widget added.",
   "toast.widget_moved": "Widget moved.",
-  "toast.widget_resized": "Widget resized."
+  "toast.widget_resized": "Widget resized.",
+  "widget.field.decimals": "Decimals (0-3)",
+  "widget.choose_source": "Choose a gateway source",
+  "widget.csrf_refused": "Refused: the form token did not match."
 }

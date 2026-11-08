@@ -286,6 +286,28 @@ fn inventory_items(items: ListItemsRow[512], count: u32, selected: string) strin
     return out
 }
 
+fn inventory_category_choices(categories: Categories[64], count: u32) string {
+    var out: string = ""
+    var i: u32 = 0
+    while i < count {
+        if out != "" { out = out + "," }
+        out = out + rho_int_to_str(u32(categories[i].id)) + "|" + categories[i].name
+        i = i + 1
+    }
+    return out
+}
+
+fn inventory_item_choices(items: ListItemsRow[512], count: u32) string {
+    var out: string = ""
+    var i: u32 = 0
+    while i < count {
+        if out != "" { out = out + "," }
+        out = out + rho_int_to_str(u32(items[i].id)) + "|" + items[i].name
+        i = i + 1
+    }
+    return out
+}
+
 fn inventory_find_item(items: ListItemsRow[512], count: u32, id: u32) i32 {
     var i: u32 = 0
     while i < count {
@@ -485,8 +507,68 @@ fn inventory_page_message(req: Request, message: string) Response {
         toast_js = "<script>document.addEventListener(\"DOMContentLoaded\",function(){if(window.rhoToast){window.rhoToast(\"" +
             message + "\", \"info\");}});</script>"
     }
+    var add_fields: FormField[7]
+    add_fields[0] = FormField{ "name", "text", i18n_t(req, "inventory.name"), "",
+        "", true, "", "", "", "", "" }
+    add_fields[1] = FormField{ "category_id", "select", i18n_t(req, "inventory.category"), "",
+        i18n_t(req, "inventory.uncategorised"), false, "",
+        inventory_category_choices(categories, category_count), "", "", "" }
+    add_fields[2] = FormField{ "unit", "text", i18n_t(req, "inventory.unit"), "",
+        "unit, kg, L", false, "", "", "", "", "" }
+    add_fields[3] = FormField{ "quantity", "text", i18n_t(req, "inventory.opening_quantity"), "",
+        "0", false, "", "", "0", "", "decimal" }
+    add_fields[4] = FormField{ "reorder", "text", i18n_t(req, "inventory.reorder_at"), "",
+        "0", false, "", "", "0", "", "decimal" }
+    add_fields[5] = FormField{ "location", "text", i18n_t(req, "inventory.location"), "",
+        "", false, "", "", "", "", "" }
+    add_fields[6] = FormField{ "notes", "text", i18n_t(req, "inventory.notes"), "",
+        "", false, "", "", "", "", "" }
+    let add_item_form: string = forms_open(add_fields, 7, "/expenses/items/add",
+        i18n_t(req, "inventory.add_item"), i18n_locale(req))
+
+    var purchase_fields: FormField[7]
+    purchase_fields[0] = FormField{ "item_id", "select", i18n_t(req, "inventory.item"), "",
+        i18n_t(req, "inventory.choose_item"), true, "",
+        inventory_item_choices(items, item_count), "", "", "" }
+    purchase_fields[1] = FormField{ "quantity", "text", i18n_t(req, "inventory.qty"), "",
+        "1", false, "", "", "1", "", "decimal" }
+    purchase_fields[2] = FormField{ "unit_price", "text", i18n_t(req, "inventory.unit_price"), "",
+        "0.00", true, "", "", "", "", "decimal" }
+    purchase_fields[3] = FormField{ "category_id", "select", i18n_t(req, "inventory.category"), "",
+        i18n_t(req, "inventory.uncategorised"), false, "",
+        inventory_category_choices(categories, category_count), "", "", "" }
+    purchase_fields[4] = FormField{ "source", "text", i18n_t(req, "inventory.store"), "",
+        "", false, "", "", "", "", "" }
+    purchase_fields[5] = FormField{ "purchased_at", "date", i18n_t(req, "inventory.date"), "",
+        "", false, "", "", inventory_date(), "", "" }
+    purchase_fields[6] = FormField{ "comment", "text", i18n_t(req, "inventory.comment"), "",
+        "", false, "", "", "", "", "" }
+    let purchase_form: string = forms_open(purchase_fields, 7, "/expenses/purchases/add",
+        i18n_t(req, "inventory.record_purchase"), i18n_locale(req))
+
+    var consume_fields: FormField[3]
+    consume_fields[0] = FormField{ "item_id", "select", i18n_t(req, "inventory.item"), "",
+        i18n_t(req, "inventory.choose_item"), true, "",
+        inventory_item_choices(items, item_count), "", "", "" }
+    consume_fields[1] = FormField{ "quantity", "text", i18n_t(req, "inventory.qty"), "",
+        "", true, "", "", "", "", "decimal" }
+    consume_fields[2] = FormField{ "comment", "text", i18n_t(req, "inventory.reason"), "",
+        "", false, "", "", "", "", "" }
+    let consume_form: string = forms_open(consume_fields, 3, "/expenses/items/consume",
+        i18n_t(req, "inventory.remove_stock"), i18n_locale(req))
+
+    var category_fields: FormField[1]
+    category_fields[0] = FormField{ "category", "text", i18n_t(req, "inventory.new_category"), "",
+        "", true, "", "", "", "", "" }
+    let category_form: string = forms_open(category_fields, 1, "/expenses/categories/add",
+        i18n_t(req, "inventory.add_category"), i18n_locale(req))
+
     let body: string = template_fill(inventory_template("pages/inventory"),
         i18n_vars(req) +
+        vars("add_item_form", add_item_form) +
+        vars("purchase_form", purchase_form) +
+        vars("consume_form", consume_form) +
+        vars("category_form", category_form) +
         vars("notice", "") +
         vars("today", escape_html(inventory_date())) +
         vars("currency", escape_html(inventory_setting("currency", ""))) +
@@ -578,6 +660,9 @@ fn item_edit_page(req: Request) Response {
 
 fn items_add(req: Request) Response {
     let body: string = request_body(req)
+    if !forms_csrf_ok(body) {
+        return inventory_page_message(req, i18n_t(req, "inventory.csrf_refused"))
+    }
     let name: string = trim(form_value(body, "name"))
     if rho_strlen(name) == 0 {
         return inventory_page_message(req, "An item needs a name.")
@@ -638,6 +723,9 @@ fn items_edit_save(req: Request) Response {
 
 fn items_consume(req: Request) Response {
     let body: string = request_body(req)
+    if !forms_csrf_ok(body) {
+        return inventory_page_message(req, i18n_t(req, "inventory.csrf_refused"))
+    }
     let id: u32 = rho_int_from_str(trim(form_value(body, "item_id")))
     let amount: u32 = inventory_parse_scaled(form_value(body, "quantity"), 1000)
     if id == 0 || amount == 0 {
@@ -667,6 +755,9 @@ fn items_consume(req: Request) Response {
 
 fn expenses_add(req: Request) Response {
     let body: string = request_body(req)
+    if !forms_csrf_ok(body) {
+        return inventory_page_message(req, i18n_t(req, "inventory.csrf_refused"))
+    }
     let item_id: u32 = rho_int_from_str(trim(form_value(body, "item_id")))
     let quantity: u32 = inventory_parse_scaled(form_value(body, "quantity"), 1000)
     let unit_price: u32 = inventory_parse_scaled(form_value(body, "unit_price"), 100)
@@ -749,6 +840,9 @@ fn expenses_delete(req: Request) Response {
 
 fn categories_add(req: Request) Response {
     let body: string = request_body(req)
+    if !forms_csrf_ok(body) {
+        return inventory_page_message(req, i18n_t(req, "inventory.csrf_refused"))
+    }
     let name: string = trim(form_value(body, "category"))
     if rho_strlen(name) == 0 {
         return inventory_page_message(req, "A category needs a name.")

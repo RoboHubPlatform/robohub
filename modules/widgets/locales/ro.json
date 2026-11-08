@@ -41,5 +41,8 @@
   "toast.widget_failed": "Widgetul nu a putut fi salvat",
   "toast.widget_added": "Widget adăugat.",
   "toast.widget_moved": "Widget mutat.",
-  "toast.widget_resized": "Widget redimensionat."
+  "toast.widget_resized": "Widget redimensionat.",
+  "widget.field.decimals": "Decimale (0-3)",
+  "widget.choose_source": "Alege o sursă gateway",
+  "widget.csrf_refused": "Refuzat: tokenul formularului nu corespunde."
 }

@@ -46,44 +46,15 @@ there. A purchase increases stock and is recorded as spending in one step.</p>
     </section>
     <section id="tab-add" class="tab">
       <h2>Add an item</h2>
-      <form class="panel-form" method="post" action="/expenses/items/add">
-        <div class="grid">
-          <label>Name<input name="name" required placeholder="Filter sock"></label>
-          <label>Category<select name="category_id">{{{ category_options }}}</select></label>
-          <label>Unit<input name="unit" value="unit" placeholder="unit, kg, L"></label>
-          <label>Opening quantity<input name="quantity" value="0" inputmode="decimal"></label>
-          <label>Reorder at<input name="reorder" value="0" inputmode="decimal"></label>
-          <label>Location<input name="location" placeholder="Sump cabinet"></label>
-          <label>Notes<input name="notes" placeholder="Optional"></label>
-        </div>
-        <div class="form-actions"><button type="submit">{{t "inventory.add_item"}}</button></div>
-      </form>
+      {{{ add_item_form }}}
     </section>
     <section id="tab-purchase" class="tab">
       <h2>Record a purchase</h2>
-      <form class="panel-form" method="post" action="/expenses/purchases/add">
-        <div class="grid">
-          <label>Item<select name="item_id" required>{{{ item_options }}}</select></label>
-          <label>Quantity<input name="quantity" value="1" inputmode="decimal"></label>
-          <label>Unit price<input name="unit_price" inputmode="decimal" required placeholder="0.00"></label>
-          <label>Category<select name="category_id">{{{ category_options }}}</select></label>
-          <label>Store / source<input name="source" placeholder="Local shop"></label>
-          <label>Date<input type="date" name="purchased_at" value="{{{ today }}}"></label>
-          <label>Comment<input name="comment" placeholder="Optional note"></label>
-        </div>
-        <div class="form-actions"><button type="submit">{{t "inventory.record_purchase"}}</button></div>
-      </form>
+      {{{ purchase_form }}}
     </section>
     <section id="tab-consume" class="tab">
       <h2>Remove from stock</h2>
-      <form class="panel-form" method="post" action="/expenses/items/consume">
-        <div class="grid">
-          <label>Item<select name="item_id" required>{{{ item_options }}}</select></label>
-          <label>Quantity<input name="quantity" inputmode="decimal" required></label>
-          <label>Reason<input name="comment" placeholder="Used, spilled, expired"></label>
-        </div>
-        <div class="form-actions"><button type="submit" class="quiet">{{t "inventory.remove_stock"}}</button></div>
-      </form>
+      {{{ consume_form }}}
     </section>
     <section id="tab-categories" class="tab">
       <h2>{{t "inventory.categories"}}</h2>
@@ -91,10 +62,7 @@ there. A purchase increases stock and is recorded as spending in one step.</p>
         <thead><tr><th>Category</th></tr></thead>
         <tbody>{{{ category_rows }}}</tbody>
       </table>
-      <form class="panel-form category-form" method="post" action="/expenses/categories/add">
-        <div class="grid"><label>New category<input name="category" placeholder="Consumables" required></label></div>
-        <div class="form-actions"><button type="submit" class="quiet">Add category</button></div>
-      </form>
+      {{{ category_form }}}
     </section>
     <section id="tab-docs" class="tab">
       <h2>Documentation</h2>

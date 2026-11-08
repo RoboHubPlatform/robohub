@@ -20,26 +20,7 @@
     </section>
     <section id="tab-add" class="tab">
       <h2>{{t "widget.form_title"}}</h2>
-      <form class="panel-form" method="post" action="/widgets/add">
-        <div class="grid">
-          <label>{{t "widget.field.title"}}<input name="title" required placeholder="Water temperature"></label>
-          <label>{{t "widget.field.kind"}}<select name="kind">{{{ kind_options }}}</select></label>
-          <label>{{t "widget.field.source"}}<select name="source_kind">{{{ source_kind_options }}}</select></label>
-          <label>{{t "widget.field.mesh_source"}}<select name="mesh_source">{{{ device_options }}}</select></label>
-          <label>{{t "widget.field.url"}}<input name="source" placeholder="http://host/api or hook?state={state}"></label>
-          <label>{{t "widget.field.method"}}<select name="method">{{{ method_options }}}</select></label>
-          <label>{{t "widget.field.unit"}}<input name="unit" placeholder="°C"></label>
-          <label>{{t "widget.field.points"}}<input name="points" value="24" inputmode="numeric"></label>
-    <label class="decimals-field">Decimals (0-3)
-      <select name="decimals">
-        <option value="0">0</option>
-        <option value="1">0.1</option>
-        <option value="2" selected>0.01</option>
-        <option value="3">0.001</option>
-      </select></label>
-        </div>
-        <div class="form-actions"><button type="submit">{{t "widget.add"}}</button></div>
-      </form>
+      {{{ add_form }}}
     </section>
     <section id="tab-preview" class="tab">
       <h2>{{t "widget.preview"}}</h2>
