@@ -31,6 +31,10 @@ suites:
     kind: command
     command: ["sh", "tests/registry-tests.sh"]
     tags: [unit, fast]
+  - name: dependencies are declared
+    kind: command
+    command: ["python3", "scripts/check-deps.py"]
+    tags: [unit, fast]
   - name: every manifest matches the toolchain's schema
     kind: command
     command: ["sh", "tests/validate-manifests.sh"]

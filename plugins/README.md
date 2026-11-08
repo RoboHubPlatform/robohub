@@ -18,3 +18,23 @@ A contract is not a plugin: it is the stable interface an application calls. A
 plugin is one implementation the contract dispatches to. This is what lets an
 application change from one gateway provider to another by naming a different
 plugin in its `plugins:` block, without learning either provider's API.
+
+## Dependencies
+
+Every module a host includes, every module in its `modules:` block, and every
+plugin in its `plugins:` block is declared under `deps.robohub` in that host's
+`module.yml`:
+
+```yaml
+deps:
+  rho-log: ">=0.1.0"     # a Rho component
+  robohub:
+    forms: ">=0.1.0"     # a RoboHub module or plugin
+    alert-log: ">=0.1.0"
+```
+
+The version lives in `deps.robohub` only. A `modules:` entry carries where the
+module sits and how the host configures it; the `plugins:` entry carries its
+settings. Repeating the version in those blocks is refused. `rho build` refuses
+a source include whose module is not declared under `deps.robohub`, and
+`scripts/check-deps.py` checks the same rule for every manifest in the tree.
