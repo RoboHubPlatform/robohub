@@ -54,8 +54,10 @@ let body: string = template_fill(template_get("page"), vars("body", body) + i18n
 2. the first supported `Accept-Language` tag;
 3. `en`.
 
-`POST /i18n/locale` sets the cookie and redirects to a local `next` path. It
-also sends `HX-Redirect`, so an HTMX form works without a special client path.
+The layout shows two flag buttons, one per supported language. Clicking one
+posts to `/i18n/locale`, which sets the cookie and redirects to the local `next`
+path. It also sends `HX-Redirect`, so an HTMX form works without a special client
+path.
 
 ## Coverage
 

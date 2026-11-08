@@ -1,9 +1,11 @@
+<style>
+.locale-switch { display: inline-flex; gap: .25rem; align-items: center; margin: 0 .3rem; }
+.locale-flag { padding: .15rem .3rem; border: 1px solid transparent; border-radius: 6px; background: transparent; font-size: 1.15rem; line-height: 1; cursor: pointer; opacity: .55; }
+.locale-flag:hover { opacity: 1; border-color: rgba(228,184,102,.45); }
+.locale-flag.active { opacity: 1; border-color: #e4b866; background: rgba(228,184,102,.12); }
+</style>
 <form class="locale-switch" method="post" action="/i18n/locale">
-  <label class="sr-only" for="locale-select">{{t "common.language"}}</label>
-  <select id="locale-select" name="locale">
-    <option value="en"{{#if en}} selected{{/if}}>English</option>
-    <option value="ro"{{#if ro}} selected{{/if}}>Română</option>
-  </select>
   <input type="hidden" name="next" value="{{ next }}">
-  <button type="submit" class="quiet">{{t "common.language"}}</button>
+  <button type="submit" name="locale" value="en" class="locale-flag{{#if en}} active{{/if}}" aria-pressed="{{#if en}}true{{else}}false{{/if}}" title="English">🇬🇧</button>
+  <button type="submit" name="locale" value="ro" class="locale-flag{{#if ro}} active{{/if}}" aria-pressed="{{#if ro}}true{{else}}false{{/if}}" title="Română">🇷🇴</button>
 </form>
