@@ -1,28 +1,88 @@
 #!/usr/bin/env bash
-# deploy-app.sh — build and restart a robohub application managed by the keeper
-# Usage: ./scripts/deploy-app.sh mesh
+# deploy-app.sh — build and run a robohub application as a user service.
+# Usage: ./scripts/deploy-app.sh <name> [application-dir]
+#
+# The first install writes ~/.config/systemd/user/<name>.service and enables
+# it. Later runs rebuild and restart the same unit, so the Keeper start/stop
+# controls and the shell script act on one service.
 set -euo pipefail
+
 export PATH=$HOME/.local/bin:/usr/local/go/bin:$HOME/.rho/bin:$PATH
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROBOHUB="$(dirname "$HERE")"
 NAME="${1:?application name required}"
-APP="$ROBOHUB/applications/$NAME"
+APP="${2:-$ROBOHUB/applications/$NAME}"
 RHO="${RHO:-$HOME/.rho/bin/rho}"
-UNIT="$HOME/.config/systemd/user/$NAME.service"
+UNIT_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
+UNIT="$UNIT_DIR/$NAME.service"
 
 if [[ ! -d "$APP" ]]; then
-    echo "Application '$NAME' not found under $ROBOHUB/applications" >&2
+    echo "Application '$NAME' not found at $APP" >&2
     exit 1
 fi
+if [[ ! -f "$APP/module.yml" ]]; then
+    echo "$APP/module.yml is missing" >&2
+    exit 1
+fi
+
+META=$(python3 - "$APP/module.yml" "$NAME" <<'PY'
+import sys, yaml
+path, name = sys.argv[1], sys.argv[2]
+with open(path) as fh:
+    data = yaml.safe_load(fh) or {}
+def pick(*keys):
+    for key in keys:
+        value = data
+        for part in key.split("."):
+            value = value.get(part, {}) if isinstance(value, dict) else {}
+        if value not in ("", None, {}):
+            return value
+    return ""
+port = pick("application.port", "module.port", "deploy.port")
+command = pick("application.command", "module.command") or name
+print(f"{port}\t{command}")
+PY
+)
+PORT="${META%%$'\t'*}"
+COMMAND="${META#*$'\t'}"
 
 echo "Building $NAME …"
 cd "$APP"
 "$RHO" build . || { echo "BUILD FAILED"; exit 1; }
 
-echo "Restarting $NAME …"
-systemctl --user restart "$NAME" 2>/dev/null || {
-    echo "No systemd unit $NAME.service — start it from the keeper Applications page."
+if [[ -z "$PORT" || -z "$COMMAND" || ! -x "$APP/build/$COMMAND" ]]; then
+    echo "$NAME has no serveable application block; no service was installed."
     exit 0
-}
-echo "Done: $NAME is restarting."
+fi
+
+echo "Writing $UNIT …"
+mkdir -p "$UNIT_DIR"
+cat > "$UNIT" <<UNIT
+[Unit]
+Description=RoboHub $NAME
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=$APP
+Environment=HOME=$HOME
+Environment=PATH=$PATH
+Environment=ROBOHUB_WORKSPACE=$ROBOHUB
+Environment=ROBOHUB_APP_WORKSPACE=$HOME/.rho/keeper/workspaces/$NAME
+Environment=ROBOHUB_APP_MANIFEST=$APP/module.yml
+Environment=RHO_KEEPER_PORT=${RHO_KEEPER_PORT:-19090}
+Environment=RHO_HTTP_ADDR=:$PORT
+ExecStart=$APP/build/$COMMAND
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
+UNIT
+
+loginctl enable-linger "$(whoami)" 2>/dev/null || true
+systemctl --user daemon-reload
+systemctl --user enable "$NAME" >/dev/null
+systemctl --user restart "$NAME"
+echo "Done: $NAME is running on port $PORT."
