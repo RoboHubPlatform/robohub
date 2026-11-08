@@ -335,8 +335,8 @@ fn plugin_rows(root: string) string {
     // Scan the plugins directory for every module.yml so all installed plugins
     // are listed, not only those written into the registry database.
     let dreport: string = "list-plugins"
-    ignore_u32(rho_exec("ls", root, dreport))
-    var drest: string = rho_read_text(apps_report(dreport))
+    ignore_u32(rho_exec("ls", root, root + "/.list-plugins.txt"))
+    var drest: string = rho_read_text(root + "/.list-plugins.txt")
     while drest != "" {
         let at: i32 = rho_str_index_of(drest, "\n")
         let name: string = ""
