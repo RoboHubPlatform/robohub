@@ -203,3 +203,14 @@ Checklist:
 - `{{ value }}` for data and `{{{ fragment }}}` for server-built HTML;
 - every action keeps a normal POST path;
 - assets are served by the HTMX module, not a CDN.
+
+### Languages in live fragments
+
+A shared SSE connection carries one fragment for every client, so a translated
+fragment names its language in the event. Widget cards, for example, use
+`widget-<id>-en` and `widget-<id>-ro`; the card template subscribes with
+`widget-<id>-{{ locale }}`. Data-only feeds such as telemetry stay locale-neutral.
+
+`rho build` reports locale keys that are missing from a non-default catalog, and
+keys that the default catalog does not have, so a partial translation is visible
+without failing the build.

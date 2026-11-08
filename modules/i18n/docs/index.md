@@ -56,3 +56,14 @@ let body: string = template_fill(template_get("page"), vars("body", body) + i18n
 
 `POST /i18n/locale` sets the cookie and redirects to a local `next` path. It
 also sends `HX-Redirect`, so an HTMX form works without a special client path.
+
+## Coverage
+
+`rho build` compares each non-default catalog with the default one and prints
+the number of missing keys, with the first key, plus any key the locale has that
+the default does not. Missing keys fall back to the default language; the
+warning is a prompt to finish the translation, not a build failure.
+
+Live fragments carry the language in their event name, for example
+`widget-1-en` and `widget-1-ro`, because one SSE connection serves clients that
+may have chosen different languages.
