@@ -1,0 +1,7 @@
+module i18n
+
+include "i18n.rho"
+
+import std.web.http
+
+route POST "/i18n/locale" => i18n_switch

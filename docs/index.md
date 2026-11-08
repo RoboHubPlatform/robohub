@@ -49,6 +49,16 @@ fragments, use one SSE connection per page, and render their own templates.
 See [Reactive UI](reactive-ui/) for the conventions, the dual-mode handler
 pattern, the event format, and what still needs a small script.
 
+## Languages
+
+Rho pages speak English and Romanian. Catalogs are flat JSON files embedded by
+the build, so an off-grid device needs no translation service and no JSON parser
+at runtime. `modules/i18n` chooses the language from the `locale` cookie, then
+`Accept-Language`, then English, and `{{t "key"}}` translates inside a template.
+
+See [Internationalisation](i18n/) for the catalog format, the switcher, and how
+to add a language.
+
 ## Modules
 
 **Modules** here means the reusable application modules under `modules/`: they

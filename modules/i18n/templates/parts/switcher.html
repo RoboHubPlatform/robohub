@@ -1,0 +1,9 @@
+<form class="locale-switch" method="post" action="/i18n/locale">
+  <label class="sr-only" for="locale-select">{{t "common.language"}}</label>
+  <select id="locale-select" name="locale">
+    <option value="en"{{#if en}} selected{{/if}}>English</option>
+    <option value="ro"{{#if ro}} selected{{/if}}>Română</option>
+  </select>
+  <input type="hidden" name="next" value="{{ next }}">
+  <button type="submit" class="quiet">{{t "common.language"}}</button>
+</form>

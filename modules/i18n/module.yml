@@ -1,0 +1,28 @@
+#
+# i18n — locale negotiation and a language switcher for Rho hosts.
+#
+# Catalogs are flat JSON files embedded by the host's build. This module owns
+# the request-side choice of language, the cookie, and the switcher partial.
+#
+module:
+  name: i18n
+  type: module
+  title: Internationalisation
+  category: ui
+  version: "0.1.0"
+  description: >
+    Locale negotiation from a cookie or Accept-Language, a language switcher,
+    and the helper that carries the active locale into a Rho template.
+  maintainer: "Aurel Miron"
+  license: "MIT"
+  created: "2026-11-08"
+
+main: src/main.rho
+
+docs:
+  title: Internationalisation
+  section: modules
+  order: "31"
+  index: docs/index.md
+  sources:
+    - docs/index.md
