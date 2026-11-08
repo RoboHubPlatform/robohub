@@ -11,6 +11,7 @@ include "text.rho"
 include "inventory.rho"
 include "modules/notifications/src/main.rho"
 include "modules/forms/src/main.rho"
+include "modules/settings/src/main.rho"
 
 import std.sql
 import std.web.http

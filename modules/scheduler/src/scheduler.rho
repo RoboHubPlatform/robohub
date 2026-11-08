@@ -358,9 +358,9 @@ fn scheduler_page_message(req: Request, message: string) Response {
     add_fields[4] = FormField{ "usage_hours", "text", i18n_t(req, "scheduler.usage_hours"), "",
         "4000", false, "", "", "", "", "numeric" }
     add_fields[5] = FormField{ "grace_hours", "text", i18n_t(req, "scheduler.grace_hours"), "",
-        "12", false, "", "", "", "", "numeric" }
+        "12", false, "", "", scheduler_setting("grace_hours", "12"), "", "numeric" }
     add_fields[6] = FormField{ "priority", "text", i18n_t(req, "scheduler.priority"), "",
-        "normal", false, "", "", "normal", "", "" }
+        "normal", false, "", "", scheduler_setting("priority", "normal"), "", "" }
     add_fields[7] = FormField{ "description", "text", i18n_t(req, "scheduler.description"), "",
         "", false, "", "", "", "", "" }
     let add_form: string = forms_open(add_fields, 8, "/scheduler/chores/add",
@@ -407,6 +407,10 @@ fn scheduler_find(chores: Chores[256], count: u32, id: u32) i32 {
 /* -------------------------------------------------------------------------- */
 /*  Actions                                                                   */
 /* -------------------------------------------------------------------------- */
+
+fn scheduler_setting(key: string, fallback: string) string {
+    return settings_get("scheduler." + key, fallback)
+}
 
 fn chores_add(req: Request) Response {
     let body: string = request_body(req)

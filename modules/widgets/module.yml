@@ -24,6 +24,7 @@ main: src/main.rho
 deps:
   rho-log: ">=0.1.0"
   robohub:
+    settings: ">=0.1.0"
     notifications: ">=0.1.0"
     forms: ">=0.1.0"
 

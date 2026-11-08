@@ -132,7 +132,12 @@ fn inventory_host_config(key: string) string {
 fn inventory_setting(key: string, fallback: string) string {
     // The host application owns the module's settings, so two applications
     // including this module can give it different values. Nothing is read from
-    // beside the module itself.
+    // beside the module itself. Older hosts kept a module config block; it is
+    // still read after the settings store so an upgrade keeps working.
+    let from_settings: string = settings_get("inventory." + key, "")
+    if from_settings != "" {
+        return from_settings
+    }
     let from_host: string = inventory_host_config(key)
     if from_host != "" {
         return from_host
@@ -514,11 +519,11 @@ fn inventory_page_message(req: Request, message: string) Response {
         i18n_t(req, "inventory.uncategorised"), false, "",
         inventory_category_choices(categories, category_count), "", "", "" }
     add_fields[2] = FormField{ "unit", "text", i18n_t(req, "inventory.unit"), "",
-        "unit, kg, L", false, "", "", "", "", "" }
+        "unit, kg, L", false, "", "", inventory_setting("default_unit", ""), "", "" }
     add_fields[3] = FormField{ "quantity", "text", i18n_t(req, "inventory.opening_quantity"), "",
         "0", false, "", "", "0", "", "decimal" }
     add_fields[4] = FormField{ "reorder", "text", i18n_t(req, "inventory.reorder_at"), "",
-        "0", false, "", "", "0", "", "decimal" }
+        "0", false, "", "", inventory_setting("reorder", "0"), "", "decimal" }
     add_fields[5] = FormField{ "location", "text", i18n_t(req, "inventory.location"), "",
         "", false, "", "", "", "", "" }
     add_fields[6] = FormField{ "notes", "text", i18n_t(req, "inventory.notes"), "",
@@ -571,7 +576,7 @@ fn inventory_page_message(req: Request, message: string) Response {
         vars("category_form", category_form) +
         vars("notice", "") +
         vars("today", escape_html(inventory_date())) +
-        vars("currency", escape_html(inventory_setting("currency", ""))) +
+        vars("currency", escape_html(inventory_setting("currency", "RON"))) +
         vars("category_options", inventory_categories(categories, category_count, "")) +
         vars("item_options", inventory_items(items, item_count, "")) +
         vars("item_rows", inventory_item_rows(items, item_count)) +

@@ -289,14 +289,21 @@ fn widget_chart(values: WidgetValues[100], count: u32, locale: string) string {
     return template_fill(widget_template("cards/chart"), vars("points", widget_trim(points)) + vars("__locale", locale))
 }
 
-fn widget_setting(key: string) string {
+fn widget_setting(key: string, fallback: string) string {
+    let value: string = settings_get("widgets." + key, "")
+    if value != "" {
+        return widget_trim(value)
+    }
+    // Older widget installs kept one file per setting.
     let workspace: string = getenv("ROBOHUB_APP_WORKSPACE")
     if workspace == "" {
         workspace = getenv("HOME") + "/.rho/modules/widgets"
     }
-    let dir: string = workspace + "/data"
-    ignore_u32(rho_exec("mkdir", "-p " + dir, dir + "/mkdir.txt"))
-    return widget_trim(rho_read_text(dir + "/" + key))
+    let legacy: string = widget_trim(rho_read_text(workspace + "/data/" + key))
+    if legacy != "" {
+        return legacy
+    }
+    return fallback
 }
 
 fn widget_field(line: string, index: u32) string {
@@ -684,6 +691,7 @@ fn widget_card(db: SqlDb, widget: Widgets, locale: string) string {
     if rho_str_eq(widget.kind, "table") {
         return template_fill(widget_template("cards/table-card"),
             vars("__locale", locale) + vars("locale", locale) +
+            vars("refresh_seconds", widget_setting("refresh_seconds", "10")) +
             vars("id", sid) + vars("size", widget.size) +
             vars("title", widget.title) + vars("controls", controls) +
             vars("table", widget_table(values, count, u32(widget.points), unit, u32(widget.decimals), locale)) +
@@ -696,6 +704,7 @@ fn widget_card(db: SqlDb, widget: Widgets, locale: string) string {
     }
     return template_fill(widget_template("cards/numeric"),
         vars("__locale", locale) + vars("locale", locale) +
+        vars("refresh_seconds", widget_setting("refresh_seconds", "10")) +
         vars("id", sid) + vars("size", widget.size) +
         vars("title", widget.title) + vars("controls", controls) +
         vars("chart", chart) + vars("unit", unit) +
@@ -815,9 +824,9 @@ fn widgets_page_message(req: Request, message: string) Response {
     add_fields[6] = FormField{ "unit", "text", i18n_t(req, "widget.field.unit"), "",
         "°C", false, "", "", "", "", "" }
     add_fields[7] = FormField{ "points", "text", i18n_t(req, "widget.field.points"), "",
-        "24", false, "", "", "24", "", "numeric" }
+        "24", false, "", "", widget_setting("points", "24"), "", "numeric" }
     add_fields[8] = FormField{ "decimals", "select", i18n_t(req, "widget.field.decimals"), "",
-        "", false, "", "0|0,1|0.1,2|0.01,3|0.001", "2", "", "" }
+        "", false, "", "0|0,1|0.1,2|0.01,3|0.001", widget_setting("decimals", "2"), "", "" }
     let add_form: string = forms_open(add_fields, 9, "/widgets/add",
         i18n_t(req, "widget.add"), i18n_locale(req))
     let body: string = template_fill(widget_template("pages/widgets"),

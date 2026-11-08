@@ -8,7 +8,6 @@
     <a data-tab="add"><b>{{t "widget.add"}}</b></a>
     <a data-tab="preview"><b>{{t "widget.preview"}}</b></a>
     <a data-tab="docs"><b>{{t "widget.docs"}}</b></a>
-    <a data-tab="settings"><b>{{t "widget.settings"}}</b></a>
   </nav>
   <div class="tabpanels">
     <section id="tab-all" class="tab active">
@@ -29,16 +28,6 @@
     <section id="tab-docs" class="tab">
       <h2>{{t "widget.docs_title"}}</h2>
       <pre class="docs">{{{ docs }}}</pre>
-    </section>
-    <section id="tab-settings" class="tab">
-      <h2>{{t "widget.settings"}}</h2>
-      <p>{{t "widget.tab_layout"}}</p>
-      <label>Orientation
-        <select id="wid-tab-orientation">
-          <option value="vertical">{{t "widget.vertical"}}</option>
-          <option value="horizontal">{{t "widget.horizontal"}}</option>
-        </select>
-      </label>
     </section>
   </div>
 {{{ notifications }}}

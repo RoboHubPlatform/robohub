@@ -1,0 +1,64 @@
+module settings
+
+fn settings_file() string {
+    var workspace: string = getenv("ROBOHUB_APP_WORKSPACE")
+    if workspace == "" {
+        workspace = getenv("HOME") + "/.rho/robohub"
+    }
+    let dir: string = workspace + "/data"
+    ignore_u32(rho_exec("mkdir", "-p " + dir, dir + "/mkdir.txt"))
+    return dir + "/settings.conf"
+}
+
+fn settings_get(key: string, fallback: string) string {
+    var rest: string = rho_read_text(settings_file())
+    while rest != "" {
+        let at: i32 = rho_str_index_of(rest, "\n")
+        var line: string = rest
+        if at < 0 {
+            rest = ""
+        } else {
+            line = rho_str_slice(rest, 0, u32(at))
+            rest = rho_str_slice(rest, u32(at) + 1, u32(rho_strlen(rest)) - u32(at) - 1)
+        }
+        let equals: i32 = rho_str_index_of(line, "=")
+        if equals > 0 {
+            let name: string = rho_str_slice(line, 0, u32(equals))
+            if rho_str_eq(name, key) {
+                return rho_str_slice(line, u32(equals) + 1,
+                    u32(rho_strlen(line)) - u32(equals) - 1)
+            }
+        }
+    }
+    return fallback
+}
+
+fn settings_set(key: string, value: string) void {
+    let path: string = settings_file()
+    let prefix: string = key + "="
+    let text: string = rho_read_text(path)
+    var out: string = ""
+    var found: bool = false
+    var rest: string = text
+    while rest != "" {
+        let at: i32 = rho_str_index_of(rest, "\n")
+        var line: string = rest
+        if at < 0 {
+            rest = ""
+        } else {
+            line = rho_str_slice(rest, 0, u32(at))
+            rest = rho_str_slice(rest, u32(at) + 1, u32(rho_strlen(rest)) - u32(at) - 1)
+        }
+        if rho_str_index_of(line, prefix) == 0 {
+            line = prefix + value
+            found = true
+        }
+        if line != "" {
+            out = out + line + "\n"
+        }
+    }
+    if !found {
+        out = out + prefix + value + "\n"
+    }
+    ignore_bool(rho_write_text(path, out))
+}

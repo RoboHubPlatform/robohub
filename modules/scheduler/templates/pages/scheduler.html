@@ -8,7 +8,6 @@
     <a data-tab="add"><b>{{t "scheduler.add_chore"}}</b></a>
     <a data-tab="completed"><b>{{t "scheduler.completed"}}</b></a>
     <a data-tab="docs"><b>{{t "scheduler.docs"}}</b></a>
-    <a data-tab="settings"><b>{{t "scheduler.settings"}}</b></a>
   </nav>
   <div class="tabpanels">
     <section id="tab-chores" class="tab active">
@@ -32,16 +31,6 @@
     <section id="tab-docs" class="tab">
       <h2>Documentation</h2>
       <pre class="docs">{{{ docs }}}</pre>
-    </section>
-    <section id="tab-settings" class="tab">
-      <h2>{{t "scheduler.settings"}}</h2>
-      <p>Tab layout for this module.</p>
-      <label>Orientation
-        <select id="sched-tab-orientation">
-          <option value="vertical">Vertical</option>
-          <option value="horizontal">Horizontal</option>
-        </select>
-      </label>
     </section>
   </div>
 {{{ notifications }}}

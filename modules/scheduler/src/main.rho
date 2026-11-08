@@ -10,6 +10,7 @@ include "text.rho"
 include "scheduler.rho"
 include "modules/notifications/src/main.rho"
 include "modules/forms/src/main.rho"
+include "modules/settings/src/main.rho"
 
 import std.sql
 import std.web.http

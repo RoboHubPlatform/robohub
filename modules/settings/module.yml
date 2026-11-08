@@ -1,0 +1,28 @@
+#
+# settings — the host-owned runtime settings store.
+#
+# A module asks for a namespaced key; the parent application owns the file and
+# decides where it lives. A standalone module falls back to the RoboHub home.
+#
+module:
+  name: settings
+  type: module
+  title: Settings
+  category: core
+  version: "0.1.0"
+  description: >
+    A small key-value store for runtime settings owned by the host application,
+    with namespaced keys and a plain key=value file.
+  maintainer: "Aurel Miron"
+  license: "MIT"
+  created: "2026-11-08"
+
+main: src/main.rho
+
+docs:
+  title: Settings store
+  section: modules
+  order: "32"
+  index: docs/index.md
+  sources:
+    - docs/index.md
