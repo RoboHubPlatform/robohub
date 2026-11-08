@@ -40,6 +40,15 @@ a documentation site has no listener of its own — which is how the two kinds
 stay apart without either naming the other. The `mesh` application was formerly
 part of the keeper; it is versioned and built apart now.
 
+## Reactive UI
+
+RoboHub pages are server-rendered and made reactive with HTMX and Server-Sent
+Events. The shared HTMX module serves the pinned assets; applications answer
+fragments, use one SSE connection per page, and render their own templates.
+
+See [Reactive UI](reactive-ui/) for the conventions, the dual-mode handler
+pattern, the event format, and what still needs a small script.
+
 ## Modules
 
 **Modules** here means the reusable application modules under `modules/`: they
