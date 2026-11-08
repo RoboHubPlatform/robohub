@@ -10,7 +10,7 @@ there. A purchase increases stock and is recorded as spending in one step.</p>
   <div><small>{{t "inventory.purchases"}}</small><br><strong>{{{ expense_count }}}</strong></div>
 </div>
 
-<div class="tabs">
+<div class="tabs {{ tabs_class }}">
   <nav class="vtabnav">
     <a class="active" data-tab="items"><b>{{t "inventory.items"}}</b><small>{{{ item_count }}}</small></a>
     <a data-tab="reorder"><b>{{t "inventory.reorder"}}</b><small>{{{ low_count }}}</small></a>
@@ -84,13 +84,5 @@ there. A purchase increases stock and is recorded as spending in one step.</p>
   nav.forEach(function (a) { a.addEventListener("click", function (e) { e.preventDefault(); select(a.getAttribute("data-tab")); }); });
   var hash = (location.hash || "").replace("#", "");
   select(hash || "items");
-  var box = document.querySelector(".tabs");
-  var sel = document.getElementById("inv-tab-orientation");
-  var key = "inv-tab-orientation";
-  var saved = localStorage.getItem(key) || "vertical";
-  if (sel) { sel.value = saved; }
-  function apply(v) { if (box) { box.classList.toggle("horizontal", v === "horizontal"); } }
-  apply(saved);
-  if (sel) { sel.addEventListener("change", function () { localStorage.setItem(key, sel.value); apply(sel.value); }); }
 })();
 </script>

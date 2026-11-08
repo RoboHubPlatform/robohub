@@ -831,6 +831,7 @@ fn widgets_page_message(req: Request, message: string) Response {
         i18n_t(req, "widget.add"), i18n_locale(req))
     let body: string = template_fill(widget_template("pages/widgets"),
         i18n_vars(req) +
+        vars("tabs_class", settings_get("ui.tabs", "vertical")) +
         vars("add_form", add_form) +
         vars("notice", notice) + vars("rows", rows_html) +
         vars("preview", widgets_dashboard_cards(true, locale)) +

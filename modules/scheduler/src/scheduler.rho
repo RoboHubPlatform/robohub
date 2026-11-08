@@ -367,6 +367,7 @@ fn scheduler_page_message(req: Request, message: string) Response {
         i18n_t(req, "scheduler.add_chore"), i18n_locale(req))
     let body: string = template_fill(scheduler_template("pages/scheduler"),
         i18n_vars(req) +
+        vars("tabs_class", settings_get("ui.tabs", "vertical")) +
         vars("add_form", add_form) +
         vars("notice", notice) +
         vars("rows", scheduler_rows(chores, count, now)) +

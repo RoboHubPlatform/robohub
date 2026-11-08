@@ -2,7 +2,7 @@
 <p>{{t "widget.intro"}}</p>
 {{{ notice }}}
 
-<div class="tabs">
+<div class="tabs {{ tabs_class }}">
   <nav class="vtabnav">
     <a class="active" data-tab="all"><b>{{t "widget.all"}}</b></a>
     <a data-tab="add"><b>{{t "widget.add"}}</b></a>
@@ -44,13 +44,5 @@
   nav.forEach(function (a) { a.addEventListener("click", function (e) { e.preventDefault(); select(a.getAttribute("data-tab")); }); });
   var hash = (location.hash || "").replace("#", "");
   select(hash || "all");
-  var box = document.querySelector(".tabs");
-  var sel = document.getElementById("wid-tab-orientation");
-  var key = "wid-tab-orientation";
-  var saved = localStorage.getItem(key) || "vertical";
-  if (sel) { sel.value = saved; }
-  function apply(v) { if (box) { box.classList.toggle("horizontal", v === "horizontal"); } }
-  apply(saved);
-  if (sel) { sel.addEventListener("change", function () { localStorage.setItem(key, sel.value); apply(sel.value); }); }
 })();
 </script>

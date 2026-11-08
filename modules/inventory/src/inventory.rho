@@ -570,6 +570,7 @@ fn inventory_page_message(req: Request, message: string) Response {
 
     let body: string = template_fill(inventory_template("pages/inventory"),
         i18n_vars(req) +
+        vars("tabs_class", settings_get("ui.tabs", "vertical")) +
         vars("add_item_form", add_item_form) +
         vars("purchase_form", purchase_form) +
         vars("consume_form", consume_form) +
