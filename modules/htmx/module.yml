@@ -1,0 +1,30 @@
+#
+# htmx — vendored HTMX and its SSE extension.
+#
+# The files are served by the host under /assets/, so an application never
+# depends on a CDN or a JavaScript build toolchain.
+#
+module:
+  name: htmx
+  type: module
+  title: HTMX
+  category: ui
+  version: "0.1.0"
+  description: >
+    A pinned copy of HTMX and its Server-Sent Events extension, served from the
+    host, with the small helpers a Rho page uses to answer fragments and
+    redirects.
+  maintainer: "Aurel Miron"
+  license: "MIT"
+  created: "2026-11-08"
+
+main: src/main.rho
+
+
+docs:
+  title: HTMX
+  section: modules
+  order: "30"
+  index: docs/index.md
+  sources:
+    - docs/index.md

@@ -1,0 +1,10 @@
+module htmx
+
+// The module's only route: the two vendored scripts under /assets/. A host
+// includes this file once, beside the other module main files it carries.
+
+include "htmx.rho"
+
+import std.web.http
+
+route GET "/assets/{file}" => htmx_asset_route

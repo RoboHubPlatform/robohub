@@ -1,0 +1,96 @@
+module htmx
+
+// HTMX and its SSE extension, vendored so an off-grid deployment never reaches
+// for a CDN and a host application never needs Node.
+//
+// The module owns the files and the route that serves them. A host includes
+// htmx_head() in its layout and is done; the event stream itself is the host's
+// own sse_events endpoint.
+
+import std.web.http
+
+fn htmx_root() string {
+    let root: string = getenv("ROBOHUB_WORKSPACE")
+    if root != "" {
+        if rho_path_exists(root + "/modules/htmx/module.yml") {
+            return root + "/modules/htmx"
+        }
+        if rho_path_exists(root + "/robohub/modules/htmx/module.yml") {
+            return root + "/robohub/modules/htmx"
+        }
+    }
+    if rho_path_exists("modules/htmx/module.yml") {
+        return "modules/htmx"
+    }
+    if rho_path_exists("../../modules/htmx/module.yml") {
+        return "../../modules/htmx"
+    }
+    if rho_path_exists("module.yml") && rho_path_exists("assets/htmx.min.js") {
+        return "."
+    }
+    let home: string = getenv("HOME")
+    if home != "" {
+        return home + "/.rho/modules/htmx"
+    }
+    return "."
+}
+
+// htmx_asset_name admits only the two names the module carries, so a request
+// for /assets/../../... cannot read a file outside the asset directory.
+fn htmx_asset_name(name: string) bool {
+    if rho_str_eq(name, "htmx.min.js") {
+        return true
+    }
+    if rho_str_eq(name, "sse.min.js") {
+        return true
+    }
+    return false
+}
+
+fn htmx_asset_text(name: string) string {
+    if !htmx_asset_name(name) {
+        return ""
+    }
+    let path: string = htmx_root() + "/assets/" + name
+    if rho_path_exists(path) {
+        return rho_read_text(path)
+    }
+    return ""
+}
+
+fn htmx_asset(name: string) Response {
+    let body: string = htmx_asset_text(name)
+    if body == "" {
+        return text(status_not_found(), "not found")
+    }
+    return Response{ status_ok(), body, "text/javascript; charset=utf-8",
+        "Cache-Control: public, max-age=86400\nX-Content-Type-Options: nosniff" }
+}
+
+fn htmx_asset_route(req: Request) Response {
+    return htmx_asset(param(req, "file"))
+}
+
+// htmx_head is the pair of script tags a layout places in <head>. Deferring
+// both keeps their order: HTMX defines the extension point the SSE file uses.
+fn htmx_head() string {
+    return "<script src=\"/assets/htmx.min.js\" defer></script>\n" +
+        "<script src=\"/assets/sse.min.js\" defer></script>"
+}
+
+// htmx_is_request is whether the request came from HTMX, so a handler can
+// answer with a fragment and let a normal form submit keep its redirect.
+fn htmx_is_request(req: Request) bool {
+    return rho_str_eq(header_str(req, "HX-Request"), "true")
+}
+
+// htmx_redirect asks HTMX to change the page instead of swapping a redirect
+// body into a target.
+fn htmx_redirect(location: string) Response {
+    return with_headers(redirect(location), "HX-Redirect: " + location)
+}
+
+// htmx_trigger asks HTMX to dispatch a client event after a successful swap.
+fn htmx_trigger(resp: Response, event: string) Response {
+    return with_headers(resp, "HX-Trigger: " + event)
+}

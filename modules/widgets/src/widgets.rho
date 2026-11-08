@@ -228,7 +228,7 @@ fn widget_refresh(widget: Widgets) string {
 
 fn widget_chart(values: WidgetValues[100], count: u32) string {
     if count < 2 {
-        return "<p><small>Not enough values for a chart yet.</small></p>"
+        return template_fill(widget_template("cards/chart-empty"), "")
     }
     // Min and max are dominated by a single outlier (a sensor glitch, a
     // missed reading). Use the 5th and 95th percentiles instead, found without
@@ -286,8 +286,7 @@ fn widget_chart(values: WidgetValues[100], count: u32) string {
         points = points + rho_int_to_str(x) + "," + rho_int_to_str(y) + " "
         i = i + 1
     }
-    return "<svg class=\"spark\" viewBox=\"0 0 100 30\" preserveAspectRatio=\"none\" aria-hidden=\"true\"><polyline fill=\"none\" stroke=\"#e4b866\" stroke-width=\"1.5\" points=\"" +
-        points + "\"/></svg>"
+    return template_fill(widget_template("cards/chart"), vars("points", widget_trim(points)))
 }
 
 fn widget_setting(key: string) string {
@@ -514,46 +513,44 @@ fn widget_table(values: WidgetValues[100], count: u32, rows: u32, unit: string, 
     if limit == 0 { limit = 10 }
     if limit > 100 { limit = 100 }
     if limit > count { limit = count }
-    var out: string = "<table class=\"widget-table\"><thead><tr><th>Date / Time</th><th>Value</th><th>Unit</th></tr></thead><tbody>"
+    var out: string = ""
     if limit == 0 {
-        out = out + "<tr><td colspan=\"3\"><small>No values yet.</small></td></tr>"
+        out = template_fill(widget_template("cards/table-empty"), "")
     }
     var i: u32 = 0
     while i < limit {
         let value: WidgetValues = values[i]
         let epoch: u32 = u32(value.recordedEpoch)
-        out = out + "<tr><td><span class=\"local-time\" data-s=\"" +
-            rho_int_to_str(epoch) + "\">" + rho_int_to_str(epoch) + "</span></td><td>" +
-            escape_html(widget_round(value.valueText, decimals)) + "</td><td>" + escape_html(unit) + "</td></tr>"
+        out = out + template_fill(widget_template("cards/table-row"),
+            vars("epoch", rho_int_to_str(epoch)) +
+            vars("value", widget_round(value.valueText, decimals)) +
+            vars("unit", unit))
         i = i + 1
     }
-    return out + "</tbody></table>"
+    return template_fill(widget_template("cards/table"), vars("rows", out))
 }
 
 
 fn widget_card_controls(id: u32, pinned: u32, kind: string) string {
     let sid: string = rho_int_to_str(id)
-    var pin_html: string = ""
+    var pinnable: string = ""
+    var pin_val: string = "1"
+    var pin_icon: string = "📌"
+    var pin_title: string = "Pin to status bar"
     if rho_str_eq(kind, "numeric") || rho_str_eq(kind, "chart") {
-        var pin_val: string = "1"
-        var pin_icon: string = "📌"
-        var pin_title: string = "Pin to status bar"
+        pinnable = "true"
         if pinned == 1 {
             pin_val = "0"
             pin_icon = "📍"
             pin_title = "Unpin"
         }
-        pin_html = "<div class=\"wctl-pin\"><form method=\"post\" action=\"/widgets/pin\" style=\"display:inline\"><input type=\"hidden\" name=\"id\" value=\"" + sid + "\"><input type=\"hidden\" name=\"pinned\" value=\"" + pin_val + "\"><button type=\"submit\" class=\"icon-btn\" title=\"" + pin_title + "\">" + pin_icon + "</button></form></div>"
     }
-    return pin_html +
-        "<div class=\"wctl-size\">" +
-        "<form method=\"post\" action=\"/widgets/resize\" style=\"display:inline\"><input type=\"hidden\" name=\"id\" value=\"" + sid + "\"><input type=\"hidden\" name=\"delta\" value=\"dec\"><button type=\"submit\" class=\"icon-btn\" title=\"Decrease size\">−</button></form>" +
-        "<form method=\"post\" action=\"/widgets/resize\" style=\"display:inline\"><input type=\"hidden\" name=\"id\" value=\"" + sid + "\"><input type=\"hidden\" name=\"delta\" value=\"inc\"><button type=\"submit\" class=\"icon-btn\" title=\"Increase size\">+</button></form>" +
-        "</div>" +
-        "<div class=\"wctl-move\">" +
-        "<form method=\"post\" action=\"/widgets/move\" style=\"display:inline\"><input type=\"hidden\" name=\"id\" value=\"" + sid + "\"><input type=\"hidden\" name=\"delta\" value=\"-1\"><button type=\"submit\" class=\"icon-btn\" title=\"Move left\">←</button></form>" +
-        "<form method=\"post\" action=\"/widgets/move\" style=\"display:inline\"><input type=\"hidden\" name=\"id\" value=\"" + sid + "\"><input type=\"hidden\" name=\"delta\" value=\"1\"><button type=\"submit\" class=\"icon-btn\" title=\"Move right\">→</button></form>" +
-        "</div>"
+    return template_fill(widget_template("cards/controls"),
+        vars("id", sid) +
+        vars("pinnable", pinnable) +
+        vars("pin_value", pin_val) +
+        vars("pin_icon", pin_icon) +
+        vars("pin_title", pin_title))
 }
 
 
@@ -618,15 +615,12 @@ fn widget_card(db: SqlDb, widget: Widgets) string {
         }
         latest = widget_latest_text(db, u32(widget.id))
     }
+    let sid: string = rho_int_to_str(u32(widget.id))
+    let controls: string = widget_card_controls(u32(widget.id), u32(widget.pinned), widget.kind)
     if rho_str_eq(widget.kind, "button") {
-        let sid: string = rho_int_to_str(u32(widget.id))
-        return "<div class=\"widget-card size-" + widget.size + "\" data-widget-id=\"" + sid +
-            "\"><h3><a href=\"/widgets/edit?id=" + sid + "\">" + escape_html(widget.title) +
-            "</a></h3>" + widget_card_controls(u32(widget.id), u32(widget.pinned), widget.kind) +
-            "<p><small>Button</small></p><form class=\"widget-press\" method=\"post\" action=\"/widgets/press\">" +
-            "<input type=\"hidden\" name=\"id\" value=\"" + sid +
-            "\"><input type=\"hidden\" name=\"return\" value=\"dashboard\">" +
-            "<button type=\"submit\">Press</button></form></div>"
+        return template_fill(widget_template("cards/button"),
+            vars("id", sid) + vars("size", widget.size) +
+            vars("title", widget.title) + vars("controls", controls))
     }
     if rho_str_eq(widget.kind, "toggle") {
         let state: string = widget_toggle_state(db, u32(widget.id))
@@ -636,37 +630,29 @@ fn widget_card(db: SqlDb, widget: Widgets) string {
             on_class = " on"
             label = "On"
         }
-        let sid: string = rho_int_to_str(u32(widget.id))
-        return "<div class=\"widget-card toggle-card size-" + widget.size + "\" data-widget-id=\"" + sid +
-            "\"><h3><a href=\"/widgets/edit?id=" + sid + "\">" + escape_html(widget.title) +
-            "</a></h3>" + widget_card_controls(u32(widget.id), u32(widget.pinned), widget.kind) +
-            "<form class=\"widget-press\" method=\"post\" action=\"/widgets/press\">" +
-            "<input type=\"hidden\" name=\"id\" value=\"" + sid +
-            "\"><input type=\"hidden\" name=\"return\" value=\"dashboard\">" +
-            "<button type=\"submit\" class=\"switch" + on_class + "\"> " +
-            "<span></span><span class=\"switch-text\">" + label + "</span></button></form></div>"
+        return template_fill(widget_template("cards/toggle"),
+            vars("id", sid) + vars("size", widget.size) +
+            vars("title", widget.title) + vars("controls", controls) +
+            vars("on_class", on_class) + vars("state_label", label))
     }
     if rho_str_eq(widget.kind, "table") {
-        let sid: string = rho_int_to_str(u32(widget.id))
-        return "<div class=\"widget-card size-" + widget.size + "\" data-widget-id=\"" + sid +
-            "\"><h3><a href=\"/widgets/edit?id=" + sid + "\">" + escape_html(widget.title) + "</a></h3>" +
-            widget_card_controls(u32(widget.id), u32(widget.pinned), widget.kind) +
-            widget_table(values, count, u32(widget.points), unit, u32(widget.decimals)) +
-            "<p><small>" + rho_int_to_str(count) + " values · " +
-            escape_html(widget.sourceKind) + "</small></p></div>"
+        return template_fill(widget_template("cards/table-card"),
+            vars("id", sid) + vars("size", widget.size) +
+            vars("title", widget.title) + vars("controls", controls) +
+            vars("table", widget_table(values, count, u32(widget.points), unit, u32(widget.decimals))) +
+            vars("count", rho_int_to_str(count)) +
+            vars("source_kind", widget.sourceKind))
     }
-    let chart: string = ""
+    var chart: string = ""
     if rho_str_eq(widget.kind, "chart") {
         chart = widget_chart(values, count)
     }
-    let sid: string = rho_int_to_str(u32(widget.id))
-    return "<div class=\"widget-card size-" + widget.size + "\" data-widget-id=\"" + sid +
-        "\"><h3><a href=\"/widgets/edit?id=" + sid + "\">" + escape_html(widget.title) + "</a></h3>" +
-        widget_card_controls(u32(widget.id), u32(widget.pinned), widget.kind) +
-        chart +
-        "<div class=\"widget-value-wrap\">" +
-        "<span class=\"widget-unit\">" + escape_html(unit) + "</span>" +
-        "<div class=\"widget-value widget-value-big\">" + escape_html(widget_round(latest, u32(widget.decimals))) + "</div></div></div>"
+    return template_fill(widget_template("cards/numeric"),
+        vars("id", sid) + vars("size", widget.size) +
+        vars("title", widget.title) + vars("controls", controls) +
+        vars("chart", chart) + vars("unit", unit) +
+        vars("latest", widget_round(latest, u32(widget.decimals))))
+
 }
 
 fn widgets_dashboard_cards(refresh: bool) string {
@@ -701,9 +687,9 @@ fn widgets_dashboard_cards(refresh: bool) string {
     }
     sql_close(db)
     if out == "" {
-        out = "<p><small>No widgets yet. <a href=\"/widgets\">Create one</a>.</small></p>"
+        out = template_fill(widget_template("cards/empty"), "")
     }
-    return "<div class=\"widget-grid\">" + out + "</div>"
+    return template_fill(widget_template("cards/grid"), vars("cards", out))
 }
 
 fn widget_rows(db: SqlDb, widgets: Widgets[128], count: u32) string {
@@ -759,7 +745,7 @@ fn widgets_page_message(message: string) Response {
     sql_close(db)
     let notice: string = ""
     if message != "" {
-        notice = "<p class=\"notice\">" + escape_html(message) + "</p>"
+        notice = template_fill(widget_template("parts/notice"), vars("message", message))
     }
     let body: string = template_fill(widget_template("pages/widgets"),
         vars("notice", notice) + vars("rows", rows_html) +
@@ -1049,6 +1035,9 @@ fn widgets_resize(req: Request) Response {
     sql_close(db)
     notification_push_level("Widget resized.", "info", 5)
     notification_live_event("info", "Widget resized.")
+    if rho_str_eq(header_str(req, "HX-Request"), "true") {
+        return html(status_ok(), widget_card_html(id))
+    }
     return widgets_page_message("Widget resized.")
 }
 
@@ -1072,6 +1061,9 @@ fn widgets_pin(req: Request) Response {
     }
     ignore_result(PinWidget(pval, i64(id), db))
     sql_close(db)
+    if rho_str_eq(header_str(req, "HX-Request"), "true") {
+        return html(status_ok(), widget_card_html(id))
+    }
     return widgets_page_message("Widget pinned.")
 }
 
@@ -1152,7 +1144,11 @@ fn widgets_press(req: Request) Response {
     }
     widget_ignore_result(InsertEvent("INFO", "widget", event_message,
         rho_int_to_str(widget_now()), db))
+    let card: string = widget_card(db, widget)
     sql_close(db)
+    if rho_str_eq(header_str(req, "HX-Request"), "true") {
+        return html(status_ok(), card)
+    }
     let back: string = widget_form_value(body, "return")
     if rho_str_eq(back, "dashboard") {
         var ok: string = "true"
@@ -1171,7 +1167,11 @@ fn widgets_press(req: Request) Response {
 extern fn sse_file(path: string, interval_ms: u32) Response
 
 fn widgets_events_file() string {
-    return widget_state_dir() + "/events.log"
+    return widget_state_dir() + "/events.jsonl"
+}
+
+fn widgets_snapshot_file() string {
+    return widget_state_dir() + "/snapshot.jsonl"
 }
 
 fn widget_state_dir() string {
@@ -1184,14 +1184,50 @@ fn widget_state_dir() string {
     return dir
 }
 
-fn widget_event(widget_id: u32, state: string) void {
-    let file: string = widgets_events_file()
-    let line: string = "widget:" + rho_int_to_str(widget_id) + ":" + state + "\n"
-    let old: string = rho_read_text(file)
-    ignore_bool(rho_write_text(file, old + line))
+// widget_card_html renders one card by id, so an event can carry the same
+// fragment a page shows rather than a state a client would have to interpret.
+fn widget_card_html(widget_id: u32) string {
+    let opened: Result[SqlDb, string] = sql_open(widget_db_path())
+    if !opened.is_ok {
+        return ""
+    }
+    let db: SqlDb = opened.ok
+    ignore_u32(sql_apply(db, ""))
+    let widgets: Widgets[128]
+    let slice: Slice[Widgets] = Slice[Widgets]{ Ptr[Widgets](&widgets[0]), WIDGET_CAPACITY }
+    let listed: Result[u32, SqlError] = ListWidgets(db, slice, WIDGET_CAPACITY)
+    var count: u32 = 0
+    if listed.is_ok {
+        count = listed.ok
+    }
+    var out: string = ""
+    var i: u32 = 0
+    while i < count {
+        if u32(widgets[i].id) == widget_id {
+            out = widget_card(db, widgets[i])
+        }
+        i = i + 1
+    }
+    sql_close(db)
+    return out
 }
 
-fn widgets_snapshot() void {
+fn widget_event_json(event: string, data: string) string {
+    return "{\"event\":" + json_string(event) + ",\"data\":" + json_string(data) + "}\n"
+}
+
+fn widget_event(widget_id: u32, state: string) void {
+    let card: string = widget_card_html(widget_id)
+    if card == "" {
+        return
+    }
+    let file: string = widgets_events_file()
+    let old: string = rho_read_text(file)
+    ignore_bool(rho_write_text(file,
+        old + widget_event_json("widget-" + rho_int_to_str(widget_id), card)))
+}
+
+fn widgets_snapshot_events() void {
     let opened: Result[SqlDb, string] = sql_open(widget_db_path())
     if !opened.is_ok {
         return
@@ -1208,21 +1244,19 @@ fn widgets_snapshot() void {
     var out: string = ""
     var i: u32 = 0
     while i < count {
-        if rho_str_eq(widgets[i].kind, "toggle") {
-            out = out + "widget:" + rho_int_to_str(u32(widgets[i].id)) + ":" +
-                widget_toggle_state(db, u32(widgets[i].id)) + "\n"
-        }
+        out = out + widget_event_json("widget-" + rho_int_to_str(u32(widgets[i].id)),
+            widget_card(db, widgets[i]))
         i = i + 1
     }
     sql_close(db)
-    ignore_bool(rho_write_text(widgets_events_file(), out))
+    ignore_bool(rho_write_text(widgets_snapshot_file(), out))
 }
 
 fn widgets_events(req: Request) Response {
     // A reconnect must show the current state, not replay every state the card
-    // has ever had. The stream starts from a fresh snapshot.
-    widgets_snapshot()
-    return sse_file(widgets_events_file(), 1000)
+    // has ever had. The snapshot is sent before the live file is followed.
+    widgets_snapshot_events()
+    return sse_events(widgets_events_file(), widgets_snapshot_file(), 1000)
 }
 
 fn widget_device_states() string {
@@ -1330,8 +1364,13 @@ fn widgets_refresh_values() u32 {
 }
 
 fn widget_event_cards() void {
+    let grid: string = widgets_dashboard_cards(false)
+    if grid == "" {
+        return
+    }
     let file: string = widgets_events_file()
-    ignore_bool(rho_write_text(file, rho_read_text(file) + "cards:changed\n"))
+    ignore_bool(rho_write_text(file,
+        rho_read_text(file) + widget_event_json("widget-cards", grid)))
 }
 
 fn widgets_refresh(req: Request) Response {
@@ -1346,6 +1385,15 @@ fn widgets_refresh(req: Request) Response {
 
 fn widgets_cards(req: Request) Response {
     return html(status_ok(), widgets_dashboard_cards(false))
+}
+
+fn widgets_card_endpoint(req: Request) Response {
+    let id: u32 = u32(rho_int_from_str(param(req, "id")))
+    let card: string = widget_card_html(id)
+    if card == "" {
+        return text(status_not_found(), "not found")
+    }
+    return html(status_ok(), card)
 }
 
 /* -------------------------------------------------------------------------- */
