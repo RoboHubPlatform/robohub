@@ -34,5 +34,11 @@
   "inventory.reason": "Motiv",
   "inventory.add_an_item": "Adaugă un articol",
   "inventory.record_a_purchase": "Înregistrează o achiziție",
-  "inventory.remove_from_stock": "Scoate din stoc"
+  "inventory.remove_from_stock": "Scoate din stoc",
+  "toast.item_add_failed": "Articolul nu a putut fi adăugat",
+  "toast.item_added": "Articol adăugat.",
+  "toast.stock_failed": "Stocul nu a putut fi modificat",
+  "toast.stock_removed": "Stoc retras.",
+  "toast.purchase_failed": "Achiziția nu a putut fi salvată",
+  "toast.purchase_recorded": "Achiziție înregistrată."
 }

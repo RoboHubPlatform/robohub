@@ -24,5 +24,7 @@
   "scheduler.grace_hours": "Ore de grație",
   "scheduler.description": "Descriere",
   "scheduler.when": "Când",
-  "scheduler.note": "Notă"
+  "scheduler.note": "Notă",
+  "toast.chore_failed": "Sarcina nu a putut fi salvată",
+  "toast.chore_added": "Sarcină adăugată."
 }

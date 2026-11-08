@@ -421,11 +421,10 @@ fn chores_add(req: Request) Response {
         db)
     sql_close(db)
     if !added.is_ok {
-        notification_push_level("Chore could not be saved: " + added.err.message, "error", 10)
+        notification_push_level_locale(i18n_t(req, "toast.chore_failed") + ": " + added.err.message, "error", 10, i18n_locale(req))
         return scheduler_page_message(req, "The chore could not be saved: " + added.err.message)
     }
-    notification_push_level("Chore added.", "info", 10)
-    notification_live_event("info", "Chore added.")
+    notification_push_level_locale(i18n_t(req, "toast.chore_added"), "info", 10, i18n_locale(req))
     return scheduler_page_message(req, "Chore added.")
 }
 

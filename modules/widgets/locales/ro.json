@@ -37,5 +37,9 @@
   "widget.docs_title": "Documentație",
   "widget.tab_layout": "Aspectul filelor pentru acest modul.",
   "widget.vertical": "Vertical",
-  "widget.horizontal": "Orizontal"
+  "widget.horizontal": "Orizontal",
+  "toast.widget_failed": "Widgetul nu a putut fi salvat",
+  "toast.widget_added": "Widget adăugat.",
+  "toast.widget_moved": "Widget mutat.",
+  "toast.widget_resized": "Widget redimensionat."
 }

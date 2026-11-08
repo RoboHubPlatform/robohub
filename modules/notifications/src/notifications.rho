@@ -46,8 +46,7 @@ fn notification_insert(db: SqlDb, message: string, level: string, now: u32, expi
     return status != 0
 }
 
-fn notification_push_level(message: string, level: string, timeout: u32) u32 {
-    let db_path: string = notification_db_path()
+fn notification_push_level_locale(message: string, level: string, timeout: u32, locale: string) u32 {
     let now: u32 = notification_now()
     let t: u32 = timeout
     if t == 0 { t = NOTIFICATION_DEFAULT_TIMEOUT }
@@ -58,8 +57,12 @@ fn notification_push_level(message: string, level: string, timeout: u32) u32 {
     let stored: bool = notification_insert(db, message, level, now, expires)
     sql_close(db)
     if !stored { return 0 }
-    notification_live_event(level, message)
+    notification_live_event_locale(level, message, locale)
     return 1
+}
+
+fn notification_push_level(message: string, level: string, timeout: u32) u32 {
+    return notification_push_level_locale(message, level, timeout, "")
 }
 
 /* -------------------------------------------------------------------------- */
@@ -79,9 +82,14 @@ fn notification_live_path() string {
 // notification_live_event appends one event to the live feed, and nothing to
 // the store, so it is a page-to-page message rather than another saved
 // notification.
-fn notification_live_event(kind: string, message: string) void {
+fn notification_live_event_locale(kind: string, message: string, locale: string) void {
     ignore_bool(rho_append_text(notification_live_path(),
-        "{\"kind\":" + json_string(kind) + ",\"message\":" + json_string(message) + "}\n"))
+        "{\"kind\":" + json_string(kind) + ",\"message\":" + json_string(message) +
+        ",\"locale\":" + json_string(locale) + "}\n"))
+}
+
+fn notification_live_event(kind: string, message: string) void {
+    notification_live_event_locale(kind, message, "")
 }
 
 // notification_events streams the live feed as Server-Sent Events. The feed

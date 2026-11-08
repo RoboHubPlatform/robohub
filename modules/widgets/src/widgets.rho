@@ -820,11 +820,10 @@ fn widgets_add(req: Request) Response {
         rho_int_to_str(widget_now()), db)
     sql_close(db)
     if !added.is_ok {
-        notification_push_level("Widget could not be saved: " + added.err.message, "error", 10)
+        notification_push_level_locale(i18n_t(req, "toast.widget_failed") + ": " + added.err.message, "error", 10, i18n_locale(req))
         return widgets_page_message(req, "The widget could not be saved: " + added.err.message)
     }
-    notification_push_level("Widget added.", "info", 10)
-    notification_live_event("info", "Widget added.")
+    notification_push_level_locale(i18n_t(req, "toast.widget_added"), "info", 10, i18n_locale(req))
     return widgets_page_message(req, "Widget added.")
 }
 
@@ -988,8 +987,7 @@ fn widgets_move(req: Request) Response {
     ignore_result(MoveWidget(i64(target), i64(a_id), db))
     ignore_result(MoveWidget(i64(idx), i64(b_id), db))
     sql_close(db)
-    notification_push_level("Widget moved.", "info", 5)
-    notification_live_event("info", "Widget moved.")
+    notification_push_level_locale(i18n_t(req, "toast.widget_moved"), "info", 5, i18n_locale(req))
     return widgets_page_message(req, "Widget moved.")
 }
 
@@ -1042,8 +1040,7 @@ fn widgets_resize(req: Request) Response {
     ignore_u32(sql_apply(db, ""))
     ignore_result(ResizeWidget(size, i64(id), db))
     sql_close(db)
-    notification_push_level("Widget resized.", "info", 5)
-    notification_live_event("info", "Widget resized.")
+    notification_push_level_locale(i18n_t(req, "toast.widget_resized"), "info", 5, i18n_locale(req))
     if rho_str_eq(header_str(req, "HX-Request"), "true") {
         return html(status_ok(), widget_card_html(id, i18n_locale(req)))
     }

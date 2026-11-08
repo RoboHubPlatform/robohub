@@ -34,5 +34,11 @@
   "inventory.reason": "Reason",
   "inventory.add_an_item": "Add an item",
   "inventory.record_a_purchase": "Record a purchase",
-  "inventory.remove_from_stock": "Remove from stock"
+  "inventory.remove_from_stock": "Remove from stock",
+  "toast.item_add_failed": "Item could not be added",
+  "toast.item_added": "Item added.",
+  "toast.stock_failed": "Stock could not be changed",
+  "toast.stock_removed": "Stock removed.",
+  "toast.purchase_failed": "Purchase could not be saved",
+  "toast.purchase_recorded": "Purchase recorded."
 }

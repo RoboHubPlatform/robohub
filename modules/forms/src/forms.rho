@@ -467,10 +467,14 @@ fn forms_csrf_ok(body: string) bool {
 // fields, the CSRF token and the submit button. The consumer drops the result
 // into its page body, and verifies the token with forms_csrf_ok when the form
 // comes back.
-fn forms_open(fields: [FormField], count: u32, action: string, submit: string) string {
+fn forms_open(fields: [FormField], count: u32, action: string, submit: string, locale: string) string {
     var label: string = submit
-    if label == "" { label = "Save" }
+    if label == "" {
+        label = template_fill("{{t \"forms.save\"}}", vars("__locale", locale))
+    }
     return template_fill(forms_template("parts/form.html"),
+        vars("__locale", locale) +
+        vars("locale", locale) +
         vars("action", action) +
         vars("csrf", forms_csrf_field()) +
         vars("fields", forms_body(fields, count)) +

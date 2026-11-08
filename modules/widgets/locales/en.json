@@ -37,5 +37,9 @@
   "widget.docs_title": "Documentation",
   "widget.tab_layout": "Tab layout for this module.",
   "widget.vertical": "Vertical",
-  "widget.horizontal": "Horizontal"
+  "widget.horizontal": "Horizontal",
+  "toast.widget_failed": "Widget could not be saved",
+  "toast.widget_added": "Widget added.",
+  "toast.widget_moved": "Widget moved.",
+  "toast.widget_resized": "Widget resized."
 }

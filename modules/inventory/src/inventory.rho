@@ -601,11 +601,10 @@ fn items_add(req: Request) Response {
         db)
     sql_close(db)
     if !added.is_ok {
-        notification_push_level("Item could not be added: " + added.err.message, "error", 10)
+        notification_push_level_locale(i18n_t(req, "toast.item_add_failed") + ": " + added.err.message, "error", 10, i18n_locale(req))
         return inventory_page_message(req, "Item could not be added: " + added.err.message)
     }
-    notification_push_level("Item " + name + " added.", "info", 10)
-    notification_live_event("info", "Item " + name + " added.")
+    notification_push_level_locale(i18n_t(req, "toast.item_added"), "info", 10, i18n_locale(req))
     return inventory_page_message(req, "Item added.")
 }
 
@@ -659,11 +658,10 @@ fn items_consume(req: Request) Response {
     }
     sql_close(db)
     if !updated.is_ok {
-        notification_push_level("Stock could not be changed: " + updated.err.message, "error", 10)
+        notification_push_level_locale(i18n_t(req, "toast.stock_failed") + ": " + updated.err.message, "error", 10, i18n_locale(req))
         return inventory_page_message(req, "The stock could not be changed: " + updated.err.message)
     }
-    notification_push_level("Stock removed.", "info", 10)
-    notification_live_event("info", "Stock removed.")
+    notification_push_level_locale(i18n_t(req, "toast.stock_removed"), "info", 10, i18n_locale(req))
     return inventory_page_message(req, "Stock removed.")
 }
 
@@ -722,11 +720,10 @@ fn expenses_add(req: Request) Response {
     }
     sql_close(db)
     if !inserted.is_ok {
-        notification_push_level("Purchase could not be saved: " + inserted.err.message, "error", 10)
+        notification_push_level_locale(i18n_t(req, "toast.purchase_failed") + ": " + inserted.err.message, "error", 10, i18n_locale(req))
         return inventory_page_message(req, "The purchase could not be saved: " + inserted.err.message)
     }
-    notification_push_level("Purchase recorded.", "info", 10)
-    notification_live_event("info", "Purchase recorded.")
+    notification_push_level_locale(i18n_t(req, "toast.purchase_recorded"), "info", 10, i18n_locale(req))
     return inventory_page_message(req, "Purchase recorded and stock increased.")
 }
 
