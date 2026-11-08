@@ -11,7 +11,7 @@ module:
   type: module
   title: Inventory & expenses
   category: inventory
-  version: 0.1.1
+  version: 0.1.2
   description: >
     An inventory and expense tracker for an aquarium or any other long-running
     project: stock on hand, reorder levels, purchases, prices, stores, dates,

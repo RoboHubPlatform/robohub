@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.2.2] - 2026-11-08
+
+English/Romanian cards and admin UI, forms-engine add flow, translated/notified
+presses, and per-locale SSE events for translated cards.
+
+## [0.2.1] - 2026-11-06
+
+Fixed widget_json_number_field to parse decimal points (was truncating to
+integers). Chart now uses 2h window instead of 24h for responsiveness.
+
 ## [0.2.0] - 2026-11-05
 
 A chart or table bound to a Mesh source now reads the source's telemetry
@@ -62,8 +72,3 @@ Dashboard widgets with a configurable source: a number, a chart of recent
 values, a button that calls a hook, and a switch that calls its hook with the new
 state and shows that state. Values and definitions live in the host's main SQL
 database; the manager and the API register on the host's router.
-
-## [0.2.1] - 2026-11-06
-
-Fixed widget_json_number_field to parse decimal points (was truncating to
-integers). Chart now uses 2h window instead of 24h for responsiveness.

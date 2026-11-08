@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.1.2] - 2026-11-08
+
+English/Romanian navigation and page copy, forms-engine add-chore flow with CSRF,
+and scheduler defaults moved to parent settings.
+
 ## [0.1.1] - 2026-11-03
 
 The scheduler page carries the same full application menu as the dashboard.

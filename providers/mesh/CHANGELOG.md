@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.2.1] - 2026-11-06
+
+Provider now resolves source IDs from URLs, value URLs, and source= params.
+Latest and history calls work with any stored form.
+
 ## [0.2.0] - 2026-11-05
 
 The provider serves Mesh telemetry: a source's newest reading, a time-range
@@ -15,8 +20,3 @@ The provider sends the gateway service token on Mesh requests, so protected Mesh
 
 The Mesh provider for the gateway contract: projects, a project's gateway,
 sources, device states and a source's state.
-
-## [0.2.1] - 2026-11-06
-
-Provider now resolves source IDs from URLs, value URLs, and source= params.
-Latest and history calls work with any stored form.

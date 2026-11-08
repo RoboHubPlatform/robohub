@@ -8,7 +8,7 @@
 module:
   name: robohub-provider-log
   type: provider
-  version: 0.1.0
+  version: 0.1.1
   description: Appends an alert line to a file on the machine.
   maintainer: "Aurel Miron"
   license: "MIT"

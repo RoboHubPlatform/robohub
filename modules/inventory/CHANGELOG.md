@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.1.2] - 2026-11-08
+
+English/Romanian navigation and page copy, forms-engine add flows with CSRF and
+input-mode support, and settings moved to the parent application.
+
 ## [0.1.1] - 2026-11-03
 
 The inventory page carries the same full application menu as the dashboard.
