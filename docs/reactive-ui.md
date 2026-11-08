@@ -133,3 +133,73 @@ gateway stays the single place that reaches drivers and devices.
   live changes.
 - The page holds one SSE connection, not one per component.
 - Forms continue to work with JavaScript disabled.
+
+## Starting a new application
+
+A reactive application keeps the ordinary RoboHub layout and adds three things:
+the HTMX dependency, one SSE connection, and fragment responses.
+
+```text
+applications/example/
+  module.yml
+  project.yml
+  src/main.rho
+  templates/
+    layouts/layout.html
+    pages/home.html
+    parts/notice.html
+  static/
+```
+
+`module.yml` names the shared module:
+
+```yaml
+deps:
+  rho-log: ">=0.1.0"
+  robohub:
+    htmx: ">=0.1.0"
+```
+
+`src/main.rho` includes it beside the other modules:
+
+```rho
+include "../../../modules/htmx/src/main.rho"
+```
+
+The layout passes the scripts once:
+
+```html
+<head>
+  {{{ htmx }}}
+</head>
+```
+
+```rho
+let document: string = template_fill(template_get("layout"),
+    vars("title", "Example") + vars("htmx", htmx_head()) + vars("body", body))
+```
+
+`project.yml` maps template names to files, and the first route that needs a
+fragment answers both clients:
+
+```rho
+fn example_toggle(req: Request) Response {
+    let card: string = example_card()
+    if htmx_is_request(req) {
+        return html(status_ok(), card)
+    }
+    return redirect("/")
+}
+```
+
+The application owns its `/events` endpoint and its event file. Mesh owns the
+gateway and telemetry; the new application asks Mesh for data and renders its own
+fragments.
+
+Checklist:
+
+- one `sse-connect` per page;
+- snapshot before live events;
+- `{{ value }}` for data and `{{{ fragment }}}` for server-built HTML;
+- every action keeps a normal POST path;
+- assets are served by the HTMX module, not a CDN.
