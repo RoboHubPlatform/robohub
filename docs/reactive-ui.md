@@ -113,10 +113,17 @@ Those scripts are the exception, not the page architecture.
 
 ## Telemetry
 
-Telemetry remains optional and belongs to Mesh. Mesh may expose a data-only SSE
-feed for its own dashboards or service consumers, but applications should keep
-rendering their own templates. The gateway stays the single place that reaches
-drivers and devices.
+Telemetry remains optional and belongs to Mesh. Mesh exposes a data-only feed at
+`/mesh/api/projects/{project}/telemetry/stream`. It emits `telemetry` events whose
+data is JSON:
+
+```json
+{"project":"default","node":1,"field":"temperature","value":"24.5","status":0}
+```
+
+The feed carries changes only; a reader asks `/telemetry/latest` for the current
+state first. Applications still render their own templates from that data. The
+gateway stays the single place that reaches drivers and devices.
 
 ## Verifying a change
 
