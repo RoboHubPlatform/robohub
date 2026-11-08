@@ -409,6 +409,23 @@ fn inventory_category_rows(categories: Categories[64], count: u32) string {
     return out
 }
 
+fn inventory_count(req: Request) Response {
+    let opened: Result[SqlDb, string] = sql_open(inventory_db_path())
+    if !opened.is_ok {
+        return html(status_internal(), "{\"count\":0}")
+    }
+    let db: SqlDb = opened.ok
+    ignore_u32(sql_apply(db, inventory_schema()))
+    let items: ListItemsRow[512]
+    let item_slice: Slice[ListItemsRow] = Slice[ListItemsRow]{
+        Ptr[ListItemsRow](&items[0]), ITEM_CAPACITY }
+    let listed: Result[u32, SqlError] = ListItems(db, item_slice, ITEM_CAPACITY)
+    var n: u32 = 0
+    if listed.is_ok { n = listed.ok }
+    sql_close(db)
+    return html(status_ok(), "{\"count\":" + rho_int_to_str(n) + "}")
+}
+
 fn inventory_page_message(message: string) Response {
     let opened: Result[SqlDb, string] = sql_open(inventory_db_path())
     if !opened.is_ok {

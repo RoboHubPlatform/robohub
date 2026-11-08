@@ -17,6 +17,7 @@ import std.web.http
 import std.web.template
 
 route GET  "/expenses"                  => inventory_page
+route GET  "/api/expenses/count"         => inventory_count
 route GET  "/expenses/items/edit"       => item_edit_page
 route POST "/expenses/items/add"        => items_add
 route POST "/expenses/items/edit"       => items_edit_save
