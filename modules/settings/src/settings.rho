@@ -62,3 +62,24 @@ fn settings_set(key: string, value: string) void {
     }
     ignore_bool(rho_write_text(path, out))
 }
+
+// settings_list returns the `key=value` lines under a namespace, so a host can
+// render a generic editor for a module that has no parent settings page.
+fn settings_list(prefix: string) string {
+    var out: string = ""
+    var rest: string = rho_read_text(settings_file())
+    while rest != "" {
+        let at: i32 = rho_str_index_of(rest, "\n")
+        var line: string = rest
+        if at < 0 {
+            rest = ""
+        } else {
+            line = rho_str_slice(rest, 0, u32(at))
+            rest = rho_str_slice(rest, u32(at) + 1, u32(rho_strlen(rest)) - u32(at) - 1)
+        }
+        if line != "" && rho_str_index_of(line, prefix) == 0 {
+            out = out + line + "\n"
+        }
+    }
+    return out
+}
