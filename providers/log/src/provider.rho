@@ -1,5 +1,7 @@
 module robohub.providers.log
 
+extern fn rho_append_text(path: string, text: string) bool
+
 // A file sink. It is the smallest provider and the one an alert channel falls
 // back to when nothing else is configured.
 
@@ -12,8 +14,22 @@ fn provider_log_append(config: string, line: string) u32 {
     if dir != "" {
         ignore_u32(rho_exec("mkdir", "-p " + dir, dir + "/mkdir.txt"))
     }
-    let existing: string = rho_read_text(path)
-    if rho_write_text(path, existing + line + "\n") {
+    // Append, not read-and-rewrite: an alert should not rewrite a growing log
+    // on flash. Rotate at 1 MB and keep three old files.
+    let report: string = plugin_report("alert-log-size")
+    var size: u32 = 0
+    if rho_exec("stat", "-c %s " + plugin_arg_quote(path), report) == 0 {
+        size = u32(rho_int_from_str(plugin_trim(rho_read_text(report))))
+    }
+    if size > 1048576 {
+        ignore_u32(rho_exec("mv", "-f " + plugin_arg_quote(path + ".2") + " " +
+            plugin_arg_quote(path + ".3"), plugin_report("alert-log-rotate-3")))
+        ignore_u32(rho_exec("mv", "-f " + plugin_arg_quote(path + ".1") + " " +
+            plugin_arg_quote(path + ".2"), plugin_report("alert-log-rotate-2")))
+        ignore_u32(rho_exec("mv", "-f " + plugin_arg_quote(path) + " " +
+            plugin_arg_quote(path + ".1"), plugin_report("alert-log-rotate-1")))
+    }
+    if rho_append_text(path, line + "\n") {
         return 1
     }
     return 0
