@@ -119,3 +119,25 @@ keeper.
 The gateway page, frame history and CSV export, the wall-clock receive time
 beside a node's uptime, and the documentation each module now carries with its
 release history are part of the ecosystem this release describes.
+
+## [0.4.0] - 2026-11-08
+
+A reactive UI, internationalisation, telemetry and provisioning release.
+
+- Added HTMX and SSE to Aquarium, Keeper and Mesh: widget cards, Mesh tree and
+  faults update in place, and pages answer fragments for `HX-Request`.
+- Added English and Romanian catalogs, a shared i18n module, flag-based language
+  switching, translated application/module navigation, forms and notification
+  toasts, and per-locale live widget events.
+- Centralized runtime settings in the parent application, with vertical tabs,
+  module tab layout, forms-engine settings, plugin alert overrides, and a shared
+  settings store.
+- Keeper deploys signed staged artifacts with an atomic swap, health check and
+  rollback, and manages application services through systemd.
+- Mesh telemetry gained WAL maintenance, batched retention, vacuum and storage
+  settings, actionable faults with a live HTMX page and API, and gateway polling
+  backoff with health reporting.
+- Keeper gained one-time node enrollment, a node registry, credential
+  verification, rotation and revocation.
+- Cross-entity includes use portable bare names, and RoboHub dependencies are
+  declared once under `deps.robohub`.

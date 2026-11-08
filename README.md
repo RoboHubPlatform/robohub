@@ -1,5 +1,7 @@
 # RoboHub Orchestrator
 
+**Version 0.4.0**
+
 The orchestrator of the RoboHub ecosystem: a registry of its modules, and the
 tools that run over all of them.
 
