@@ -50,7 +50,7 @@ fn main() void {
 fn assemble(tree: string) void {
     // The orchestrator's own documentation and manifest.
     rho_exec("sh", "-c \"mkdir -p " + tree + "/docs\"", "build/reports/assemble.txt")
-    rho_exec("sh", "-c \"cp -f docs/index.md " + tree + "/docs/index.md && if [ -f CHANGELOG.md ]; then printf '\\n\\n## Release history\\n\\n' >> " + tree + "/docs/index.md && awk -f applications/docsite/templates/normalize-changelog.awk CHANGELOG.md >> " + tree + "/docs/index.md; fi\"", "build/reports/assemble2.txt")
+    rho_exec("sh", "-c \"cp -f docs/index.md " + tree + "/docs/index.md && if [ -f CHANGELOG.md ]; then printf '\\n\\n## Release history\\n\\n' >> " + tree + "/docs/index.md && awk -f applications/docsite/templates/scripts/normalize-changelog.awk CHANGELOG.md >> " + tree + "/docs/index.md; fi\"", "build/reports/assemble2.txt")
     rho_exec("sh", "-c \"sed \'s/name: robohub/name: build/\' module.yml > " + tree + "/module.yml\"", "build/reports/assemble3.txt")
     rho_exec("sh", "-c \"mkdir -p " + tree + "/src && cp -f src/main.rho " + tree + "/src/main.rho\"", "build/reports/assemble4.txt")
 
@@ -65,10 +65,10 @@ fn assemble(tree: string) void {
 
     // A landing page in the same shape as the Rho docsite: the ecosystem's
     // entry points, its repository, and its release history.
-    rho_exec("sh", "-c \"awk -f applications/docsite/templates/release-rows.awk CHANGELOG.md > build/reports/release-rows.html\"",
+    rho_exec("sh", "-c \"awk -f applications/docsite/templates/scripts/release-rows.awk CHANGELOG.md > build/reports/release-rows.html\"",
         "build/reports/release-rows.txt")
     let version: string = yaml.value("module.yml", "module.version")
-    var landing: string = rho_read_text("applications/docsite/templates/landing.html")
+    var landing: string = rho_read_text("applications/docsite/templates/pages/landing.html")
     landing = replace_all(landing, "{{VERSION}}", version)
     landing = replace_once(landing, "<!--RELEASES-->",
         rho_read_text("build/reports/release-rows.html"))
@@ -85,7 +85,7 @@ fn assemble_module(tree: string, name: string, path: string) void {
         path + "/docs/. " + tree + "/" + name + "/docs/ && cp -f " +
         path + "/module.yml " + tree + "/" + name + "/module.yml && if [ -f " +
         path + "/CHANGELOG.md ]; then printf '\\n\\n## Release history\\n\\n' >> " +
-        tree + "/" + name + "/docs/index.md && awk -f applications/docsite/templates/normalize-changelog.awk " +
+        tree + "/" + name + "/docs/index.md && awk -f applications/docsite/templates/scripts/normalize-changelog.awk " +
         path + "/CHANGELOG.md >> " + tree + "/" + name + "/docs/index.md; fi\"",
         "build/reports/assemble-" + name + ".txt")
 }

@@ -712,7 +712,7 @@ fn widget_rows(db: SqlDb, widgets: Widgets[128], count: u32) string {
     while i < count {
         let widget: Widgets = widgets[i]
         let latest: string = widget_latest_text(db, u32(widget.id))
-        out = out + template_fill(widget_template("widget-row"),
+        out = out + template_fill(widget_template("rows/widget-row"),
             vars("id", rho_int_to_str(u32(widget.id))) +
             vars("title", widget.title) +
             vars("kind", widget.kind) +
@@ -761,7 +761,7 @@ fn widgets_page_message(message: string) Response {
     if message != "" {
         notice = "<p class=\"notice\">" + escape_html(message) + "</p>"
     }
-    let body: string = template_fill(widget_template("widgets"),
+    let body: string = template_fill(widget_template("pages/widgets"),
         vars("notice", notice) + vars("rows", rows_html) +
         vars("device_options", widget_gateway_source_options("")) +
         vars("kind_options", widget_kind_options("numeric")) +
@@ -770,7 +770,7 @@ fn widgets_page_message(message: string) Response {
         vars("preview", widgets_dashboard_cards(true)) +
         vars("docs", widgets_docs()) +
         vars("notifications", notification_embed()))
-    let document: string = template_fill(widget_template("layout"),
+    let document: string = template_fill(widget_template("layouts/layout"),
         vars("title", "Widgets") + vars("body", body) +
         vars("notifications", notification_embed()))
     return html(status_ok(), document)
@@ -862,7 +862,7 @@ fn widget_edit_page(req: Request) Response {
     }
     let index: u32 = u32(found)
     let widget: Widgets = widgets[index]
-    let body: string = template_fill(widget_template("widget-edit"),
+    let body: string = template_fill(widget_template("pages/widget-edit"),
         vars("id", rho_int_to_str(u32(widget.id))) +
         vars("title", widget.title) +
         vars("kind", widget.kind) +
@@ -876,7 +876,7 @@ fn widget_edit_page(req: Request) Response {
         vars("unit", widget.unit) +
         vars("points", rho_int_to_str(u32(widget.points))) +
         vars("decimals", rho_int_to_str(u32(widget.decimals))))
-    let document: string = template_fill(widget_template("layout"),
+    let document: string = template_fill(widget_template("layouts/layout"),
         vars("title", "Edit widget") + vars("body", body))
     return html(status_ok(), document)
 }

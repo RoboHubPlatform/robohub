@@ -307,7 +307,7 @@ fn inventory_item_rows(items: ListItemsRow[512], count: u32) string {
         if row.reorderMilli > 0 && row.quantityMilli <= row.reorderMilli {
             low = "<span class=\"badge low\">reorder</span>"
         }
-        let html: string = template_fill(inventory_template("item-row"),
+        let html: string = template_fill(inventory_template("rows/item-row"),
             vars("id", id) +
             vars("name", row.name) +
             vars("category", row.category) +
@@ -331,7 +331,7 @@ fn inventory_low_rows(rows: LowStockItemsRow[128], count: u32) string {
     var i: u32 = 0
     while i < count {
         let row: LowStockItemsRow = rows[i]
-        let html: string = template_fill(inventory_template("low-row"),
+        let html: string = template_fill(inventory_template("rows/low-row"),
             vars("name", row.name) +
             vars("on_hand", inventory_quantity(row.quantityMilli)) +
             vars("reorder_at", inventory_quantity(row.reorderMilli)) +
@@ -351,7 +351,7 @@ fn inventory_expense_rows(rows: ListExpensesRow[512], count: u32) string {
     var i: u32 = 0
     while i < count {
         let row: ListExpensesRow = rows[i]
-        let html: string = template_fill(inventory_template("expense-row"),
+        let html: string = template_fill(inventory_template("rows/expense-row"),
             vars("id", rho_int_to_str(u32(row.id))) +
             vars("item", row.item) +
             vars("category", row.category) +
@@ -402,7 +402,7 @@ fn inventory_category_rows(categories: Categories[64], count: u32) string {
     var out: string = ""
     var i: u32 = 0
     while i < count {
-        let html: string = template_fill(inventory_template("category-row"),
+        let html: string = template_fill(inventory_template("rows/category-row"),
             vars("name", categories[i].name))
         out = out + html + "\n"
         i = i + 1
@@ -485,7 +485,7 @@ fn inventory_page_message(message: string) Response {
         toast_js = "<script>document.addEventListener(\"DOMContentLoaded\",function(){if(window.rhoToast){window.rhoToast(\"" +
             message + "\", \"info\");}});</script>"
     }
-    let body: string = template_fill(inventory_template("inventory"),
+    let body: string = template_fill(inventory_template("pages/inventory"),
         vars("notice", "") +
         vars("today", escape_html(inventory_date())) +
         vars("currency", escape_html(inventory_setting("currency", ""))) +
@@ -501,7 +501,7 @@ fn inventory_page_message(message: string) Response {
         vars("expense_count", rho_int_to_str(expense_count)) +
         vars("docs", inventory_docs()))
 
-    let document: string = template_fill(inventory_template("layout"),
+    let document: string = template_fill(inventory_template("layouts/layout"),
         vars("title", "Inventory") + vars("body", body) +
         vars("keeper", inventory_keeper_link()) +
         vars("notifications", notification_embed()) +
@@ -554,7 +554,7 @@ fn item_edit_page(req: Request) Response {
     }
     let row_index: u32 = u32(at)
     let row: ListItemsRow = items[row_index]
-    let body: string = template_fill(inventory_template("item-edit"),
+    let body: string = template_fill(inventory_template("pages/item-edit"),
         vars("id", rho_int_to_str(u32(row.id))) +
         vars("name", row.name) +
         vars("category_options", inventory_categories(categories, category_count,
@@ -564,7 +564,7 @@ fn item_edit_page(req: Request) Response {
         vars("reorder", inventory_quantity(row.reorderMilli)) +
         vars("location", row.location) +
         vars("notes", row.notes))
-    let document: string = template_fill(inventory_template("layout"),
+    let document: string = template_fill(inventory_template("layouts/layout"),
         vars("title", "Edit item") + vars("body", body) +
         vars("keeper", inventory_keeper_link()))
     return html(status_ok(), document)

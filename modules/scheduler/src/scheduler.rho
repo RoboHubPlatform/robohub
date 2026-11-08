@@ -264,7 +264,7 @@ fn scheduler_rows(chores: Chores[256], count: u32, now: u32) string {
         let chore: Chores = chores[i]
         let status: string = scheduler_status(chore, now)
         let id: string = rho_int_to_str(u32(chore.id))
-        let html: string = template_fill(scheduler_template("chore-row"),
+        let html: string = template_fill(scheduler_template("rows/chore-row"),
             vars("id", id) +
             vars("title", chore.title) +
             vars("description", chore.description) +
@@ -286,7 +286,7 @@ fn scheduler_completion_rows(rows: ListCompletionsRow[64], count: u32) string {
     var i: u32 = 0
     while i < count {
         let row: ListCompletionsRow = rows[i]
-        let html: string = template_fill(scheduler_template("completion-row"),
+        let html: string = template_fill(scheduler_template("rows/completion-row"),
             vars("title", row.title) +
             vars("when", scheduler_date(u32(row.completedEpoch))) +
             vars("note", row.note))
@@ -342,13 +342,13 @@ fn scheduler_page_message(message: string) Response {
     if message != "" {
         notice = "<p class=\"notice\">" + escape_html(message) + "</p>"
     }
-    let body: string = template_fill(scheduler_template("scheduler"),
+    let body: string = template_fill(scheduler_template("pages/scheduler"),
         vars("notice", notice) +
         vars("rows", scheduler_rows(chores, count, now)) +
         vars("completions", scheduler_completion_rows(completions, completion_count)) +
         vars("docs", scheduler_docs()) +
         vars("notifications", notification_embed()))
-    let document: string = template_fill(scheduler_template("layout"),
+    let document: string = template_fill(scheduler_template("layouts/layout"),
         vars("title", "Scheduler") + vars("body", body) +
         vars("keeper", scheduler_keeper_link()) +
         vars("notifications", notification_embed()))

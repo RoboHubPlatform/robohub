@@ -258,7 +258,7 @@ fn forms_match(pattern: string, value: string) bool {
 // in the comma string is `value|label`, or a bare value that is also its
 // label; the option held by the field is marked selected.
 fn forms_select_options(options: string, selected: string) string {
-    let option_template: string = forms_template("fields/option.html")
+    let option_template: string = forms_template("parts/option.html")
     var out: string = ""
     var rest: string = options
     while rho_strlen(rest) > 0 {
@@ -376,7 +376,7 @@ fn forms_body(fields: [FormField], count: u32) string {
         }
         i = i + 1
     }
-    return hidden + template_fill(forms_template("fields/body.html"), vars("fields", out))
+    return hidden + template_fill(forms_template("parts/body.html"), vars("fields", out))
 }
 
 /* -------------------------------------------------------------------------- */
@@ -453,7 +453,7 @@ fn forms_token() string {
 // forms_csrf_field is the hidden input every form must carry so a submit can
 // prove it came from the page this server drew.
 fn forms_csrf_field() string {
-    return template_fill(forms_template("fields/csrf.html"), vars("token", forms_token()))
+    return template_fill(forms_template("parts/csrf.html"), vars("token", forms_token()))
 }
 
 // forms_csrf_ok is whether a submitted body carries the token the server drew
@@ -470,7 +470,7 @@ fn forms_csrf_ok(body: string) bool {
 fn forms_open(fields: [FormField], count: u32, action: string, submit: string) string {
     var label: string = submit
     if label == "" { label = "Save" }
-    return template_fill(forms_template("fields/form.html"),
+    return template_fill(forms_template("parts/form.html"),
         vars("action", action) +
         vars("csrf", forms_csrf_field()) +
         vars("fields", forms_body(fields, count)) +
