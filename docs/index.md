@@ -1,6 +1,6 @@
 # The orchestrator
 
-**Version:** 0.3.4
+**Version:** 0.4.0
 
 The orchestrator of the RoboHub ecosystem: a registry of its modules, and the
 tools that run over all of them.
@@ -14,6 +14,15 @@ which version of each, and does any of it still build.
 
 Those questions are about the ecosystem rather than about a repository, and this
 is where they are answered.
+
+## Logging
+
+Every application has one logging policy: level (`trace` to `fatal`), `text` or
+`json`, a rotating file under `$XDG_STATE_HOME/robohub/<app>/app.log`, size,
+retention and standard error for journald. The keeper's Applications page links
+each app to its log, and the shared `modules/logging` module owns the form and
+the defaults. Included modules write to the host application log, and the rho
+`logemit` port supplies the level filter, formatter and rotation.
 
 ## Applications
 
@@ -90,6 +99,7 @@ applications has two databases.
 
 The modules are:
 
+- [Logging](logging/) — the shared logging policy for applications and modules.
 - [Inventory & expenses](inventory/) — stock on hand, reorder levels, purchases
   with categories, quantities, unit prices, stores, dates and comments;
 - [Scheduler](scheduler/) — interval, cron, one-time and usage-based chores with

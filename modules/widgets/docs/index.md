@@ -127,3 +127,5 @@ source-kind selector, which stores the source ID instead of its URL.
 
 A numeric widget keeps reading the source's latest value, which Mesh serves from
 its telemetry store before falling back to the device.
+
+Widget additions, saves and removals are written to the host application log under the `widgets` subject.

@@ -20,7 +20,9 @@ include "inventory"
 include "scheduler"
 include "gateway"
 include "widgets"
+include "logging"
 include "energy.rho"
+import rho.log
 import std.sql
 import std.web.http
 import std.web.template
@@ -123,3 +125,5 @@ route GET "/api/energy/sim/gateway/status" => energy_sim_gateway_status
 route GET "/api/energy/heartbeat" => energy_heartbeat
 
 route POST "/api/energy/mesh/events" => energy_mesh_callback
+
+route POST "/settings/log" => energy_settings_log_save

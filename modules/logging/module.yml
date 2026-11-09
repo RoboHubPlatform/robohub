@@ -1,0 +1,34 @@
+#
+# logging — the logging settings every application shares.
+#
+# One module owns the level, format, file, rotation and stderr policy. The
+# application's settings page calls this module, the host's logemit port writes
+# the records, and included modules inherit the same configuration.
+#
+module:
+  name: logging
+  type: module
+  version: 0.1.0
+  title: Logging
+  description: >
+    Per-application logging policy: level, text or JSON, a rotating file under
+    the user state directory, and whether records also go to standard error.
+  maintainer: "Aurel Miron"
+  license: "MIT"
+  created: "2026-11-09"
+
+main: src/main.rho
+
+deps:
+  rho-log: ">=0.1.2"
+  robohub:
+    settings: ">=0.1.0"
+    forms: ">=0.1.0"
+
+docs:
+  title: Logging
+  section: modules
+  order: "46"
+  index: docs/index.md
+  sources:
+    - docs/index.md

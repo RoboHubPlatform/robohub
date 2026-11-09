@@ -77,3 +77,5 @@ database and the module applies its schema on each request.
 | `POST /expenses/add` | record a purchase and increase stock |
 | `POST /expenses/delete` | remove a purchase without changing stock |
 | `POST /categories/add` | add a category |
+
+Item saves and stock changes are written to the host application log under the `inventory` subject.

@@ -22,3 +22,5 @@ The config is `url=...;project=...;token=...`; `url` is the Mesh application and
 
 A source may be named by ID, by the value or action URL a widget stored, or by a
 URL carrying `source=`. The provider extracts the same ID for all three.
+
+Fetch failures are written to the host application log under the `mesh-gateway` subject.

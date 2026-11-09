@@ -17,7 +17,6 @@
       <dt>{{t "energy.settings.mesh_project"}}</dt><dd>{{ mesh_project }}</dd>
       <dt>{{t "energy.settings.gateway"}}</dt><dd><small>{{ gateway_url }}</small></dd>
       <dt>{{t "energy.settings.gateway_status"}}</dt><dd><small>{{ gateway_status }}</small></dd>
-      <dt>{{t "energy.settings.gateway_sources"}}</dt><dd><small><pre class="docs" style="margin:0;padding:.5rem;">{{ gateway_sources }}</pre></small></dd>
       <dt>{{t "energy.settings.db"}}</dt><dd><small>{{ db_path }}</small></dd>
       <dt>{{t "energy.settings.telemetry"}}</dt><dd><small>{{ telemetry_path }}</small></dd>
       <dt>{{t "energy.settings.reading"}}</dt><dd><small>{{ reading_fields }}</small></dd>
@@ -27,6 +26,10 @@
     <p class="live-meta">{{t "energy.settings.env"}}</p>
   </section>
 </div>
+<section class="panel" style="margin-top: 1rem;">
+  <h2>{{t "energy.settings.gateway_sources"}}</h2>
+  {{{ gateway_sources }}}
+</section>
 <script>
 (function () {
   var driver = document.querySelector('select[name="driver_mode"]');
@@ -44,3 +47,8 @@
   sync();
 })();
 </script>
+<section class="panel" style="margin-top: 1rem;">
+  <h2>Logging</h2>
+  <p class="live-meta">The application log is separate from the HTML dashboard and is safe to open in a terminal. Standard error stays on for journald.</p>
+  {{{ log_form }}}
+</section>

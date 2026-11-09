@@ -1,5 +1,7 @@
 module robohub.providers.sim
 
+import rho.log
+
 // The simulation gateway provider.
 //
 // It presents the same source contract as Mesh, but the answers come from the
@@ -24,6 +26,7 @@ fn provider_sim_base(config: string) string {
 fn provider_sim_fetch(config: string, url: string) string {
     let report: string = gateway_report("sim-gateway")
     if rho_exec("curl", "-fsS -m 4 " + gateway_arg_quote(url), report) != 0 {
+        warn("sim-gateway", "fetch failed: " + url)
         return ""
     }
     return rho_read_text(report)

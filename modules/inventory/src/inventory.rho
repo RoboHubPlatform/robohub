@@ -1,5 +1,7 @@
 module inventory
 
+import rho.log
+
 // The inventory and expense tracker's pages and the statements behind them.
 //
 // Stock and money are integers: quantity in thousandths, money in cents. The
@@ -718,6 +720,7 @@ fn items_edit_save(req: Request) Response {
     if !updated.is_ok {
         return inventory_page_message(req, "The item could not be saved: " + updated.err.message)
     }
+    info("inventory", "item saved")
     return inventory_page_message(req, "Item saved.")
 }
 

@@ -40,3 +40,5 @@ The module owns its tables, not their location. The host application's main SQL
 database is where they live (`$ROBOHUB_APP_WORKSPACE/data/app.db`), and the host
 declares the module instance and its SQL files in `app_modules`. Two applications
 including the scheduler have separate databases.
+
+Chore additions and completions are written to the host application log under the `scheduler` subject.

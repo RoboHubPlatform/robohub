@@ -182,7 +182,8 @@ source**; the provider's latest value is the node's primary reading — power fo
 line, state of charge for a bank, signed watts for a grid meter.
 
 The Settings page shows the selected driver mode, the configured Mesh project,
-the gateway URL and the provider's telemetry status, so switching from
+the gateway URL, the provider's telemetry status and the Mesh sources as a
+full-width readable table (source, kind, signal, direction, unit and ID), so switching from
 simulation to real-time shows what it will read before the first tick.
 
 On a C/ESP32 build the same seam is a compile-time choice (`#ifdef SIMULATION`)
@@ -213,6 +214,15 @@ the select shows that project only. A token
 already present in `gateway.conf` is copied into settings on startup, and a
 blank token field on save keeps the existing token rather than clearing it.
 
+## Logging
+
+Settings has a **Logging** form: level (`trace` to `fatal`), `text` or `json`,
+the app log file, its maximum size, how many rotated files to keep, and whether
+records also go to standard error. The default file is
+`$XDG_STATE_HOME/robohub/energy/app.log` (`~/.local/state/robohub/energy/app.log`).
+The app configures the logger at startup and after the form is saved; included
+modules write to the same file.
+
 ## Scripted faults
 
 The simulator can present a named condition on every tick until cleared:
@@ -234,18 +244,23 @@ smoke test read; `GET /api/energy/events` returns the latest audit events.
 ## Running
 
 ```sh
-# Build
-rho build applications/energy
-
-# Run against a workspace
-ROBOHUB_WORKSPACE=$PWD \
-ROBOHUB_APP_WORKSPACE=/tmp/energy \
-ROBOHUB_MESH_TELEMETRY_DB=/tmp/energy/data/telemetry.db \
-RHO_HTTP_ADDR=:8482 \
-./applications/energy/build/energy
+# Install it as the user service the keeper manages
+./scripts/deploy-app.sh energy
 ```
 
-The application is keeper-hosted with route `/` and port `8482`.
+The keeper's Applications page also deploys the service on Start when a
+bundled application has no unit yet. Energy runs on port `8482`, with the same
+unit shape, workspace and restart policy as mesh and aquarium.
+
+```sh
+# The keeper controls the service
+systemctl --user status energy.service
+journalctl --user -u energy.service
+```
+
+Its app log is the one from the Logging settings, by default
+`~/.local/state/robohub/energy/app.log`, and the Applications page has a Log
+link for it.
 
 ## Testing
 

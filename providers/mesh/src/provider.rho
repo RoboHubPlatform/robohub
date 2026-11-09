@@ -1,5 +1,7 @@
 module robohub.providers.mesh
 
+import rho.log
+
 // The Mesh gateway provider.
 //
 // Every request in the Mesh API that another application needs is here, not in
@@ -28,6 +30,7 @@ fn provider_mesh_fetch(config: string, url: string, name: string) string {
         auth = " -H " + gateway_arg_quote("Authorization: Bearer " + token)
     }
     if rho_exec("curl", "-fsS -m 4" + auth + " " + gateway_arg_quote(url), report) != 0 {
+        warn("mesh-gateway", "fetch failed: " + url)
         return ""
     }
     return rho_read_text(report)

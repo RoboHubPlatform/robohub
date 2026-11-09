@@ -1151,6 +1151,13 @@ fn energy_fault_raise(db: SqlDb, code: string, severity: string, field: string, 
     ignore_u32(telemetry_fault_record(energy_project(), "energy", field, severity, message, ENERGY_AREA, 0, 1, energy_i64_to_str(i64(now) * 1000)))
     energy_ignore_result(SetFaultState(code, "1", severity, message, rho_int_to_str(now), db))
     energy_ignore_result(InsertEvent(severity, "fault", message, rho_int_to_str(now), db))
+    if rho_str_eq(severity, "ERROR") {
+        error("energy", message)
+    } else if rho_str_eq(severity, "WARNING") {
+        warn("energy", message)
+    } else {
+        info("energy", message)
+    }
     notification_live_event(energy_notification_kind(severity), message)
     energy_publish("energy.fault", message)
 }
@@ -1161,6 +1168,7 @@ fn energy_fault_clear_state(db: SqlDb, code: string, message: string, now: u32) 
     }
     energy_ignore_result(SetFaultState(code, "0", "", "", rho_int_to_str(now), db))
     energy_ignore_result(InsertEvent("INFO", "fault", message, rho_int_to_str(now), db))
+    info("energy", message)
     notification_live_event("info", message)
     energy_publish("energy.fault", message)
 }
@@ -1314,6 +1322,8 @@ fn energy_tick() void {
 }
 
 fn init() void {
+    log_config_apply("energy")
+    info("energy", "starting")
     var opened: Result[SqlDb, string] = energy_open_db()
     if !opened.is_ok {
         return
@@ -2365,6 +2375,9 @@ fn energy_register_mesh_client() void {
     if client_id != "" {
         settings_set("energy.mesh_client_id", client_id)
         settings_set("energy.mesh_secret", secret)
+        info("energy.mesh", "registered as " + client_id)
+    } else {
+        warn("energy.mesh", "registration did not return a client id")
     }
 }
 
@@ -2515,6 +2528,55 @@ fn energy_gateway_project_choices() string {
         pos = close_at + 1
     }
     return out
+}
+
+fn energy_mesh_sources_html() string {
+    if energy_driver_is_mock() {
+        return "<p class=\"live-meta\">Simulation mode; Mesh sources are not read.</p>"
+    }
+    let text: string = energy_gateway_sources_text()
+    if text == "" || rho_str_eq(text, "[]") {
+        return "<p class=\"live-meta\">The Mesh returned no sources for this project. Check the URL, token and project.</p>"
+    }
+    var out: string = "<div class=\"table-wrap\"><table class=\"mesh-sources\"><thead><tr><th>Source</th><th>Kind</th><th>Signal</th><th>Direction</th><th>Unit</th><th>ID</th></tr></thead><tbody>"
+    var pos: u32 = 0
+    var count: u32 = 0
+    while pos < u32(rho_strlen(text)) {
+        let open_rel: i32 = rho_str_index_of(rho_str_slice(text, pos,
+            u32(rho_strlen(text)) - pos), "{")
+        if open_rel < 0 {
+            break
+        }
+        let open_at: u32 = pos + u32(open_rel)
+        let close_rel: i32 = rho_str_index_of(rho_str_slice(text, open_at + 1,
+            u32(rho_strlen(text)) - open_at - 1), "}")
+        if close_rel < 0 {
+            break
+        }
+        let close_at: u32 = open_at + 1 + u32(close_rel)
+        let object: string = rho_str_slice(text, open_at, close_at - open_at + 1)
+        let id: string = energy_json_field(object, "id")
+        var name: string = energy_json_field(object, "name")
+        if name == "" {
+            name = id
+        }
+        let kind: string = energy_json_field(object, "kind")
+        let signal: string = energy_json_field(object, "signal")
+        let label: string = energy_json_field(object, "label")
+        let direction: string = energy_json_field(object, "direction")
+        let unit: string = energy_json_field(object, "unit")
+        out = out + "<tr><td><strong>" + escape_html(name) + "</strong></td><td>" +
+            escape_html(kind) + "</td><td>" + escape_html(label) + " · " +
+            escape_html(signal) + "</td><td>" + escape_html(direction) +
+            "</td><td>" + escape_html(unit) + "</td><td><code>" +
+            escape_html(id) + "</code></td></tr>"
+        count = count + 1
+        pos = close_at + 1
+    }
+    if count == 0 {
+        return "<p class=\"live-meta\">The Mesh returned no readable sources.</p>"
+    }
+    return out + "</tbody></table></div><p class=\"live-meta\">Copy a source ID into a source, battery or grid Mesh source field.</p>"
 }
 
 fn energy_gateway_sources_text() string {
@@ -2974,6 +3036,7 @@ fn energy_sim_toggle(req: Request) Response {
             message = "Switched to real-time Mesh telemetry"
         }
         energy_apply_widget_sources(db, mode)
+        info("energy", message)
         energy_register_mesh_client()
         energy_ignore_result(InsertEvent("INFO", "mode", message,
             rho_int_to_str(now), db))
@@ -3042,12 +3105,11 @@ fn energy_settings_page_fields(req: Request, fields: [FormField], count: u32, no
     energy_ensure_gateway_conf()
     var gateway_url: string = energy_gateway_display_url()
     var gateway_status: string = "Simulation mode; the gateway is idle."
-    var gateway_sources: string = "Simulation mode; no Mesh sources are read."
     if !energy_driver_is_mock() {
         gateway_url = energy_gateway_url()
         gateway_status = energy_gateway_status()
-        gateway_sources = energy_gateway_sources_text()
     }
+    var gateway_sources: string = energy_mesh_sources_html()
     if !energy_driver_is_mock() &&
         settings_get("energy.mesh_token", energy_gateway_conf_value("token")) == "" {
         notice = "A Mesh token is required before the project list can load."
@@ -3068,8 +3130,10 @@ fn energy_settings_page_fields(req: Request, fields: [FormField], count: u32, no
         vars("mesh_project", escape_html(settings_get("energy.mesh_project", ""))) +
         vars("gateway_url", escape_html(gateway_url)) +
         vars("gateway_status", escape_html(gateway_status)) +
-        vars("gateway_sources", escape_html(gateway_sources)) +
-        vars("mesh_project_link", escape_html(energy_mesh_project_link())))
+        vars("gateway_sources", gateway_sources) +
+        vars("mesh_project_link", escape_html(energy_mesh_project_link())) +
+        vars("log_form", log_settings_form("energy", "/settings/log",
+            i18n_locale(req))))
     return energy_page(req, "Settings", body)
 }
 
@@ -3603,4 +3667,26 @@ fn energy_api_sim_fault(req: Request) Response {
     energy_publish_live(db)
     sql_close(db)
     return json(status_ok(), "{\"ok\":true,\"fault\":" + json_string(fault) + "}")
+}
+
+fn energy_settings_log_save(req: Request) Response {
+    let body: string = request_body(req)
+    if !forms_csrf_ok(body) {
+        return energy_page(req, "Settings",
+            "<p>Refused: the form token did not match.</p>")
+    }
+    if !log_settings_save("energy", body) {
+        return energy_page(req, "Settings",
+            "<p>Check the logging values and try again.</p>")
+    }
+    let now: u32 = energy_now()
+    let opened: Result[SqlDb, string] = energy_open_db()
+    if opened.is_ok {
+        energy_ignore_result(InsertEvent("INFO", "settings",
+            "Logging settings updated", rho_int_to_str(now), opened.ok))
+        energy_publish_live(opened.ok)
+        sql_close(opened.ok)
+    }
+    info("energy", "logging settings updated")
+    return redirect("/settings")
 }

@@ -84,6 +84,13 @@ module renders the dashboard cards, on the same router. Energy is the same shape
 one service, reusable modules on its router, and a typed energy and telemetry
 store beneath it.
 
+All four applications are keeper-deployed user services. Each has a Logging
+settings section — level, text or JSON, a rotating file under
+`~/.local/state/robohub/<app>/`, size, retention and stderr — and the keeper's
+Applications page links each app to its log. Energy, aquarium and mesh register
+with Mesh as clients of their project; subscribed applications receive the
+topics they asked for.
+
 ## Modules
 
 A module is a reusable application: backend, pages and storage, under

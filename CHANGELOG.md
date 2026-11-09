@@ -6,106 +6,6 @@ says what changed, which is what tells two versions of one module apart. The
 section for the version being published travels with it, so a registry shows it
 against that version.
 
-## [0.4.0] - 2026-11-09
-
-The energy application: one location's generation, storage, grid and loads in
-one keeper-hosted service on port 8482. It normalizes solar PV, microinverter
-and wind readings, tracks a LiFePO4 bank (SoC, cell window, temperature and the
-L51 CAN profile), controls off-grid, on-grid and hybrid modes with load
-shedding, generator thresholds, zero export, peak shaving and tariff windows,
-evaluates thermal and electrical interlocks, and writes power faults into the
-telemetry SQLite/WAL store. Its dashboard is the shared widgets module rather
-than a second implementation, and it carries the inventory, scheduler and widget
-modules inside the energy shell, with their pages rendered as content in the
-host's own menu and layout. The driver seam runs a deterministic stateful
-simulator by default and can switch to real-time Mesh telemetry through the same
-`mesh-gateway` provider the aquarium uses, without a restart. Simulation mode
-publishes simulated gateway sources so widgets preselect them; real-time mode
-clears those selections. Applications now register as Mesh clients with their
-project, callback and topic subscriptions; Mesh routes published energy faults
-and mode changes only to subscribed applications, authenticated by the service
-token and a per-client callback secret. Scripted fault injection keeps the smoke
-suite runnable without a bench.
-
-## [0.3.5] - 2026-11-04
-
-Keeper authentication and SSO across applications. Keeper is the authorization
-server: it holds an ES256 signing key, mints short-lived single-use tickets, and
-protects its own admin UI. Aquarium and Mesh verify sessions locally with the
-public key, support direct WAN and reverse-proxy origins, and Mesh accepts
-signed service JWTs for server-to-server API calls. A robohub-auth plugin and
-provider registry make the auth provider selectable.
-
-## [0.3.4] - 2026-11-02
-
-The aquarium framework: equipment and devices, automation rules with an
-evaluation and audit trail, water chemistry, operational modes and the event
-log. The home page is a dashboard built from configurable widgets, including
-buttons and switches whose hooks are called when pressed. Module versions are
-independent of the application, and the keeper lists modules without a single
-host link. Module forms use the same semi-opaque panels as the aquarium.
-## [0.3.3] - 2026-11-02
-
-Reusable modules under `modules/`, with `modules/registry.yml` as the
-installed set and a keeper `/modules` page to install, remove and open them.
-A module has no port of its own: the host application includes it and the module
-registers its routes on the host's router.
-
-The aquarium application is the first host: one service on one port, with the
-inventory module registering its routes on the aquarium router under
-`/expenses`, a scheduler module under `/scheduler` with a chores API, and a widgets module
-whose configurable number, chart, button and switch cards make the aquarium's
-home page a dashboard. Modules share the host's main SQL database. The aquarium has a stylized background asset
-and top/bottom menus.
-The inventory module tracks stock on hand, reorder levels, purchases with
-categories, quantities, unit prices, stores, dates and comments, a running total,
-and SQLite storage through rho-sql. A module keeps its records and settings in
-the workspace of the application that consumes it, so two applications using one
-module do not share a database; the settings are the `config:` map on the host's
-`micro_apps` entry, not anything beside the module.
-
-## [0.3.2] - 2026-11-02
-
-A plugin system for the applications. An application names its plugins and
-settings in its own `module.yml`; `plugins/registry.yml` is the installed set and
-the manager confirms each path on disk before using it. The keeper has a
-`/plugins` registry to install, remove, enable and test plugins.
-
-The alert dispatcher is the unified alert entry point: it fans out to the
-channels named in its targets, each with its own threshold. The transports are
-generic Rho providers for a log, e-mail (SMTP or a local outbox with templates),
-Telegram and webhooks, and an application can call a provider directly. The
-alert rule engine adds hysteresis, pending and cooldown windows and a rolling
-rate limit around a reading. Mesh raises an alert when a step fails, through the
-same dispatcher.
-
-## [0.3.1] - 2026-11-02
-
-Mesh models a sensor module as a node of its own (`kind: module`) attached to a
-node, instead of a field on the node. Module nodes appear in the plan tree under
-the node they extend, are added with **+ Add module** or **+ module**, and are
-never built or programmed separately: the node's image carries them. A native
-gateway cannot take modules; the controls appear only when the gateway is a real
-board.
-
-The module picker is read from `robohub-drivers/boards` on every load and grows
-a section for any new board category. The robohub-drivers root manifest now
-states the board module contract, so a board added to that checkout is
-discoverable without a list elsewhere changing.
-
-## [0.3.0] - 2026-11-02
-
-The keeper is an applications registry. A module whose manifest declares an
-`application` block is listed at `/applications`, where it can be opened,
-started, stopped, added to the keeper's left menu as a sub-item of Applications,
-or removed. An application is installed from a git URL or registered from a
-folder that already exists; its state lives in `~/.rho/keeper/`.
-
-Mesh moved out of the keeper and into `applications/mesh` as a keeper-hosted
-application. It has its own left menu, active-project selection, attached sensor
-modules read dynamically from `robohub-drivers/boards`, per-node bus plans with
-I2C address and SPI chip-select allocation, and its own documentation page.
-
 ## [0.1.0] - 2026-10-21
 
 The orchestrator of the RoboHub ecosystem: a registry of its modules, and the
@@ -141,7 +41,111 @@ The gateway page, frame history and CSV export, the wall-clock receive time
 beside a node's uptime, and the documentation each module now carries with its
 release history are part of the ecosystem this release describes.
 
-## [0.4.0] - 2026-11-08
+## [0.3.0] - 2026-11-02
+
+The keeper is an applications registry. A module whose manifest declares an
+`application` block is listed at `/applications`, where it can be opened,
+started, stopped, added to the keeper's left menu as a sub-item of Applications,
+or removed. An application is installed from a git URL or registered from a
+folder that already exists; its state lives in `~/.rho/keeper/`.
+
+Mesh moved out of the keeper and into `applications/mesh` as a keeper-hosted
+application. It has its own left menu, active-project selection, attached sensor
+modules read dynamically from `robohub-drivers/boards`, per-node bus plans with
+I2C address and SPI chip-select allocation, and its own documentation page.
+
+## [0.3.1] - 2026-11-02
+
+Mesh models a sensor module as a node of its own (`kind: module`) attached to a
+node, instead of a field on the node. Module nodes appear in the plan tree under
+the node they extend, are added with **+ Add module** or **+ module**, and are
+never built or programmed separately: the node's image carries them. A native
+gateway cannot take modules; the controls appear only when the gateway is a real
+board.
+
+The module picker is read from `robohub-drivers/boards` on every load and grows
+a section for any new board category. The robohub-drivers root manifest now
+states the board module contract, so a board added to that checkout is
+discoverable without a list elsewhere changing.
+
+## [0.3.2] - 2026-11-02
+
+A plugin system for the applications. An application names its plugins and
+settings in its own `module.yml`; `plugins/registry.yml` is the installed set and
+the manager confirms each path on disk before using it. The keeper has a
+`/plugins` registry to install, remove, enable and test plugins.
+
+The alert dispatcher is the unified alert entry point: it fans out to the
+channels named in its targets, each with its own threshold. The transports are
+generic Rho providers for a log, e-mail (SMTP or a local outbox with templates),
+Telegram and webhooks, and an application can call a provider directly. The
+alert rule engine adds hysteresis, pending and cooldown windows and a rolling
+rate limit around a reading. Mesh raises an alert when a step fails, through the
+same dispatcher.
+
+## [0.3.3] - 2026-11-02
+
+Reusable modules under `modules/`, with `modules/registry.yml` as the
+installed set and a keeper `/modules` page to install, remove and open them.
+A module has no port of its own: the host application includes it and the module
+registers its routes on the host's router.
+
+The aquarium application is the first host: one service on one port, with the
+inventory module registering its routes on the aquarium router under
+`/expenses`, a scheduler module under `/scheduler` with a chores API, and a widgets module
+whose configurable number, chart, button and switch cards make the aquarium's
+home page a dashboard. Modules share the host's main SQL database. The aquarium has a stylized background asset
+and top/bottom menus.
+The inventory module tracks stock on hand, reorder levels, purchases with
+categories, quantities, unit prices, stores, dates and comments, a running total,
+and SQLite storage through rho-sql. A module keeps its records and settings in
+the workspace of the application that consumes it, so two applications using one
+module do not share a database; the settings are the `config:` map on the host's
+`micro_apps` entry, not anything beside the module.
+
+## [0.3.4] - 2026-11-02
+
+The aquarium framework: equipment and devices, automation rules with an
+evaluation and audit trail, water chemistry, operational modes and the event
+log. The home page is a dashboard built from configurable widgets, including
+buttons and switches whose hooks are called when pressed. Module versions are
+independent of the application, and the keeper lists modules without a single
+host link. Module forms use the same semi-opaque panels as the aquarium.
+
+## [0.3.5] - 2026-11-04
+
+Keeper authentication and SSO across applications. Keeper is the authorization
+server: it holds an ES256 signing key, mints short-lived single-use tickets, and
+protects its own admin UI. Aquarium and Mesh verify sessions locally with the
+public key, support direct WAN and reverse-proxy origins, and Mesh accepts
+signed service JWTs for server-to-server API calls. A robohub-auth plugin and
+provider registry make the auth provider selectable.
+
+## [0.4.0] - 2026-11-09
+
+The energy application: one location's generation, storage, grid and loads in
+one keeper-hosted service on port 8482. It normalizes solar PV, microinverter
+and wind readings, tracks a LiFePO4 bank (SoC, cell window, temperature and the
+L51 CAN profile), controls off-grid, on-grid and hybrid modes with load
+shedding, generator thresholds, zero export, peak shaving and tariff windows,
+evaluates thermal and electrical interlocks, and writes power faults into the
+telemetry SQLite/WAL store. Its dashboard is the shared widgets module rather
+than a second implementation, and it carries the inventory, scheduler and widget
+modules inside the energy shell, with their pages rendered as content in the
+host's own menu and layout. The driver seam runs a deterministic stateful
+simulator by default and can switch to real-time Mesh telemetry through the same
+`mesh-gateway` provider the aquarium uses, without a restart. Simulation mode
+publishes simulated gateway sources so widgets preselect them; real-time mode
+clears those selections. Applications now register as Mesh clients with their
+project, callback and topic subscriptions; Mesh routes published energy faults
+and mode changes only to subscribed applications, authenticated by the service
+token and a per-client callback secret. Scripted fault injection keeps the smoke
+suite runnable without a bench. Every application now has a Logging settings form and a
+rotating per-app log, the keeper's Applications page links each app to its log
+file, and energy is installed as the same kind of user service as mesh and
+aquarium.
+
+Also in this release:
 
 A reactive UI, internationalisation, telemetry and provisioning release.
 

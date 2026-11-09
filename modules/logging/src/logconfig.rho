@@ -1,0 +1,213 @@
+module logging
+
+import rho.log
+
+// The levels are the formatter's levels, in the same order the port uses.
+const LOG_TRACE: u32 = 0
+const LOG_DEBUG: u32 = 1
+const LOG_INFO: u32 = 2
+const LOG_WARN: u32 = 3
+const LOG_ERROR: u32 = 4
+const LOG_FATAL: u32 = 5
+
+fn log_trim(text: string) string {
+    var out: string = text
+    while rho_strlen(out) > 0 &&
+        (rho_str_eq(rho_str_slice(out, 0, 1), " ") ||
+         rho_str_eq(rho_str_slice(out, 0, 1), "\n") ||
+         rho_str_eq(rho_str_slice(out, 0, 1), "\r") ||
+         rho_str_eq(rho_str_slice(out, 0, 1), "\t")) {
+        out = rho_str_slice(out, 1, u32(rho_strlen(out)) - 1)
+    }
+    while rho_strlen(out) > 0 {
+        let at: u32 = u32(rho_strlen(out)) - 1
+        let last: string = rho_str_slice(out, at, 1)
+        if rho_str_eq(last, " ") || rho_str_eq(last, "\n") ||
+            rho_str_eq(last, "\r") || rho_str_eq(last, "\t") {
+            out = rho_str_slice(out, 0, at)
+        } else {
+            break
+        }
+    }
+    return out
+}
+
+fn log_level_index(name: string) u32 {
+    let value: string = log_trim(name)
+    if rho_str_eq(value, "trace") { return LOG_TRACE }
+    if rho_str_eq(value, "debug") { return LOG_DEBUG }
+    if rho_str_eq(value, "warn") || rho_str_eq(value, "warning") { return LOG_WARN }
+    if rho_str_eq(value, "error") || rho_str_eq(value, "err") { return LOG_ERROR }
+    if rho_str_eq(value, "fatal") { return LOG_FATAL }
+    return LOG_INFO
+}
+
+fn log_level_name(level: u32) string {
+    if level == LOG_TRACE { return "trace" }
+    if level == LOG_DEBUG { return "debug" }
+    if level == LOG_WARN { return "warn" }
+    if level == LOG_ERROR { return "error" }
+    if level == LOG_FATAL { return "fatal" }
+    return "info"
+}
+
+fn log_default_file(app: string) string {
+    var base: string = getenv("XDG_STATE_HOME")
+    if base == "" {
+        let home: string = getenv("HOME")
+        if home == "" {
+            home = "."
+        }
+        base = home + "/.local/state"
+    }
+    let dir: string = base + "/robohub/" + app
+    ignore_u32(rho_exec("mkdir", "-p " + dir, "/dev/null"))
+    return dir + "/app.log"
+}
+
+fn log_setting(key: string, fallback: string) string {
+    let value: string = settings_get("log." + key, fallback)
+    if value == "" {
+        return fallback
+    }
+    return value
+}
+
+fn log_parse_u32(text: string, fallback: u32) u32 {
+    let value: string = log_trim(text)
+    if value == "" {
+        return fallback
+    }
+    let parsed: u32 = rho_int_from_str(value)
+    if parsed == 0 {
+        return fallback
+    }
+    return parsed
+}
+
+// log_file_is_read from another application's settings file, which the keeper
+// uses for its Applications page. The app itself calls log_file_for_app.
+fn log_file_in_settings_file(path: string, app: string) string {
+    if !rho_path_exists(path) {
+        return log_default_file(app)
+    }
+    var rest: string = rho_read_text(path)
+    while rest != "" {
+        let at: i32 = rho_str_index_of(rest, "\n")
+        var line: string = rest
+        if at < 0 {
+            rest = ""
+        } else {
+            line = rho_str_slice(rest, 0, u32(at))
+            rest = rho_str_slice(rest, u32(at) + 1,
+                u32(rho_strlen(rest)) - u32(at) - 1)
+        }
+        if rho_str_index_of(line, "log.file=") == 0 {
+            let value: string = log_trim(rho_str_slice(line, 9,
+                u32(rho_strlen(line)) - 9))
+            if value != "" {
+                return value
+            }
+            break
+        }
+    }
+    return log_default_file(app)
+}
+
+fn log_file_for_app(app: string) string {
+    let value: string = log_setting("file", "")
+    if value != "" {
+        return value
+    }
+    return log_default_file(app)
+}
+
+// log_config_apply turns the stored settings into the host's log policy. It is
+// called at startup and after the Logging form is saved.
+fn log_config_apply(app: string) void {
+    let level: u32 = log_level_index(log_setting("level", "info"))
+    var format: string = log_setting("format", "text")
+    if !rho_str_eq(format, "json") {
+        format = "text"
+    }
+    let file: string = log_file_for_app(app)
+    let max_bytes: u32 = log_parse_u32(log_setting("max_bytes", "5242880"), 5242880)
+    let keep: u32 = log_parse_u32(log_setting("keep", "5"), 5)
+    let stderr: u32 = 1
+    if rho_str_eq(log_setting("stderr", "1"), "0") {
+        stderr = 0
+    }
+    configure(level, format, file, i64(max_bytes), keep, stderr)
+}
+
+fn log_settings_field_defs(fields: [FormField], app: string) void {
+    let level: string = log_setting("level", "info")
+    let format: string = log_setting("format", "text")
+    let file: string = log_file_for_app(app)
+    let max_bytes: string = log_setting("max_bytes", "5242880")
+    let keep: string = log_setting("keep", "5")
+    let stderr: string = log_setting("stderr", "1")
+    fields[0] = FormField{ "level", "select", "Log level",
+        "Production usually uses info; debug is for a reproduction.",
+        "", true, "", "trace|trace,debug|debug,info|info,warn|warn,error|error,fatal|fatal",
+        level, "", "" }
+    fields[1] = FormField{ "format", "select", "Log format",
+        "Text is for a terminal; JSON is for a collector.", "", true, "",
+        "text|text,json|json", format, "", "" }
+    fields[2] = FormField{ "file", "text", "Log file",
+        "The app's own log. Leave the default path for the system-standard location.",
+        log_default_file(app), false, "", "", file, "", "" }
+    fields[3] = FormField{ "max_bytes", "text", "Max size (bytes)",
+        "The file is rotated before it grows past this size.", "5242880",
+        true, "number", "", max_bytes, "", "numeric" }
+    fields[4] = FormField{ "keep", "text", "Rotated files to keep",
+        "How many older files are retained.", "5", true, "number", "",
+        keep, "", "numeric" }
+    fields[5] = FormField{ "stderr", "select", "Also log to stderr",
+        "Keep this on so journald sees the same records.", "", true, "",
+        "1|On,0|Off", stderr, "", "" }
+}
+
+fn log_settings_form(app: string, action: string, locale: string) string {
+    var fields: FormField[6]
+    log_settings_field_defs(fields, app)
+    return forms_open(fields, 6, action, "Save logging", locale)
+}
+
+fn log_settings_save(app: string, body: string) bool {
+    if !forms_csrf_ok(body) {
+        return false
+    }
+    var fields: FormField[6]
+    log_settings_field_defs(fields, app)
+    forms_read(fields, 6, body)
+    if !forms_validate(fields, 6) {
+        return false
+    }
+    let level: string = log_trim(forms_parse(body, "level"))
+    if rho_str_eq(level, "trace") || rho_str_eq(level, "debug") ||
+        rho_str_eq(level, "info") || rho_str_eq(level, "warn") ||
+        rho_str_eq(level, "error") || rho_str_eq(level, "fatal") {
+        settings_set("log.level", level)
+    }
+    let format: string = log_trim(forms_parse(body, "format"))
+    if rho_str_eq(format, "text") || rho_str_eq(format, "json") {
+        settings_set("log.format", format)
+    }
+    var file: string = log_trim(forms_parse(body, "file"))
+    if file == "" {
+        file = log_default_file(app)
+    }
+    settings_set("log.file", file)
+    settings_set("log.max_bytes", rho_int_to_str(log_parse_u32(
+        forms_parse(body, "max_bytes"), 5242880)))
+    settings_set("log.keep", rho_int_to_str(log_parse_u32(
+        forms_parse(body, "keep"), 5)))
+    var stderr: string = log_trim(forms_parse(body, "stderr"))
+    if stderr == "" {
+        stderr = "1"
+    }
+    settings_set("log.stderr", stderr)
+    log_config_apply(app)
+    return true
+}

@@ -1,5 +1,7 @@
 module widgets
 
+import rho.log
+
 // The widget manager, the dashboard cards and the API.
 //
 // A widget is a definition: a number, a chart of recent values, or a button
@@ -982,6 +984,7 @@ fn widgets_add(req: Request) Response {
         return widgets_page_message(req, "The widget could not be saved: " + added.err.message)
     }
     notification_push_level_locale(i18n_t(req, "toast.widget_added"), "info", 10, i18n_locale(req))
+    info("widgets", "widget added")
     return widgets_page_message(req, "Widget added.")
 }
 
@@ -1075,6 +1078,7 @@ fn widgets_edit_save(req: Request) Response {
     if !updated.is_ok {
         return widgets_page_message(req, "The widget could not be saved: " + updated.err.message)
     }
+    info("widgets", "widget saved")
     return widgets_page_message(req, "Widget saved.")
 }
 
@@ -1092,6 +1096,7 @@ fn widgets_delete(req: Request) Response {
     if !removed.is_ok {
         return widgets_page_message(req, "The widget could not be removed: " + removed.err.message)
     }
+    info("widgets", "widget removed")
     return widgets_page_message(req, "Widget removed.")
 }
 

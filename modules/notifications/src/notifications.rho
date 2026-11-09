@@ -1,5 +1,7 @@
 module notifications
 
+import rho.log
+
 import std.sql
 import std.web.http
 import std.web.template
@@ -43,6 +45,9 @@ fn notification_insert(db: SqlDb, message: string, level: string, now: u32, expi
     let status: u32 = sql_exec(db, "notification_insert",
         "INSERT INTO notifications (level, message, created_at, expires_at) VALUES (?, ?, ?, ?)",
         values_slice, Ptr[u32](&affected))
+    if status != 0 {
+        info("notifications", level + ": " + message)
+    }
     return status != 0
 }
 

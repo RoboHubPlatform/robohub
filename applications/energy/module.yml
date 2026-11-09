@@ -73,6 +73,7 @@ sql:
   out: src/db
 
 deps:
+  rho-log: ">=0.1.2"
   rho-sql: ">=0.1.0"
   robohub:
     htmx: ">=0.1.0"
@@ -80,6 +81,7 @@ deps:
     settings: ">=0.1.0"
     forms: ">=0.1.0"
     notifications: ">=0.1.0"
+    logging: ">=0.1.0"
     inventory: ">=0.1.3"
     scheduler: ">=0.1.3"
     widgets: ">=0.2.3"

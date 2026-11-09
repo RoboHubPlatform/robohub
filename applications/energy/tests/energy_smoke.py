@@ -121,6 +121,7 @@ def main() -> int:
         env["ROBOHUB_APP_MANIFEST"] = str(APP / "module.yml")
         env["ROBOHUB_MESH_TELEMETRY_DB"] = str(telemetry)
         env["ROBOHUB_DRIVER_MODE"] = "mock"
+        env["XDG_STATE_HOME"] = str(Path(workspace) / "state")
         env["RHO_HTTP_ADDR"] = f":{port}"
         process = subprocess.Popen([str(binary)], cwd=APP, env=env,
                                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
@@ -185,6 +186,20 @@ def main() -> int:
             saved = state(base)
             if saved["site"] != "Garden":
                 raise AssertionError("settings were not saved")
+
+            settings_html = get(base, "/settings")
+            if 'name="level"' not in settings_html:
+                raise AssertionError("the Logging form is missing")
+            log_file = Path(workspace) / "logs" / "energy.log"
+            token = csrf(base, "/settings")
+            post(base, "/settings/log", {
+                "level": "debug", "format": "json", "file": str(log_file),
+                "max_bytes": "65536", "keep": "3", "stderr": "1",
+            }, token)
+            if not log_file.exists():
+                raise AssertionError("the application log file was not created")
+            if "logging settings updated" not in log_file.read_text():
+                raise AssertionError("the log settings event was not written")
             if saved["project"] != "energy-sim":
                 raise AssertionError("simulation telemetry project should be derived")
 

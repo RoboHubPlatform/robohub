@@ -1,5 +1,7 @@
 module scheduler
 
+import rho.log
+
 // The scheduler's pages and API. Timestamps are Unix seconds so due and
 // overdue are integer comparisons; the text forms are produced only for the
 // page and the API.
@@ -454,6 +456,7 @@ fn chores_add(req: Request) Response {
         return scheduler_page_message(req, "The chore could not be saved: " + added.err.message)
     }
     notification_push_level_locale(i18n_t(req, "toast.chore_added"), "info", 10, i18n_locale(req))
+    info("scheduler", "chore added")
     return scheduler_page_message(req, "Chore added.")
 }
 
@@ -503,6 +506,7 @@ fn chores_complete_body(req: Request, body: string) Response {
     if !updated.is_ok {
         return scheduler_page_message(req, "The chore could not be completed: " + updated.err.message)
     }
+    info("scheduler", "chore completed")
     return scheduler_page_message(req, "Chore completed.")
 }
 

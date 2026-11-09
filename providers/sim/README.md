@@ -20,3 +20,5 @@ separate simulation mode.
 The config is `transport=sim;base=<url>`. The energy application writes it while
 its driver mode is `mock`; the application's settings then switch the same file
 to `transport=mesh;url=...;project=...` for real-time mode.
+
+Fetch failures are written to the host application log under the `sim-gateway` subject.
