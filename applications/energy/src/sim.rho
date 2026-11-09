@@ -1,0 +1,363 @@
+module energy
+
+// The stateful mock driver. It presents the same reading shape a real inverter,
+// BMS or grid meter presents, advances a solar bell curve and a wind band,
+// charges and discharges the bank within the BMS current limits, and respects
+// the operating mode. Scripted faults are named values the caller sets, so a
+// test can make a condition appear and disappear without waiting for weather or
+// a bench.
+
+const ENERGY_SIM_PV: u16 = 1
+
+const ENERGY_SIM_LOAD: u16 = 2
+
+const ENERGY_SIM_GRID: u16 = 4
+
+const ENERGY_SIM_BATTERY: u16 = 8
+
+const ENERGY_SIM_SOC: u16 = 16
+
+const ENERGY_SIM_TODAY: u16 = 32
+
+const ENERGY_SIM_TOTAL: u16 = 64
+
+const ENERGY_SIM_FAULT_PV_OVERVOLTAGE: string = "pv_overvoltage"
+
+const ENERGY_SIM_FAULT_PV_OVERTEMP: string = "pv_overtemp"
+
+const ENERGY_SIM_FAULT_BATTERY_OVERTEMP: string = "battery_overtemp"
+
+const ENERGY_SIM_FAULT_BATTERY_LOW: string = "battery_low"
+
+const ENERGY_SIM_FAULT_CELL_IMBALANCE: string = "cell_imbalance"
+
+const ENERGY_SIM_FAULT_GRID_OVERVOLTAGE: string = "grid_overvoltage"
+
+const ENERGY_SIM_FAULT_GRID_UNDERVOLTAGE: string = "grid_undervoltage"
+
+const ENERGY_SIM_FAULT_GRID_FREQUENCY: string = "grid_frequency"
+
+const ENERGY_SIM_FAULT_ZERO_EXPORT: string = "zero_export"
+
+const ENERGY_SIM_FAULT_GRID_OFFLINE: string = "grid_offline"
+
+struct SimSource {
+    rated_w: i64
+    power_w: i64
+    voltage_mv: i64
+    temperature_mc: i64
+    current_ma: i64
+    online: bool
+}
+
+struct SimBattery {
+    capacity_wh: i64
+    soc_milli: i64
+    voltage_mv: i64
+    current_ma: i64
+    temperature_mc: i64
+    cell_min_mv: i64
+    cell_max_mv: i64
+    charge_limit_ma: i64
+    discharge_limit_ma: i64
+    online: bool
+}
+
+struct SimGrid {
+    voltage_mv: i64
+    frequency_mhz: i64
+    import_w: i64
+    export_w: i64
+    import_limit_w: i64
+    export_limit_w: i64
+    zero_export: bool
+    synchronized: bool
+    online: bool
+}
+
+struct SimSite {
+    pv: SimSource
+    wind: SimSource
+    battery: SimBattery
+    grid: SimGrid
+    load_w: i64
+    generator: bool
+    load_shed: bool
+    mode: string
+    tariff_peak: bool
+    reserve_soc_milli: i64
+    energy_today_wh: i64
+    energy_total_wh: i64
+    tick: u32
+    fault: string
+}
+
+struct SimPowerReading {
+    pv_power_w: i64
+    load_power_w: i64
+    grid_power_w: i64
+    battery_power_w: i64
+    battery_soc_milli: i64
+    energy_today_wh: i64
+    energy_total_wh: i64
+    valid: u16
+    status: u16
+}
+
+fn energy_sim_abs(value: i64) i64 {
+    if value < 0 {
+        return 0 - value
+    }
+    return value
+}
+
+fn energy_sim_min(a: i64, b: i64) i64 {
+    if a < b {
+        return a
+    }
+    return b
+}
+
+fn energy_sim_max(a: i64, b: i64) i64 {
+    if a > b {
+        return a
+    }
+    return b
+}
+
+fn energy_sim_clamp(value: i64, low: i64, high: i64) i64 {
+    if value < low {
+        return low
+    }
+    if value > high {
+        return high
+    }
+    return value
+}
+
+fn energy_sim_empty() SimSite {
+    return SimSite{ SimSource{ 0, 0, 0, 0, 0, false }, SimSource{ 0, 0, 0, 0, 0, false }, SimBattery{ 1, 55000, 51200, 0, 24000, 3250, 3280, 60000, 120000, false }, SimGrid{ 230000, 50000, 0, 0, 0, 0, true, false, false }, 0, false, false, "hybrid", false, 25000, 0, 0, 0, "" }
+}
+
+fn energy_sim_inject(site: SimSite, fault: string) SimSite {
+    var out: SimSite = site
+    if rho_str_eq(fault, ENERGY_SIM_FAULT_PV_OVERVOLTAGE) {
+        out.pv.voltage_mv = 720000
+    }
+    if rho_str_eq(fault, ENERGY_SIM_FAULT_PV_OVERTEMP) {
+        out.pv.temperature_mc = 90000
+    }
+    if rho_str_eq(fault, ENERGY_SIM_FAULT_BATTERY_OVERTEMP) {
+        out.battery.temperature_mc = 55000
+    }
+    if rho_str_eq(fault, ENERGY_SIM_FAULT_BATTERY_LOW) {
+        out.battery.soc_milli = 8000
+    }
+    if rho_str_eq(fault, ENERGY_SIM_FAULT_CELL_IMBALANCE) {
+        out.battery.cell_min_mv = 3060
+        out.battery.cell_max_mv = 3660
+    }
+    if rho_str_eq(fault, ENERGY_SIM_FAULT_GRID_OVERVOLTAGE) {
+        out.grid.voltage_mv = 265000
+    }
+    if rho_str_eq(fault, ENERGY_SIM_FAULT_GRID_UNDERVOLTAGE) {
+        out.grid.voltage_mv = 190000
+    }
+    if rho_str_eq(fault, ENERGY_SIM_FAULT_GRID_FREQUENCY) {
+        out.grid.frequency_mhz = 52000
+    }
+    if rho_str_eq(fault, ENERGY_SIM_FAULT_ZERO_EXPORT) {
+        out.grid.zero_export = true
+        out.grid.export_w = 5000
+    }
+    if rho_str_eq(fault, ENERGY_SIM_FAULT_GRID_OFFLINE) {
+        out.grid.online = false
+        out.grid.synchronized = false
+    }
+    return out
+}
+
+fn energy_sim_step(site: SimSite, now: u32) SimSite {
+    var out: SimSite = site
+    out.tick = site.tick + 1
+    var hour: i64 = i64(now) / 3600 % 24
+    var sun: i64 = 0
+    if hour >= 6 && hour <= 18 {
+        var distance: i64 = hour - 12
+        if distance < 0 {
+            distance = 0 - distance
+        }
+        sun = 100 - distance * 14
+    }
+    if sun < 0 {
+        sun = 0
+    }
+    var wobble: i64 = (i64(now) / 7 + i64(site.tick) * 3) % 9 - 4
+    var pv_factor: i64 = energy_sim_clamp(sun + wobble, 0, 110)
+    out.pv.power_w = site.pv.rated_w * pv_factor / 100
+    out.pv.voltage_mv = 380000 + wobble * 900
+    out.pv.current_ma = 0
+    if out.pv.voltage_mv > 0 {
+        out.pv.current_ma = out.pv.power_w * 1000000 / (out.pv.voltage_mv)
+    }
+    out.pv.temperature_mc = 25000 + out.pv.power_w * 6000 / (energy_sim_max(site.pv.rated_w, 1)) + wobble * 120
+    var wind_factor: i64 = 30 + (i64(now) / 60 + i64(site.tick)) % 35
+    out.wind.power_w = site.wind.rated_w * wind_factor / 100
+    out.wind.voltage_mv = 96000 + wobble * 500
+    out.wind.current_ma = 0
+    if out.wind.voltage_mv > 0 {
+        out.wind.current_ma = out.wind.power_w * 1000000 / (out.wind.voltage_mv)
+    }
+    out.wind.temperature_mc = 22000 + out.wind.power_w * 5000 / (energy_sim_max(site.wind.rated_w, 1)) + wobble * 80
+    var base_load: i64 = 850
+    if hour <= 5 {
+        base_load = 450
+    }
+    if hour >= 7 && hour <= 9 {
+        base_load = 2100
+    }
+    if hour >= 17 && hour <= 21 {
+        base_load = 2600
+    }
+    if site.load_shed {
+        base_load = base_load / 3
+    }
+    out.load_w = base_load + site.load_w / 4 + wobble * 30
+    if out.load_w < 0 {
+        out.load_w = 0
+    }
+    var generator_w: i64 = 0
+    if site.generator {
+        generator_w = 3500
+    }
+    var supply: i64 = out.pv.power_w + out.wind.power_w + generator_w
+    var demand: i64 = out.load_w
+    var deficit: i64 = demand - supply
+    var surplus: i64 = supply - demand
+    var battery_charge: i64 = 0
+    var grid_import: i64 = 0
+    var grid_export: i64 = 0
+    if rho_str_eq(site.mode, "off_grid") {
+        if deficit > 0 {
+            battery_charge = 0 - deficit
+        } else {
+            battery_charge = surplus
+        }
+        out.grid.online = false
+        out.grid.synchronized = false
+    } else {
+        if rho_str_eq(site.mode, "on_grid") {
+            if deficit > 0 {
+                grid_import = deficit
+            } else {
+                if site.grid.zero_export {
+                    battery_charge = surplus
+                } else {
+                    grid_export = energy_sim_min(surplus, site.grid.export_limit_w)
+                    battery_charge = surplus - grid_export
+                }
+            }
+            out.grid.online = true
+            out.grid.synchronized = true
+        } else {
+            if site.tariff_peak && site.battery.soc_milli > site.reserve_soc_milli {
+                var discharge: i64 = energy_sim_min(deficit, 3000)
+                if discharge > 0 {
+                    battery_charge = 0 - discharge
+                }
+                grid_import = deficit - discharge
+            } else {
+                if deficit > 0 {
+                    grid_import = deficit
+                }
+                if !site.tariff_peak && site.battery.soc_milli < 90000 {
+                    var grid_charge: i64 = energy_sim_min(3000, 90000 - site.battery.soc_milli)
+                    battery_charge = grid_charge
+                    grid_import = grid_import + grid_charge
+                }
+            }
+            if surplus > 0 {
+                battery_charge = battery_charge + surplus
+            }
+            if site.grid.zero_export {
+                grid_export = 0
+            } else {
+                grid_export = energy_sim_max(0, surplus - battery_charge)
+                grid_export = energy_sim_min(grid_export, site.grid.export_limit_w)
+            }
+            out.grid.online = true
+            out.grid.synchronized = true
+        }
+    }
+    if grid_import < 0 {
+        grid_import = 0
+    }
+    if grid_export < 0 {
+        grid_export = 0
+    }
+    if site.battery.soc_milli >= 100000 && battery_charge > 0 {
+        if !site.grid.zero_export && !rho_str_eq(site.mode, "off_grid") {
+            grid_export = grid_export + battery_charge
+            if grid_export > site.grid.export_limit_w && site.grid.export_limit_w > 0 {
+                grid_export = site.grid.export_limit_w
+            }
+        }
+        battery_charge = 0
+    }
+    if site.battery.soc_milli <= 0 && battery_charge < 0 {
+        battery_charge = 0
+    }
+    out.grid.import_w = grid_import
+    out.grid.export_w = grid_export
+    out.grid.voltage_mv = 230000 + wobble * 300
+    out.grid.frequency_mhz = 50000 + wobble * 12
+    var max_charge: i64 = site.battery.charge_limit_ma * (site.battery.voltage_mv) / 1000000
+    var max_discharge: i64 = site.battery.discharge_limit_ma * (site.battery.voltage_mv) / 1000000
+    if battery_charge > max_charge {
+        battery_charge = max_charge
+    }
+    if battery_charge < 0 - max_discharge {
+        battery_charge = 0 - max_discharge
+    }
+    var capacity: i64 = energy_sim_max(site.battery.capacity_wh, 1)
+    var delta: i64 = battery_charge * 2 * 100000 / (capacity * 3600)
+    out.battery.soc_milli = energy_sim_clamp(site.battery.soc_milli + delta, 0, 100000)
+    out.battery.voltage_mv = 44000 + out.battery.soc_milli * 104 / 1000
+    out.battery.current_ma = 0
+    if out.battery.voltage_mv > 0 {
+        out.battery.current_ma = battery_charge * 1000000 / (out.battery.voltage_mv)
+    }
+    out.battery.temperature_mc = 24000 + energy_sim_abs(out.battery.current_ma) * 80 / 1000
+    out.battery.cell_max_mv = 3200 + out.battery.soc_milli * 5 / 1000
+    out.battery.cell_min_mv = out.battery.cell_max_mv - 20 - out.battery.soc_milli / 5000
+    var generated: i64 = (out.pv.power_w + out.wind.power_w) * 2 / 3600
+    out.energy_today_wh = site.energy_today_wh + generated
+    out.energy_total_wh = site.energy_total_wh + generated
+    return energy_sim_inject(out, site.fault)
+}
+
+fn energy_sim_reading(site: SimSite) SimPowerReading {
+    var grid_power: i64 = site.grid.import_w - site.grid.export_w
+    var battery_power: i64 = 0
+    if site.battery.voltage_mv > 0 {
+        battery_power = site.battery.current_ma * (site.battery.voltage_mv) / 1000000
+    }
+    var status: u16 = 0
+    if !site.grid.online || !site.battery.online {
+        status = 1
+    }
+    return SimPowerReading{ site.pv.power_w + site.wind.power_w, site.load_w, grid_power, battery_power, site.battery.soc_milli, site.energy_today_wh, site.energy_total_wh, ENERGY_SIM_PV + ENERGY_SIM_LOAD + ENERGY_SIM_GRID + ENERGY_SIM_BATTERY + ENERGY_SIM_SOC + ENERGY_SIM_TODAY + ENERGY_SIM_TOTAL, status }
+}
+
+fn energy_sim_mode_name(mode: string) bool {
+    if rho_str_eq(mode, "off_grid") {
+        return true
+    }
+    if rho_str_eq(mode, "on_grid") {
+        return true
+    }
+    if rho_str_eq(mode, "hybrid") {
+        return true
+    }
+    return false
+}

@@ -4,6 +4,14 @@ A reusable module for recurring maintenance and deferred actions. It registers
 its routes on the host application's router under `/scheduler`; it has no port
 of its own.
 
+## Host shell
+
+The module registers `/scheduler`, but it renders content only. Its pages call
+the host's `host_shell(req, title, body, scripts)`, so the application owns the
+header, footer and menu. The scheduler CSS travels in
+`templates/parts/style.html` with the content, keeping the tabs, due badges and
+chore controls intact in aquarium and energy alike.
+
 ## Schedules
 
 - **Interval** — every N hours.

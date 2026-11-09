@@ -6,6 +6,27 @@ says what changed, which is what tells two versions of one module apart. The
 section for the version being published travels with it, so a registry shows it
 against that version.
 
+## [0.4.0] - 2026-11-09
+
+The energy application: one location's generation, storage, grid and loads in
+one keeper-hosted service on port 8482. It normalizes solar PV, microinverter
+and wind readings, tracks a LiFePO4 bank (SoC, cell window, temperature and the
+L51 CAN profile), controls off-grid, on-grid and hybrid modes with load
+shedding, generator thresholds, zero export, peak shaving and tariff windows,
+evaluates thermal and electrical interlocks, and writes power faults into the
+telemetry SQLite/WAL store. Its dashboard is the shared widgets module rather
+than a second implementation, and it carries the inventory, scheduler and widget
+modules inside the energy shell, with their pages rendered as content in the
+host's own menu and layout. The driver seam runs a deterministic stateful
+simulator by default and can switch to real-time Mesh telemetry through the same
+`mesh-gateway` provider the aquarium uses, without a restart. Simulation mode
+publishes simulated gateway sources so widgets preselect them; real-time mode
+clears those selections. Applications now register as Mesh clients with their
+project, callback and topic subscriptions; Mesh routes published energy faults
+and mode changes only to subscribed applications, authenticated by the service
+token and a per-client callback secret. Scripted fault injection keeps the smoke
+suite runnable without a bench.
+
 ## [0.3.5] - 2026-11-04
 
 Keeper authentication and SSO across applications. Keeper is the authorization

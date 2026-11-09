@@ -1,0 +1,34 @@
+<tr>
+  <td>
+    <strong>{{ name }}</strong><br>
+    <small>{{ kind }} · {{ bus }}</small><br>
+    <small>{{ protocol }}{{#if address}} · {{ address }}{{/if}}</small>
+  </td>
+  <td>{{ rated }}</td>
+  <td>
+    <strong>{{ power }}</strong><br>
+    <small>{{ voltage }} · {{ current }}</small>
+  </td>
+  <td>{{ temperature }}</td>
+  <td>
+    <span class="status-pill {{ status_css }}">{{ status }}</span><br>
+    <small>{{ updated }}</small>
+  </td>
+  <td>
+    <form method="post" action="/sources/reading">
+      <input type="hidden" name="id" value="{{ id }}">
+      {{{ csrf }}}
+      <input name="power_w" placeholder="W" size="5" inputmode="decimal">
+      <input name="voltage_v" placeholder="V" size="5" inputmode="decimal">
+      <input name="current_a" placeholder="A" size="5" inputmode="decimal">
+      <input name="temperature_c" placeholder="°C" size="4" inputmode="decimal">
+      <select name="status"><option>online</option><option>derated</option><option>offline</option></select>
+      <button type="submit" class="quiet">{{t "energy.field.report"}}</button>
+    </form>
+    <form method="post" action="/sources/delete">
+      <input type="hidden" name="id" value="{{ id }}">
+      {{{ csrf }}}
+      <button type="submit" class="quiet">{{t "energy.field.remove"}}</button>
+    </form>
+  </td>
+</tr>

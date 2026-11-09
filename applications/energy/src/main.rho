@@ -1,0 +1,125 @@
+module energy
+
+// The energy host. It owns the router and port; the reusable modules it carries
+// (settings, i18n, forms, notifications, htmx, inventory, scheduler, widgets)
+// register on the same router. The SQL port is generated from db/schema.sql and
+// db/queries.sql beside this file.
+
+include "settings"
+include "i18n"
+include "forms"
+include "notifications"
+include "htmx"
+include "storage.rho"
+include "telemetry.rho"
+include "drivers.rho"
+include "sim.rho"
+include "db/models.rho"
+include "db/queries.rho"
+include "inventory"
+include "scheduler"
+include "gateway"
+include "widgets"
+include "energy.rho"
+import std.sql
+import std.web.http
+import std.web.template
+route GET "/" => energy_home
+
+route GET "/docs" => energy_docs
+
+route GET "/sources" => energy_sources_page
+
+route POST "/sources/add" => energy_sources_add
+
+route POST "/sources/reading" => energy_sources_reading
+
+route POST "/sources/delete" => energy_sources_delete
+
+route GET "/storage" => energy_storage_page
+
+route POST "/storage/add" => energy_storage_add
+
+route POST "/storage/reading" => energy_storage_reading
+
+route POST "/storage/delete" => energy_storage_delete
+
+route GET "/grid" => energy_grid_page
+
+route POST "/grid/add" => energy_grid_add
+
+route POST "/grid/reading" => energy_grid_reading
+
+route POST "/grid/delete" => energy_grid_delete
+
+route GET "/loads" => energy_loads_page
+
+route POST "/loads/add" => energy_loads_add
+
+route POST "/loads/toggle" => energy_loads_toggle
+
+route POST "/loads/delete" => energy_loads_delete
+
+route GET "/modes" => energy_modes_page
+
+route POST "/modes/set" => energy_modes_set
+
+route POST "/modes/generator" => energy_modes_generator
+
+route POST "/modes/shed" => energy_modes_shed
+
+route POST "/modes/tariff" => energy_modes_tariff
+
+route GET "/safety" => energy_safety_page
+
+route POST "/safety" => energy_safety_save
+
+route GET "/faults" => energy_faults_page
+
+route POST "/faults/clear" => energy_fault_clear
+
+route GET "/events" => energy_events_page
+
+route GET "/settings" => energy_settings_page
+
+route POST "/settings" => energy_settings_save
+
+route GET "/energy/stream" => energy_stream
+
+route GET "/api/energy/state" => energy_api_state
+
+route GET "/api/energy/events" => energy_api_events
+
+route POST "/api/energy/ingest" => energy_api_ingest
+
+route POST "/api/energy/sim/fault" => energy_api_sim_fault
+
+route GET "/api/energy/widgets/generation" => energy_widget_generation
+
+route GET "/api/energy/widgets/load" => energy_widget_load
+
+route GET "/api/energy/widgets/soc" => energy_widget_soc
+
+route GET "/api/energy/widgets/grid" => energy_widget_grid
+
+route GET "/api/energy/widgets/battery_temp" => energy_widget_battery_temp
+
+route GET "/api/energy/widgets/mode" => energy_widget_mode
+
+route GET "/api/energy/widgets/faults" => energy_widget_faults
+
+route POST "/api/energy/widgets/refresh" => energy_widgets_refresh
+
+route POST "/settings/sim-toggle" => energy_sim_toggle
+
+route GET "/api/energy/sim/gateway/sources" => energy_sim_gateway_sources
+
+route GET "/api/energy/sim/gateway/latest" => energy_sim_gateway_latest
+
+route GET "/api/energy/sim/gateway/history" => energy_sim_gateway_history
+
+route GET "/api/energy/sim/gateway/status" => energy_sim_gateway_status
+
+route GET "/api/energy/heartbeat" => energy_heartbeat
+
+route POST "/api/energy/mesh/events" => energy_mesh_callback

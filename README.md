@@ -77,9 +77,12 @@ run for a reason nobody can see, so a test is added only after it has passed.
 
 `applications/keeper` is the dashboard and registry; `applications/mesh` plans
 and runs gateway deployments; `applications/aquarium` is the first modular
-monolith. The aquarium is one service on one port, and the inventory module is
-included into it and serves `/expenses`, the scheduler serves `/scheduler`, and the widgets module renders the dashboard
-cards, on the same router.
+monolith; `applications/energy` is the power application for a location. The
+aquarium is one service on one port, and the inventory module is included into
+it and serves `/expenses`, the scheduler serves `/scheduler`, and the widgets
+module renders the dashboard cards, on the same router. Energy is the same shape:
+one service, reusable modules on its router, and a typed energy and telemetry
+store beneath it.
 
 ## Modules
 
@@ -189,10 +192,13 @@ and board modules describe what they can read in `telemetry_fields` and
 `signals`; HTTP devices describe their JSON paths and scales. Aquarium and the
 widgets module read the store through the `mesh-gateway` provider: a number is
 the latest value, a chart is a time-range series, and an output is the source's
-action URL.
+action URL. The energy application records generation, storage and grid
+readings in the same store and writes power faults into it, so its live SSE
+badges and any other telemetry consumer see one truth.
 
 See [Mesh](applications/mesh/docs/index.md),
 [Aquarium](applications/aquarium/docs/index.md),
+[Energy](applications/energy/docs/index.md),
 [widgets](modules/widgets/docs/index.md),
 [mesh-gateway](plugins/mesh-gateway/docs/index.md),
 [robohub-devices](https://github.com/RoboHubPlatform/robohub-devices) and

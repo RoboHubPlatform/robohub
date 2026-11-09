@@ -179,3 +179,54 @@ fn provider_mesh_source_latest(config: string, source: string) string {
     }
     return gateway_trim(provider_mesh_fetch(config, value_url, "mesh-source-latest"))
 }
+
+// The mutating side of the gateway: registration, heartbeat and publish. The
+// body travels in a file so quotes in a payload survive the shell intact.
+fn provider_mesh_post(config: string, path: string, body: string, name: string) string {
+    let base: string = provider_mesh_base(config)
+    if base == "" {
+        return ""
+    }
+    let report: string = gateway_report(name)
+    let body_file: string = gateway_state_dir() + "/" + name + "-body.json"
+    ignore_bool(rho_write_text(body_file, body))
+    let token: string = gateway_config_value(config, "token")
+    var auth: string = ""
+    if token != "" {
+        auth = " -H " + gateway_arg_quote("Authorization: Bearer " + token)
+    }
+    let command: string = "-fsS -m 4 -X POST -H " +
+        gateway_arg_quote("Content-Type: application/json") + auth +
+        " --data @" + gateway_arg_quote(body_file) + " " +
+        gateway_arg_quote(base + path)
+    if rho_exec("curl", command, report) != 0 {
+        return ""
+    }
+    return rho_read_text(report)
+}
+
+fn provider_mesh_register_client(config: string, app_name: string,
+    instance_id: string, callback_url: string, topics: string) string {
+    let body: string = "{\"app_name\":" + json_string(app_name) +
+        ",\"project\":" + json_string(provider_mesh_project(config)) +
+        ",\"instance_id\":" + json_string(instance_id) +
+        ",\"callback_url\":" + json_string(callback_url) +
+        ",\"topics\":" + json_string(topics) + "}"
+    return provider_mesh_post(config, "/mesh/api/clients/register", body,
+        "mesh-register")
+}
+
+fn provider_mesh_client_heartbeat(config: string, client_id: string) string {
+    let body: string = "{\"client_id\":" + json_string(client_id) + "}"
+    return provider_mesh_post(config, "/mesh/api/clients/heartbeat", body,
+        "mesh-heartbeat")
+}
+
+fn provider_mesh_publish(config: string, project: string, topic: string,
+    payload: string) string {
+    let body: string = "{\"project\":" + json_string(project) +
+        ",\"topic\":" + json_string(topic) +
+        ",\"payload\":" + json_string(payload) + "}"
+    return provider_mesh_post(config, "/mesh/api/clients/publish", body,
+        "mesh-publish")
+}

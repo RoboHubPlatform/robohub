@@ -11,6 +11,10 @@ keeps its tables in the host's main SQL database.
 - **Table** — the latest values as rows; the widget's point count is also the
   number of rows to show.
 - **Button** — calls a configured hook or API when pressed.
+- **Status** — a badge whose value is the latest text. A `prefix:` is read as
+  the state: `ok:`, `warn:`, `bad:` and `info:` choose the badge class; anything
+  after the colon is the text. The class is the host's `status-pill` class, so a
+  status card uses the same badge vocabulary as the rest of the application.
 - **Switch** — toggles between on and off, calls the hook with the new state, and
   shows the current state in the card. The hook may use `{state}`; without it,
   `?state=on` or `?state=off` is appended.
@@ -35,6 +39,53 @@ Shelly plug's power shows `W` without the widget knowing either part.
 | `GET` | `/api/widgets` | widgets with their latest value |
 | `POST` | `/api/widgets/{id}/value` | add a value |
 | `POST` | `/api/widgets/{id}/press` | press a button or toggle a switch |
+
+## Host shell and card styles
+
+The module's manager and edit pages are content, not full documents. They call
+the host's `host_shell(req, title, body, scripts)`, which wraps the content in
+the application's own layout, header, footer and menus. Aquarium and energy
+both provide that function; a new host provides the same four-argument function
+and gets the module's pages inside its own shell.
+
+Card actions are in place. Pin and resize return the single card; move returns
+the reordered `#widget-cards` grid, so a dashboard updates without a redirect.
+The controls use HTMX rather than ordinary form posts. Manual value entry and
+Press are not in the widget table; they live on the widget's Edit page and are
+shown only for manual or button/toggle cards, so a table of mesh- or URL-backed
+widgets has just Edit and Delete.
+
+The card CSS is part of the module, not the host. `widgets_style()` returns
+`templates/partials/widgets-style.html`; a host includes `{{{ widgets_style }}}`
+in its layout. The rules use the host's colour variables where they exist and
+fall back to the module's own palette, so a card looks the same in aquarium and
+energy without either application copying the grid, card, value, switch or
+control rules.
+
+## One implementation for every application
+
+The module's `db/schema.sql` and `db/queries.sql` are the canonical widget table
+and statement set. A host includes those tables in its SQL port and lets the
+module apply its own schema at runtime; it does not keep a second widget table
+or a second card renderer. The card templates, per-locale SSE event names and
+refresh behaviour are all here.
+
+`widgets_refresh_all()` is the host seam for background refresh. A host calls it
+from its worker; the module fetches every URL source, stores the values that
+changed, and emits the same per-locale card events the dashboard already
+consumes. The host supplies values; it never renders a widget.
+
+## Simulated sources
+
+The gateway contract has a `sim` transport alongside `mesh`. When the energy
+application is in simulation mode it writes `transport=sim;base=<url>` to
+`gateway.conf`, and the source picker is filled from
+`/api/energy/sim/gateway/sources`: generation, load, SoC, grid, battery
+temperature, mode and faults. The seeded energy cards store those source IDs, so
+the picker preselects them and the cards read their values through the same
+`gateway_source_latest` path a real Mesh source uses. Switching to real-time
+mode writes the Mesh transport and clears the simulated selections; the operator
+then chooses a real project source.
 
 ## Storage and settings
 

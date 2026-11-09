@@ -1,0 +1,70 @@
+module robohub.providers.sim
+
+// The simulation gateway provider.
+//
+// It presents the same source contract as Mesh, but the answers come from the
+// energy application's simulation endpoints. The application writes
+// `transport=sim` and `base=<url>` into gateway.conf while its driver mode is
+// `mock`; when it switches to real-time it writes the Mesh transport instead.
+// A widget therefore sees simulated sources in simulation mode and real Mesh
+// sources in normal mode, without knowing which provider answered.
+
+fn provider_sim_base(config: string) string {
+    var url: string = gateway_config_value(config, "base")
+    if url == "" {
+        url = "http://127.0.0.1:8482"
+    }
+    while rho_strlen(url) > 0 &&
+        rho_str_eq(rho_str_slice(url, u32(rho_strlen(url)) - 1, 1), "/") {
+        url = rho_str_slice(url, 0, u32(rho_strlen(url)) - 1)
+    }
+    return url
+}
+
+fn provider_sim_fetch(config: string, url: string) string {
+    let report: string = gateway_report("sim-gateway")
+    if rho_exec("curl", "-fsS -m 4 " + gateway_arg_quote(url), report) != 0 {
+        return ""
+    }
+    return rho_read_text(report)
+}
+
+fn provider_sim_projects(config: string) string {
+    return "[]"
+}
+
+fn provider_sim_gateway(config: string) string {
+    return provider_sim_base(config)
+}
+
+fn provider_sim_sources(config: string) string {
+    return provider_sim_fetch(config,
+        provider_sim_base(config) + "/api/energy/sim/gateway/sources")
+}
+
+fn provider_sim_device_states(config: string) string {
+    return ""
+}
+
+fn provider_sim_source_state(config: string, source: string) string {
+    return ""
+}
+
+fn provider_sim_source_latest(config: string, source: string) string {
+    if rho_str_index_of(source, "/api/energy/widgets/") >= 0 {
+        return provider_sim_fetch(config, source)
+    }
+    return provider_sim_fetch(config, provider_sim_base(config) +
+        "/api/energy/sim/gateway/latest?source=" + gateway_urlencode(source))
+}
+
+fn provider_sim_source_history(config: string, source: string, from_ms: string,
+    to_ms: string, step_ms: string) string {
+    return provider_sim_fetch(config, provider_sim_base(config) +
+        "/api/energy/sim/gateway/history?source=" + gateway_urlencode(source))
+}
+
+fn provider_sim_telemetry_status(config: string) string {
+    return provider_sim_fetch(config,
+        provider_sim_base(config) + "/api/energy/sim/gateway/status")
+}

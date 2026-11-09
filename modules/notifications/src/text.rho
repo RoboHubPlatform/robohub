@@ -103,7 +103,9 @@ fn notification_schema() string {
 }
 
 fn notification_now() u32 {
-    let report: string = notification_root() + "/now.txt"
+    let dir: string = notification_workspace() + "/data"
+    ignore_u32(rho_exec("mkdir", "-p " + dir, dir + "/mkdir.txt"))
+    let report: string = dir + "/now.txt"
     if rho_exec("date", "+%s", report) == 0 {
         return rho_int_from_str(trim(rho_read_text(report)))
     }

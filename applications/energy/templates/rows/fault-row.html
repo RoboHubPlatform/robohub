@@ -1,0 +1,12 @@
+<tr>
+  <td><span class="fault-badge {{ severity_css }}">{{ severity }}</span></td>
+  <td><span class="local-time">{{ created }}</span></td>
+  <td>{{ message }}</td>
+  <td>
+    <form method="post" action="/faults/clear">
+      <input type="hidden" name="id" value="{{ id }}">
+      {{{ csrf }}}
+      <button type="submit" class="quiet">{{t "energy.faults.clear"}}</button>
+    </form>
+  </td>
+</tr>

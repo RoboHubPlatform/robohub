@@ -1,0 +1,3360 @@
+{
+  "package": "queries",
+  "statements": [
+    {
+      "name": "sql_insert_source",
+      "sql": "INSERT INTO energy_sources (name, kind, bus, address, mesh_source, rated_w, protocol)\nVALUES (?, ?, ?, ?, ?, ?, ?)",
+      "parameters": [
+        {
+          "name": "name",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "kind",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "bus",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "address",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "mesh_source",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "rated_w",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "protocol",
+          "goType": "string",
+          "text": true
+        }
+      ],
+      "affected": true
+    },
+    {
+      "name": "sql_list_sources",
+      "sql": "SELECT id, name, kind, bus, address, mesh_source, rated_w, power_w, voltage_mv,\n       current_ma, temperature_mc, status, protocol, updated_epoch\nFROM energy_sources ORDER BY kind, name",
+      "result": "EnergySources",
+      "fields": [
+        {
+          "name": "id",
+          "column": "id",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "name",
+          "column": "name",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "kind",
+          "column": "kind",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "bus",
+          "column": "bus",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "address",
+          "column": "address",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "meshSource",
+          "column": "mesh_source",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "ratedW",
+          "column": "rated_w",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "powerW",
+          "column": "power_w",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "voltageMv",
+          "column": "voltage_mv",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "currentMa",
+          "column": "current_ma",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "temperatureMc",
+          "column": "temperature_mc",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "status",
+          "column": "status",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "protocol",
+          "column": "protocol",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "updatedEpoch",
+          "column": "updated_epoch",
+          "goType": "int64",
+          "integer": true
+        }
+      ]
+    },
+    {
+      "name": "sql_find_source_by_name",
+      "sql": "SELECT id, name, kind, bus, address, mesh_source, rated_w, power_w, voltage_mv,\n       current_ma, temperature_mc, status, protocol, updated_epoch\nFROM energy_sources WHERE name = ? LIMIT 1",
+      "parameters": [
+        {
+          "name": "name",
+          "goType": "string",
+          "text": true
+        }
+      ],
+      "result": "EnergySources",
+      "fields": [
+        {
+          "name": "id",
+          "column": "id",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "name",
+          "column": "name",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "kind",
+          "column": "kind",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "bus",
+          "column": "bus",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "address",
+          "column": "address",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "meshSource",
+          "column": "mesh_source",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "ratedW",
+          "column": "rated_w",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "powerW",
+          "column": "power_w",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "voltageMv",
+          "column": "voltage_mv",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "currentMa",
+          "column": "current_ma",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "temperatureMc",
+          "column": "temperature_mc",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "status",
+          "column": "status",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "protocol",
+          "column": "protocol",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "updatedEpoch",
+          "column": "updated_epoch",
+          "goType": "int64",
+          "integer": true
+        }
+      ]
+    },
+    {
+      "name": "sql_update_source_reading",
+      "sql": "UPDATE energy_sources\nSET power_w = ?, voltage_mv = ?, current_ma = ?,\n    temperature_mc = ?, status = ?,\n    updated_epoch = ?\nWHERE id = ?",
+      "parameters": [
+        {
+          "name": "power_w",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "voltage_mv",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "current_ma",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "temperature_mc",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "status",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "updated_epoch",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "id",
+          "goType": "int64",
+          "integer": true
+        }
+      ],
+      "affected": true
+    },
+    {
+      "name": "sql_delete_source",
+      "sql": "DELETE FROM energy_sources WHERE id = ?",
+      "parameters": [
+        {
+          "name": "id",
+          "goType": "int64",
+          "integer": true
+        }
+      ],
+      "affected": true
+    },
+    {
+      "name": "sql_insert_battery",
+      "sql": "INSERT INTO energy_batteries (name, chemistry, capacity_wh, can_profile, bms_host, mesh_source)\nVALUES (?, ?, ?, ?, ?, ?)",
+      "parameters": [
+        {
+          "name": "name",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "chemistry",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "capacity_wh",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "can_profile",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "bms_host",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "mesh_source",
+          "goType": "string",
+          "text": true
+        }
+      ],
+      "affected": true
+    },
+    {
+      "name": "sql_list_batteries",
+      "sql": "SELECT id, name, chemistry, capacity_wh, soc_milli, soh_milli, voltage_mv,\n       current_ma, temperature_mc, cell_min_mv, cell_max_mv, charge_limit_ma,\n       discharge_limit_ma, can_profile, bms_host, mesh_source, status,\n       updated_epoch\nFROM energy_batteries ORDER BY name",
+      "result": "EnergyBatteries",
+      "fields": [
+        {
+          "name": "id",
+          "column": "id",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "name",
+          "column": "name",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "chemistry",
+          "column": "chemistry",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "capacityWh",
+          "column": "capacity_wh",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "socMilli",
+          "column": "soc_milli",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "sohMilli",
+          "column": "soh_milli",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "voltageMv",
+          "column": "voltage_mv",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "currentMa",
+          "column": "current_ma",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "temperatureMc",
+          "column": "temperature_mc",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "cellMinMv",
+          "column": "cell_min_mv",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "cellMaxMv",
+          "column": "cell_max_mv",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "chargeLimitMa",
+          "column": "charge_limit_ma",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "dischargeLimitMa",
+          "column": "discharge_limit_ma",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "canProfile",
+          "column": "can_profile",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "bmsHost",
+          "column": "bms_host",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "meshSource",
+          "column": "mesh_source",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "status",
+          "column": "status",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "updatedEpoch",
+          "column": "updated_epoch",
+          "goType": "int64",
+          "integer": true
+        }
+      ]
+    },
+    {
+      "name": "sql_find_battery_by_name",
+      "sql": "SELECT id, name, chemistry, capacity_wh, soc_milli, soh_milli, voltage_mv,\n       current_ma, temperature_mc, cell_min_mv, cell_max_mv, charge_limit_ma,\n       discharge_limit_ma, can_profile, bms_host, mesh_source, status,\n       updated_epoch\nFROM energy_batteries WHERE name = ? LIMIT 1",
+      "parameters": [
+        {
+          "name": "name",
+          "goType": "string",
+          "text": true
+        }
+      ],
+      "result": "EnergyBatteries",
+      "fields": [
+        {
+          "name": "id",
+          "column": "id",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "name",
+          "column": "name",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "chemistry",
+          "column": "chemistry",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "capacityWh",
+          "column": "capacity_wh",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "socMilli",
+          "column": "soc_milli",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "sohMilli",
+          "column": "soh_milli",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "voltageMv",
+          "column": "voltage_mv",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "currentMa",
+          "column": "current_ma",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "temperatureMc",
+          "column": "temperature_mc",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "cellMinMv",
+          "column": "cell_min_mv",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "cellMaxMv",
+          "column": "cell_max_mv",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "chargeLimitMa",
+          "column": "charge_limit_ma",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "dischargeLimitMa",
+          "column": "discharge_limit_ma",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "canProfile",
+          "column": "can_profile",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "bmsHost",
+          "column": "bms_host",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "meshSource",
+          "column": "mesh_source",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "status",
+          "column": "status",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "updatedEpoch",
+          "column": "updated_epoch",
+          "goType": "int64",
+          "integer": true
+        }
+      ]
+    },
+    {
+      "name": "sql_update_battery_reading",
+      "sql": "UPDATE energy_batteries\nSET soc_milli = ?, soh_milli = ?, voltage_mv = ?,\n    current_ma = ?, temperature_mc = ?,\n    cell_min_mv = ?, cell_max_mv = ?, status = ?,\n    updated_epoch = ?\nWHERE id = ?",
+      "parameters": [
+        {
+          "name": "soc_milli",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "soh_milli",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "voltage_mv",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "current_ma",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "temperature_mc",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "cell_min_mv",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "cell_max_mv",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "status",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "updated_epoch",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "id",
+          "goType": "int64",
+          "integer": true
+        }
+      ],
+      "affected": true
+    },
+    {
+      "name": "sql_delete_battery",
+      "sql": "DELETE FROM energy_batteries WHERE id = ?",
+      "parameters": [
+        {
+          "name": "id",
+          "goType": "int64",
+          "integer": true
+        }
+      ],
+      "affected": true
+    },
+    {
+      "name": "sql_insert_grid",
+      "sql": "INSERT INTO energy_grids (name, utility, mesh_source, phases, import_limit_w,\n                          export_limit_w, zero_export)\nVALUES (?, ?, ?, ?, ?,\n        ?, ?)",
+      "parameters": [
+        {
+          "name": "name",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "utility",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "mesh_source",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "phases",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "import_limit_w",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "export_limit_w",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "zero_export",
+          "goType": "string",
+          "text": true
+        }
+      ],
+      "affected": true
+    },
+    {
+      "name": "sql_list_grids",
+      "sql": "SELECT id, name, utility, mesh_source, phases, voltage_mv, frequency_mhz,\n       import_w, export_w, import_limit_w, export_limit_w, zero_export,\n       synchronized, status, updated_epoch\nFROM energy_grids ORDER BY name",
+      "result": "EnergyGrids",
+      "fields": [
+        {
+          "name": "id",
+          "column": "id",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "name",
+          "column": "name",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "utility",
+          "column": "utility",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "meshSource",
+          "column": "mesh_source",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "phases",
+          "column": "phases",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "voltageMv",
+          "column": "voltage_mv",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "frequencyMhz",
+          "column": "frequency_mhz",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "importW",
+          "column": "import_w",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "exportW",
+          "column": "export_w",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "importLimitW",
+          "column": "import_limit_w",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "exportLimitW",
+          "column": "export_limit_w",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "zeroExport",
+          "column": "zero_export",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "synchronized",
+          "column": "synchronized",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "status",
+          "column": "status",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "updatedEpoch",
+          "column": "updated_epoch",
+          "goType": "int64",
+          "integer": true
+        }
+      ]
+    },
+    {
+      "name": "sql_find_grid_by_name",
+      "sql": "SELECT id, name, utility, mesh_source, phases, voltage_mv, frequency_mhz,\n       import_w, export_w, import_limit_w, export_limit_w, zero_export,\n       synchronized, status, updated_epoch\nFROM energy_grids WHERE name = ? LIMIT 1",
+      "parameters": [
+        {
+          "name": "name",
+          "goType": "string",
+          "text": true
+        }
+      ],
+      "result": "EnergyGrids",
+      "fields": [
+        {
+          "name": "id",
+          "column": "id",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "name",
+          "column": "name",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "utility",
+          "column": "utility",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "meshSource",
+          "column": "mesh_source",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "phases",
+          "column": "phases",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "voltageMv",
+          "column": "voltage_mv",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "frequencyMhz",
+          "column": "frequency_mhz",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "importW",
+          "column": "import_w",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "exportW",
+          "column": "export_w",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "importLimitW",
+          "column": "import_limit_w",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "exportLimitW",
+          "column": "export_limit_w",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "zeroExport",
+          "column": "zero_export",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "synchronized",
+          "column": "synchronized",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "status",
+          "column": "status",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "updatedEpoch",
+          "column": "updated_epoch",
+          "goType": "int64",
+          "integer": true
+        }
+      ]
+    },
+    {
+      "name": "sql_update_grid_reading",
+      "sql": "UPDATE energy_grids\nSET voltage_mv = ?, frequency_mhz = ?,\n    import_w = ?, export_w = ?,\n    synchronized = ?, status = ?,\n    updated_epoch = ?\nWHERE id = ?",
+      "parameters": [
+        {
+          "name": "voltage_mv",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "frequency_mhz",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "import_w",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "export_w",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "synchronized",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "status",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "updated_epoch",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "id",
+          "goType": "int64",
+          "integer": true
+        }
+      ],
+      "affected": true
+    },
+    {
+      "name": "sql_update_grid_zero_export",
+      "sql": "UPDATE energy_grids SET zero_export = ? WHERE id = ?",
+      "parameters": [
+        {
+          "name": "zero_export",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "id",
+          "goType": "int64",
+          "integer": true
+        }
+      ],
+      "affected": true
+    },
+    {
+      "name": "sql_delete_grid",
+      "sql": "DELETE FROM energy_grids WHERE id = ?",
+      "parameters": [
+        {
+          "name": "id",
+          "goType": "int64",
+          "integer": true
+        }
+      ],
+      "affected": true
+    },
+    {
+      "name": "sql_insert_load",
+      "sql": "INSERT INTO energy_loads (name, zone, priority, power_w, critical)\nVALUES (?, ?, ?, ?, ?)",
+      "parameters": [
+        {
+          "name": "name",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "zone",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "priority",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "power_w",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "critical",
+          "goType": "string",
+          "text": true
+        }
+      ],
+      "affected": true
+    },
+    {
+      "name": "sql_list_loads",
+      "sql": "SELECT id, name, zone, priority, power_w, critical, shed, state, updated_epoch\nFROM energy_loads ORDER BY priority, name",
+      "result": "EnergyLoads",
+      "fields": [
+        {
+          "name": "id",
+          "column": "id",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "name",
+          "column": "name",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "zone",
+          "column": "zone",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "priority",
+          "column": "priority",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "powerW",
+          "column": "power_w",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "critical",
+          "column": "critical",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "shed",
+          "column": "shed",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "state",
+          "column": "state",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "updatedEpoch",
+          "column": "updated_epoch",
+          "goType": "int64",
+          "integer": true
+        }
+      ]
+    },
+    {
+      "name": "sql_find_load_by_name",
+      "sql": "SELECT id, name, zone, priority, power_w, critical, shed, state, updated_epoch\nFROM energy_loads WHERE name = ? LIMIT 1",
+      "parameters": [
+        {
+          "name": "name",
+          "goType": "string",
+          "text": true
+        }
+      ],
+      "result": "EnergyLoads",
+      "fields": [
+        {
+          "name": "id",
+          "column": "id",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "name",
+          "column": "name",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "zone",
+          "column": "zone",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "priority",
+          "column": "priority",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "powerW",
+          "column": "power_w",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "critical",
+          "column": "critical",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "shed",
+          "column": "shed",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "state",
+          "column": "state",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "updatedEpoch",
+          "column": "updated_epoch",
+          "goType": "int64",
+          "integer": true
+        }
+      ]
+    },
+    {
+      "name": "sql_update_load_state",
+      "sql": "UPDATE energy_loads\nSET state = ?, shed = ?, updated_epoch = ?\nWHERE id = ?",
+      "parameters": [
+        {
+          "name": "state",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "shed",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "updated_epoch",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "id",
+          "goType": "int64",
+          "integer": true
+        }
+      ],
+      "affected": true
+    },
+    {
+      "name": "sql_update_load_reading",
+      "sql": "UPDATE energy_loads\nSET power_w = ?, state = ?, updated_epoch = ?\nWHERE id = ?",
+      "parameters": [
+        {
+          "name": "power_w",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "state",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "updated_epoch",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "id",
+          "goType": "int64",
+          "integer": true
+        }
+      ],
+      "affected": true
+    },
+    {
+      "name": "sql_set_load_shed",
+      "sql": "UPDATE energy_loads SET shed = ?, updated_epoch = ?\nWHERE critical = 0 AND priority \u003e= ?",
+      "parameters": [
+        {
+          "name": "shed",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "updated_epoch",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "priority",
+          "goType": "string",
+          "text": true
+        }
+      ],
+      "affected": true
+    },
+    {
+      "name": "sql_delete_load",
+      "sql": "DELETE FROM energy_loads WHERE id = ?",
+      "parameters": [
+        {
+          "name": "id",
+          "goType": "int64",
+          "integer": true
+        }
+      ],
+      "affected": true
+    },
+    {
+      "name": "sql_get_config",
+      "sql": "SELECT id, mode, grid_forming, zero_export, peak_shaving, tariff_optimization,\n       reserve_soc_milli, load_shed_soc_milli, generator_start_soc_milli,\n       generator_stop_soc_milli, charge_limit_ma, discharge_limit_ma,\n       charge_voltage_mv, discharge_cutoff_mv, export_limit_w,\n       solar_temp_limit_mc, battery_temp_limit_mc, source_over_voltage_mv,\n       source_over_current_ma, battery_cell_delta_mv, grid_min_voltage_mv,\n       grid_max_voltage_mv, grid_min_frequency_mhz, grid_max_frequency_mhz,\n       generator, load_shed, tariff_peak, sim_fault, sim_tick,\n       energy_today_wh, energy_total_wh, updated_epoch\nFROM energy_config WHERE id = 1",
+      "result": "EnergyConfig",
+      "fields": [
+        {
+          "name": "id",
+          "column": "id",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "mode",
+          "column": "mode",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "gridForming",
+          "column": "grid_forming",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "zeroExport",
+          "column": "zero_export",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "peakShaving",
+          "column": "peak_shaving",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "tariffOptimization",
+          "column": "tariff_optimization",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "reserveSocMilli",
+          "column": "reserve_soc_milli",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "loadShedSocMilli",
+          "column": "load_shed_soc_milli",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "generatorStartSocMilli",
+          "column": "generator_start_soc_milli",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "generatorStopSocMilli",
+          "column": "generator_stop_soc_milli",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "chargeLimitMa",
+          "column": "charge_limit_ma",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "dischargeLimitMa",
+          "column": "discharge_limit_ma",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "chargeVoltageMv",
+          "column": "charge_voltage_mv",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "dischargeCutoffMv",
+          "column": "discharge_cutoff_mv",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "exportLimitW",
+          "column": "export_limit_w",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "solarTempLimitMc",
+          "column": "solar_temp_limit_mc",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "batteryTempLimitMc",
+          "column": "battery_temp_limit_mc",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "sourceOverVoltageMv",
+          "column": "source_over_voltage_mv",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "sourceOverCurrentMa",
+          "column": "source_over_current_ma",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "batteryCellDeltaMv",
+          "column": "battery_cell_delta_mv",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "gridMinVoltageMv",
+          "column": "grid_min_voltage_mv",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "gridMaxVoltageMv",
+          "column": "grid_max_voltage_mv",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "gridMinFrequencyMhz",
+          "column": "grid_min_frequency_mhz",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "gridMaxFrequencyMhz",
+          "column": "grid_max_frequency_mhz",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "generator",
+          "column": "generator",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "loadShed",
+          "column": "load_shed",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "tariffPeak",
+          "column": "tariff_peak",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "simFault",
+          "column": "sim_fault",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "simTick",
+          "column": "sim_tick",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "energyTodayWh",
+          "column": "energy_today_wh",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "energyTotalWh",
+          "column": "energy_total_wh",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "updatedEpoch",
+          "column": "updated_epoch",
+          "goType": "int64",
+          "integer": true
+        }
+      ]
+    },
+    {
+      "name": "sql_update_config_policy",
+      "sql": "UPDATE energy_config\nSET mode = ?, grid_forming = ?, zero_export = ?,\n    peak_shaving = ?,\n    tariff_optimization = ?,\n    reserve_soc_milli = ?,\n    load_shed_soc_milli = ?,\n    generator_start_soc_milli = ?,\n    generator_stop_soc_milli = ?,\n    export_limit_w = ?, updated_epoch = ?\nWHERE id = 1",
+      "parameters": [
+        {
+          "name": "mode",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "grid_forming",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "zero_export",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "peak_shaving",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "tariff_optimization",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "reserve_soc_milli",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "load_shed_soc_milli",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "generator_start_soc_milli",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "generator_stop_soc_milli",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "export_limit_w",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "updated_epoch",
+          "goType": "int64",
+          "integer": true
+        }
+      ],
+      "affected": true
+    },
+    {
+      "name": "sql_update_config_limits",
+      "sql": "UPDATE energy_config\nSET charge_limit_ma = ?,\n    discharge_limit_ma = ?,\n    charge_voltage_mv = ?,\n    discharge_cutoff_mv = ?,\n    solar_temp_limit_mc = ?,\n    battery_temp_limit_mc = ?,\n    source_over_voltage_mv = ?,\n    source_over_current_ma = ?,\n    battery_cell_delta_mv = ?,\n    grid_min_voltage_mv = ?,\n    grid_max_voltage_mv = ?,\n    grid_min_frequency_mhz = ?,\n    grid_max_frequency_mhz = ?,\n    updated_epoch = ?\nWHERE id = 1",
+      "parameters": [
+        {
+          "name": "charge_limit_ma",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "discharge_limit_ma",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "charge_voltage_mv",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "discharge_cutoff_mv",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "solar_temp_limit_mc",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "battery_temp_limit_mc",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "source_over_voltage_mv",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "source_over_current_ma",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "battery_cell_delta_mv",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "grid_min_voltage_mv",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "grid_max_voltage_mv",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "grid_min_frequency_mhz",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "grid_max_frequency_mhz",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "updated_epoch",
+          "goType": "int64",
+          "integer": true
+        }
+      ],
+      "affected": true
+    },
+    {
+      "name": "sql_set_config_mode",
+      "sql": "UPDATE energy_config\nSET mode = ?, grid_forming = ?, zero_export = ?,\n    updated_epoch = ?\nWHERE id = 1",
+      "parameters": [
+        {
+          "name": "mode",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "grid_forming",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "zero_export",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "updated_epoch",
+          "goType": "int64",
+          "integer": true
+        }
+      ],
+      "affected": true
+    },
+    {
+      "name": "sql_set_config_generator",
+      "sql": "UPDATE energy_config SET generator = ?, updated_epoch = ?\nWHERE id = 1",
+      "parameters": [
+        {
+          "name": "generator",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "updated_epoch",
+          "goType": "int64",
+          "integer": true
+        }
+      ],
+      "affected": true
+    },
+    {
+      "name": "sql_set_config_shed",
+      "sql": "UPDATE energy_config SET load_shed = ?, updated_epoch = ?\nWHERE id = 1",
+      "parameters": [
+        {
+          "name": "load_shed",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "updated_epoch",
+          "goType": "int64",
+          "integer": true
+        }
+      ],
+      "affected": true
+    },
+    {
+      "name": "sql_set_config_tariff",
+      "sql": "UPDATE energy_config\nSET tariff_peak = ?, updated_epoch = ?\nWHERE id = 1",
+      "parameters": [
+        {
+          "name": "tariff_peak",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "updated_epoch",
+          "goType": "int64",
+          "integer": true
+        }
+      ],
+      "affected": true
+    },
+    {
+      "name": "sql_set_sim_fault",
+      "sql": "UPDATE energy_config SET sim_fault = ?, updated_epoch = ?\nWHERE id = 1",
+      "parameters": [
+        {
+          "name": "sim_fault",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "updated_epoch",
+          "goType": "int64",
+          "integer": true
+        }
+      ],
+      "affected": true
+    },
+    {
+      "name": "sql_set_sim_counters",
+      "sql": "UPDATE energy_config\nSET sim_tick = ?, energy_today_wh = ?,\n    energy_total_wh = ?, updated_epoch = ?\nWHERE id = 1",
+      "parameters": [
+        {
+          "name": "sim_tick",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "energy_today_wh",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "energy_total_wh",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "updated_epoch",
+          "goType": "int64",
+          "integer": true
+        }
+      ],
+      "affected": true
+    },
+    {
+      "name": "sql_get_fault_state",
+      "sql": "SELECT code, active, severity, message, updated_epoch\nFROM energy_fault_state WHERE code = ? LIMIT 1",
+      "parameters": [
+        {
+          "name": "code",
+          "goType": "string",
+          "text": true
+        }
+      ],
+      "result": "EnergyFaultState",
+      "fields": [
+        {
+          "name": "code",
+          "column": "code",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "active",
+          "column": "active",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "severity",
+          "column": "severity",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "message",
+          "column": "message",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "updatedEpoch",
+          "column": "updated_epoch",
+          "goType": "int64",
+          "integer": true
+        }
+      ]
+    },
+    {
+      "name": "sql_set_fault_state",
+      "sql": "INSERT INTO energy_fault_state (code, active, severity, message, updated_epoch)\nVALUES (?, ?, ?, ?, ?)\nON CONFLICT(code) DO UPDATE SET\n    active = excluded.active,\n    severity = excluded.severity,\n    message = excluded.message,\n    updated_epoch = excluded.updated_epoch",
+      "parameters": [
+        {
+          "name": "code",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "active",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "severity",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "message",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "updated_epoch",
+          "goType": "string",
+          "text": true
+        }
+      ],
+      "affected": true
+    },
+    {
+      "name": "sql_list_active_fault_states",
+      "sql": "SELECT code, active, severity, message, updated_epoch\nFROM energy_fault_state WHERE active = 1\nORDER BY updated_epoch DESC, code",
+      "result": "EnergyFaultState",
+      "fields": [
+        {
+          "name": "code",
+          "column": "code",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "active",
+          "column": "active",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "severity",
+          "column": "severity",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "message",
+          "column": "message",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "updatedEpoch",
+          "column": "updated_epoch",
+          "goType": "int64",
+          "integer": true
+        }
+      ]
+    },
+    {
+      "name": "sql_insert_event",
+      "sql": "INSERT INTO energy_events (severity, kind, message, created_epoch)\nVALUES (?, ?, ?, ?)",
+      "parameters": [
+        {
+          "name": "severity",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "kind",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "message",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "created_epoch",
+          "goType": "string",
+          "text": true
+        }
+      ],
+      "affected": true
+    },
+    {
+      "name": "sql_list_events",
+      "sql": "SELECT id, severity, kind, message, created_epoch\nFROM energy_events ORDER BY created_epoch DESC, id DESC LIMIT 200",
+      "result": "EnergyEvents",
+      "fields": [
+        {
+          "name": "id",
+          "column": "id",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "severity",
+          "column": "severity",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "kind",
+          "column": "kind",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "message",
+          "column": "message",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "createdEpoch",
+          "column": "created_epoch",
+          "goType": "int64",
+          "integer": true
+        }
+      ]
+    },
+    {
+      "name": "sql_get_source",
+      "sql": "SELECT id, name, kind, bus, address, mesh_source, rated_w, power_w, voltage_mv,\n       current_ma, temperature_mc, status, protocol, updated_epoch\nFROM energy_sources WHERE id = ? LIMIT 1",
+      "parameters": [
+        {
+          "name": "id",
+          "goType": "int64",
+          "integer": true
+        }
+      ],
+      "result": "EnergySources",
+      "fields": [
+        {
+          "name": "id",
+          "column": "id",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "name",
+          "column": "name",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "kind",
+          "column": "kind",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "bus",
+          "column": "bus",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "address",
+          "column": "address",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "meshSource",
+          "column": "mesh_source",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "ratedW",
+          "column": "rated_w",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "powerW",
+          "column": "power_w",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "voltageMv",
+          "column": "voltage_mv",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "currentMa",
+          "column": "current_ma",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "temperatureMc",
+          "column": "temperature_mc",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "status",
+          "column": "status",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "protocol",
+          "column": "protocol",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "updatedEpoch",
+          "column": "updated_epoch",
+          "goType": "int64",
+          "integer": true
+        }
+      ]
+    },
+    {
+      "name": "sql_get_battery",
+      "sql": "SELECT id, name, chemistry, capacity_wh, soc_milli, soh_milli, voltage_mv,\n       current_ma, temperature_mc, cell_min_mv, cell_max_mv, charge_limit_ma,\n       discharge_limit_ma, can_profile, bms_host, mesh_source, status,\n       updated_epoch\nFROM energy_batteries WHERE id = ? LIMIT 1",
+      "parameters": [
+        {
+          "name": "id",
+          "goType": "int64",
+          "integer": true
+        }
+      ],
+      "result": "EnergyBatteries",
+      "fields": [
+        {
+          "name": "id",
+          "column": "id",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "name",
+          "column": "name",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "chemistry",
+          "column": "chemistry",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "capacityWh",
+          "column": "capacity_wh",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "socMilli",
+          "column": "soc_milli",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "sohMilli",
+          "column": "soh_milli",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "voltageMv",
+          "column": "voltage_mv",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "currentMa",
+          "column": "current_ma",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "temperatureMc",
+          "column": "temperature_mc",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "cellMinMv",
+          "column": "cell_min_mv",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "cellMaxMv",
+          "column": "cell_max_mv",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "chargeLimitMa",
+          "column": "charge_limit_ma",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "dischargeLimitMa",
+          "column": "discharge_limit_ma",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "canProfile",
+          "column": "can_profile",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "bmsHost",
+          "column": "bms_host",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "meshSource",
+          "column": "mesh_source",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "status",
+          "column": "status",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "updatedEpoch",
+          "column": "updated_epoch",
+          "goType": "int64",
+          "integer": true
+        }
+      ]
+    },
+    {
+      "name": "sql_get_grid",
+      "sql": "SELECT id, name, utility, mesh_source, phases, voltage_mv, frequency_mhz,\n       import_w, export_w, import_limit_w, export_limit_w, zero_export,\n       synchronized, status, updated_epoch\nFROM energy_grids WHERE id = ? LIMIT 1",
+      "parameters": [
+        {
+          "name": "id",
+          "goType": "int64",
+          "integer": true
+        }
+      ],
+      "result": "EnergyGrids",
+      "fields": [
+        {
+          "name": "id",
+          "column": "id",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "name",
+          "column": "name",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "utility",
+          "column": "utility",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "meshSource",
+          "column": "mesh_source",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "phases",
+          "column": "phases",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "voltageMv",
+          "column": "voltage_mv",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "frequencyMhz",
+          "column": "frequency_mhz",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "importW",
+          "column": "import_w",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "exportW",
+          "column": "export_w",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "importLimitW",
+          "column": "import_limit_w",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "exportLimitW",
+          "column": "export_limit_w",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "zeroExport",
+          "column": "zero_export",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "synchronized",
+          "column": "synchronized",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "status",
+          "column": "status",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "updatedEpoch",
+          "column": "updated_epoch",
+          "goType": "int64",
+          "integer": true
+        }
+      ]
+    },
+    {
+      "name": "sql_get_load",
+      "sql": "SELECT id, name, zone, priority, power_w, critical, shed, state, updated_epoch\nFROM energy_loads WHERE id = ? LIMIT 1",
+      "parameters": [
+        {
+          "name": "id",
+          "goType": "int64",
+          "integer": true
+        }
+      ],
+      "result": "EnergyLoads",
+      "fields": [
+        {
+          "name": "id",
+          "column": "id",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "name",
+          "column": "name",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "zone",
+          "column": "zone",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "priority",
+          "column": "priority",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "powerW",
+          "column": "power_w",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "critical",
+          "column": "critical",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "shed",
+          "column": "shed",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "state",
+          "column": "state",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "updatedEpoch",
+          "column": "updated_epoch",
+          "goType": "int64",
+          "integer": true
+        }
+      ]
+    },
+    {
+      "name": "sql_insert_category",
+      "sql": "INSERT INTO categories (name) VALUES (?)",
+      "parameters": [
+        {
+          "name": "name",
+          "goType": "string",
+          "text": true
+        }
+      ],
+      "affected": true
+    },
+    {
+      "name": "sql_list_categories",
+      "sql": "SELECT id, name FROM categories ORDER BY name",
+      "result": "Categories",
+      "fields": [
+        {
+          "name": "id",
+          "column": "id",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "name",
+          "column": "name",
+          "goType": "string",
+          "text": true
+        }
+      ]
+    },
+    {
+      "name": "sql_insert_item",
+      "sql": "INSERT INTO items (name, category_id, unit, quantity_milli, reorder_milli,\n                   location, notes)\nVALUES (?, NULLIF(?, ''), ?, ?,\n        ?, ?, ?)",
+      "parameters": [
+        {
+          "name": "name",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "category_id",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "unit",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "quantity_milli",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "reorder_milli",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "location",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "notes",
+          "goType": "string",
+          "text": true
+        }
+      ],
+      "affected": true
+    },
+    {
+      "name": "sql_list_items",
+      "sql": "SELECT i.id, i.name, COALESCE(c.name, '') AS category, i.category_id, i.unit,\n       i.quantity_milli, i.reorder_milli, COALESCE(i.location, '') AS location,\n       COALESCE(i.notes, '') AS notes\nFROM items i\nLEFT JOIN categories c ON c.id = i.category_id\nORDER BY i.name",
+      "result": "ListItemsRow",
+      "fields": [
+        {
+          "name": "id",
+          "column": "id",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "name",
+          "column": "name",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "category",
+          "column": "category",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "categoryId",
+          "column": "category_id",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "unit",
+          "column": "unit",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "quantityMilli",
+          "column": "quantity_milli",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "reorderMilli",
+          "column": "reorder_milli",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "location",
+          "column": "location",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "notes",
+          "column": "notes",
+          "goType": "string",
+          "text": true
+        }
+      ]
+    },
+    {
+      "name": "sql_update_item_details",
+      "sql": "UPDATE items\nSET name = ?, category_id = NULLIF(?, ''), unit = ?,\n    reorder_milli = ?, location = ?, notes = ?\nWHERE id = ?",
+      "parameters": [
+        {
+          "name": "name",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "category_id",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "unit",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "reorder_milli",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "location",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "notes",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "id",
+          "goType": "int64",
+          "integer": true
+        }
+      ],
+      "affected": true
+    },
+    {
+      "name": "sql_update_item_stock",
+      "sql": "UPDATE items SET quantity_milli = quantity_milli + ? WHERE id = ?",
+      "parameters": [
+        {
+          "name": "delta",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "id",
+          "goType": "int64",
+          "integer": true
+        }
+      ],
+      "affected": true
+    },
+    {
+      "name": "sql_insert_expense",
+      "sql": "INSERT INTO expenses\n    (item_id, item, category_id, quantity_milli, unit_price_cents, total_cents,\n     source, purchased_at, comment)\nVALUES\n    (NULLIF(?, ''), ?, NULLIF(?, ''), ?,\n     ?, ?, ?, ?, ?)",
+      "parameters": [
+        {
+          "name": "item_id",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "item",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "category_id",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "quantity_milli",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "unit_price_cents",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "total_cents",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "source",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "purchased_at",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "comment",
+          "goType": "string",
+          "text": true
+        }
+      ],
+      "affected": true
+    },
+    {
+      "name": "sql_list_expenses",
+      "sql": "SELECT e.id, e.item, COALESCE(c.name, '') AS category,\n       e.quantity_milli, e.unit_price_cents, e.total_cents,\n       COALESCE(e.source, '') AS source, e.purchased_at,\n       COALESCE(e.comment, '') AS comment\nFROM expenses e\nLEFT JOIN categories c ON c.id = e.category_id\nORDER BY e.purchased_at DESC, e.id DESC",
+      "result": "ListExpensesRow",
+      "fields": [
+        {
+          "name": "id",
+          "column": "id",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "item",
+          "column": "item",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "category",
+          "column": "category",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "quantityMilli",
+          "column": "quantity_milli",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "unitPriceCents",
+          "column": "unit_price_cents",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "totalCents",
+          "column": "total_cents",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "source",
+          "column": "source",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "purchasedAt",
+          "column": "purchased_at",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "comment",
+          "column": "comment",
+          "goType": "string",
+          "text": true
+        }
+      ]
+    },
+    {
+      "name": "sql_delete_expense",
+      "sql": "DELETE FROM expenses WHERE id = ?",
+      "parameters": [
+        {
+          "name": "id",
+          "goType": "int64",
+          "integer": true
+        }
+      ],
+      "affected": true
+    },
+    {
+      "name": "sql_total_expenses",
+      "sql": "SELECT COALESCE(SUM(total_cents), 0) AS total_cents FROM expenses",
+      "result": "TotalExpensesRow",
+      "fields": [
+        {
+          "name": "totalCents",
+          "column": "total_cents",
+          "goType": "int64",
+          "integer": true
+        }
+      ]
+    },
+    {
+      "name": "sql_insert_movement",
+      "sql": "INSERT INTO stock_movements\n    (item_id, kind, quantity_milli, unit_price_cents, total_cents, source,\n     occurred_at, comment)\nVALUES\n    (?, ?, ?, ?, ?, ?,\n     ?, ?)",
+      "parameters": [
+        {
+          "name": "item_id",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "kind",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "quantity_milli",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "unit_price_cents",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "total_cents",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "source",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "occurred_at",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "comment",
+          "goType": "string",
+          "text": true
+        }
+      ],
+      "affected": true
+    },
+    {
+      "name": "sql_low_stock_items",
+      "sql": "SELECT i.id, i.name, i.quantity_milli, i.reorder_milli, i.unit,\n       COALESCE(i.location, '') AS location\nFROM items i\nWHERE i.reorder_milli \u003e 0 AND i.quantity_milli \u003c= i.reorder_milli\nORDER BY i.quantity_milli",
+      "result": "LowStockItemsRow",
+      "fields": [
+        {
+          "name": "id",
+          "column": "id",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "name",
+          "column": "name",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "quantityMilli",
+          "column": "quantity_milli",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "reorderMilli",
+          "column": "reorder_milli",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "unit",
+          "column": "unit",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "location",
+          "column": "location",
+          "goType": "string",
+          "text": true
+        }
+      ]
+    },
+    {
+      "name": "sql_insert_chore",
+      "sql": "INSERT INTO chores\n    (title, description, schedule_kind, schedule_value, interval_hours,\n     usage_interval_hours, grace_hours, priority, next_due_epoch, enabled)\nVALUES\n    (?, ?, ?, ?, ?,\n     ?, ?, ?, ?, ?)",
+      "parameters": [
+        {
+          "name": "title",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "description",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "schedule_kind",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "schedule_value",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "interval_hours",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "usage_interval_hours",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "grace_hours",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "priority",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "next_due_epoch",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "enabled",
+          "goType": "string",
+          "text": true
+        }
+      ],
+      "affected": true
+    },
+    {
+      "name": "sql_list_chores",
+      "sql": "SELECT id, title, COALESCE(description, '') AS description, schedule_kind,\n       COALESCE(schedule_value, '') AS schedule_value, interval_hours,\n       usage_interval_hours, usage_accum_seconds, grace_hours, priority,\n       enabled, next_due_epoch, snoozed_until_epoch, last_completed_epoch,\n       created_at\nFROM chores\nORDER BY enabled DESC, next_due_epoch, title",
+      "result": "Chores",
+      "fields": [
+        {
+          "name": "id",
+          "column": "id",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "title",
+          "column": "title",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "description",
+          "column": "description",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "scheduleKind",
+          "column": "schedule_kind",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "scheduleValue",
+          "column": "schedule_value",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "intervalHours",
+          "column": "interval_hours",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "usageIntervalHours",
+          "column": "usage_interval_hours",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "usageAccumSeconds",
+          "column": "usage_accum_seconds",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "graceHours",
+          "column": "grace_hours",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "priority",
+          "column": "priority",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "enabled",
+          "column": "enabled",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "nextDueEpoch",
+          "column": "next_due_epoch",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "snoozedUntilEpoch",
+          "column": "snoozed_until_epoch",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "lastCompletedEpoch",
+          "column": "last_completed_epoch",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "createdAt",
+          "column": "created_at",
+          "goType": "string",
+          "text": true
+        }
+      ]
+    },
+    {
+      "name": "sql_complete_chore",
+      "sql": "UPDATE chores\nSET next_due_epoch = ?,\n    last_completed_epoch = ?,\n    snoozed_until_epoch = 0,\n    usage_accum_seconds = ?\nWHERE id = ?",
+      "parameters": [
+        {
+          "name": "next_due_epoch",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "last_completed_epoch",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "usage_accum_seconds",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "id",
+          "goType": "int64",
+          "integer": true
+        }
+      ],
+      "affected": true
+    },
+    {
+      "name": "sql_insert_completion",
+      "sql": "INSERT INTO chore_completions (chore_id, completed_epoch, note)\nVALUES (?, ?, ?)",
+      "parameters": [
+        {
+          "name": "chore_id",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "completed_epoch",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "note",
+          "goType": "string",
+          "text": true
+        }
+      ],
+      "affected": true
+    },
+    {
+      "name": "sql_snooze_chore",
+      "sql": "UPDATE chores SET snoozed_until_epoch = ? WHERE id = ?",
+      "parameters": [
+        {
+          "name": "snoozed_until_epoch",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "id",
+          "goType": "int64",
+          "integer": true
+        }
+      ],
+      "affected": true
+    },
+    {
+      "name": "sql_add_usage",
+      "sql": "UPDATE chores\nSET usage_accum_seconds = usage_accum_seconds + ?\nWHERE id = ?",
+      "parameters": [
+        {
+          "name": "delta_seconds",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "id",
+          "goType": "int64",
+          "integer": true
+        }
+      ],
+      "affected": true
+    },
+    {
+      "name": "sql_list_completions",
+      "sql": "SELECT c.id, c.chore_id, ch.title, c.completed_epoch,\n       COALESCE(c.note, '') AS note\nFROM chore_completions c\nLEFT JOIN chores ch ON ch.id = c.chore_id\nORDER BY c.completed_epoch DESC, c.id DESC\nLIMIT 50",
+      "result": "ListCompletionsRow",
+      "fields": [
+        {
+          "name": "id",
+          "column": "id",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "choreId",
+          "column": "chore_id",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "title",
+          "column": "title",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "completedEpoch",
+          "column": "completed_epoch",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "note",
+          "column": "note",
+          "goType": "string",
+          "text": true
+        }
+      ]
+    },
+    {
+      "name": "sql_insert_widget",
+      "sql": "INSERT INTO widgets (title, kind, source_kind, source, method, unit, points, position, size, decimals, created_epoch)\nVALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      "parameters": [
+        {
+          "name": "title",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "kind",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "source_kind",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "source",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "method",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "unit",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "points",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "position",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "size",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "decimals",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "created_epoch",
+          "goType": "string",
+          "text": true
+        }
+      ],
+      "affected": true
+    },
+    {
+      "name": "sql_list_widgets",
+      "sql": "SELECT id, title, kind, source_kind, COALESCE(source, '') AS source,\n       method, COALESCE(unit, '') AS unit, points, position, size, decimals, pinned, created_epoch\nFROM widgets ORDER BY position, title",
+      "result": "Widgets",
+      "fields": [
+        {
+          "name": "id",
+          "column": "id",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "title",
+          "column": "title",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "kind",
+          "column": "kind",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "sourceKind",
+          "column": "source_kind",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "source",
+          "column": "source",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "method",
+          "column": "method",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "unit",
+          "column": "unit",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "points",
+          "column": "points",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "position",
+          "column": "position",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "size",
+          "column": "size",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "decimals",
+          "column": "decimals",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "pinned",
+          "column": "pinned",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "createdEpoch",
+          "column": "created_epoch",
+          "goType": "int64",
+          "integer": true
+        }
+      ]
+    },
+    {
+      "name": "sql_update_widget",
+      "sql": "UPDATE widgets SET title = ?, kind = ?, source_kind = ?,\n    source = ?, method = ?, unit = ?, points = ?, decimals = ? WHERE id = ?",
+      "parameters": [
+        {
+          "name": "title",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "kind",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "source_kind",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "source",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "method",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "unit",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "points",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "decimals",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "id",
+          "goType": "int64",
+          "integer": true
+        }
+      ],
+      "affected": true
+    },
+    {
+      "name": "sql_move_widget",
+      "sql": "UPDATE widgets SET position = ? WHERE id = ?",
+      "parameters": [
+        {
+          "name": "position",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "id",
+          "goType": "int64",
+          "integer": true
+        }
+      ],
+      "affected": true
+    },
+    {
+      "name": "sql_resize_widget",
+      "sql": "UPDATE widgets SET size = ? WHERE id = ?",
+      "parameters": [
+        {
+          "name": "size",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "id",
+          "goType": "int64",
+          "integer": true
+        }
+      ],
+      "affected": true
+    },
+    {
+      "name": "sql_pin_widget",
+      "sql": "UPDATE widgets SET pinned = ? WHERE id = ?",
+      "parameters": [
+        {
+          "name": "pinned",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "id",
+          "goType": "int64",
+          "integer": true
+        }
+      ],
+      "affected": true
+    },
+    {
+      "name": "sql_delete_widget",
+      "sql": "DELETE FROM widgets WHERE id = ?",
+      "parameters": [
+        {
+          "name": "id",
+          "goType": "int64",
+          "integer": true
+        }
+      ],
+      "affected": true
+    },
+    {
+      "name": "sql_insert_widget_value",
+      "sql": "INSERT INTO widget_values (widget_id, value_text, value_milli, recorded_epoch)\nVALUES (?, ?, ?, ?)",
+      "parameters": [
+        {
+          "name": "widget_id",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "value_text",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "value_milli",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "recorded_epoch",
+          "goType": "string",
+          "text": true
+        }
+      ],
+      "affected": true
+    },
+    {
+      "name": "sql_list_widget_values",
+      "sql": "SELECT * FROM widget_values WHERE widget_id = ?\nORDER BY recorded_epoch DESC, id DESC LIMIT 100",
+      "parameters": [
+        {
+          "name": "widget_id",
+          "goType": "int64",
+          "integer": true
+        }
+      ],
+      "result": "WidgetValues",
+      "fields": [
+        {
+          "name": "id",
+          "column": "id",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "widgetId",
+          "column": "widget_id",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "valueText",
+          "column": "value_text",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "valueMilli",
+          "column": "value_milli",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "recordedEpoch",
+          "column": "recorded_epoch",
+          "goType": "int64",
+          "integer": true
+        }
+      ]
+    },
+    {
+      "name": "sql_latest_widget_value",
+      "sql": "SELECT id, widget_id, value_text, value_milli, recorded_epoch\nFROM widget_values WHERE widget_id = ?\nORDER BY recorded_epoch DESC, id DESC LIMIT 1",
+      "parameters": [
+        {
+          "name": "widget_id",
+          "goType": "int64",
+          "integer": true
+        }
+      ],
+      "result": "WidgetValues",
+      "fields": [
+        {
+          "name": "id",
+          "column": "id",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "widgetId",
+          "column": "widget_id",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "valueText",
+          "column": "value_text",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "valueMilli",
+          "column": "value_milli",
+          "goType": "int64",
+          "integer": true
+        },
+        {
+          "name": "recordedEpoch",
+          "column": "recorded_epoch",
+          "goType": "int64",
+          "integer": true
+        }
+      ]
+    },
+    {
+      "name": "sql_list_telemetry_recent",
+      "sql": "SELECT CAST(value AS TEXT) AS value_text, received_ms\nFROM telemetry_reading\nWHERE project = ? AND field = ?\nORDER BY received_ms DESC LIMIT 60",
+      "parameters": [
+        {
+          "name": "project",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "field",
+          "goType": "string",
+          "text": true
+        }
+      ],
+      "result": "ListTelemetryRecentRow",
+      "fields": [
+        {
+          "name": "valueText",
+          "column": "value_text",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "receivedMs",
+          "column": "received_ms",
+          "goType": "int64",
+          "integer": true
+        }
+      ]
+    },
+    {
+      "name": "sql_update_widget_source",
+      "sql": "UPDATE widgets SET source_kind = ?, source = ?, method = ? WHERE id = ?",
+      "parameters": [
+        {
+          "name": "source_kind",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "source",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "method",
+          "goType": "string",
+          "text": true
+        },
+        {
+          "name": "id",
+          "goType": "int64",
+          "integer": true
+        }
+      ],
+      "affected": true
+    }
+  ]
+}

@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.1.3] - 2026-11-09
+
+Pages render content through the host shell, so the host application owns the header, footer and menu. The scheduler CSS moved into `templates/parts/style.html` with the content.
+
 ## [0.1.2] - 2026-11-08
 
 English/Romanian navigation and page copy, forms-engine add-chore flow with CSRF,

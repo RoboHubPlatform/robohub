@@ -1,0 +1,6 @@
+name: energy
+suites:
+  - name: energy-smoke
+    kind: command
+    tags: [smoke]
+    command: [python3, tests/energy_smoke.py]

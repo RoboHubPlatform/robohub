@@ -72,4 +72,25 @@
   filter();
 })();
 </script>
+
+{{#if manual}}
+<section class="panel-form" style="margin-top:1rem">
+  <h2>Manual value</h2>
+  <form method="post" action="/widgets/value" class="inline-form">
+    <input type="hidden" name="id" value="{{ id }}">
+    <input name="value" placeholder="value">
+    <button type="submit" class="quiet">Add value</button>
+  </form>
+</section>
+{{/if}}
+{{#if pressable}}
+<section class="panel-form" style="margin-top:1rem">
+  <h2>Press</h2>
+  <form method="post" action="/widgets/press" class="inline-form">
+    <input type="hidden" name="id" value="{{ id }}">
+    <input type="hidden" name="return" value="widgets">
+    <button type="submit" class="quiet">Press</button>
+  </form>
+</section>
+{{/if}}
 <p><a href="/widgets">← Widgets</a></p>

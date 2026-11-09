@@ -367,6 +367,7 @@ fn scheduler_page_message(req: Request, message: string) Response {
         i18n_t(req, "scheduler.add_chore"), i18n_locale(req))
     let body: string = template_fill(scheduler_template("pages/scheduler"),
         i18n_vars(req) +
+        vars("scheduler_style", scheduler_template("parts/style")) +
         vars("tabs_class", settings_get("ui.tabs", "vertical")) +
         vars("add_form", add_form) +
         vars("notice", notice) +
@@ -374,11 +375,7 @@ fn scheduler_page_message(req: Request, message: string) Response {
         vars("completions", scheduler_completion_rows(completions, completion_count)) +
         vars("docs", scheduler_docs()) +
         vars("notifications", notification_embed()))
-    let document: string = template_fill(scheduler_template("layouts/layout"),
-        vars("title", i18n_t(req, "scheduler.title")) + i18n_vars(req) + vars("body", body) +
-        vars("keeper", scheduler_keeper_link()) +
-        vars("notifications", notification_embed()))
-    return html(status_ok(), document)
+    return host_shell(req, i18n_t(req, "scheduler.title"), body, "")
 }
 
 fn scheduler_page(req: Request) Response {

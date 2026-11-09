@@ -1,0 +1,28 @@
+module energy
+
+// The telemetry port. Readings become a series; safety trips become actionable
+// faults in the telemetry SQLite/WAL store. The store is the shared Mesh store
+// when ROBOHUB_MESH_TELEMETRY_DB names one, and the application workspace's
+// telemetry.db otherwise.
+
+extern fn telemetry_open(path: string) -> bool
+
+extern fn telemetry_record(project: string, area_id: u32, node_id: u32, field_name: string, value: string, status: u32) -> u32
+
+extern fn telemetry_fault_record(project: string, gateway: string, field: string, severity: string, message: string, area: u32, node: u32, status: u32, created_ms: string) -> u32
+
+extern fn telemetry_fault_rows(project: string, limit: u32) -> string
+
+extern fn telemetry_fault_clear(project: string, id: u32) -> string
+
+extern fn telemetry_fault_max_id(project: string) -> u32
+
+extern fn telemetry_fault_new(project: string, after_id: u32, limit: u32) -> string
+
+extern fn telemetry_checkpoint(mode: string) -> string
+
+extern fn telemetry_sleep(ms: u32) -> void
+
+extern fn telemetry_status(project: string) -> string
+
+extern fn telemetry_storage_status(project: string) -> string

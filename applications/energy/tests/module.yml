@@ -1,0 +1,11 @@
+module:
+  name: energy-tests
+  type: rho
+  version: 0.1.0
+
+main: energy_test.rho
+
+build:
+  language: c
+  targets:
+    - c

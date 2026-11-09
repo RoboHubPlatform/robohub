@@ -1,0 +1,5 @@
+module energy.tests
+
+fn main() void {
+    print("energy smoke suite is declared in tests.yml\n")
+}

@@ -6,6 +6,15 @@ Rho module with backend, pages and SQLite storage, listed in
 and the module registers its routes under `/expenses` on the host's router. The
 aquarium application is the first host.
 
+## Host shell
+
+The module registers `/expenses`, but it renders content only. Its pages call
+the host's `host_shell(req, title, body, scripts)`, so the header, footer and
+menu always belong to the application the module is included in. The inventory
+CSS travels in `templates/parts/style.html` and is inserted with the content,
+which is what keeps the tabs, summaries and low-stock badges working under any
+host shell.
+
 ## What it records
 
 An **item** has a name, a category, a unit, a quantity on hand, a reorder level,

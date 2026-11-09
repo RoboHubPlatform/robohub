@@ -1,0 +1,90 @@
+version: 1
+
+output_dir: build/generated
+build_dir: build
+
+targets:
+  - id: go-server
+    emitter: go
+    kind: server
+    description: Energy HTTP service
+    router: serveMux
+    ports:
+      - logemit
+      - telemetry
+    files:
+      - path: app.go
+        role: implementation
+      - path: runtime.go
+        role: runtime
+      - path: server.go
+        role: server
+      - path: main.go
+        role: entrypoint
+      - path: go.mod
+        role: build
+      - path: static
+        kind: dir
+    default_locale: en
+    locales:
+      - locale: en
+        file: locales/en.json
+      - locale: ro
+        file: locales/ro.json
+      - locale: en
+        file: ../../modules/i18n/locales/en.json
+      - locale: ro
+        file: ../../modules/i18n/locales/ro.json
+      - locale: en
+        file: ../../modules/forms/locales/en.json
+      - locale: ro
+        file: ../../modules/forms/locales/ro.json
+      - locale: en
+        file: ../../modules/widgets/locales/en.json
+      - locale: ro
+        file: ../../modules/widgets/locales/ro.json
+      - locale: en
+        file: ../../modules/inventory/locales/en.json
+      - locale: ro
+        file: ../../modules/inventory/locales/ro.json
+      - locale: en
+        file: ../../modules/scheduler/locales/en.json
+      - locale: ro
+        file: ../../modules/scheduler/locales/ro.json
+    templates:
+      - name: layout
+        file: templates/layouts/layout.html
+      - name: home
+        file: templates/pages/home.html
+      - name: sources
+        file: templates/pages/sources.html
+      - name: source-row
+        file: templates/rows/source-row.html
+      - name: storage
+        file: templates/pages/storage.html
+      - name: battery-row
+        file: templates/rows/battery-row.html
+      - name: grid
+        file: templates/pages/grid.html
+      - name: grid-row
+        file: templates/rows/grid-row.html
+      - name: loads
+        file: templates/pages/loads.html
+      - name: load-row
+        file: templates/rows/load-row.html
+      - name: modes
+        file: templates/pages/modes.html
+      - name: safety
+        file: templates/pages/safety.html
+      - name: faults
+        file: templates/pages/faults.html
+      - name: fault-row
+        file: templates/rows/fault-row.html
+      - name: events
+        file: templates/pages/events.html
+      - name: events-row
+        file: templates/rows/events-row.html
+      - name: settings
+        file: templates/pages/settings.html
+      - name: docs
+        file: templates/pages/docs.html

@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.2.3] - 2026-11-09
+
+Host-shell pages, module-owned card CSS through `widgets_style()`, a `status`
+card for ok/warn/bad/info badges, simulated Mesh sources with preselection and
+reset, Mesh-source selection in the add/edit forms, and in-place move, resize
+and pin actions over HTMX. `widgets_refresh_all` lets a host background worker
+refresh sources and emit per-locale card events. The module's `db/schema.sql`
+and `db/queries.sql` are the canonical card layout and statement set, and both
+host homes now include the card CSS.
+
 ## [0.2.2] - 2026-11-08
 
 English/Romanian cards and admin UI, forms-engine add flow, translated/notified

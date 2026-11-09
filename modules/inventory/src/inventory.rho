@@ -570,6 +570,7 @@ fn inventory_page_message(req: Request, message: string) Response {
 
     let body: string = template_fill(inventory_template("pages/inventory"),
         i18n_vars(req) +
+        vars("inventory_style", inventory_template("parts/style")) +
         vars("tabs_class", settings_get("ui.tabs", "vertical")) +
         vars("add_item_form", add_item_form) +
         vars("purchase_form", purchase_form) +
@@ -590,12 +591,7 @@ fn inventory_page_message(req: Request, message: string) Response {
         vars("expense_count", rho_int_to_str(expense_count)) +
         vars("docs", inventory_docs()))
 
-    let document: string = template_fill(inventory_template("layouts/layout"),
-        vars("title", i18n_t(req, "inventory.title")) + i18n_vars(req) + vars("body", body) +
-        vars("keeper", inventory_keeper_link()) +
-        vars("notifications", notification_embed()) +
-        vars("toast_js", toast_js))
-    return html(status_ok(), document)
+    return host_shell(req, i18n_t(req, "inventory.title"), body, toast_js)
 }
 
 fn inventory_page(req: Request) Response {
@@ -645,6 +641,7 @@ fn item_edit_page(req: Request) Response {
     let row: ListItemsRow = items[row_index]
     let body: string = template_fill(inventory_template("pages/item-edit"),
         i18n_vars(req) +
+        vars("inventory_style", inventory_template("parts/style")) +
         vars("id", rho_int_to_str(u32(row.id))) +
         vars("name", row.name) +
         vars("category_options", inventory_categories(categories, category_count,
@@ -654,10 +651,7 @@ fn item_edit_page(req: Request) Response {
         vars("reorder", inventory_quantity(row.reorderMilli)) +
         vars("location", row.location) +
         vars("notes", row.notes))
-    let document: string = template_fill(inventory_template("layouts/layout"),
-        vars("title", i18n_t(req, "inventory.edit_title")) + i18n_vars(req) + vars("body", body) +
-        vars("keeper", inventory_keeper_link()))
-    return html(status_ok(), document)
+    return host_shell(req, i18n_t(req, "inventory.edit_title"), body, "")
 }
 
 /* -------------------------------------------------------------------------- */

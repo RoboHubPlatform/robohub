@@ -1,0 +1,35 @@
+<div class="dashboard-head">
+  <div>
+    <p class="eyebrow">Location · {{t "energy.home.eyebrow"}}</p>
+    <h1>{{ site }}</h1>
+    <p>{{t "energy.home.intro"}}</p>
+  </div>
+  <span class="mode-badge {{#if sim_off}}real{{else}}sim{{/if}}" hx-get="/api/energy/heartbeat" hx-trigger="every 2s" hx-swap="innerHTML">{{ simulation }}</span>
+</div>
+
+{{{ widgets }}}
+
+<div class="cards">
+  <article class="card">
+    <h2>{{t "energy.nav.sources"}}</h2>
+    <p>{{t "energy.home.sources"}}</p>
+    <a href="/sources">{{t "energy.home.open"}} →</a>
+  </article>
+  <article class="card">
+    <h2>{{t "energy.nav.storage"}}</h2>
+    <p>{{t "energy.home.storage"}}</p>
+    <a href="/storage">{{t "energy.home.open"}} →</a>
+  </article>
+  <article class="card">
+    <h2>{{t "energy.nav.grid"}}</h2>
+    <p>{{t "energy.home.grid"}}</p>
+    <a href="/grid">{{t "energy.home.open"}} →</a>
+  </article>
+  <article class="card">
+    <h2>{{t "energy.nav.modes"}}</h2>
+    <p>{{t "energy.home.modes"}}</p>
+    <a href="/modes">{{t "energy.home.open"}} →</a>
+  </article>
+</div>
+
+<p><a class="button" href="/widgets">{{t "energy.home.widgets"}} →</a></p>

@@ -1,0 +1,38 @@
+<tr>
+  <td>
+    <strong>{{ name }}</strong><br>
+    <small>{{ utility }} · {{ phases }} phase</small>
+  </td>
+  <td>
+    <strong>{{ import }}</strong> {{t "energy.grid.import"}}<br>
+    <small>{{ export }} {{t "energy.grid.export"}}</small>
+  </td>
+  <td>{{ voltage }}<br><small>{{ frequency }}</small></td>
+  <td>
+    <small>{{ zero_export }}</small><br>
+    <small>import {{ import_limit }} · export {{ export_limit }}</small><br>
+    <small>{{ synchronized }}</small>
+  </td>
+  <td>
+    <span class="status-pill {{ status_css }}">{{ status }}</span><br>
+    <small>{{ updated }}</small>
+  </td>
+  <td>
+    <form method="post" action="/grid/reading">
+      <input type="hidden" name="id" value="{{ id }}">
+      {{{ csrf }}}
+      <input name="voltage_v" placeholder="V" size="5" inputmode="decimal">
+      <input name="frequency_hz" placeholder="Hz" size="5" inputmode="decimal">
+      <input name="import_w" placeholder="import W" size="7" inputmode="decimal">
+      <input name="export_w" placeholder="export W" size="7" inputmode="decimal">
+      <select name="status"><option>online</option><option>offline</option></select>
+      <select name="synchronized"><option value="1">sync</option><option value="0">no sync</option></select>
+      <button type="submit" class="quiet">{{t "energy.field.report"}}</button>
+    </form>
+    <form method="post" action="/grid/delete">
+      <input type="hidden" name="id" value="{{ id }}">
+      {{{ csrf }}}
+      <button type="submit" class="quiet">{{t "energy.field.remove"}}</button>
+    </form>
+  </td>
+</tr>

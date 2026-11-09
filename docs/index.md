@@ -32,6 +32,11 @@ links. They live under `applications/`.
   service on one port, with reusable modules registering their routes on its
   router. It also carries the equipment, automation, chemistry and
   maintenance-mode framework the physical layer will drive.
+- [Energy](energy/) is the power application for a location: solar, wind,
+  LiFePO4 storage and the utility line normalized into one site reading, with
+  off-grid, on-grid and hybrid control, safety interlocks, telemetry/WAL power
+  faults and live SSE dashboards. Its driver seam runs a stateful simulator by
+  default, so the whole loop can be tested without hardware.
 - [Gateway](robohub-gateway/) is the gateway application the earliest
   deployments ran.
 
