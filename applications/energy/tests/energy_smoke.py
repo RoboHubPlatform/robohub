@@ -26,6 +26,7 @@ APP = HERE.parents[1]
 ROBOHUB = APP.parents[1]
 PROJECTS = ROBOHUB.parent
 RHO = PROJECTS / "rho" / "bin" / "rho"
+SESSION = "smoke-session"
 
 
 def free_port() -> int:
@@ -38,7 +39,8 @@ def wait_for(base: str) -> None:
     deadline = time.time() + 25
     while time.time() < deadline:
         try:
-            with urllib.request.urlopen(base + "/", timeout=1) as response:
+            request = urllib.request.Request(base + "/healthz")
+            with urllib.request.urlopen(request, timeout=1) as response:
                 if response.status == 200:
                     return
         except (urllib.error.URLError, ConnectionError):
@@ -47,7 +49,9 @@ def wait_for(base: str) -> None:
 
 
 def get(base: str, path: str) -> str:
-    with urllib.request.urlopen(base + path, timeout=10) as response:
+    request = urllib.request.Request(base + path)
+    request.add_header("Cookie", f"keeper_session={SESSION}")
+    with urllib.request.urlopen(request, timeout=10) as response:
         return response.read().decode("utf-8", "replace")
 
 
@@ -66,6 +70,7 @@ def post(base: str, path: str, fields: dict, token: str = "") -> str:
     body = urllib.parse.urlencode(fields).encode()
     request = urllib.request.Request(base + path, data=body, method="POST")
     request.add_header("Content-Type", "application/x-www-form-urlencoded")
+    request.add_header("Cookie", f"keeper_session={SESSION}")
     with urllib.request.urlopen(request, timeout=20) as response:
         return response.read().decode("utf-8", "replace")
 
@@ -74,6 +79,7 @@ def post_hx(base: str, path: str, fields: dict) -> str:
     body = urllib.parse.urlencode(fields).encode()
     request = urllib.request.Request(base + path, data=body, method="POST")
     request.add_header("Content-Type", "application/x-www-form-urlencoded")
+    request.add_header("Cookie", f"keeper_session={SESSION}")
     request.add_header("HX-Request", "true")
     with urllib.request.urlopen(request, timeout=20) as response:
         return response.read().decode()
@@ -83,6 +89,7 @@ def post_json(base: str, path: str, fields: dict) -> dict:
     body = json.dumps(fields).encode()
     request = urllib.request.Request(base + path, data=body, method="POST")
     request.add_header("Content-Type", "application/json")
+    request.add_header("Cookie", f"keeper_session={SESSION}")
     with urllib.request.urlopen(request, timeout=20) as response:
         return json.loads(response.read())
 
@@ -122,6 +129,12 @@ def main() -> int:
         env["ROBOHUB_MESH_TELEMETRY_DB"] = str(telemetry)
         env["ROBOHUB_DRIVER_MODE"] = "mock"
         env["XDG_STATE_HOME"] = str(Path(workspace) / "state")
+        home = Path(workspace) / "home"
+        sessions = home / ".rho" / "keeper"
+        sessions.mkdir(parents=True, exist_ok=True)
+        (sessions / "auth-sessions.txt").write_text(
+            f"{SESSION}|{int(time.time()) + 3600}|smoke\n", encoding="utf-8")
+        env["HOME"] = str(home)
         env["RHO_HTTP_ADDR"] = f":{port}"
         process = subprocess.Popen([str(binary)], cwd=APP, env=env,
                                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
@@ -337,6 +350,7 @@ def main() -> int:
                 con.close()
 
             request = urllib.request.Request(base + "/energy/stream")
+            request.add_header("Cookie", f"keeper_session={SESSION}")
             with urllib.request.urlopen(request, timeout=5) as response:
                 chunk = response.read(6000).decode("utf-8", "replace")
             assert_contains(chunk, ["event: faults", "event: faults-rows"],
