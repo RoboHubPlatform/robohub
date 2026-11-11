@@ -89,7 +89,7 @@
   "energy.settings.runtime": "Runtime",
   "energy.settings.driver": "Driver",
   "energy.settings.db": "Baza de date a aplicației",
-  "energy.settings.telemetry": "Stocarea telemetriei",
+  "energy.settings.telemetry": "Coada către Mesh",
   "energy.settings.reading": "Contractul de citire",
   "energy.settings.site": "Locație",
   "energy.settings.project": "Proiect telemetrie",

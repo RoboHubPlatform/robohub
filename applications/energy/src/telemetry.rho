@@ -1,28 +1,156 @@
 module energy
 
-// The telemetry port. Readings become a series; safety trips become actionable
-// faults in the telemetry SQLite/WAL store. The store is the shared Mesh store
-// when ROBOHUB_MESH_TELEMETRY_DB names one, and the application workspace's
-// telemetry.db otherwise.
+// What energy measures leaves it the way any gateway's readings do.
+//
+// Mesh owns telemetry: it ingests every reading, stores it, names it, and streams
+// it. Energy does not keep a second store. A reading energy produces — from its
+// simulator, typed into a form, or posted to its ingest API — is appended to an
+// outbox here, and Mesh polls that outbox like a gateway's:
+//
+//   GET  /energy/gateway/api/v1/telemetry/outbox?after=SEQ&limit=N
+//   POST /energy/gateway/api/v1/telemetry/ack      {"seq": SEQ}
+//
+// so the reading is stored once, in Mesh, and reaches every page and application
+// that reads the project, energy's own included. A Mesh project whose gateway is
+// `http://<host>:8482/energy/gateway` (with gateway audience `energy`) ingests it.
+//
+// The outbox is a file only energy's user can read. The caller must hold the
+// `energy:gateway` scope, which Mesh's service token for energy carries.
 
-extern fn telemetry_open(path: string) -> bool
+extern fn rho_sleep_ms(milliseconds: u32) -> void
+extern fn rho_write_secret(path: string, text: string) -> bool
 
-extern fn telemetry_record(project: string, area_id: u32, node_id: u32, field_name: string, value: string, status: u32) -> u32
+const ENERGY_OUTBOX_LIMIT: u32 = 500
 
-extern fn telemetry_fault_record(project: string, gateway: string, field: string, severity: string, message: string, area: u32, node: u32, status: u32, created_ms: string) -> u32
+fn energy_outbox_file() string {
+    return energy_state_dir() + "/outbox.jsonl"
+}
 
-extern fn telemetry_fault_rows(project: string, limit: u32) -> string
+fn energy_outbox_seq_file() string {
+    return energy_state_dir() + "/outbox.seq"
+}
 
-extern fn telemetry_fault_clear(project: string, id: u32) -> string
+// energy_outbox_record appends one reading and answers 0, the answer a
+// recording call gives when it worked. Mesh attributes the reading to the project
+// that polls this outbox.
+fn energy_outbox_record(area: u32, node: u32, field_name: string, value: string, status: u32) -> u32 {
+    if field_name == "" || value == "" {
+        return 1
+    }
+    let seq: u32 = rho_int_from_str(energy_trim(rho_read_text(energy_outbox_seq_file()))) + 1
+    if !rho_write_secret(energy_outbox_seq_file(), rho_int_to_str(seq) + "\n") {
+        return 1
+    }
+    let line: string = "{\"seq\":" + rho_int_to_str(seq) +
+        ",\"area_id\":" + rho_int_to_str(area) +
+        ",\"node_id\":" + rho_int_to_str(node) +
+        ",\"field\":" + json_string(field_name) +
+        ",\"value\":" + value +
+        ",\"status\":" + rho_int_to_str(status) +
+        ",\"received_ms\":" + rho_int_to_str(energy_now()) + "000}\n"
+    if !rho_path_exists(energy_outbox_file()) {
+        ignore_bool(rho_write_secret(energy_outbox_file(), ""))
+    }
+    if !rho_append_text(energy_outbox_file(), line) {
+        return 1
+    }
+    return 0
+}
 
-extern fn telemetry_fault_max_id(project: string) -> u32
+// energy_outbox_line_seq is the sequence number a line was written with.
+fn energy_outbox_line_seq(line: string) -> u32 {
+    if !rho_str_starts_with(line, "{\"seq\":") {
+        return 0
+    }
+    let rest: string = rho_str_slice(line, 7, u32(rho_strlen(line)) - 7)
+    let comma: i32 = rho_str_index_of(rest, ",")
+    if comma < 0 {
+        return 0
+    }
+    return rho_int_from_str(rho_str_slice(rest, 0, u32(comma)))
+}
 
-extern fn telemetry_fault_new(project: string, after_id: u32, limit: u32) -> string
+// energy_outbox_allowed is whether the caller's verified token carries the
+// scope that reads and acknowledges the outbox.
+fn energy_outbox_allowed(req: Request) -> bool {
+    let scopes: string = "," + header_str(req, "X-Rho-Scopes") + ","
+    return rho_str_index_of(scopes, ",energy:gateway,") >= 0 ||
+        rho_str_index_of(scopes, ",energy:*,") >= 0 ||
+        rho_str_index_of(scopes, ",*,") >= 0
+}
 
-extern fn telemetry_checkpoint(mode: string) -> string
+fn energy_gateway_outbox(req: Request) -> Response {
+    if !energy_outbox_allowed(req) {
+        return json(status_forbidden(), "{\"ok\":false,\"error\":\"insufficient scope\"}")
+    }
+    let after: u32 = rho_int_from_str(request_query_param(req, "after"))
+    var limit: u32 = rho_int_from_str(request_query_param(req, "limit"))
+    if limit == 0 || limit > ENERGY_OUTBOX_LIMIT {
+        limit = ENERGY_OUTBOX_LIMIT
+    }
+    var out: string = "["
+    var count: u32 = 0
+    var rest: string = rho_read_text(energy_outbox_file())
+    while rest != "" && count < limit {
+        let at: i32 = rho_str_index_of(rest, "\n")
+        var line: string = rest
+        if at < 0 {
+            rest = ""
+        } else {
+            line = rho_str_slice(rest, 0, u32(at))
+            rest = rho_str_slice(rest, u32(at) + 1, u32(rho_strlen(rest)) - u32(at) - 1)
+        }
+        if energy_outbox_line_seq(line) > after {
+            if count > 0 {
+                out = out + ","
+            }
+            out = out + line
+            count = count + 1
+        }
+    }
+    return json(status_ok(), out + "]")
+}
 
-extern fn telemetry_sleep(ms: u32) -> void
-
-extern fn telemetry_status(project: string) -> string
-
-extern fn telemetry_storage_status(project: string) -> string
+// energy_gateway_ack drops what the consumer has stored. Mesh is the outbox's
+// one consumer; what it acknowledged is in its store.
+fn energy_gateway_ack(req: Request) -> Response {
+    if !energy_outbox_allowed(req) {
+        return json(status_forbidden(), "{\"ok\":false,\"error\":\"insufficient scope\"}")
+    }
+    let body: string = request_body(req)
+    let marker: i32 = rho_str_index_of(body, "\"seq\":")
+    if marker < 0 {
+        return json(status_bad_request(), "{\"ok\":false,\"error\":\"seq is required\"}")
+    }
+    var digits: string = ""
+    var i: u32 = u32(marker) + 6
+    while i < u32(rho_strlen(body)) {
+        let c: string = rho_str_slice(body, i, 1)
+        if rho_str_index_of("0123456789", c) < 0 {
+            if digits != "" || !rho_str_eq(c, " ") {
+                break
+            }
+        } else {
+            digits = digits + c
+        }
+        i = i + 1
+    }
+    let acked: u32 = rho_int_from_str(digits)
+    var kept: string = ""
+    var rest: string = rho_read_text(energy_outbox_file())
+    while rest != "" {
+        let at: i32 = rho_str_index_of(rest, "\n")
+        var line: string = rest
+        if at < 0 {
+            rest = ""
+        } else {
+            line = rho_str_slice(rest, 0, u32(at))
+            rest = rho_str_slice(rest, u32(at) + 1, u32(rho_strlen(rest)) - u32(at) - 1)
+        }
+        if line != "" && energy_outbox_line_seq(line) > acked {
+            kept = kept + line + "\n"
+        }
+    }
+    ignore_bool(rho_write_secret(energy_outbox_file(), kept))
+    return json(status_ok(), "{\"ok\":true,\"seq\":" + rho_int_to_str(acked) + "}")
+}

@@ -63,12 +63,26 @@ The safety layer evaluates every tick:
 
 A fault is recorded on the **edge** into the bad condition, not on every tick of
 it, so a dashboard shows one badge for one condition. The transition is kept in
-`energy_fault_state`; the actionable record is written to the telemetry store
-with the `telemetry` port, in the same SQLite database and the same WAL mode the
-rest of the ecosystem uses.
+`energy_fault_state`, which the faults page lists; the fault also leaves through
+the outbox as a reading with a fault status, so Mesh records it as the project's
+fault and every telemetry consumer of the project sees it.
 
-The telemetry store is `ROBOHUB_MESH_TELEMETRY_DB` when this service runs beside
-Mesh, and the application workspace's `data/telemetry.db` otherwise.
+### Telemetry: produced here, owned by Mesh
+
+Energy keeps no telemetry store. Every reading it produces — simulated, typed in,
+or posted to `/api/energy/ingest` — is appended to an outbox in its workspace,
+readable by its own user only, and served the way a gateway serves one:
+
+```
+GET  /energy/gateway/api/v1/telemetry/outbox?after=SEQ&limit=N
+POST /energy/gateway/api/v1/telemetry/ack     {"seq": SEQ}
+```
+
+A Mesh project whose `gateway_url` is `http://<host>:8482/energy/gateway` and whose
+`gateway_audience` is `energy` ingests it: Mesh polls with a short-lived service
+token for `energy` carrying the `energy:gateway` scope, stores each reading once,
+and streams it to whoever reads the project. What energy shows comes back the same
+way, through Mesh's API.
 
 ### 4. Configuration and schema management
 
@@ -162,15 +176,14 @@ In **simulation** mode the stateful mock keeps the plant in the application's ow
 tables, advances a solar bell curve and a wind band, charges and discharges the
 bank within the BMS current limits, and respects the operating mode.
 
-In **simulation** mode the application writes `transport=sim` and its own URL to
-`gateway.conf`. The gateway contract's simulation provider publishes
-`energy.generation`, `energy.load`, `energy.soc`, `energy.grid`,
-`energy.battery_temp`, `energy.mode` and `energy.faults`, so the widget source
-picker is populated and the seeded cards preselect their simulated source.
+In **simulation** mode the simulator's readings take the path real ones do: out
+through the outbox into Mesh, and back through the `mesh-gateway` provider. There
+is no second, simulated data path to keep in step with the real one.
 
 In **real-time** mode the application uses the same `mesh-gateway` provider an
-aquarium uses. Settings keeps the Mesh URL, project and token, writes them to the
-workspace's `gateway.conf`, and the gateway contract answers with the real
+aquarium uses. Settings keeps the Mesh URL and project and writes them to the
+workspace's `gateway.conf` (the token is the application's short-lived service
+token, never a setting), and the gateway contract answers with the real
 project's sources. The **Mesh project is a select populated from
 `GET /mesh/api/projects` at the entered address**, so only projects the Mesh
 server reports can be chosen; save the URL once to load them. The telemetry

@@ -21,7 +21,6 @@ targets:
           skip_paths: "/healthz,/auth/login,/assets,/assets/,/i18n,/auth/callback,/static"
     ports:
       - logemit
-      - telemetry
     files:
       - path: app.go
         role: implementation

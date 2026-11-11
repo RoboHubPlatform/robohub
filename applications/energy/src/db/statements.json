@@ -3299,37 +3299,6 @@
       ]
     },
     {
-      "name": "sql_list_telemetry_recent",
-      "sql": "SELECT CAST(value AS TEXT) AS value_text, received_ms\nFROM telemetry_reading\nWHERE project = ? AND field = ?\nORDER BY received_ms DESC LIMIT 60",
-      "parameters": [
-        {
-          "name": "project",
-          "goType": "string",
-          "text": true
-        },
-        {
-          "name": "field",
-          "goType": "string",
-          "text": true
-        }
-      ],
-      "result": "ListTelemetryRecentRow",
-      "fields": [
-        {
-          "name": "valueText",
-          "column": "value_text",
-          "goType": "string",
-          "text": true
-        },
-        {
-          "name": "receivedMs",
-          "column": "received_ms",
-          "goType": "int64",
-          "integer": true
-        }
-      ]
-    },
-    {
       "name": "sql_update_widget_source",
       "sql": "UPDATE widgets SET source_kind = ?, source = ?, method = ? WHERE id = ?",
       "parameters": [

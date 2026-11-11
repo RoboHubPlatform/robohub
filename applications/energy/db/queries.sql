@@ -393,11 +393,5 @@ SELECT id, widget_id, value_text, value_milli, recorded_epoch
 FROM widget_values WHERE widget_id = :widget_id
 ORDER BY recorded_epoch DESC, id DESC LIMIT 1;
 
--- name: list_telemetry_recent
-SELECT CAST(value AS TEXT) AS value_text, received_ms
-FROM telemetry_reading
-WHERE project = :project AND field = :field
-ORDER BY received_ms DESC LIMIT 60;
-
 -- name: update_widget_source
 UPDATE widgets SET source_kind = :source_kind, source = :source, method = :method WHERE id = :id;

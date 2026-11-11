@@ -93,6 +93,8 @@ route GET "/api/energy/state" => energy_api_state
 route GET "/api/energy/events" => energy_api_events
 
 route POST "/api/energy/ingest" => energy_api_ingest
+route GET "/energy/gateway/api/v1/telemetry/outbox" => energy_gateway_outbox
+route POST "/energy/gateway/api/v1/telemetry/ack" => energy_gateway_ack
 
 route POST "/api/energy/sim/fault" => energy_api_sim_fault
 
@@ -114,13 +116,9 @@ route POST "/api/energy/widgets/refresh" => energy_widgets_refresh
 
 route POST "/settings/sim-toggle" => energy_sim_toggle
 
-route GET "/api/energy/sim/gateway/sources" => energy_sim_gateway_sources
 
-route GET "/api/energy/sim/gateway/latest" => energy_sim_gateway_latest
 
-route GET "/api/energy/sim/gateway/history" => energy_sim_gateway_history
 
-route GET "/api/energy/sim/gateway/status" => energy_sim_gateway_status
 
 route GET "/api/energy/heartbeat" => energy_heartbeat
 

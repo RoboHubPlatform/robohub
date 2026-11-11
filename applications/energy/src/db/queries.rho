@@ -87,7 +87,6 @@ extern fn sql_delete_widget(id: i64, db: SqlDb) u32;
 extern fn sql_insert_widget_value(widget_id: string, value_text: string, value_milli: string, recorded_epoch: string, db: SqlDb) u32;
 extern fn sql_list_widget_values(widget_id: i64, db: SqlDb, out: Slice[WidgetValues], capacity: u32) u32;
 extern fn sql_latest_widget_value(widget_id: i64, db: SqlDb, out: Slice[WidgetValues], capacity: u32) u32;
-extern fn sql_list_telemetry_recent(project: string, field: string, db: SqlDb, out: Slice[ListTelemetryRecentRow], capacity: u32) u32;
 extern fn sql_update_widget_source(source_kind: string, source: string, method: string, id: i64, db: SqlDb) u32;
 fn InsertSource(name: string, kind: string, bus: string, address: string, mesh_source: string, rated_w: string, protocol: string, db: SqlDb) Result[u32, SqlError] {
     let changed: u32 = sql_insert_source(name, kind, bus, address, mesh_source, rated_w, protocol, db)
@@ -591,18 +590,6 @@ fn LatestWidgetValue(widget_id: i64, db: SqlDb, out: Slice[WidgetValues], capaci
         return Err[u32, SqlError](SqlError{ "no room for rows", -1 })
     }
     let wrote: u32 = sql_latest_widget_value(widget_id, db, out, capacity)
-    if wrote == 0 {
-        return Err[u32, SqlError](SqlError{ "the statement failed", -1 })
-    }
-    return Ok[u32, SqlError](wrote)
-}
-
-// Note: the type of value_text is not one it names, which is not one this knows; it is carried as text.
-fn ListTelemetryRecent(project: string, field: string, db: SqlDb, out: Slice[ListTelemetryRecentRow], capacity: u32) Result[u32, SqlError] {
-    if capacity == 0 {
-        return Err[u32, SqlError](SqlError{ "no room for rows", -1 })
-    }
-    let wrote: u32 = sql_list_telemetry_recent(project, field, db, out, capacity)
     if wrote == 0 {
         return Err[u32, SqlError](SqlError{ "the statement failed", -1 })
     }

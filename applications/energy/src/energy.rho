@@ -65,18 +65,6 @@ fn energy_db_path() string {
     return energy_state_dir() + "/app.db"
 }
 
-fn energy_telemetry_path() string {
-    var override: string = getenv("ROBOHUB_MESH_TELEMETRY_DB")
-    if override != "" {
-        return override
-    }
-    if energy_driver_is_mock() {
-        return energy_state_dir() + "/telemetry.db"
-    }
-    // Real-time readings belong to the Mesh telemetry store the selected
-    // project already uses; the application does not invent a second one.
-    return getenv("HOME") + "/.rho/mesh/telemetry.db"
-}
 
 fn energy_live_file() string {
     return energy_state_dir() + "/energy-live.events"
@@ -761,42 +749,31 @@ fn energy_faults_fragment(db: SqlDb) string {
 }
 
 fn energy_fault_rows_html() string {
-    var rows: string = telemetry_fault_rows(energy_project(), 100)
+    // The faults energy's own safety rules raised, from its own state. Each one
+    // also reached Mesh as a reading with a fault status, so every telemetry
+    // consumer of the project sees it; this page is energy's view of them.
+    var opened: Result[SqlDb, string] = energy_open_db()
+    if !opened.is_ok {
+        return ""
+    }
+    var faults: EnergyFaultState[32]
+    var slice: Slice[EnergyFaultState] = Slice[EnergyFaultState]{
+        Ptr[EnergyFaultState](&faults[0]), 32 }
+    var listed: Result[u32, SqlError] = ListActiveFaultStates(opened.ok, slice, 32)
+    sql_close(opened.ok)
+    if !listed.is_ok {
+        return ""
+    }
     var out: string = ""
-    var rest: string = rows
-    while rest != "" {
-        var at: i32 = rho_str_index_of(rest, "\n")
-        var line: string = rest
-        if at < 0 {
-            rest = ""
-        } else {
-            line = rho_str_slice(rest, 0, u32(at))
-            rest = rho_str_slice(rest, u32(at) + 1, u32(rho_strlen(rest)) - u32(at) - 1)
-        }
-        if line == "" {
-            continue
-        }
-        var first: i32 = rho_str_index_of(line, "\t")
-        if first < 0 {
-            continue
-        }
-        var after_first: string = rho_str_slice(line, u32(first) + 1, u32(rho_strlen(line)) - u32(first) - 1)
-        var second_at: i32 = rho_str_index_of(after_first, "\t")
-        if second_at < 0 {
-            continue
-        }
-        var second: u32 = u32(first) + 1 + u32(second_at) + 1
-        var after_second: string = rho_str_slice(line, second, u32(rho_strlen(line)) - second)
-        var third_at: i32 = rho_str_index_of(after_second, "\t")
-        if third_at < 0 {
-            continue
-        }
-        var id: string = rho_str_slice(line, 0, u32(first))
-        var severity: string = rho_str_slice(line, u32(first) + 1, u32(second_at))
-        var created_ms: string = rho_str_slice(line, second, u32(third_at))
-        var message: string = rho_str_slice(line, second + u32(third_at) + 1, u32(rho_strlen(line)) - second - u32(third_at) - 1)
-        var created: string = energy_date(u32(rho_int_from_str(created_ms) / 1000))
-        out = out + template_fill(template_get("fault-row"), vars("id", id) + vars("severity", severity) + vars("severity_css", energy_fault_severity_class(severity)) + vars("created", created) + vars("message", message) + vars("csrf", forms_csrf_field()))
+    var i: u32 = 0
+    while i < listed.ok {
+        var created: string = energy_date(u32(faults[i].updatedEpoch))
+        out = out + template_fill(template_get("fault-row"), vars("id", faults[i].code) +
+            vars("severity", faults[i].severity) +
+            vars("severity_css", energy_fault_severity_class(faults[i].severity)) +
+            vars("created", created) + vars("message", faults[i].message) +
+            vars("csrf", forms_csrf_field()))
+        i = i + 1
     }
     return out
 }
@@ -958,10 +935,10 @@ fn energy_sim_write_back(db: SqlDb, site: SimSite, now: u32) void {
             current = power * 1000000 / voltage
         }
         energy_ignore_result(UpdateSourceReading(power, voltage, current, temperature, status, i64(now), sources[i].id, db))
-        ignore_u32(telemetry_record(energy_project(), ENERGY_AREA, u32(sources[i].id), "power_w", energy_i64_to_str(power), 0))
-        ignore_u32(telemetry_record(energy_project(), ENERGY_AREA, u32(sources[i].id), "voltage_v", energy_format_milli(voltage, 3), 0))
-        ignore_u32(telemetry_record(energy_project(), ENERGY_AREA, u32(sources[i].id), "current_a", energy_format_milli(current, 3), 0))
-        ignore_u32(telemetry_record(energy_project(), ENERGY_AREA, u32(sources[i].id), "temperature_c", energy_format_milli(temperature, 3), 0))
+        ignore_u32(energy_outbox_record(ENERGY_AREA, u32(sources[i].id), "power_w", energy_i64_to_str(power), 0))
+        ignore_u32(energy_outbox_record(ENERGY_AREA, u32(sources[i].id), "voltage_v", energy_format_milli(voltage, 3), 0))
+        ignore_u32(energy_outbox_record(ENERGY_AREA, u32(sources[i].id), "current_a", energy_format_milli(current, 3), 0))
+        ignore_u32(energy_outbox_record(ENERGY_AREA, u32(sources[i].id), "temperature_c", energy_format_milli(temperature, 3), 0))
         i = i + 1
     }
     var batteries: EnergyBatteries[32]
@@ -977,10 +954,10 @@ fn energy_sim_write_back(db: SqlDb, site: SimSite, now: u32) void {
                 status = "online"
             }
             energy_ignore_result(UpdateBatteryReading(site.battery.soc_milli, batteries[j].sohMilli, site.battery.voltage_mv, site.battery.current_ma, site.battery.temperature_mc, site.battery.cell_min_mv, site.battery.cell_max_mv, status, i64(now), batteries[j].id, db))
-            ignore_u32(telemetry_record(energy_project(), ENERGY_AREA, u32(batteries[j].id), "soc_pct", energy_format_milli(site.battery.soc_milli, 3), 0))
-            ignore_u32(telemetry_record(energy_project(), ENERGY_AREA, u32(batteries[j].id), "voltage_v", energy_format_milli(site.battery.voltage_mv, 3), 0))
-            ignore_u32(telemetry_record(energy_project(), ENERGY_AREA, u32(batteries[j].id), "current_a", energy_format_milli(site.battery.current_ma, 3), 0))
-            ignore_u32(telemetry_record(energy_project(), ENERGY_AREA, u32(batteries[j].id), "temperature_c", energy_format_milli(site.battery.temperature_mc, 3), 0))
+            ignore_u32(energy_outbox_record(ENERGY_AREA, u32(batteries[j].id), "soc_pct", energy_format_milli(site.battery.soc_milli, 3), 0))
+            ignore_u32(energy_outbox_record(ENERGY_AREA, u32(batteries[j].id), "voltage_v", energy_format_milli(site.battery.voltage_mv, 3), 0))
+            ignore_u32(energy_outbox_record(ENERGY_AREA, u32(batteries[j].id), "current_a", energy_format_milli(site.battery.current_ma, 3), 0))
+            ignore_u32(energy_outbox_record(ENERGY_AREA, u32(batteries[j].id), "temperature_c", energy_format_milli(site.battery.temperature_mc, 3), 0))
             j = j + 1
         }
     }
@@ -1001,22 +978,22 @@ fn energy_sim_write_back(db: SqlDb, site: SimSite, now: u32) void {
                 synchronized = 0
             }
             energy_ignore_result(UpdateGridReading(site.grid.voltage_mv, site.grid.frequency_mhz, import_w, export_w, synchronized, status, i64(now), grids[k].id, db))
-            ignore_u32(telemetry_record(energy_project(), ENERGY_AREA, u32(grids[k].id), "grid_import_w", energy_i64_to_str(import_w), 0))
-            ignore_u32(telemetry_record(energy_project(), ENERGY_AREA, u32(grids[k].id), "grid_export_w", energy_i64_to_str(export_w), 0))
-            ignore_u32(telemetry_record(energy_project(), ENERGY_AREA, u32(grids[k].id), "voltage_v", energy_format_milli(site.grid.voltage_mv, 3), 0))
-            ignore_u32(telemetry_record(energy_project(), ENERGY_AREA, u32(grids[k].id), "frequency_hz", energy_format_milli(site.grid.frequency_mhz, 3), 0))
+            ignore_u32(energy_outbox_record(ENERGY_AREA, u32(grids[k].id), "grid_import_w", energy_i64_to_str(import_w), 0))
+            ignore_u32(energy_outbox_record(ENERGY_AREA, u32(grids[k].id), "grid_export_w", energy_i64_to_str(export_w), 0))
+            ignore_u32(energy_outbox_record(ENERGY_AREA, u32(grids[k].id), "voltage_v", energy_format_milli(site.grid.voltage_mv, 3), 0))
+            ignore_u32(energy_outbox_record(ENERGY_AREA, u32(grids[k].id), "frequency_hz", energy_format_milli(site.grid.frequency_mhz, 3), 0))
             k = k + 1
         }
     }
     energy_ignore_result(SetSimCounters(i64(site.tick), site.energy_today_wh, site.energy_total_wh, i64(now), db))
     var generation: i64 = site.pv.power_w + site.wind.power_w
     var grid_net: i64 = site.grid.import_w - site.grid.export_w
-    ignore_u32(telemetry_record(energy_project(), ENERGY_AREA, 0, "site_generation_w", energy_i64_to_str(generation), 0))
-    ignore_u32(telemetry_record(energy_project(), ENERGY_AREA, 0, "site_load_w", energy_i64_to_str(site.load_w), 0))
-    ignore_u32(telemetry_record(energy_project(), ENERGY_AREA, 0, "site_soc_pct", energy_format_milli(site.battery.soc_milli, 3), 0))
-    ignore_u32(telemetry_record(energy_project(), ENERGY_AREA, 0, "site_grid_w", energy_i64_to_str(grid_net), 0))
-    ignore_u32(telemetry_record(energy_project(), ENERGY_AREA, 0, "energy_today_wh", energy_i64_to_str(site.energy_today_wh), 0))
-    ignore_u32(telemetry_record(energy_project(), ENERGY_AREA, 0, "energy_total_wh", energy_i64_to_str(site.energy_total_wh), 0))
+    ignore_u32(energy_outbox_record(ENERGY_AREA, 0, "site_generation_w", energy_i64_to_str(generation), 0))
+    ignore_u32(energy_outbox_record(ENERGY_AREA, 0, "site_load_w", energy_i64_to_str(site.load_w), 0))
+    ignore_u32(energy_outbox_record(ENERGY_AREA, 0, "site_soc_pct", energy_format_milli(site.battery.soc_milli, 3), 0))
+    ignore_u32(energy_outbox_record(ENERGY_AREA, 0, "site_grid_w", energy_i64_to_str(grid_net), 0))
+    ignore_u32(energy_outbox_record(ENERGY_AREA, 0, "energy_today_wh", energy_i64_to_str(site.energy_today_wh), 0))
+    ignore_u32(energy_outbox_record(ENERGY_AREA, 0, "energy_total_wh", energy_i64_to_str(site.energy_total_wh), 0))
 }
 
 fn energy_sim_tick(db: SqlDb, now: u32) void {
@@ -1148,7 +1125,13 @@ fn energy_fault_raise(db: SqlDb, code: string, severity: string, field: string, 
     if energy_fault_active(db, code) {
         return
     }
-    ignore_u32(telemetry_fault_record(energy_project(), "energy", field, severity, message, ENERGY_AREA, 0, 1, energy_i64_to_str(i64(now) * 1000)))
+    // The fault reaches Mesh as a reading with a fault status, where it is
+    // recorded as the project's fault and seen by every consumer.
+    var status: u32 = 1
+    if rho_str_eq(severity, "ERROR") {
+        status = 2
+    }
+    ignore_u32(energy_outbox_record(ENERGY_AREA, 0, field, "1", status))
     energy_ignore_result(SetFaultState(code, "1", severity, message, rho_int_to_str(now), db))
     energy_ignore_result(InsertEvent(severity, "fault", message, rho_int_to_str(now), db))
     if rho_str_eq(severity, "ERROR") {
@@ -1329,7 +1312,6 @@ fn init() void {
         return
     }
     var db: SqlDb = opened.ok
-    ignore_bool(telemetry_open(energy_telemetry_path()))
     var now: u32 = energy_now()
     var sources: EnergySources[1]
     var source_slice: Slice[EnergySources] = Slice[EnergySources]{ Ptr[EnergySources](&sources[0]), 1 }
@@ -1389,15 +1371,9 @@ fn init() void {
 }
 
 fn background() void {
-    ignore_bool(telemetry_open(energy_telemetry_path()))
-    var ticks: u32 = 0
     while true {
         energy_tick()
-        ticks = ticks + 1
-        if ticks % 30 == 0 {
-            ignore_string(telemetry_checkpoint("PASSIVE"))
-        }
-        telemetry_sleep(2000)
+        rho_sleep_ms(2000)
     }
 }
 
@@ -1535,10 +1511,10 @@ fn energy_sources_reading(req: Request) Response {
                 state = status
             }
             energy_ignore_result(UpdateSourceReading(power, voltage, current, temperature, state, i64(now), id, db))
-            ignore_u32(telemetry_record(energy_project(), ENERGY_AREA, u32(id), "power_w", energy_i64_to_str(power), 0))
-            ignore_u32(telemetry_record(energy_project(), ENERGY_AREA, u32(id), "voltage_v", energy_format_milli(voltage, 3), 0))
-            ignore_u32(telemetry_record(energy_project(), ENERGY_AREA, u32(id), "current_a", energy_format_milli(current, 3), 0))
-            ignore_u32(telemetry_record(energy_project(), ENERGY_AREA, u32(id), "temperature_c", energy_format_milli(temperature, 3), 0))
+            ignore_u32(energy_outbox_record(ENERGY_AREA, u32(id), "power_w", energy_i64_to_str(power), 0))
+            ignore_u32(energy_outbox_record(ENERGY_AREA, u32(id), "voltage_v", energy_format_milli(voltage, 3), 0))
+            ignore_u32(energy_outbox_record(ENERGY_AREA, u32(id), "current_a", energy_format_milli(current, 3), 0))
+            ignore_u32(energy_outbox_record(ENERGY_AREA, u32(id), "temperature_c", energy_format_milli(temperature, 3), 0))
             energy_evaluate_safety(db, now)
             energy_publish_live(db)
         }
@@ -1690,10 +1666,10 @@ fn energy_storage_reading(req: Request) Response {
                 state = status
             }
             energy_ignore_result(UpdateBatteryReading(soc, soh, voltage, current, temperature, cell_min, cell_max, state, i64(now), id, db))
-            ignore_u32(telemetry_record(energy_project(), ENERGY_AREA, u32(id), "soc_pct", energy_format_milli(soc, 3), 0))
-            ignore_u32(telemetry_record(energy_project(), ENERGY_AREA, u32(id), "voltage_v", energy_format_milli(voltage, 3), 0))
-            ignore_u32(telemetry_record(energy_project(), ENERGY_AREA, u32(id), "current_a", energy_format_milli(current, 3), 0))
-            ignore_u32(telemetry_record(energy_project(), ENERGY_AREA, u32(id), "temperature_c", energy_format_milli(temperature, 3), 0))
+            ignore_u32(energy_outbox_record(ENERGY_AREA, u32(id), "soc_pct", energy_format_milli(soc, 3), 0))
+            ignore_u32(energy_outbox_record(ENERGY_AREA, u32(id), "voltage_v", energy_format_milli(voltage, 3), 0))
+            ignore_u32(energy_outbox_record(ENERGY_AREA, u32(id), "current_a", energy_format_milli(current, 3), 0))
+            ignore_u32(energy_outbox_record(ENERGY_AREA, u32(id), "temperature_c", energy_format_milli(temperature, 3), 0))
             energy_evaluate_safety(db, now)
             energy_publish_live(db)
         }
@@ -1850,10 +1826,10 @@ fn energy_grid_reading(req: Request) Response {
                 synchronized = energy_bool_int(sync_text)
             }
             energy_ignore_result(UpdateGridReading(voltage, frequency, import_w, export_w, synchronized, state, i64(now), id, db))
-            ignore_u32(telemetry_record(energy_project(), ENERGY_AREA, u32(id), "grid_import_w", energy_i64_to_str(import_w), 0))
-            ignore_u32(telemetry_record(energy_project(), ENERGY_AREA, u32(id), "grid_export_w", energy_i64_to_str(export_w), 0))
-            ignore_u32(telemetry_record(energy_project(), ENERGY_AREA, u32(id), "voltage_v", energy_format_milli(voltage, 3), 0))
-            ignore_u32(telemetry_record(energy_project(), ENERGY_AREA, u32(id), "frequency_hz", energy_format_milli(frequency, 3), 0))
+            ignore_u32(energy_outbox_record(ENERGY_AREA, u32(id), "grid_import_w", energy_i64_to_str(import_w), 0))
+            ignore_u32(energy_outbox_record(ENERGY_AREA, u32(id), "grid_export_w", energy_i64_to_str(export_w), 0))
+            ignore_u32(energy_outbox_record(ENERGY_AREA, u32(id), "voltage_v", energy_format_milli(voltage, 3), 0))
+            ignore_u32(energy_outbox_record(ENERGY_AREA, u32(id), "frequency_hz", energy_format_milli(frequency, 3), 0))
             energy_evaluate_safety(db, now)
             energy_publish_live(db)
         }
@@ -2268,12 +2244,12 @@ fn energy_fault_clear(req: Request) Response {
     if !forms_csrf_ok(body) {
         return energy_faults_page(req)
     }
-    var id: u32 = u32(energy_parse_int(energy_form_field(body, "id")))
+    var code: string = energy_form_field(body, "id")
     var now: u32 = energy_now()
-    ignore_string(telemetry_fault_clear(energy_project(), id))
     var opened: Result[SqlDb, string] = energy_open_db()
     if opened.is_ok {
-        energy_ignore_result(InsertEvent("INFO", "fault", "Fault " + rho_int_to_str(id) + " acknowledged", rho_int_to_str(now), opened.ok))
+        energy_ignore_result(SetFaultState(code, "0", "", "", rho_int_to_str(now), opened.ok))
+        energy_ignore_result(InsertEvent("INFO", "fault", "Fault " + code + " acknowledged", rho_int_to_str(now), opened.ok))
         energy_publish_live(opened.ok)
         sql_close(opened.ok)
     }
@@ -2443,27 +2419,17 @@ fn energy_gateway_conf_path() string {
 // means the provider's settings and the application's settings are one fact,
 // not two.
 fn energy_write_gateway_conf() void {
-    if energy_driver_is_mock() {
-        // In simulation mode the gateway contract answers from the energy
-        // application's own simulated sources, so the widget source picker has
-        // the same shape it has in real-time mode.
-        var simulated: string = "provider=mesh-gateway;transport=sim;base=" +
-            energy_base_url()
-        ignore_bool(rho_write_text(energy_gateway_conf_path(), simulated))
-        return
-    }
+    // Simulated or real, readings come back the one way: through Mesh, which
+    // stored them. The simulator's readings reached Mesh through this
+    // application's outbox, like a gateway's.
     var conf: string = "provider=mesh-gateway;transport=mesh"
     var url: string = settings_get("energy.mesh_url", "")
     var project: string = settings_get("energy.mesh_project", "default")
-    var token: string = settings_get("energy.mesh_token", "")
     if url != "" {
         conf = gateway_config_set(conf, "url", url)
     }
     if project != "" {
         conf = gateway_config_set(conf, "project", project)
-    }
-    if token != "" {
-        conf = gateway_config_set(conf, "token", token)
     }
     ignore_bool(rho_write_text(energy_gateway_conf_path(), conf))
 }
@@ -2616,9 +2582,6 @@ fn energy_sync_from_gateway(db: SqlDb, now: u32) {
                     energy_ignore_result(UpdateSourceReading(power, voltage,
                         current, sources[i].temperatureMc, "online", i64(now),
                         sources[i].id, db))
-                    ignore_u32(telemetry_record(energy_project(), ENERGY_AREA,
-                        u32(sources[i].id), "power_w",
-                        energy_i64_to_str(power), 0))
                 }
             }
             i = i + 1
@@ -2641,9 +2604,6 @@ fn energy_sync_from_gateway(db: SqlDb, now: u32) {
                         batteries[j].currentMa, batteries[j].temperatureMc,
                         batteries[j].cellMinMv, batteries[j].cellMaxMv,
                         "online", i64(now), batteries[j].id, db))
-                    ignore_u32(telemetry_record(energy_project(), ENERGY_AREA,
-                        u32(batteries[j].id), "soc_pct",
-                        energy_format_milli(soc, 3), 0))
                 }
             }
             j = j + 1
@@ -2671,12 +2631,6 @@ fn energy_sync_from_gateway(db: SqlDb, now: u32) {
                     energy_ignore_result(UpdateGridReading(grids[k].voltageMv,
                         grids[k].frequencyMhz, import_w, export_w, 1, "online",
                         i64(now), grids[k].id, db))
-                    ignore_u32(telemetry_record(energy_project(), ENERGY_AREA,
-                        u32(grids[k].id), "grid_import_w",
-                        energy_i64_to_str(import_w), 0))
-                    ignore_u32(telemetry_record(energy_project(), ENERGY_AREA,
-                        u32(grids[k].id), "grid_export_w",
-                        energy_i64_to_str(export_w), 0))
                 }
             }
             k = k + 1
@@ -2871,142 +2825,17 @@ fn energy_widget_faults(req: Request) Response {
     return text(status_ok(), energy_widget_value("faults"))
 }
 
-fn energy_sim_source_field(source: string) string {
-    if rho_str_eq(source, "energy.generation") {
-        return "generation"
-    }
-    if rho_str_eq(source, "energy.load") {
-        return "load"
-    }
-    if rho_str_eq(source, "energy.soc") {
-        return "soc"
-    }
-    if rho_str_eq(source, "energy.grid") {
-        return "grid"
-    }
-    if rho_str_eq(source, "energy.battery_temp") {
-        return "battery_temp"
-    }
-    if rho_str_eq(source, "energy.mode") {
-        return "mode"
-    }
-    if rho_str_eq(source, "energy.faults") {
-        return "faults"
-    }
-    return ""
-}
 
-fn energy_sim_history_field(source: string) string {
-    if rho_str_eq(source, "energy.generation") {
-        return "site_generation_w"
-    }
-    if rho_str_eq(source, "energy.load") {
-        return "site_load_w"
-    }
-    if rho_str_eq(source, "energy.soc") {
-        return "site_soc_pct"
-    }
-    if rho_str_eq(source, "energy.grid") {
-        return "site_grid_w"
-    }
-    if rho_str_eq(source, "energy.battery_temp") {
-        return "site_battery_temp_c"
-    }
-    return ""
-}
 
-fn energy_sim_source_object(id: string, label: string, unit: string,
-    kinds: string) string {
-    let field: string = energy_sim_source_field(id)
-    return "{\"id\":" + json_string(id) +
-        ",\"owner\":\"Energy\",\"label\":" + json_string(label) +
-        ",\"direction\":\"input\",\"unit\":" + json_string(unit) +
-        ",\"kinds\":" + json_string(kinds) +
-        ",\"value_url\":" + json_string(energy_base_url() +
-            "/api/energy/widgets/" + field) +
-        ",\"action_url\":\"\"}"
-}
 
-fn energy_sim_gateway_sources(req: Request) Response {
-    if !energy_driver_is_mock() {
-        return json(status_ok(), "[]")
-    }
-    var body: string = "[" +
-        energy_sim_source_object("energy.generation", "Generation", "W",
-            "numeric chart") + "," +
-        energy_sim_source_object("energy.load", "Load", "W",
-            "numeric chart") + "," +
-        energy_sim_source_object("energy.soc", "Battery SoC", "%",
-            "numeric chart") + "," +
-        energy_sim_source_object("energy.grid", "Grid", "W",
-            "numeric chart") + "," +
-        energy_sim_source_object("energy.battery_temp", "Battery temperature",
-            "°C", "numeric chart") + "," +
-        energy_sim_source_object("energy.mode", "Site mode", "", "status") +
-        "," +
-        energy_sim_source_object("energy.faults", "Power faults", "", "status") +
-        "]"
-    return json(status_ok(), body)
-}
 
-fn energy_sim_gateway_latest(req: Request) Response {
-    let source: string = request_query_param(req, "source")
-    let field: string = energy_sim_source_field(source)
-    if field == "" {
-        return text(404, "")
-    }
-    return text(status_ok(), energy_widget_value(field))
-}
 
-fn energy_sim_gateway_history(req: Request) Response {
-    if !energy_driver_is_mock() {
-        return json(status_ok(), "{\"points\":[]}")
-    }
-    let source: string = request_query_param(req, "source")
-    let field: string = energy_sim_history_field(source)
-    if field == "" {
-        return json(status_ok(), "{\"points\":[]}")
-    }
-    var opened: Result[SqlDb, string] = sql_open(energy_telemetry_path())
-    if !opened.is_ok {
-        return json(status_ok(), "{\"points\":[]}")
-    }
-    ignore_u32(sql_apply(opened.ok, ""))
-    var rows: ListTelemetryRecentRow[60]
-    var slice: Slice[ListTelemetryRecentRow] = Slice[ListTelemetryRecentRow]{
-        Ptr[ListTelemetryRecentRow](&rows[0]), 60 }
-    var listed: Result[u32, SqlError] = ListTelemetryRecent(energy_project(),
-        field, opened.ok, slice, 60)
-    var count: u32 = 0
-    if listed.is_ok {
-        count = listed.ok
-    }
-    sql_close(opened.ok)
-    var body: string = "{\"points\":["
-    var i: u32 = count
-    while i > 0 {
-        i = i - 1
-        if i < count - 1 {
-            body = body + ","
-        }
-        body = body + "{\"t\":" + energy_i64_to_str(rows[i].receivedMs) +
-            ",\"v\":" + json_string(rows[i].valueText) + "}"
-    }
-    body = body + "]}"
-    return json(status_ok(), body)
-}
 
 fn energy_heartbeat(req: Request) Response {
     return text(status_ok(), energy_simulation_label() + " · " +
         energy_clock_now())
 }
 
-fn energy_sim_gateway_status(req: Request) Response {
-    if !energy_driver_is_mock() {
-        return text(403, "real-time")
-    }
-    return text(status_ok(), "simulation")
-}
 
 fn energy_widgets_refresh(req: Request) Response {
     var updated: u32 = widgets_refresh_all()
@@ -3123,7 +2952,7 @@ fn energy_settings_page_fields(req: Request, fields: [FormField], count: u32, no
         vars("simulation", energy_simulation_label()) +
         vars("sim_off", if energy_simulation_off() { "1" } else { "" }) +
         vars("db_path", escape_html(energy_db_path())) +
-        vars("telemetry_path", escape_html(energy_telemetry_path())) +
+        vars("telemetry_path", escape_html(energy_outbox_file())) +
         vars("reading_fields", energy_driver_reading_fields()) +
         vars("site", escape_html(energy_site_name())) +
         vars("project", escape_html(energy_project())) +
@@ -3366,10 +3195,10 @@ fn energy_api_source_ingest(db: SqlDb, body: string, now: u32) i64 {
         status = "online"
     }
     energy_ignore_result(UpdateSourceReading(power, voltage, current, temperature, status, i64(now), source_id, db))
-    ignore_u32(telemetry_record(energy_project(), ENERGY_AREA, u32(source_id), "power_w", energy_i64_to_str(power), 0))
-    ignore_u32(telemetry_record(energy_project(), ENERGY_AREA, u32(source_id), "voltage_v", energy_format_milli(voltage, 3), 0))
-    ignore_u32(telemetry_record(energy_project(), ENERGY_AREA, u32(source_id), "current_a", energy_format_milli(current, 3), 0))
-    ignore_u32(telemetry_record(energy_project(), ENERGY_AREA, u32(source_id), "temperature_c", energy_format_milli(temperature, 3), 0))
+    ignore_u32(energy_outbox_record(ENERGY_AREA, u32(source_id), "power_w", energy_i64_to_str(power), 0))
+    ignore_u32(energy_outbox_record(ENERGY_AREA, u32(source_id), "voltage_v", energy_format_milli(voltage, 3), 0))
+    ignore_u32(energy_outbox_record(ENERGY_AREA, u32(source_id), "current_a", energy_format_milli(current, 3), 0))
+    ignore_u32(energy_outbox_record(ENERGY_AREA, u32(source_id), "temperature_c", energy_format_milli(temperature, 3), 0))
     return source_id
 }
 
@@ -3442,10 +3271,10 @@ fn energy_api_battery_ingest(db: SqlDb, body: string, now: u32) i64 {
         status = "online"
     }
     energy_ignore_result(UpdateBatteryReading(soc, soh, voltage, current, temperature, cell_min, cell_max, status, i64(now), battery_id, db))
-    ignore_u32(telemetry_record(energy_project(), ENERGY_AREA, u32(battery_id), "soc_pct", energy_format_milli(soc, 3), 0))
-    ignore_u32(telemetry_record(energy_project(), ENERGY_AREA, u32(battery_id), "voltage_v", energy_format_milli(voltage, 3), 0))
-    ignore_u32(telemetry_record(energy_project(), ENERGY_AREA, u32(battery_id), "current_a", energy_format_milli(current, 3), 0))
-    ignore_u32(telemetry_record(energy_project(), ENERGY_AREA, u32(battery_id), "temperature_c", energy_format_milli(temperature, 3), 0))
+    ignore_u32(energy_outbox_record(ENERGY_AREA, u32(battery_id), "soc_pct", energy_format_milli(soc, 3), 0))
+    ignore_u32(energy_outbox_record(ENERGY_AREA, u32(battery_id), "voltage_v", energy_format_milli(voltage, 3), 0))
+    ignore_u32(energy_outbox_record(ENERGY_AREA, u32(battery_id), "current_a", energy_format_milli(current, 3), 0))
+    ignore_u32(energy_outbox_record(ENERGY_AREA, u32(battery_id), "temperature_c", energy_format_milli(temperature, 3), 0))
     return battery_id
 }
 
@@ -3507,10 +3336,10 @@ fn energy_api_grid_ingest(db: SqlDb, body: string, now: u32) i64 {
         synchronized = energy_bool_int(sync_text)
     }
     energy_ignore_result(UpdateGridReading(voltage, frequency, import_w, export_w, synchronized, status, i64(now), grid_id, db))
-    ignore_u32(telemetry_record(energy_project(), ENERGY_AREA, u32(grid_id), "grid_import_w", energy_i64_to_str(import_w), 0))
-    ignore_u32(telemetry_record(energy_project(), ENERGY_AREA, u32(grid_id), "grid_export_w", energy_i64_to_str(export_w), 0))
-    ignore_u32(telemetry_record(energy_project(), ENERGY_AREA, u32(grid_id), "voltage_v", energy_format_milli(voltage, 3), 0))
-    ignore_u32(telemetry_record(energy_project(), ENERGY_AREA, u32(grid_id), "frequency_hz", energy_format_milli(frequency, 3), 0))
+    ignore_u32(energy_outbox_record(ENERGY_AREA, u32(grid_id), "grid_import_w", energy_i64_to_str(import_w), 0))
+    ignore_u32(energy_outbox_record(ENERGY_AREA, u32(grid_id), "grid_export_w", energy_i64_to_str(export_w), 0))
+    ignore_u32(energy_outbox_record(ENERGY_AREA, u32(grid_id), "voltage_v", energy_format_milli(voltage, 3), 0))
+    ignore_u32(energy_outbox_record(ENERGY_AREA, u32(grid_id), "frequency_hz", energy_format_milli(frequency, 3), 0))
     return grid_id
 }
 

@@ -89,7 +89,7 @@
   "energy.settings.runtime": "Runtime",
   "energy.settings.driver": "Driver",
   "energy.settings.db": "Application database",
-  "energy.settings.telemetry": "Telemetry store",
+  "energy.settings.telemetry": "Outbox to Mesh",
   "energy.settings.reading": "Reading contract",
   "energy.settings.site": "Site",
   "energy.settings.project": "Telemetry project",
