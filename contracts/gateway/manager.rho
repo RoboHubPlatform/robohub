@@ -426,6 +426,16 @@ fn gateway_device_states() string {
     return ""
 }
 
+// gateway_follow follows the project's live stream into `path`, when the
+// transport has one; a simulated transport has none and answers false.
+fn gateway_follow(path: string) bool {
+    let config: string = gateway_config()
+    if gateway_config_value(config, "transport") == "mesh" {
+        return provider_mesh_follow(config, path)
+    }
+    return false
+}
+
 fn gateway_source_state(source: string) string {
     let config: string = gateway_config()
     if gateway_config_value(config, "transport") == "mesh" {

@@ -837,6 +837,29 @@ fn widgets_docs() string {
 // each card whose value changed. A host calls it from its background worker, so
 // a dashboard stays current without the host knowing how a widget is rendered
 // or where a value is stored.
+// widgets_live_file is where the project's live stream from Mesh is followed.
+fn widgets_live_file() string {
+    return widget_state_dir() + "/mesh-live.jsonl"
+}
+
+// widgets_live_changed follows the project's live stream (started once, kept
+// open by the runtime) and reports whether anything arrived since it was last
+// asked. An application refreshes its widgets when this says so, rather than on
+// a timer, so a reading reaches a card as soon as Mesh has stored it.
+fn widgets_live_changed() bool {
+    let path: string = widgets_live_file()
+    if !gateway_follow(path) {
+        return false
+    }
+    let seen_file: string = widget_state_dir() + "/mesh-live.seen"
+    let size: string = rho_int_to_str(u32(rho_strlen(rho_read_text(path))))
+    if rho_str_eq(size, rho_read_text(seen_file)) {
+        return false
+    }
+    ignore_bool(rho_write_text(seen_file, size))
+    return true
+}
+
 fn widgets_refresh_all() u32 {
     let opened: Result[SqlDb, string] = sql_open(widget_db_path())
     if !opened.is_ok {

@@ -1295,7 +1295,7 @@ fn energy_tick() void {
     }
     energy_evaluate_safety(db, now)
     energy_publish_live(db)
-    if energy_widget_refresh_due() {
+    if widgets_live_changed() || energy_widget_refresh_due() {
         ignore_u32(widgets_refresh_all())
     }
     if energy_mesh_heartbeat_due() {

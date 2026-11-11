@@ -17,6 +17,20 @@ import rho.log
 
 extern fn rho_http_request(method: string, url: string, body: string, content_type: string,
     audience: string, scopes: string, output_path: string) u32
+extern fn rho_sse_follow(url: string, audience: string, scopes: string, path: string) bool
+
+// provider_mesh_follow follows the project's live telemetry stream into a local
+// file, with the application's service token, reconnecting for as long as the
+// application runs. A page never connects to Mesh itself.
+fn provider_mesh_follow(config: string, path: string) bool {
+    let base: string = provider_mesh_base(config)
+    let project: string = provider_mesh_project(config)
+    if base == "" || project == "" {
+        return false
+    }
+    return rho_sse_follow(base + "/mesh/api/projects/" + project + "/telemetry/stream",
+        "mesh", provider_mesh_scope(config), path)
+}
 
 fn provider_mesh_base(config: string) string {
     // The supervisor that started the application says where Mesh is; a
