@@ -41,7 +41,8 @@ Restart=on-failure
 RestartSec=3
 WorkingDirectory=$ROBOHUB
 Environment=HOME=$HOME
-Environment=ROBOHUB_WORKSPACE=$ROBOHUB
+Environment=ROBOHUB_ROOT=$ROBOHUB
+Environment=ROBOHUB_WORKSPACE=$(dirname "$ROBOHUB")
 Environment=RHO_HTTP_ADDR=:$KEEPER_PORT
 
 [Install]

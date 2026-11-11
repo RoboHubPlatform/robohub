@@ -59,6 +59,16 @@ if [[ -z "$PORT" || -z "$COMMAND" || ! -x "$APP/build/$COMMAND" ]]; then
     exit 0
 fi
 
+# An application that calls other services was registered as a client by the
+# keeper before this ran; the unit names where its secret is, never the secret.
+CLIENT_SECRET="$HOME/.rho/keeper/workspaces/$NAME/auth/client.secret"
+CLIENT_ENV=""
+if [[ -f "$CLIENT_SECRET" ]]; then
+    CLIENT_ENV="Environment=RHO_CLIENT_ID=$NAME
+Environment=RHO_CLIENT_SECRET_FILE=$CLIENT_SECRET
+Environment=RHO_KEEPER_URL=http://127.0.0.1:${RHO_KEEPER_PORT:-19090}"
+fi
+
 echo "Writing $UNIT …"
 mkdir -p "$UNIT_DIR"
 cat > "$UNIT" <<UNIT
@@ -71,12 +81,13 @@ Type=simple
 WorkingDirectory=$APP
 Environment=HOME=$HOME
 Environment=PATH=$PATH
-Environment=ROBOHUB_WORKSPACE=$ROBOHUB
+Environment=ROBOHUB_ROOT=$ROBOHUB
+Environment=ROBOHUB_WORKSPACE=$(dirname "$ROBOHUB")
 Environment=ROBOHUB_APP_WORKSPACE=$HOME/.rho/keeper/workspaces/$NAME
 Environment=ROBOHUB_APP_MANIFEST=$APP/module.yml
 Environment=RHO_KEEPER_PORT=${RHO_KEEPER_PORT:-19090}
 Environment=RHO_HTTP_ADDR=:$PORT
-ExecStart=$APP/build/$COMMAND
+$CLIENT_ENVExecStart=$APP/build/$COMMAND
 Restart=on-failure
 RestartSec=5
 

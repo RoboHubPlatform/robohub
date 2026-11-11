@@ -10,7 +10,7 @@ module htmx
 import std.web.http
 
 fn htmx_root() string {
-    let root: string = getenv("ROBOHUB_WORKSPACE")
+    let root: string = getenv("ROBOHUB_ROOT")
     if root != "" {
         if rho_path_exists(root + "/modules/htmx/module.yml") {
             return root + "/modules/htmx"

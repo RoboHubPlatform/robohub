@@ -30,7 +30,7 @@ fn scheduler_root() string {
         yaml.value("module.yml", "module.name") == "scheduler" {
         return "."
     }
-    let root: string = getenv("ROBOHUB_WORKSPACE")
+    let root: string = getenv("ROBOHUB_ROOT")
     if root != "" {
         if rho_path_exists(root + "/modules/scheduler/module.yml") {
             return root + "/modules/scheduler"
@@ -302,7 +302,7 @@ fn scheduler_completion_rows(rows: ListCompletionsRow[64], count: u32) string {
 }
 
 fn scheduler_docs() string {
-    let root: string = getenv("ROBOHUB_WORKSPACE")
+    let root: string = getenv("ROBOHUB_ROOT")
     var path: string = "modules/scheduler/docs/index.md"
     if root != "" {
         path = root + "/modules/scheduler/docs/index.md"

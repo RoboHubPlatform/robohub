@@ -16,7 +16,7 @@ import std.core.slice
 // begin markup are turned into entities so a submitted value cannot change the
 // page's structure.
 fn forms_root() string {
-    let root: string = getenv("ROBOHUB_WORKSPACE")
+    let root: string = getenv("ROBOHUB_ROOT")
     if root != "" {
         if rho_path_exists(root + "/modules/forms/module.yml") {
             return root + "/modules/forms"

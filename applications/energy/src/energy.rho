@@ -3242,7 +3242,7 @@ fn energy_settings_save(req: Request) Response {
 }
 
 fn energy_docs(req: Request) Response {
-    var root: string = getenv("ROBOHUB_WORKSPACE")
+    var root: string = getenv("ROBOHUB_ROOT")
     var path: string = "applications/energy/docs/index.md"
     if root != "" {
         path = root + "/applications/energy/docs/index.md"

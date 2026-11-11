@@ -30,7 +30,7 @@ fn inventory_root() string {
         yaml.value("module.yml", "module.name") == "inventory" {
         return "."
     }
-    let root: string = getenv("ROBOHUB_WORKSPACE")
+    let root: string = getenv("ROBOHUB_ROOT")
     if root != "" {
         if rho_path_exists(root + "/modules/inventory/module.yml") {
             return root + "/modules/inventory"

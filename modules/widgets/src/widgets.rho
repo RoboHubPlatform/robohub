@@ -22,7 +22,7 @@ fn widget_root() string {
         yaml.value("module.yml", "module.name") == "widgets" {
         return "."
     }
-    let root: string = getenv("ROBOHUB_WORKSPACE")
+    let root: string = getenv("ROBOHUB_ROOT")
     if root != "" {
         if rho_path_exists(root + "/modules/widgets/module.yml") {
             return root + "/modules/widgets"
@@ -822,7 +822,7 @@ fn widget_rows(db: SqlDb, widgets: Widgets[128], count: u32, locale: string) str
 }
 
 fn widgets_docs() string {
-    let root: string = getenv("ROBOHUB_WORKSPACE")
+    let root: string = getenv("ROBOHUB_ROOT")
     var path: string = "modules/widgets/docs/index.md"
     if root != "" {
         path = root + "/modules/widgets/docs/index.md"

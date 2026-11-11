@@ -64,7 +64,7 @@ fn notification_root() string {
         yaml.value("module.yml", "module.name") == "notifications" {
         return "."
     }
-    let root: string = getenv("ROBOHUB_WORKSPACE")
+    let root: string = getenv("ROBOHUB_ROOT")
     if root != "" {
         if rho_path_exists(root + "/modules/notifications/module.yml") {
             return root + "/modules/notifications"
