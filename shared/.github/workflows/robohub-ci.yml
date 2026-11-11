@@ -41,7 +41,7 @@ jobs:
       # The toolchain. A platform is not built by cmake: it is built by rho,
       # for a board, from an application — a board cannot be compiled on its
       # own and neither can the platform, because a driver is compiled against
-      # a part's headers and a board's.
+      # a part's headers and a board's. Its host tests are run by `rho test`.
       - name: Check out the toolchain
         uses: actions/checkout@v5
         with:
@@ -49,31 +49,20 @@ jobs:
           path: toolchain
 
       - name: Install the toolchain
+        # check.sh builds the toolchain and publishes the modules named into the
+        # local registry: the test runner and the plugins `rho test` needs here.
         run: |
           cd toolchain
-          go build -o ./bin/rho ./cmd/rho
-          ./bin/rho install --update
+          ./scripts/check.sh publish rho-test rho-test-ctest rho-test-junit
+          echo "$HOME/.rho/bin" >> "$GITHUB_PATH"
 
-      # The module's own tests are guarded by this, and a guarded-out test is a
-      # test that does not run: without this the configure is clean, the build
-      # is clean, and `ctest` reports that it found no tests at all and passes.
-      # A "Test" step that verifies nothing while reporting success is worse
-      # than no step, because it is read as coverage.
-      - name: Configure
-        run: >-
-          cmake -S . -B build
-          -DCMAKE_BUILD_TYPE=Debug
-          -DBUILD_TESTING=ON
-          -DRHO_BUILD_HOST_TESTS=ON
+      # A path under someone's home is true for one machine and published to all:
+      # a manifest names a sibling by ${ROBOHUB_WORKSPACE}.
+      - name: No local paths
+        run: toolchain/scripts/check-local-paths.sh .
 
-      - name: Build
-        run: cmake --build build --parallel
-
-      # The count is asserted because "no tests were found" also passes: a
-      # ctest run that found nothing and a ctest run that passed everything are
-      # the same exit status, and only one of them is a check.
+      # The module's tests are declared in its tests/tests.yml, and `rho test` runs
+      # them: the ctest kind configures with the host tests switched on, builds,
+      # runs, and fails a run that found none. Nothing here calls cmake or ctest.
       - name: Test
-        run: |
-          ctest --test-dir build --output-on-failure
-          found="$(ctest --test-dir build -N | grep -c 'Test *#')"
-          test "${found}" -gt 0 || { echo "no tests were registered" >&2; exit 1; }
+        run: rho test .
