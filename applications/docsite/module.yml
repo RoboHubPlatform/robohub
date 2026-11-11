@@ -23,3 +23,6 @@ docs:
   index: docs/index.md
   sources:
     - docs/index.md
+
+hardware:
+  targets: targets/

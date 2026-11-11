@@ -1,0 +1,17 @@
+{
+  "kind": "board",
+  "name": "container",
+  "comment": "The documentation site as a container image: it carries the built site, so it is built from the repository root, which is two folders up from this application. Built here and, when asked, pushed; there is no host to copy it to.",
+  "arch": "native",
+  "family": "host",
+  "deploy": {
+    "docker": {
+      "file": "deploy/Dockerfile",
+      "context": "../..",
+      "image": "miraur/robohub-docsite",
+      "tag": "latest",
+      "run": ["-p", "8080:8080", "{image}"],
+      "comment": "RH_DEPLOY_DOCKER_IMAGE and _TAG name the image for another registry"
+    }
+  }
+}

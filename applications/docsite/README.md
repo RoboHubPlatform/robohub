@@ -29,9 +29,15 @@ The image carries the built site and serves it with Python's HTTP server on port
 is:
 
 ```sh
-docker build -f applications/docsite/deploy/Dockerfile -t miraur/robohub-docsite:latest .
+cd applications/docsite
+rho deploy -target container -docker -build-only
+cd ../..
 docker run --rm -p 8080:8080 miraur/robohub-docsite:latest
 ```
+
+The `container` target in `targets/container.json` names the Dockerfile, the image
+and the repository root as the build context, so `rho deploy` run in this
+folder builds it.
 
 ## Deploying
 
@@ -39,5 +45,5 @@ The image is published to Docker Hub as `miraur/robohub-docsite:latest`, after
 the site has been rebuilt and the image tested:
 
 ```sh
-docker push miraur/robohub-docsite:latest
+(cd applications/docsite && rho deploy -target container -docker -build-only -push)
 ```
