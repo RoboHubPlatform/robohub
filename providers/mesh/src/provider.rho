@@ -8,9 +8,23 @@ import rho.log
 // the application. Aquarium and a future dashboard ask the gateway contract
 // for projects, a gateway, sources, device states and a source state; this
 // provider is the one that knows those paths are under /mesh/api.
+//
+// It talks to Mesh and to nothing else. Every request carries a short-lived
+// service token for Mesh, scoped to the project, which the runtime gets from the
+// issuer with the credential the application was started with; no token is
+// stored in a setting, put on a command line, or sent to an address that is not
+// Mesh's.
+
+extern fn rho_http_request(method: string, url: string, body: string, content_type: string,
+    audience: string, scopes: string, output_path: string) u32
 
 fn provider_mesh_base(config: string) string {
-    var url: string = gateway_config_value(config, "url")
+    // The supervisor that started the application says where Mesh is; a
+    // setting is the fallback for an application started by hand.
+    var url: string = getenv("RHO_SERVICE_MESH_URL")
+    if url == "" {
+        url = gateway_config_value(config, "url")
+    }
     while rho_strlen(url) > 0 &&
         rho_str_eq(rho_str_slice(url, u32(rho_strlen(url)) - 1, 1), "/") {
         url = rho_str_slice(url, 0, u32(rho_strlen(url)) - 1)
@@ -22,15 +36,27 @@ fn provider_mesh_project(config: string) string {
     return gateway_config_value(config, "project")
 }
 
+// provider_mesh_audience is the audience a request to `url` carries a token
+// for: Mesh's, when the address is Mesh's, and none otherwise. A source a user
+// stored can name any address, and a token is only ever sent to its audience.
+fn provider_mesh_audience(config: string, url: string) string {
+    let base: string = provider_mesh_base(config)
+    if base != "" && (rho_str_eq(url, base) || rho_str_starts_with(url, base + "/")) {
+        return "mesh"
+    }
+    return ""
+}
+
+fn provider_mesh_scope(config: string) string {
+    return "mesh:" + provider_mesh_project(config)
+}
+
 fn provider_mesh_fetch(config: string, url: string, name: string) string {
     let report: string = gateway_report(name)
-    let token: string = gateway_config_value(config, "token")
-    var auth: string = ""
-    if token != "" {
-        auth = " -H " + gateway_arg_quote("Authorization: Bearer " + token)
-    }
-    if rho_exec("curl", "-fsS -m 4" + auth + " " + gateway_arg_quote(url), report) != 0 {
-        warn("mesh-gateway", "fetch failed: " + url)
+    let status: u32 = rho_http_request("GET", url, "", "", provider_mesh_audience(config, url),
+        provider_mesh_scope(config), report)
+    if status != 200 {
+        warn("mesh-gateway", "fetch failed (" + rho_int_to_str(status) + "): " + url)
         return ""
     }
     return rho_read_text(report)
@@ -68,31 +94,12 @@ fn provider_mesh_sources(config: string) string {
         "/sources?base=" + gateway_urlencode(base), "mesh-sources")
 }
 
+// provider_mesh_device_states used to ask the project's gateway directly, which
+// is a second way to a device beside Mesh, with no token and no scope. A device's
+// state is a source's value, which gateway_source_state reads through Mesh, so
+// this answers nothing and a caller falls back to that.
 fn provider_mesh_device_states(config: string) string {
-    let gateway: string = provider_mesh_gateway(config)
-    if gateway == "" {
-        return ""
-    }
-    let text: string = provider_mesh_fetch(config, gateway + "/api/v1/devices",
-        "mesh-devices")
-    var out: string = ""
-    var rest: string = text
-    while rho_strlen(rest) > 0 {
-        let at: i32 = rho_str_index_of(rest, "},{")
-        var object: string = rest
-        if at < 0 {
-            rest = ""
-        } else {
-            object = rho_str_slice(rest, 0, u32(at) + 1)
-            rest = rho_str_slice(rest, u32(at) + 3, u32(rho_strlen(rest)) - u32(at) - 3)
-        }
-        let id: string = gateway_json_number_field(object, "id")
-        let state: string = gateway_json_string_field(object, "state")
-        if id != "" && state != "" {
-            out = out + id + ":" + state + "\n"
-        }
-    }
-    return out
+    return ""
 }
 
 fn provider_mesh_source_state(config: string, source: string) string {
@@ -183,26 +190,17 @@ fn provider_mesh_source_latest(config: string, source: string) string {
     return gateway_trim(provider_mesh_fetch(config, value_url, "mesh-source-latest"))
 }
 
-// The mutating side of the gateway: registration, heartbeat and publish. The
-// body travels in a file so quotes in a payload survive the shell intact.
+// The mutating side of the gateway: registration, heartbeat and publish, each a
+// JSON body sent to Mesh with its service token.
 fn provider_mesh_post(config: string, path: string, body: string, name: string) string {
     let base: string = provider_mesh_base(config)
     if base == "" {
         return ""
     }
     let report: string = gateway_report(name)
-    let body_file: string = gateway_state_dir() + "/" + name + "-body.json"
-    ignore_bool(rho_write_text(body_file, body))
-    let token: string = gateway_config_value(config, "token")
-    var auth: string = ""
-    if token != "" {
-        auth = " -H " + gateway_arg_quote("Authorization: Bearer " + token)
-    }
-    let command: string = "-fsS -m 4 -X POST -H " +
-        gateway_arg_quote("Content-Type: application/json") + auth +
-        " --data @" + gateway_arg_quote(body_file) + " " +
-        gateway_arg_quote(base + path)
-    if rho_exec("curl", command, report) != 0 {
+    let status: u32 = rho_http_request("POST", base + path, body, "application/json", "mesh",
+        provider_mesh_scope(config), report)
+    if status < 200 || status >= 300 {
         return ""
     }
     return rho_read_text(report)

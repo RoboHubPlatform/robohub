@@ -60,13 +60,13 @@ if [[ -z "$PORT" || -z "$COMMAND" || ! -x "$APP/build/$COMMAND" ]]; then
 fi
 
 # An application that calls other services was registered as a client by the
-# keeper before this ran; the unit names where its secret is, never the secret.
-CLIENT_SECRET="$HOME/.rho/keeper/workspaces/$NAME/auth/client.secret"
+# keeper before this ran, which wrote the environment it reads into its
+# workspace: its client id, where its secret is (never the secret), the issuer and
+# the services it calls.
+CLIENT_ENV_FILE="$HOME/.rho/keeper/workspaces/$NAME/auth/client.env"
 CLIENT_ENV=""
-if [[ -f "$CLIENT_SECRET" ]]; then
-    CLIENT_ENV="Environment=RHO_CLIENT_ID=$NAME
-Environment=RHO_CLIENT_SECRET_FILE=$CLIENT_SECRET
-Environment=RHO_KEEPER_URL=http://127.0.0.1:${RHO_KEEPER_PORT:-19090}"
+if [[ -f "$CLIENT_ENV_FILE" ]]; then
+    CLIENT_ENV="EnvironmentFile=$CLIENT_ENV_FILE"
 fi
 
 echo "Writing $UNIT …"
