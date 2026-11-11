@@ -41,7 +41,7 @@ fi
 # A run of one kind is the tests of that kind that are run: a test that is
 # not run is skipped, and the report says so.
 run=$("$ROBOHUB" test "$MODULE" --unit 2>&1 || true)
-report="${RHO_WORKSPACE}/$MODULE/build/test-reports/report-1.txt"
+report="${ROBOHUB_WORKSPACE:-${RHO_WORKSPACE:-$(cd "$(dirname "$0")/../.." && pwd)}}/$MODULE/build/test-reports/report-1.txt"
 if ! grep -q "skipped" "$report" 2>/dev/null; then
     echo "a run did not leave out the test that is not run" >&2
     echo "$run" >&2
@@ -52,7 +52,7 @@ fi
 # And it is run again once it is enabled.
 "$ROBOHUB" test enable "$MODULE" "$TEST_NAME" >/dev/null
 run=$("$ROBOHUB" test "$MODULE" --unit 2>&1 || true)
-report="${RHO_WORKSPACE}/$MODULE/build/test-reports/report-1.txt"
+report="${ROBOHUB_WORKSPACE:-${RHO_WORKSPACE:-$(cd "$(dirname "$0")/../.." && pwd)}}/$MODULE/build/test-reports/report-1.txt"
 if ! grep -q "<testcase" "$report" 2>/dev/null; then
     echo "a run did not count the test that is run" >&2
     echo "$run" >&2

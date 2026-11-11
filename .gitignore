@@ -16,3 +16,6 @@ build/test-reports/
 *.swp
 *~
 build/doctree/
+
+# Resolved on each machine; it records where this machine keeps the modules.
+rho.lock
