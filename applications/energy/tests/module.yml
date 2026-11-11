@@ -1,5 +1,6 @@
 module:
   name: energy-tests
+  id: robohub.applications.energy.tests
   type: rho
   version: 0.1.0
 

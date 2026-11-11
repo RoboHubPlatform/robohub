@@ -8,6 +8,7 @@
 #
 module:
   name: inventory
+  id: robohub.modules.inventory
   type: module
   title: Inventory & expenses
   category: inventory

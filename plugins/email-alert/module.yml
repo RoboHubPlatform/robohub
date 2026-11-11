@@ -8,6 +8,7 @@
 #
 module:
   name: email-alert
+  id: robohub.plugins.email-alert
   type: module
   plugin_kind: alert
   plugin_provider: local

@@ -8,6 +8,7 @@
 #
 module:
   name: alert-dispatcher
+  id: robohub.plugins.alert-dispatcher
   type: module
   plugin_kind: alert
   plugin_transport: dispatcher

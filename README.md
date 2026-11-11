@@ -129,9 +129,12 @@ The rules themselves are written in Rho, in `src/validate.rho`, so that a
 program can keep them. The two are the same contract: what a rule says in one is
 what a schema says in the other.
 
-The manifests are the toolchain's own business — `rho module validate` is the
-authority on what a manifest may say, and it is what the toolchain reads. What
-the orchestrator checks is the ecosystem's own files.
+A module manifest is a contract of its own. Its types and the structure each one
+is written to live in `robohub-common/contracts/`: a core schema, one schema per
+type extending it, and `module-types.json`, which the `rho-robohub` plugin exposes
+to `rho module validate`. The toolchain parses the contract and checks the
+manifest against it; it does not carry RoboHub's words itself. What the
+orchestrator checks here is the ecosystem's own files.
 
 ## The tools
 

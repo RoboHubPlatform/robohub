@@ -3,6 +3,7 @@
 #
 module:
   name: webhook-alert
+  id: robohub.plugins.webhook-alert
   type: module
   plugin_kind: alert
   plugin_provider: robohub-provider-webhook

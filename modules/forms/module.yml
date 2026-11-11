@@ -9,6 +9,7 @@
 #
 module:
   name: forms
+  id: robohub.modules.forms
   type: module
   title: Forms
   category: forms

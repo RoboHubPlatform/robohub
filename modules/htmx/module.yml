@@ -6,6 +6,7 @@
 #
 module:
   name: htmx
+  id: robohub.modules.htmx
   type: module
   title: HTMX
   category: ui

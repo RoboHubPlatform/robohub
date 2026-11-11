@@ -8,6 +8,7 @@
 #
 module:
   name: notifications
+  id: robohub.modules.notifications
   type: module
   title: Notifications
   category: ui

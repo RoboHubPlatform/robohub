@@ -6,6 +6,7 @@
 #
 module:
   name: settings
+  id: robohub.modules.settings
   type: module
   title: Settings
   category: core

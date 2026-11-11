@@ -3,6 +3,7 @@
 #
 module:
   name: robohub-provider-telegram
+  id: robohub.providers.telegram
   type: provider
   version: 0.1.0
   description: Posts an alert to a Telegram chat through the bot API.

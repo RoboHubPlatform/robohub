@@ -3,6 +3,7 @@
 #
 module:
   name: telegram-notifier
+  id: robohub.plugins.telegram-notifier
   type: module
   plugin_kind: alert
   plugin_provider: robohub-provider-telegram

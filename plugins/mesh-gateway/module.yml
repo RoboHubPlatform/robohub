@@ -8,6 +8,7 @@
 #
 module:
   name: mesh-gateway
+  id: robohub.plugins.mesh-gateway
   type: module
   plugin_kind: gateway
   plugin_provider: robohub-provider-mesh

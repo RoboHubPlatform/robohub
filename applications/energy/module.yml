@@ -12,6 +12,7 @@
 #
 module:
   name: energy
+  id: robohub.applications.energy
   type: rho
   version: 0.1.0
   kind: keeper-hosted

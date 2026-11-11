@@ -7,6 +7,7 @@
 #
 module:
   name: widgets
+  id: robohub.modules.widgets
   type: module
   title: Widgets
   category: dashboard

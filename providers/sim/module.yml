@@ -9,6 +9,7 @@
 #
 module:
   name: robohub-provider-sim
+  id: robohub.providers.sim
   type: provider
   version: 0.1.0
   description: Serves an application's simulated sources to the gateway contract.

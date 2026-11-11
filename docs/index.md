@@ -85,10 +85,20 @@ in their manifest — runtime, middleware, interfaces, platform, collection — 
 Freertos sits under middleware and Core under runtime, and neither is mixed into
 this section.
 
+The allowed types and the structure each one is written to are the ecosystem's
+own contract, in `robohub-common/contracts/`: a core module schema, one schema
+per type that extends it, and the `module-types.json` the Rho toolchain loads
+through the `rho-robohub` plugin. Rho does not carry this ecosystem's words; a
+project whose platform is recognized gets them from the plugin. Every manifest
+also carries a `module.id`, prefixed by the repository and path it belongs to;
+telemetry sources are keyed on it so a shared name is not a shared identity.
+
 A device is a network integration from `robohub-devices` — a Shelly plug, an
 inverter — and Mesh shows it as a device node attached to a gateway or relay. It
 is not built; the parent node carries it, and an HTTP device can be polled and
-switched from its node page.
+switched from its node page. A device is a module of type `device`, not a
+`driver`: a driver reaches a part through the HAL, and a device reaches the
+equipment that part is in, often over a protocol of the equipment's own.
 
 `modules/registry.yml` is the installed set, and the keeper's `/app-modules` page
 installs, removes and lists modules. A module has no single host: any application
@@ -263,9 +273,12 @@ The rules themselves are written in Rho, in `src/validate.rho`, so that a
 program can keep them. The two are the same contract: what a rule says in one is
 what a schema says in the other.
 
-The manifests are the toolchain's own business — `rho module validate` is the
-authority on what a manifest may say, and it is what the toolchain reads. What
-the orchestrator checks is the ecosystem's own files.
+A module manifest is a contract of its own. Its types and the structure each one
+is written to live in `robohub-common/contracts/`: a core schema, one schema per
+type extending it, and `module-types.json`, which the `rho-robohub` plugin exposes
+to `rho module validate`. The toolchain parses the contract and checks the
+manifest against it; it does not carry RoboHub's words itself. What the
+orchestrator checks here is the ecosystem's own files.
 
 ## The tools
 

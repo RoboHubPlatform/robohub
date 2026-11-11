@@ -12,6 +12,11 @@ module robohub.validate
 // The schemas themselves are the published form of these rules, in JSON Schema
 // so that anything else can check against them too. The two are the same
 // contract: what a rule says here is what a schema says there.
+//
+// A module manifest is checked for the identity every module has and for the
+// type the ecosystem declares. The structure each type is written to is the
+// module contract in `robohub-common/contracts/`, which the Rho toolchain applies
+// through the `rho-robohub` plugin when a module is validated or published.
 
 /// The schema a registry entry is checked against.
 const REGISTRY_SCHEMA: string = "registry.v1"
@@ -32,6 +37,7 @@ struct Problem {
 fn validate(registry_dir: string, modules_root: string) u32 {
     var problems: u32 = 0
     problems = problems + check_registry(registry_dir)
+    problems = problems + check_manifests(modules_root)
     problems = problems + check_suites(modules_root)
     problems = problems + check_specs(modules_root)
     if problems == 0 {
@@ -120,4 +126,106 @@ fn check_specs(modules_root: string) u32 {
         index = index + 1
     }
     return problems
+}
+
+
+/// check_manifests checks every module.yml the ecosystem carries.
+///
+/// The type is the ecosystem's own word, so the list is here rather than in the
+/// toolchain that reads manifests. The structure each type is written to is the
+/// contract in `../robohub-common/contracts/module-types.json`, which the
+/// toolchain applies when a module is validated or published; this check is the
+/// ecosystem's own gate over identity and vocabulary, so a manifest whose type
+/// nobody agreed on is reported before a build reaches it.
+fn check_manifests(modules_root: string) u32 {
+    var problems: u32 = 0
+    var seen_ids: string = ""
+    var index: u32 = 0
+    while index < MODULE_COUNT {
+        let name: string = module_name(index)
+        let report: string = "build/reports/find-manifests-" + name + ".txt"
+        let code: u32 = rho_exec("find", modules_root + "/" + name + " -type f -name module.yml", report)
+        if code == 0 {
+            var rest: string = rho_read_text(report)
+            while rest != "" {
+                let at: i32 = rho_str_index_of(rest, "\n")
+                var manifest: string = ""
+                if at < 0 {
+                    manifest = rest
+                    rest = ""
+                } else {
+                    manifest = rho_str_slice(rest, 0, u32(at))
+                    rest = rho_str_slice(rest, u32(at) + 1, u32(rho_strlen(rest)) - u32(at) - 1)
+                }
+                if manifest == "" || skip_manifest(manifest) {
+                    continue
+                }
+                if yaml.kind(manifest, "module.name") == "missing" {
+                    print("  " + manifest + ": no module.name\n")
+                    problems = problems + 1
+                }
+                if yaml.kind(manifest, "module.version") == "missing" {
+                    print("  " + manifest + ": no module.version\n")
+                    problems = problems + 1
+                }
+                let module_id: string = yaml.value(manifest, "module.id")
+                if module_id == "" {
+                    print("  " + manifest + ": no module.id\n")
+                    problems = problems + 1
+                } else if rho_str_index_of(module_id, " ") >= 0 ||
+                    rho_str_index_of(module_id, "/") >= 0 {
+                    print("  " + manifest + ": module.id '" + module_id +
+                        "' must be one identity with no whitespace\n")
+                    problems = problems + 1
+                } else if rho_str_index_of("\n" + seen_ids + "\n",
+                    "\n" + module_id + "\n") >= 0 {
+                    print("  " + manifest + ": module.id '" + module_id +
+                        "' is used by another module\n")
+                    problems = problems + 1
+                } else {
+                    seen_ids = seen_ids + module_id + "\n"
+                }
+                let kind: string = yaml.value(manifest, "module.type")
+                if kind == "" {
+                    print("  " + manifest + ": no module.type\n")
+                    problems = problems + 1
+                } else if !module_type_allowed(kind) {
+                    print("  " + manifest + ": unknown module.type '" + kind + "'\n")
+                    problems = problems + 1
+                }
+            }
+        }
+        index = index + 1
+    }
+    return problems
+}
+
+/// skip_manifest reports whether a manifest belongs to a generated tree, a
+/// vendor checkout or a template, none of which is a module of the ecosystem.
+fn skip_manifest(path: string) bool {
+    return rho_str_index_of(path, "/build/") >= 0 ||
+        rho_str_index_of(path, "/vendor/") >= 0 ||
+        rho_str_index_of(path, "/templates/") >= 0 ||
+        rho_str_index_of(path, "/.git/") >= 0
+}
+
+/// module_type_allowed reports whether a module.type is one the ecosystem
+/// declares. It is the enum the contract publishes, written here because this
+/// program is the ecosystem's own check.
+fn module_type_allowed(kind: string) bool {
+    if kind == "rho" { return true }
+    if kind == "module" { return true }
+    if kind == "component" { return true }
+    if kind == "plugin" { return true }
+    if kind == "provider" { return true }
+    if kind == "interfaces" { return true }
+    if kind == "platform" { return true }
+    if kind == "platform-board" { return true }
+    if kind == "driver" { return true }
+    if kind == "driver-board" { return true }
+    if kind == "device" { return true }
+    if kind == "runtime" { return true }
+    if kind == "middleware" { return true }
+    if kind == "collection" { return true }
+    return false
 }
