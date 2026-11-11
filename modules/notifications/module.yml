@@ -8,7 +8,9 @@
 #
 module:
   name: notifications
-  id: robohub.modules.notifications
+  id: robohub.module.notifications
+  previous_ids:
+    - robohub.modules.notifications
   type: module
   title: Notifications
   category: ui

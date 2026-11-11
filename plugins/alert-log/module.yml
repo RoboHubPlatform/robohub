@@ -7,7 +7,9 @@
 #
 module:
   name: alert-log
-  id: robohub.plugins.alert-log
+  id: robohub.module.alert-log
+  previous_ids:
+    - robohub.plugins.alert-log
   type: module
   plugin_kind: alert
   plugin_provider: robohub-provider-log

@@ -1,6 +1,8 @@
 module:
   name: inventory-tests
-  id: robohub.modules.inventory.tests
+  id: robohub.app.inventory-tests
+  previous_ids:
+    - robohub.modules.inventory.tests
   type: rho
   version: 0.1.0
 

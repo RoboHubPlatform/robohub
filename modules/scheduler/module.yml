@@ -7,7 +7,9 @@
 #
 module:
   name: scheduler
-  id: robohub.modules.scheduler
+  id: robohub.module.scheduler
+  previous_ids:
+    - robohub.modules.scheduler
   type: module
   title: Scheduler
   category: maintenance

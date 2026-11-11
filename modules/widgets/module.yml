@@ -7,7 +7,9 @@
 #
 module:
   name: widgets
-  id: robohub.modules.widgets
+  id: robohub.module.widgets
+  previous_ids:
+    - robohub.modules.widgets
   type: module
   title: Widgets
   category: dashboard

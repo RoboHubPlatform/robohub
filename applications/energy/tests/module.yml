@@ -1,6 +1,8 @@
 module:
   name: energy-tests
-  id: robohub.applications.energy.tests
+  id: robohub.app.energy-tests
+  previous_ids:
+    - robohub.applications.energy.tests
   type: rho
   version: 0.1.0
 

@@ -7,7 +7,9 @@
 #
 module:
   name: robohub-provider-mesh
-  id: robohub.providers.mesh
+  id: robohub.provider.mesh
+  previous_ids:
+    - robohub.providers.mesh
   type: provider
   version: 0.2.1
   description: Serves Mesh projects, sources, gateway state and telemetry to the gateway contract.

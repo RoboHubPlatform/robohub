@@ -7,7 +7,9 @@
 #
 module:
   name: logging
-  id: robohub.modules.logging
+  id: robohub.module.logging
+  previous_ids:
+    - robohub.modules.logging
   type: module
   version: 0.1.0
   title: Logging

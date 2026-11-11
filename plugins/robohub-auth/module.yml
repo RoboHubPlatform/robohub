@@ -3,7 +3,9 @@
 #
 module:
   name: robohub-auth
-  id: robohub.plugins.robohub-auth
+  id: robohub.module.auth
+  previous_ids:
+    - robohub.plugins.robohub-auth
   type: module
   plugin_kind: auth
   plugin_provider: rho-auth

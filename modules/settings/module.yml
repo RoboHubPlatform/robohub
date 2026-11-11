@@ -6,7 +6,9 @@
 #
 module:
   name: settings
-  id: robohub.modules.settings
+  id: robohub.module.settings
+  previous_ids:
+    - robohub.modules.settings
   type: module
   title: Settings
   category: core

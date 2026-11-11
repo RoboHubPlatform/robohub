@@ -6,7 +6,9 @@
 #
 module:
   name: i18n
-  id: robohub.modules.i18n
+  id: robohub.module.i18n
+  previous_ids:
+    - robohub.modules.i18n
   type: module
   title: Internationalisation
   category: ui

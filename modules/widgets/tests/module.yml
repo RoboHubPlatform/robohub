@@ -1,6 +1,8 @@
 module:
   name: widgets-tests
-  id: robohub.modules.widgets.tests
+  id: robohub.app.widgets-tests
+  previous_ids:
+    - robohub.modules.widgets.tests
   type: rho
   version: 0.1.0
 

@@ -3,7 +3,9 @@
 #
 module:
   name: robohub-provider-email
-  id: robohub.providers.email
+  id: robohub.provider.email
+  previous_ids:
+    - robohub.providers.email
   type: provider
   version: 0.1.0
   description: Sends an alert by local outbox or SMTP.

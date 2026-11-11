@@ -1,6 +1,8 @@
 module:
   name: docsite
-  id: robohub.applications.docsite
+  id: robohub.app.docsite
+  previous_ids:
+    - robohub.applications.docsite
   type: rho
   version: 0.3.7
   author: Aurel Miron

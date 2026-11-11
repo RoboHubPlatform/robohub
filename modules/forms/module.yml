@@ -9,7 +9,9 @@
 #
 module:
   name: forms
-  id: robohub.modules.forms
+  id: robohub.module.forms
+  previous_ids:
+    - robohub.modules.forms
   type: module
   title: Forms
   category: forms

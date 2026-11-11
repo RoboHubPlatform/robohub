@@ -8,7 +8,9 @@
 #
 module:
   name: email-alert
-  id: robohub.plugins.email-alert
+  id: robohub.module.email-alert
+  previous_ids:
+    - robohub.plugins.email-alert
   type: module
   plugin_kind: alert
   plugin_provider: local

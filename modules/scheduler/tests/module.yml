@@ -1,6 +1,8 @@
 module:
   name: scheduler-tests
-  id: robohub.modules.scheduler.tests
+  id: robohub.app.scheduler-tests
+  previous_ids:
+    - robohub.modules.scheduler.tests
   type: rho
   version: 0.1.0
 

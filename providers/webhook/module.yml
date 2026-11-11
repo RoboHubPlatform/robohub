@@ -3,7 +3,9 @@
 #
 module:
   name: robohub-provider-webhook
-  id: robohub.providers.webhook
+  id: robohub.provider.webhook
+  previous_ids:
+    - robohub.providers.webhook
   type: provider
   version: 0.1.0
   description: Posts an alert body to an HTTP endpoint.
