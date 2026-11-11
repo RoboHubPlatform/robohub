@@ -28,6 +28,8 @@ module:
   license: "MIT"
   created: "2026-11-09"
 
+platform: robohub
+
 main: src/main.rho
 
 build:
