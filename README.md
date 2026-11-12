@@ -75,8 +75,9 @@ run for a reason nobody can see, so a test is added only after it has passed.
 
 ## Applications
 
-`applications/keeper` is the dashboard and registry; `applications/mesh` plans
-and runs gateway deployments; `applications/aquarium` is the first modular
+`applications/keeper` is the dashboard and registry; Mesh, which plans and runs
+gateway deployments, has its own repository (`robohub-mesh`, beside this one);
+`applications/aquarium` is the first modular
 monolith; `applications/energy` is the power application for a location. The
 aquarium is one service on one port, and the inventory module is included into
 it and serves `/expenses`, the scheduler serves `/scheduler`, and the widgets
@@ -206,7 +207,7 @@ action URL. The energy application records generation, storage and grid
 readings in the same store and writes power faults into it, so its live SSE
 badges and any other telemetry consumer see one truth.
 
-See [Mesh](applications/mesh/docs/index.md),
+See [Mesh](../robohub-mesh/docs/index.md),
 [Aquarium](applications/aquarium/docs/index.md),
 [Energy](applications/energy/docs/index.md),
 [widgets](modules/widgets/docs/index.md),

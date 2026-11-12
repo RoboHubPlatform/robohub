@@ -1,0 +1,10 @@
+# robohub-mesh — application.
+#
+# What the orchestrator knows about this module. The module's own manifest is
+# the truth about what it is; this is the truth about where it is and what it
+# is for in the ecosystem.
+name: robohub-mesh
+role: application
+path: ../robohub-mesh
+git: https://github.com/RoboHubPlatform/robohub-mesh
+summary: Plans, builds and runs a mesh of boards, modules and devices around a gateway.
