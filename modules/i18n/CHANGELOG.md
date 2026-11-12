@@ -13,3 +13,7 @@ The module publishes its interface: it is imported as `robohub.i18n`, and export
 imports it cannot reach its helpers, and they never collide with the
 application's own names. Including it by name still works and is reported with
 the import to use instead.
+
+## [0.3.0] - 2026-11-12
+
+The language switcher reads its form through the form engine, which i18n now declares as a dependency, instead of a `form_value` the including application happened to define. The module builds on its own.

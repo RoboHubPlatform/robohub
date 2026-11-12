@@ -4,7 +4,7 @@
 Builds the service, starts it against a temporary workspace with no hardware,
 walks every page, exercises the CSRF-protected forms, injects a scripted fault,
 reads the SSE stream, clears the fault, switches to off-grid mode, and checks
-the SQLite/WAL telemetry store.
+the telemetry outbox Mesh polls.
 """
 
 import json
@@ -26,6 +26,38 @@ APP = HERE.parents[1]
 ROBOHUB = APP.parents[1]
 PROJECTS = ROBOHUB.parent
 RHO = PROJECTS / "rho" / "bin" / "rho"
+
+# The bearer ticket every request carries: one the keeper would issue for the
+# host, minted by the test with a key pair of its own (see mint_token).
+TOKEN = ""
+
+
+def mint_token(home: str, audience: str) -> str:
+    """A ticket for the host, as the keeper would issue one.
+
+    The host verifies tickets against ~/.rho/auth/public.pem in its own home,
+    so the test makes a key pair there and signs the ticket with it.
+    """
+    rho = str(RHO) if RHO.exists() else "rho"
+    keys = os.path.join(home, ".rho", "auth")
+    os.makedirs(keys, exist_ok=True)
+    subprocess.run([rho, "auth", "keygen", "--dir", keys, "--force"],
+                   check=True, capture_output=True, text=True)
+    result = subprocess.run(
+        [rho, "auth", "ticket", "--private", os.path.join(keys, "private.pem"),
+         "--issuer", "keeper", "--audience", audience, "--subject", "smoke",
+         "--scopes", "*", "--ttl", "1h"],
+        check=True, capture_output=True, text=True)
+    return result.stdout.strip()
+
+
+def open_url(target, timeout: float = 10):
+    """urlopen with the test's ticket, which every page of the host asks for."""
+    request = target if isinstance(target, urllib.request.Request) else urllib.request.Request(target)
+    if TOKEN:
+        request.add_header("Authorization", f"Bearer {TOKEN}")
+    return urllib.request.urlopen(request, timeout=timeout)
+
 SESSION = "smoke-session"
 
 
@@ -40,7 +72,7 @@ def wait_for(base: str) -> None:
     while time.time() < deadline:
         try:
             request = urllib.request.Request(base + "/healthz")
-            with urllib.request.urlopen(request, timeout=1) as response:
+            with open_url(request, timeout=1) as response:
                 if response.status == 200:
                     return
         except (urllib.error.URLError, ConnectionError):
@@ -51,7 +83,7 @@ def wait_for(base: str) -> None:
 def get(base: str, path: str) -> str:
     request = urllib.request.Request(base + path)
     request.add_header("Cookie", f"keeper_session={SESSION}")
-    with urllib.request.urlopen(request, timeout=10) as response:
+    with open_url(request, timeout=10) as response:
         return response.read().decode("utf-8", "replace")
 
 
@@ -71,7 +103,7 @@ def post(base: str, path: str, fields: dict, token: str = "") -> str:
     request = urllib.request.Request(base + path, data=body, method="POST")
     request.add_header("Content-Type", "application/x-www-form-urlencoded")
     request.add_header("Cookie", f"keeper_session={SESSION}")
-    with urllib.request.urlopen(request, timeout=20) as response:
+    with open_url(request, timeout=20) as response:
         return response.read().decode("utf-8", "replace")
 
 
@@ -81,7 +113,7 @@ def post_hx(base: str, path: str, fields: dict) -> str:
     request.add_header("Content-Type", "application/x-www-form-urlencoded")
     request.add_header("Cookie", f"keeper_session={SESSION}")
     request.add_header("HX-Request", "true")
-    with urllib.request.urlopen(request, timeout=20) as response:
+    with open_url(request, timeout=20) as response:
         return response.read().decode()
 
 
@@ -90,7 +122,7 @@ def post_json(base: str, path: str, fields: dict) -> dict:
     request = urllib.request.Request(base + path, data=body, method="POST")
     request.add_header("Content-Type", "application/json")
     request.add_header("Cookie", f"keeper_session={SESSION}")
-    with urllib.request.urlopen(request, timeout=20) as response:
+    with open_url(request, timeout=20) as response:
         return json.loads(response.read())
 
 
@@ -121,12 +153,11 @@ def main() -> int:
     port = free_port()
     base = f"http://127.0.0.1:{port}"
     with tempfile.TemporaryDirectory(prefix="energy-") as workspace:
-        telemetry = Path(workspace) / "data" / "telemetry.db"
+        outbox = Path(workspace) / "data" / "outbox.jsonl"
         env = dict(os.environ)
         env["ROBOHUB_WORKSPACE"] = str(ROBOHUB)
         env["ROBOHUB_APP_WORKSPACE"] = workspace
         env["ROBOHUB_APP_MANIFEST"] = str(APP / "module.yml")
-        env["ROBOHUB_MESH_TELEMETRY_DB"] = str(telemetry)
         env["ROBOHUB_DRIVER_MODE"] = "mock"
         env["XDG_STATE_HOME"] = str(Path(workspace) / "state")
         home = Path(workspace) / "home"
@@ -136,6 +167,10 @@ def main() -> int:
             f"{SESSION}|{int(time.time()) + 3600}|smoke\n", encoding="utf-8")
         env["HOME"] = str(home)
         env["RHO_HTTP_ADDR"] = f":{port}"
+        global TOKEN
+        auth_home = env.get("HOME") if env.get("HOME", "").startswith(tempfile.gettempdir()) else tempfile.mkdtemp(prefix="energy-home-")
+        env["HOME"] = auth_home
+        TOKEN = mint_token(auth_home, "energy")
         process = subprocess.Popen([str(binary)], cwd=APP, env=env,
                                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                                    text=True)
@@ -144,7 +179,7 @@ def main() -> int:
             for page in ["/", "/sources", "/storage", "/grid", "/loads",
                          "/modes", "/safety", "/faults", "/events", "/settings",
                          "/docs", "/expenses", "/scheduler", "/widgets"]:
-                if urllib.request.urlopen(base + page, timeout=10).status != 200:
+                if open_url(base + page, timeout=10).status != 200:
                     raise AssertionError(f"{page} did not answer")
 
             home = get(base, "/")
@@ -260,11 +295,9 @@ def main() -> int:
             if 'id="widget-cards"' not in moved or "<html" in moved:
                 raise AssertionError("widget movement did not return an in-place grid")
 
-            sim_sources = get(base, "/api/energy/sim/gateway/sources")
-            assert_contains(sim_sources, ["energy.generation", "energy.faults"],
-                            "simulated Mesh sources")
-            if not get(base, "/api/energy/sim/gateway/latest?source=energy.soc"):
-                raise AssertionError("the simulated SoC source has no value")
+            # Simulated readings reach Mesh the way real ones do; energy no longer
+            # answers as a simulated gateway of its own, so there is nothing of
+            # that to ask here.
             edit = get(base, "/widgets/edit?id=1")
             if 'value="energy.generation"' not in edit or "selected" not in edit:
                 raise AssertionError("the simulated source is not preselected")
@@ -328,37 +361,37 @@ def main() -> int:
 
             post(base, "/api/energy/sim/fault", {"fault": "pv_overtemp"})
             time.sleep(4)
-            badge = get(base, "/")
-            assert_contains(badge, ["Power faults", "fault"], "fault widget")
+            # The dashboard card shows what Mesh carries, and Mesh is not running
+            # here; the value it would carry is energy's own.
+            badge = get(base, "/api/energy/widgets/faults")
+            assert_contains(badge, ["bad:", "power fault"], "fault widget value")
+            assert_contains(get(base, "/"), ["Power faults"], "fault widget")
             assert_contains(get(base, "/faults"), ["back-sheet temperature"],
                             "fault badge detail")
-            if not telemetry.exists():
-                raise AssertionError("the telemetry store was not written")
-            con = sqlite3.connect(telemetry)
-            try:
-                journal = con.execute("pragma journal_mode").fetchone()[0]
-                if journal.lower() != "wal":
-                    raise AssertionError(f"telemetry is not in WAL mode: {journal}")
-                rows = con.execute(
-                    "select severity, message from telemetry_fault "
-                    "where project = 'energy-sim'").fetchall()
-                if not rows:
-                    raise AssertionError("no power fault reached the telemetry store")
-                if not any("back-sheet" in message for _, message in rows):
-                    raise AssertionError("the over-temperature fault was not recorded")
-            finally:
-                con.close()
+            # Energy keeps no telemetry store: every reading is appended to the
+            # outbox Mesh polls, and Mesh is the one that stores it.
+            if not outbox.exists():
+                raise AssertionError("the telemetry outbox was not written")
+            readings = [json.loads(line) for line in outbox.read_text().splitlines() if line.strip()]
+            if not readings:
+                raise AssertionError("the telemetry outbox is empty")
+            fields = {reading["field"] for reading in readings}
+            if "power_w" not in fields:
+                raise AssertionError(f"no power reading reached the outbox: {sorted(fields)}")
+            sequence = [reading["seq"] for reading in readings]
+            if sequence != sorted(sequence) or len(set(sequence)) != len(sequence):
+                raise AssertionError("outbox readings are not numbered in order")
 
             request = urllib.request.Request(base + "/energy/stream")
             request.add_header("Cookie", f"keeper_session={SESSION}")
-            with urllib.request.urlopen(request, timeout=5) as response:
+            with open_url(request, timeout=5) as response:
                 chunk = response.read(6000).decode("utf-8", "replace")
             assert_contains(chunk, ["event: faults", "event: faults-rows"],
                             "fault SSE stream")
 
             post(base, "/api/energy/sim/fault", {"fault": "none"})
             time.sleep(4)
-            if "No power faults" not in get(base, "/"):
+            if "ok:No power faults" not in get(base, "/api/energy/widgets/faults"):
                 raise AssertionError("clearing the scripted fault did not clear the badge")
 
             events = get(base, "/events")

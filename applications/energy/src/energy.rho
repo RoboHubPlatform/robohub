@@ -585,7 +585,7 @@ fn energy_empty_totals() EnergyTotals {
 fn energy_totals(db: SqlDb) EnergyTotals {
     var out: EnergyTotals = energy_empty_totals()
     var sources: EnergySources[32]
-    var source_slice: Slice[EnergySources] = Slice[EnergySources]{ Ptr[EnergySources](&sources[0]), 128 }
+    var source_slice: Slice[EnergySources] = Slice[EnergySources]{ Ptr[EnergySources](&sources[0]), ENERGY_CAPACITY }
     var source_rows: Result[u32, SqlError] = ListSources(db, source_slice, ENERGY_CAPACITY)
     if source_rows.is_ok {
         out.source_count = source_rows.ok
@@ -598,7 +598,7 @@ fn energy_totals(db: SqlDb) EnergyTotals {
         }
     }
     var loads: EnergyLoads[32]
-    var load_slice: Slice[EnergyLoads] = Slice[EnergyLoads]{ Ptr[EnergyLoads](&loads[0]), 128 }
+    var load_slice: Slice[EnergyLoads] = Slice[EnergyLoads]{ Ptr[EnergyLoads](&loads[0]), ENERGY_CAPACITY }
     var load_rows: Result[u32, SqlError] = ListLoads(db, load_slice, ENERGY_CAPACITY)
     if load_rows.is_ok {
         out.load_count = load_rows.ok
@@ -611,7 +611,7 @@ fn energy_totals(db: SqlDb) EnergyTotals {
         }
     }
     var batteries: EnergyBatteries[32]
-    var battery_slice: Slice[EnergyBatteries] = Slice[EnergyBatteries]{ Ptr[EnergyBatteries](&batteries[0]), 128 }
+    var battery_slice: Slice[EnergyBatteries] = Slice[EnergyBatteries]{ Ptr[EnergyBatteries](&batteries[0]), ENERGY_CAPACITY }
     var battery_rows: Result[u32, SqlError] = ListBatteries(db, battery_slice, ENERGY_CAPACITY)
     if battery_rows.is_ok {
         out.battery_count = battery_rows.ok
@@ -626,7 +626,7 @@ fn energy_totals(db: SqlDb) EnergyTotals {
         }
     }
     var grids: EnergyGrids[32]
-    var grid_slice: Slice[EnergyGrids] = Slice[EnergyGrids]{ Ptr[EnergyGrids](&grids[0]), 128 }
+    var grid_slice: Slice[EnergyGrids] = Slice[EnergyGrids]{ Ptr[EnergyGrids](&grids[0]), ENERGY_CAPACITY }
     var grid_rows: Result[u32, SqlError] = ListGrids(db, grid_slice, ENERGY_CAPACITY)
     if grid_rows.is_ok {
         out.grid_count = grid_rows.ok
@@ -724,8 +724,8 @@ fn energy_fault_severity_class(severity: string) string {
 
 fn energy_faults_fragment(db: SqlDb) string {
     var faults: EnergyFaultState[32]
-    var slice: Slice[EnergyFaultState] = Slice[EnergyFaultState]{ Ptr[EnergyFaultState](&faults[0]), 128 }
-    var rows: Result[u32, SqlError] = ListActiveFaultStates(db, slice, 128)
+    var slice: Slice[EnergyFaultState] = Slice[EnergyFaultState]{ Ptr[EnergyFaultState](&faults[0]), ENERGY_CAPACITY }
+    var rows: Result[u32, SqlError] = ListActiveFaultStates(db, slice, ENERGY_CAPACITY)
     var count: u32 = 0
     if rows.is_ok {
         count = rows.ok
@@ -824,7 +824,7 @@ fn energy_source_is_wind(kind: string) bool {
 
 fn energy_sim_site_from_db(db: SqlDb, config: EnergyConfig) SimSite {
     var sources: EnergySources[32]
-    var source_slice: Slice[EnergySources] = Slice[EnergySources]{ Ptr[EnergySources](&sources[0]), 128 }
+    var source_slice: Slice[EnergySources] = Slice[EnergySources]{ Ptr[EnergySources](&sources[0]), ENERGY_CAPACITY }
     var source_rows: Result[u32, SqlError] = ListSources(db, source_slice, ENERGY_CAPACITY)
     var source_count: u32 = 0
     if source_rows.is_ok {
@@ -850,20 +850,20 @@ fn energy_sim_site_from_db(db: SqlDb, config: EnergyConfig) SimSite {
     }
     var battery: SimBattery = SimBattery{ 1, 55000, 51200, 0, 24000, 3250, 3280, 60000, 120000, false }
     var batteries: EnergyBatteries[32]
-    var battery_slice: Slice[EnergyBatteries] = Slice[EnergyBatteries]{ Ptr[EnergyBatteries](&batteries[0]), 128 }
+    var battery_slice: Slice[EnergyBatteries] = Slice[EnergyBatteries]{ Ptr[EnergyBatteries](&batteries[0]), ENERGY_CAPACITY }
     var battery_rows: Result[u32, SqlError] = ListBatteries(db, battery_slice, ENERGY_CAPACITY)
     if battery_rows.is_ok && battery_rows.ok > 0 {
         battery = SimBattery{ batteries[0].capacityWh, batteries[0].socMilli, batteries[0].voltageMv, batteries[0].currentMa, batteries[0].temperatureMc, batteries[0].cellMinMv, batteries[0].cellMaxMv, config.chargeLimitMa, config.dischargeLimitMa, rho_str_eq(batteries[0].status, "online") }
     }
     var grid: SimGrid = SimGrid{ 230000, 50000, 0, 0, 0, 0, true, false, false }
     var grids: EnergyGrids[32]
-    var grid_slice: Slice[EnergyGrids] = Slice[EnergyGrids]{ Ptr[EnergyGrids](&grids[0]), 128 }
+    var grid_slice: Slice[EnergyGrids] = Slice[EnergyGrids]{ Ptr[EnergyGrids](&grids[0]), ENERGY_CAPACITY }
     var grid_rows: Result[u32, SqlError] = ListGrids(db, grid_slice, ENERGY_CAPACITY)
     if grid_rows.is_ok && grid_rows.ok > 0 {
         grid = SimGrid{ grids[0].voltageMv, grids[0].frequencyMhz, grids[0].importW, grids[0].exportW, grids[0].importLimitW, grids[0].exportLimitW, grids[0].zeroExport != 0, grids[0].synchronized != 0, rho_str_eq(grids[0].status, "online") }
     }
     var loads: EnergyLoads[32]
-    var load_slice: Slice[EnergyLoads] = Slice[EnergyLoads]{ Ptr[EnergyLoads](&loads[0]), 128 }
+    var load_slice: Slice[EnergyLoads] = Slice[EnergyLoads]{ Ptr[EnergyLoads](&loads[0]), ENERGY_CAPACITY }
     var load_rows: Result[u32, SqlError] = ListLoads(db, load_slice, ENERGY_CAPACITY)
     var load_w: i64 = 0
     if load_rows.is_ok {
@@ -880,7 +880,7 @@ fn energy_sim_site_from_db(db: SqlDb, config: EnergyConfig) SimSite {
 
 fn energy_sim_write_back(db: SqlDb, site: SimSite, now: u32) void {
     var sources: EnergySources[32]
-    var source_slice: Slice[EnergySources] = Slice[EnergySources]{ Ptr[EnergySources](&sources[0]), 128 }
+    var source_slice: Slice[EnergySources] = Slice[EnergySources]{ Ptr[EnergySources](&sources[0]), ENERGY_CAPACITY }
     var source_rows: Result[u32, SqlError] = ListSources(db, source_slice, ENERGY_CAPACITY)
     var source_count: u32 = 0
     if source_rows.is_ok {
@@ -942,7 +942,7 @@ fn energy_sim_write_back(db: SqlDb, site: SimSite, now: u32) void {
         i = i + 1
     }
     var batteries: EnergyBatteries[32]
-    var battery_slice: Slice[EnergyBatteries] = Slice[EnergyBatteries]{ Ptr[EnergyBatteries](&batteries[0]), 128 }
+    var battery_slice: Slice[EnergyBatteries] = Slice[EnergyBatteries]{ Ptr[EnergyBatteries](&batteries[0]), ENERGY_CAPACITY }
     var battery_rows: Result[u32, SqlError] = ListBatteries(db, battery_slice, ENERGY_CAPACITY)
     if battery_rows.is_ok {
         var j: u32 = 0
@@ -962,7 +962,7 @@ fn energy_sim_write_back(db: SqlDb, site: SimSite, now: u32) void {
         }
     }
     var grids: EnergyGrids[32]
-    var grid_slice: Slice[EnergyGrids] = Slice[EnergyGrids]{ Ptr[EnergyGrids](&grids[0]), 128 }
+    var grid_slice: Slice[EnergyGrids] = Slice[EnergyGrids]{ Ptr[EnergyGrids](&grids[0]), ENERGY_CAPACITY }
     var grid_rows: Result[u32, SqlError] = ListGrids(db, grid_slice, ENERGY_CAPACITY)
     if grid_rows.is_ok {
         var k: u32 = 0
@@ -1005,7 +1005,7 @@ fn energy_sim_tick(db: SqlDb, now: u32) void {
 
 fn energy_any_grid_online(db: SqlDb) bool {
     var grids: EnergyGrids[32]
-    var slice: Slice[EnergyGrids] = Slice[EnergyGrids]{ Ptr[EnergyGrids](&grids[0]), 128 }
+    var slice: Slice[EnergyGrids] = Slice[EnergyGrids]{ Ptr[EnergyGrids](&grids[0]), ENERGY_CAPACITY }
     var rows: Result[u32, SqlError] = ListGrids(db, slice, ENERGY_CAPACITY)
     if rows.is_ok {
         var i: u32 = 0
@@ -1061,7 +1061,7 @@ fn energy_set_shed(db: SqlDb, desired: bool, now: u32, config: EnergyConfig) voi
 fn energy_control_tick(db: SqlDb, now: u32) void {
     var config: EnergyConfig = energy_config_get(db)
     var batteries: EnergyBatteries[32]
-    var slice: Slice[EnergyBatteries] = Slice[EnergyBatteries]{ Ptr[EnergyBatteries](&batteries[0]), 128 }
+    var slice: Slice[EnergyBatteries] = Slice[EnergyBatteries]{ Ptr[EnergyBatteries](&batteries[0]), ENERGY_CAPACITY }
     var rows: Result[u32, SqlError] = ListBatteries(db, slice, ENERGY_CAPACITY)
     var soc: i64 = 100000
     if rows.is_ok && rows.ok > 0 {
@@ -1239,7 +1239,7 @@ fn energy_evaluate_grid(db: SqlDb, grid: EnergyGrids, now: u32) void {
 fn energy_evaluate_safety(db: SqlDb, now: u32) void {
     var config: EnergyConfig = energy_config_get(db)
     var sources: EnergySources[32]
-    var source_slice: Slice[EnergySources] = Slice[EnergySources]{ Ptr[EnergySources](&sources[0]), 128 }
+    var source_slice: Slice[EnergySources] = Slice[EnergySources]{ Ptr[EnergySources](&sources[0]), ENERGY_CAPACITY }
     var source_rows: Result[u32, SqlError] = ListSources(db, source_slice, ENERGY_CAPACITY)
     if source_rows.is_ok {
         var i: u32 = 0
@@ -1249,7 +1249,7 @@ fn energy_evaluate_safety(db: SqlDb, now: u32) void {
         }
     }
     var batteries: EnergyBatteries[32]
-    var battery_slice: Slice[EnergyBatteries] = Slice[EnergyBatteries]{ Ptr[EnergyBatteries](&batteries[0]), 128 }
+    var battery_slice: Slice[EnergyBatteries] = Slice[EnergyBatteries]{ Ptr[EnergyBatteries](&batteries[0]), ENERGY_CAPACITY }
     var battery_rows: Result[u32, SqlError] = ListBatteries(db, battery_slice, ENERGY_CAPACITY)
     if battery_rows.is_ok {
         var j: u32 = 0
@@ -1259,7 +1259,7 @@ fn energy_evaluate_safety(db: SqlDb, now: u32) void {
         }
     }
     var grids: EnergyGrids[32]
-    var grid_slice: Slice[EnergyGrids] = Slice[EnergyGrids]{ Ptr[EnergyGrids](&grids[0]), 128 }
+    var grid_slice: Slice[EnergyGrids] = Slice[EnergyGrids]{ Ptr[EnergyGrids](&grids[0]), ENERGY_CAPACITY }
     var grid_rows: Result[u32, SqlError] = ListGrids(db, grid_slice, ENERGY_CAPACITY)
     if grid_rows.is_ok {
         var k: u32 = 0
@@ -1550,7 +1550,7 @@ fn energy_storage_field_defs(fields: [FormField]) void {
 
 fn energy_battery_rows(db: SqlDb, req: Request) string {
     var batteries: EnergyBatteries[32]
-    var slice: Slice[EnergyBatteries] = Slice[EnergyBatteries]{ Ptr[EnergyBatteries](&batteries[0]), 128 }
+    var slice: Slice[EnergyBatteries] = Slice[EnergyBatteries]{ Ptr[EnergyBatteries](&batteries[0]), ENERGY_CAPACITY }
     var rows: Result[u32, SqlError] = ListBatteries(db, slice, ENERGY_CAPACITY)
     var count: u32 = 0
     if rows.is_ok {
@@ -1706,7 +1706,7 @@ fn energy_grid_field_defs(fields: [FormField]) void {
 
 fn energy_grid_rows(db: SqlDb, req: Request) string {
     var grids: EnergyGrids[32]
-    var slice: Slice[EnergyGrids] = Slice[EnergyGrids]{ Ptr[EnergyGrids](&grids[0]), 128 }
+    var slice: Slice[EnergyGrids] = Slice[EnergyGrids]{ Ptr[EnergyGrids](&grids[0]), ENERGY_CAPACITY }
     var rows: Result[u32, SqlError] = ListGrids(db, slice, ENERGY_CAPACITY)
     var count: u32 = 0
     if rows.is_ok {
@@ -1864,7 +1864,7 @@ fn energy_load_field_defs(fields: [FormField]) void {
 
 fn energy_load_rows(db: SqlDb, req: Request) string {
     var loads: EnergyLoads[32]
-    var slice: Slice[EnergyLoads] = Slice[EnergyLoads]{ Ptr[EnergyLoads](&loads[0]), 128 }
+    var slice: Slice[EnergyLoads] = Slice[EnergyLoads]{ Ptr[EnergyLoads](&loads[0]), ENERGY_CAPACITY }
     var rows: Result[u32, SqlError] = ListLoads(db, slice, ENERGY_CAPACITY)
     var count: u32 = 0
     if rows.is_ok {
@@ -2565,8 +2565,8 @@ fn energy_sync_from_gateway(db: SqlDb, now: u32) {
 
     var sources: EnergySources[32]
     var source_slice: Slice[EnergySources] = Slice[EnergySources]{
-        Ptr[EnergySources](&sources[0]), 128 }
-    var source_rows: Result[u32, SqlError] = ListSources(db, source_slice, 128)
+        Ptr[EnergySources](&sources[0]), ENERGY_CAPACITY }
+    var source_rows: Result[u32, SqlError] = ListSources(db, source_slice, ENERGY_CAPACITY)
     if source_rows.is_ok {
         var i: u32 = 0
         while i < source_rows.ok {
@@ -2590,8 +2590,8 @@ fn energy_sync_from_gateway(db: SqlDb, now: u32) {
 
     var batteries: EnergyBatteries[32]
     var battery_slice: Slice[EnergyBatteries] = Slice[EnergyBatteries]{
-        Ptr[EnergyBatteries](&batteries[0]), 128 }
-    var battery_rows: Result[u32, SqlError] = ListBatteries(db, battery_slice, 128)
+        Ptr[EnergyBatteries](&batteries[0]), ENERGY_CAPACITY }
+    var battery_rows: Result[u32, SqlError] = ListBatteries(db, battery_slice, ENERGY_CAPACITY)
     if battery_rows.is_ok {
         var j: u32 = 0
         while j < battery_rows.ok {
@@ -2612,8 +2612,8 @@ fn energy_sync_from_gateway(db: SqlDb, now: u32) {
 
     var grids: EnergyGrids[32]
     var grid_slice: Slice[EnergyGrids] = Slice[EnergyGrids]{
-        Ptr[EnergyGrids](&grids[0]), 128 }
-    var grid_rows: Result[u32, SqlError] = ListGrids(db, grid_slice, 128)
+        Ptr[EnergyGrids](&grids[0]), ENERGY_CAPACITY }
+    var grid_rows: Result[u32, SqlError] = ListGrids(db, grid_slice, ENERGY_CAPACITY)
     if grid_rows.is_ok {
         var k: u32 = 0
         while k < grid_rows.ok {
@@ -3081,8 +3081,8 @@ fn energy_docs(req: Request) Response {
 
 fn energy_active_fault_count(db: SqlDb) u32 {
     var faults: EnergyFaultState[32]
-    var slice: Slice[EnergyFaultState] = Slice[EnergyFaultState]{ Ptr[EnergyFaultState](&faults[0]), 128 }
-    var rows: Result[u32, SqlError] = ListActiveFaultStates(db, slice, 128)
+    var slice: Slice[EnergyFaultState] = Slice[EnergyFaultState]{ Ptr[EnergyFaultState](&faults[0]), ENERGY_CAPACITY }
+    var rows: Result[u32, SqlError] = ListActiveFaultStates(db, slice, ENERGY_CAPACITY)
     if rows.is_ok {
         return rows.ok
     }

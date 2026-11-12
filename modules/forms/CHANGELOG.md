@@ -19,3 +19,7 @@ the import to use instead.
 `FormField` is exported, so an application that imports `robohub.forms` names
 the type of the fields it builds. A module's types are its own now, and one an
 importer names has to be listed under `provides.exports`.
+
+## [0.3.1] - 2026-11-12
+
+The module builds on its own: it imports the template module whose `vars` it calls and declares the runtime functions it uses, rather than relying on the application that includes it to have declared them.

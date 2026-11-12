@@ -39,9 +39,9 @@ fn provider_mesh_base(config: string) string {
     if url == "" {
         url = gateway_config_value(config, "url")
     }
-    while rho_strlen(url) > 0 &&
-        rho_str_eq(rho_str_slice(url, u32(rho_strlen(url)) - 1, 1), "/") {
-        url = rho_str_slice(url, 0, u32(rho_strlen(url)) - 1)
+    while strlen(url) > 0 &&
+        str_eq(str_slice(url, u32(strlen(url)) - 1, 1), "/") {
+        url = str_slice(url, 0, u32(strlen(url)) - 1)
     }
     return url
 }
@@ -55,7 +55,7 @@ fn provider_mesh_project(config: string) string {
 // stored can name any address, and a token is only ever sent to its audience.
 fn provider_mesh_audience(config: string, url: string) string {
     let base: string = provider_mesh_base(config)
-    if base != "" && (rho_str_eq(url, base) || rho_str_starts_with(url, base + "/")) {
+    if base != "" && (str_eq(url, base) || str_starts_with(url, base + "/")) {
         return "mesh"
     }
     return ""
@@ -70,7 +70,7 @@ fn provider_mesh_fetch(config: string, url: string, name: string) string {
     let status: u32 = rho_http_request("GET", url, "", "", provider_mesh_audience(config, url),
         provider_mesh_scope(config), report)
     if status != 200 {
-        warn("mesh-gateway", "fetch failed (" + rho_int_to_str(status) + "): " + url)
+        warn("mesh-gateway", "fetch failed (" + int_to_str(status) + "): " + url)
         return ""
     }
     return rho_read_text(report)
@@ -92,7 +92,7 @@ fn provider_mesh_gateway(config: string) string {
     }
     let text: string = provider_mesh_fetch(config, base + "/mesh/api/projects/" + project + "/gateway",
         "mesh-gateway")
-    if rho_str_index_of(text, "\"available\":true") < 0 {
+    if str_index_of(text, "\"available\":true") < 0 {
         return ""
     }
     return gateway_json_string_field(text, "url")
@@ -117,13 +117,13 @@ fn provider_mesh_device_states(config: string) string {
 }
 
 fn provider_mesh_source_state(config: string, source: string) string {
-    let action: i32 = rho_str_index_of(source, "/action")
-    if rho_str_index_of(source, "/mesh/api/") < 0 || action < 0 {
+    let action: i32 = str_index_of(source, "/action")
+    if str_index_of(source, "/mesh/api/") < 0 || action < 0 {
         return ""
     }
-    let value_url: string = rho_str_slice(source, 0, u32(action)) + "/value"
+    let value_url: string = str_slice(source, 0, u32(action)) + "/value"
     let state: string = gateway_trim(provider_mesh_fetch(config, value_url, "mesh-state"))
-    if rho_str_eq(state, "on") || rho_str_eq(state, "off") {
+    if str_eq(state, "on") || str_eq(state, "off") {
         return state
     }
     return ""
@@ -133,20 +133,20 @@ fn provider_mesh_source_state(config: string, source: string) string {
 // source ID gateway_sources returned, a value or action URL, or a URL with a
 // `source=` query. All three name the same series.
 fn provider_mesh_source_id(source: string) string {
-    let marker: i32 = rho_str_index_of(source, "source=")
+    let marker: i32 = str_index_of(source, "source=")
     if marker >= 0 {
-        return rho_str_slice(source, u32(marker) + 7,
-            u32(rho_strlen(source)) - u32(marker) - 7)
+        return str_slice(source, u32(marker) + 7,
+            u32(strlen(source)) - u32(marker) - 7)
     }
-    let sources: i32 = rho_str_index_of(source, "/sources/")
+    let sources: i32 = str_index_of(source, "/sources/")
     if sources >= 0 {
         let start: u32 = u32(sources) + 9
-        let rest: string = rho_str_slice(source, start, u32(rho_strlen(source)) - start)
-        let slash: i32 = rho_str_index_of(rest, "/")
+        let rest: string = str_slice(source, start, u32(strlen(source)) - start)
+        let slash: i32 = str_index_of(rest, "/")
         if slash < 0 {
             return rest
         }
-        return rho_str_slice(rest, 0, u32(slash))
+        return str_slice(rest, 0, u32(slash))
     }
     return source
 }
@@ -186,12 +186,12 @@ fn provider_mesh_telemetry_status(config: string) string {
 }
 
 fn provider_mesh_source_latest(config: string, source: string) string {
-    let action: i32 = rho_str_index_of(source, "/action")
+    let action: i32 = str_index_of(source, "/action")
     var value_url: string = ""
-    if rho_str_index_of(source, "/mesh/api/") >= 0 && action >= 0 {
-        value_url = rho_str_slice(source, 0, u32(action)) + "/value"
-    } else if rho_str_index_of(source, "/mesh/api/") >= 0 &&
-        rho_str_index_of(source, "/value") >= 0 {
+    if str_index_of(source, "/mesh/api/") >= 0 && action >= 0 {
+        value_url = str_slice(source, 0, u32(action)) + "/value"
+    } else if str_index_of(source, "/mesh/api/") >= 0 &&
+        str_index_of(source, "/value") >= 0 {
         // A widget may store the value URL itself; it is already the endpoint.
         value_url = source
     } else if source != "" {

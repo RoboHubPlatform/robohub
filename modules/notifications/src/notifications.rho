@@ -16,14 +16,14 @@ const NOTIFICATION_ERROR: string = "error"
 const NOTIFICATION_DEFAULT_TIMEOUT: u32 = 5
 
 fn notification_color(level: string) string {
-    if rho_str_eq(level, "warning") { return "#f59e0b" }
-    if rho_str_eq(level, "error") { return "#ef4444" }
+    if str_eq(level, "warning") { return "#f59e0b" }
+    if str_eq(level, "error") { return "#ef4444" }
     return "#3b82f6"
 }
 
 fn notification_icon(level: string) string {
-    if rho_str_eq(level, "warning") { return "⚠" }
-    if rho_str_eq(level, "error") { return "✕" }
+    if str_eq(level, "warning") { return "⚠" }
+    if str_eq(level, "error") { return "✕" }
     return "ℹ"
 }
 
@@ -33,7 +33,7 @@ fn notification_open_db() Result[SqlDb, string] {
         return opened
     }
     let db: SqlDb = opened.ok
-    ignore_u32(sql_apply(db, notification_schema()))
+    sql_apply(db, notification_schema())
     return Result[SqlDb, string]{ true, db, "" }
 }
 
@@ -83,7 +83,7 @@ fn notification_push_level(message: string, level: string, timeout: u32) u32 {
 // EventSource on hears it.
 fn notification_live_path() string {
     let dir: string = notification_workspace() + "/data"
-    ignore_u32(rho_exec("mkdir", "-p " + dir, dir + "/mkdir.txt"))
+    rho_exec("mkdir", "-p " + dir, dir + "/mkdir.txt")
     return dir + "/live.events"
 }
 
@@ -91,9 +91,9 @@ fn notification_live_path() string {
 // the store, so it is a page-to-page message rather than another saved
 // notification.
 fn notification_live_event_locale(kind: string, message: string, locale: string) void {
-    ignore_bool(rho_append_text(notification_live_path(),
+    rho_append_text(notification_live_path(),
         "{\"kind\":" + json_string(kind) + ",\"message\":" + json_string(message) +
-        ",\"locale\":" + json_string(locale) + "}\n"))
+        ",\"locale\":" + json_string(locale) + "}\n")
 }
 
 fn notification_live_event(kind: string, message: string) void {
@@ -104,7 +104,7 @@ fn notification_live_event(kind: string, message: string) void {
 // file is made first so an empty stream still holds the connection open until
 // the first event arrives.
 fn notification_events(req: Request) Response {
-    ignore_bool(rho_append_text(notification_live_path(), ""))
+    rho_append_text(notification_live_path(), "")
     return sse_file(notification_live_path(), 1000)
 }
 
@@ -135,7 +135,7 @@ fn notifications_push(req: Request) Response {
     if lvl == "" { lvl = NOTIFICATION_INFO }
     let timeout_str: string = notification_form_value(body, "timeout")
     let timeout: u32 = 0
-    if timeout_str != "" { timeout = rho_int_from_str(timeout_str) }
+    if timeout_str != "" { timeout = int_from_str(timeout_str) }
     let code: u32 = notification_push_level(message, lvl, timeout)
     if code == 0 {
         return json(500, "{\"ok\":false,\"error\":\"could not store notification\"}")
@@ -156,7 +156,7 @@ fn notifications_list(req: Request) Response {
         sql_close(db)
         return json(500, "{\"ok\":false}")
     }
-    ignore_u32(sql_bind(stmt, 1, int_value(i64(now))))
+    sql_bind(stmt, 1, int_value(i64(now)))
     var more: u32 = 1
     var out: string = "["
     var first: bool = true
@@ -178,18 +178,18 @@ fn notifications_list(req: Request) Response {
         let rp2: Slice[SqlValue] = Slice[SqlValue]{ Ptr[SqlValue](&v2), 1 }
         let rp3: Slice[SqlValue] = Slice[SqlValue]{ Ptr[SqlValue](&v3), 1 }
         let rp4: Slice[SqlValue] = Slice[SqlValue]{ Ptr[SqlValue](&v4), 1 }
-        ignore_u32(sql_read_column(stmt, 0, rp0.ptr))
-        ignore_u32(sql_read_column(stmt, 1, rp1.ptr))
-        ignore_u32(sql_read_column(stmt, 2, rp2.ptr))
-        ignore_u32(sql_read_column(stmt, 3, rp3.ptr))
-        ignore_u32(sql_read_column(stmt, 4, rp4.ptr))
+        sql_read_column(stmt, 0, rp0.ptr)
+        sql_read_column(stmt, 1, rp1.ptr)
+        sql_read_column(stmt, 2, rp2.ptr)
+        sql_read_column(stmt, 3, rp3.ptr)
+        sql_read_column(stmt, 4, rp4.ptr)
         if !first { out = out + "," }
         first = false
-        out = out + "{\"id\":" + rho_int_to_str(u32(v0.integer)) +
+        out = out + "{\"id\":" + int_to_str(u32(v0.integer)) +
             ",\"level\":\"" + notification_escape(v1.text) + "\"" +
             ",\"message\":\"" + notification_escape(v2.text) + "\"" +
-            ",\"created_at\":" + rho_int_to_str(u32(v3.integer)) +
-            ",\"expires_at\":" + rho_int_to_str(u32(v4.integer)) + "}"
+            ",\"created_at\":" + int_to_str(u32(v3.integer)) +
+            ",\"expires_at\":" + int_to_str(u32(v4.integer)) + "}"
         if more == 0 { break }
     }
     sql_finalize(stmt)
@@ -215,10 +215,10 @@ fn notifications_dismiss(req: Request) Response {
         sql_close(db)
         return json(500, "{\"ok\":false}")
     }
-    ignore_u32(sql_bind(stmt, 1, int_value(i64(rho_int_from_str(id_str)))))
+    sql_bind(stmt, 1, int_value(i64(int_from_str(id_str))))
     var more: u32 = 0
     let more_slice3: Slice[u32] = Slice[u32]{ Ptr[u32](&more), 1 }
-    ignore_u32(sql_run(stmt, more_slice3.ptr))
+    sql_run(stmt, more_slice3.ptr)
     sql_finalize(stmt)
     sql_close(db)
     return json(200, "{\"ok\":true}")
@@ -237,7 +237,7 @@ fn notifications_render(req: Request) Response {
         sql_close(db)
         return Response{ 200, "", "text/html", "" }
     }
-    ignore_u32(sql_bind(stmt, 1, int_value(i64(now))))
+    sql_bind(stmt, 1, int_value(i64(now)))
     var more: u32 = 1
     var out: string = ""
     while more == 1 {
@@ -254,11 +254,11 @@ fn notifications_render(req: Request) Response {
         let rp2: Slice[SqlValue] = Slice[SqlValue]{ Ptr[SqlValue](&v2), 1 }
         let rp3: Slice[SqlValue] = Slice[SqlValue]{ Ptr[SqlValue](&v3), 1 }
         let rp4: Slice[SqlValue] = Slice[SqlValue]{ Ptr[SqlValue](&v4), 1 }
-        ignore_u32(sql_read_column(stmt, 0, rp0.ptr))
-        ignore_u32(sql_read_column(stmt, 1, rp1.ptr))
-        ignore_u32(sql_read_column(stmt, 2, rp2.ptr))
-        ignore_u32(sql_read_column(stmt, 3, rp3.ptr))
-        ignore_u32(sql_read_column(stmt, 4, rp4.ptr))
+        sql_read_column(stmt, 0, rp0.ptr)
+        sql_read_column(stmt, 1, rp1.ptr)
+        sql_read_column(stmt, 2, rp2.ptr)
+        sql_read_column(stmt, 3, rp3.ptr)
+        sql_read_column(stmt, 4, rp4.ptr)
         let level: string = v1.text
         let message: string = v2.text
         let expires: i64 = v4.integer
@@ -269,7 +269,7 @@ fn notifications_render(req: Request) Response {
             "style=\"border-left:4px solid " + color + ";background:" + color + "18;padding:.75rem 1rem;margin:.5rem 0;border-radius:6px;display:flex;align-items:center;gap:.75rem;\">" +
             "<span style=\"color:" + color + ";font-size:1.2rem\">" + icon + "</span>" +
             "<span style=\"flex:1\">" + notification_escape(message) + "</span>" +
-            "<span style=\"color:#8a929e;font-size:.8rem\">" + rho_int_to_str(remaining) + "s</span>" +
+            "<span style=\"color:#8a929e;font-size:.8rem\">" + int_to_str(remaining) + "s</span>" +
             "<button onclick=\"this.parentElement.remove()\" style=\"background:none;border:none;cursor:pointer;color:#8a929e;font-size:1.2rem\">✕</button>" +
             "</div>"
         if more == 0 { break }

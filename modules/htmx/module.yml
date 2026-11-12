@@ -12,7 +12,7 @@ module:
   type: module
   title: HTMX
   category: ui
-  version: 0.2.0
+  version: 0.2.1
   description: >
     A pinned copy of HTMX and its Server-Sent Events extension, served from the
     host, with the small helpers a Rho page uses to answer fragments and

@@ -11,27 +11,27 @@ fn settings_file() string {
         workspace = getenv("HOME") + "/.rho/robohub"
     }
     let dir: string = workspace + "/data"
-    ignore_u32(rho_exec("mkdir", "-p " + dir, dir + "/mkdir.txt"))
+    rho_exec("mkdir", "-p " + dir, dir + "/mkdir.txt")
     return dir + "/settings.conf"
 }
 
 fn settings_get(key: string, fallback: string) string {
     var rest: string = rho_read_text(settings_file())
     while rest != "" {
-        let at: i32 = rho_str_index_of(rest, "\n")
+        let at: i32 = str_index_of(rest, "\n")
         var line: string = rest
         if at < 0 {
             rest = ""
         } else {
-            line = rho_str_slice(rest, 0, u32(at))
-            rest = rho_str_slice(rest, u32(at) + 1, u32(rho_strlen(rest)) - u32(at) - 1)
+            line = str_slice(rest, 0, u32(at))
+            rest = str_slice(rest, u32(at) + 1, u32(strlen(rest)) - u32(at) - 1)
         }
-        let equals: i32 = rho_str_index_of(line, "=")
+        let equals: i32 = str_index_of(line, "=")
         if equals > 0 {
-            let name: string = rho_str_slice(line, 0, u32(equals))
-            if rho_str_eq(name, key) {
-                return rho_str_slice(line, u32(equals) + 1,
-                    u32(rho_strlen(line)) - u32(equals) - 1)
+            let name: string = str_slice(line, 0, u32(equals))
+            if str_eq(name, key) {
+                return str_slice(line, u32(equals) + 1,
+                    u32(strlen(line)) - u32(equals) - 1)
             }
         }
     }
@@ -46,15 +46,15 @@ fn settings_set(key: string, value: string) void {
     var found: bool = false
     var rest: string = text
     while rest != "" {
-        let at: i32 = rho_str_index_of(rest, "\n")
+        let at: i32 = str_index_of(rest, "\n")
         var line: string = rest
         if at < 0 {
             rest = ""
         } else {
-            line = rho_str_slice(rest, 0, u32(at))
-            rest = rho_str_slice(rest, u32(at) + 1, u32(rho_strlen(rest)) - u32(at) - 1)
+            line = str_slice(rest, 0, u32(at))
+            rest = str_slice(rest, u32(at) + 1, u32(strlen(rest)) - u32(at) - 1)
         }
-        if rho_str_index_of(line, prefix) == 0 {
+        if str_index_of(line, prefix) == 0 {
             line = prefix + value
             found = true
         }
@@ -65,7 +65,7 @@ fn settings_set(key: string, value: string) void {
     if !found {
         out = out + prefix + value + "\n"
     }
-    ignore_bool(rho_write_text(path, out))
+    rho_write_text(path, out)
 }
 
 // settings_list returns the `key=value` lines under a namespace, so a host can
@@ -74,15 +74,15 @@ fn settings_list(prefix: string) string {
     var out: string = ""
     var rest: string = rho_read_text(settings_file())
     while rest != "" {
-        let at: i32 = rho_str_index_of(rest, "\n")
+        let at: i32 = str_index_of(rest, "\n")
         var line: string = rest
         if at < 0 {
             rest = ""
         } else {
-            line = rho_str_slice(rest, 0, u32(at))
-            rest = rho_str_slice(rest, u32(at) + 1, u32(rho_strlen(rest)) - u32(at) - 1)
+            line = str_slice(rest, 0, u32(at))
+            rest = str_slice(rest, u32(at) + 1, u32(strlen(rest)) - u32(at) - 1)
         }
-        if line != "" && rho_str_index_of(line, prefix) == 0 {
+        if line != "" && str_index_of(line, prefix) == 0 {
             out = out + line + "\n"
         }
     }

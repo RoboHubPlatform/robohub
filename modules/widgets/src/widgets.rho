@@ -35,7 +35,7 @@ fn widget_db_path() string {
         return override
     }
     let dir: string = widget_workspace() + "/data"
-    ignore_u32(rho_exec("mkdir", "-p " + dir, dir + "/mkdir.txt"))
+    rho_exec("mkdir", "-p " + dir, dir + "/mkdir.txt")
     return dir + "/app.db"
 }
 
@@ -54,7 +54,7 @@ fn widgets_style() string {
 fn widget_now() u32 {
     let report: string = widget_db_path() + ".now"
     if rho_exec("date", "+%s", report) == 0 {
-        return rho_int_from_str(widget_trim(rho_read_text(report)))
+        return int_from_str(widget_trim(rho_read_text(report)))
     }
     return 0
 }
@@ -65,7 +65,7 @@ fn widget_arg_quote(value: string) string {
 
 fn widget_report(name: string) string {
     let dir: string = widget_workspace() + "/data"
-    ignore_u32(rho_exec("mkdir", "-p " + dir, dir + "/mkdir.txt"))
+    rho_exec("mkdir", "-p " + dir, dir + "/mkdir.txt")
     return dir + "/" + name + ".txt"
 }
 
@@ -88,28 +88,28 @@ fn widget_auth_header() string {
 fn widget_parse_milli(text: string) i64 {
     var value: string = widget_trim(text)
     var sign: i64 = 1
-    if rho_strlen(value) > 0 && rho_str_eq(rho_str_slice(value, 0, 1), "-") {
+    if strlen(value) > 0 && str_eq(str_slice(value, 0, 1), "-") {
         sign = -1
-        value = rho_str_slice(value, 1, u32(rho_strlen(value)) - 1)
+        value = str_slice(value, 1, u32(strlen(value)) - 1)
     }
     var whole: string = value
     var fraction: string = ""
-    let dot: i32 = rho_str_index_of(value, ".")
+    let dot: i32 = str_index_of(value, ".")
     if dot >= 0 {
-        whole = rho_str_slice(value, 0, u32(dot))
-        fraction = rho_str_slice(value, u32(dot) + 1,
-            u32(rho_strlen(value)) - u32(dot) - 1)
+        whole = str_slice(value, 0, u32(dot))
+        fraction = str_slice(value, u32(dot) + 1,
+            u32(strlen(value)) - u32(dot) - 1)
     }
-    if rho_strlen(whole) == 0 {
+    if strlen(whole) == 0 {
         whole = "0"
     }
-    let whole_value: u32 = rho_int_from_str(whole)
+    let whole_value: u32 = int_from_str(whole)
     var frac_value: u32 = 0
     var i: u32 = 0
     while i < 3 {
-        if i < u32(rho_strlen(fraction)) {
+        if i < u32(strlen(fraction)) {
             frac_value = frac_value * 10 +
-                rho_int_from_str(rho_str_slice(fraction, i, 1))
+                int_from_str(str_slice(fraction, i, 1))
         } else {
             frac_value = frac_value * 10
         }
@@ -120,15 +120,15 @@ fn widget_parse_milli(text: string) i64 {
 
 fn widget_epoch_seconds(text: string) u32 {
     let value: string = widget_trim(text)
-    if rho_strlen(value) <= 10 {
-        return rho_int_from_str(value)
+    if strlen(value) <= 10 {
+        return int_from_str(value)
     }
-    return rho_int_from_str(rho_str_slice(value, 0, u32(rho_strlen(value)) - 3))
+    return int_from_str(str_slice(value, 0, u32(strlen(value)) - 3))
 }
 
 fn widget_mesh_source(widget: Widgets) bool {
-    return rho_str_eq(widget.sourceKind, "mesh") ||
-        rho_str_index_of(widget.source, "/mesh/api/") >= 0
+    return str_eq(widget.sourceKind, "mesh") ||
+        str_index_of(widget.source, "/mesh/api/") >= 0
 }
 
 fn widget_latest_text(db: SqlDb, widget_id: u32) string {
@@ -145,27 +145,27 @@ fn widget_latest_text(db: SqlDb, widget_id: u32) string {
 
 fn widget_toggle_state(db: SqlDb, widget_id: u32) string {
     let latest: string = widget_latest_text(db, widget_id)
-    if rho_str_eq(latest, "on") {
+    if str_eq(latest, "on") {
         return "on"
     }
     return "off"
 }
 
 fn widget_replace(text: string, needle: string, value: string) string {
-    let at: i32 = rho_str_index_of(text, needle)
+    let at: i32 = str_index_of(text, needle)
     if at < 0 {
         return text
     }
-    return rho_str_slice(text, 0, u32(at)) + value +
-        rho_str_slice(text, u32(at) + u32(rho_strlen(needle)),
-            u32(rho_strlen(text)) - u32(at) - u32(rho_strlen(needle)))
+    return str_slice(text, 0, u32(at)) + value +
+        str_slice(text, u32(at) + u32(strlen(needle)),
+            u32(strlen(text)) - u32(at) - u32(strlen(needle)))
 }
 
 fn widget_hook(source: string, state: string) string {
-    if rho_str_index_of(source, "{state}") >= 0 {
+    if str_index_of(source, "{state}") >= 0 {
         return widget_replace(source, "{state}", state)
     }
-    if rho_str_index_of(source, "?") >= 0 {
+    if str_index_of(source, "?") >= 0 {
         return source + "&state=" + state
     }
     return source + "?state=" + state
@@ -178,21 +178,21 @@ fn widget_ignore_string(value: string) void {
 }
 
 fn widget_refresh(widget: Widgets) string {
-    if rho_str_eq(widget.sourceKind, "mesh") {
+    if str_eq(widget.sourceKind, "mesh") {
         return gateway_source_latest(widget.source)
     }
-    if rho_str_eq(widget.kind, "button") || rho_str_eq(widget.kind, "toggle") ||
-        !rho_str_eq(widget.sourceKind, "url") ||
-        rho_strlen(widget.source) == 0 {
+    if str_eq(widget.kind, "button") || str_eq(widget.kind, "toggle") ||
+        !str_eq(widget.sourceKind, "url") ||
+        strlen(widget.source) == 0 {
         return ""
     }
-    let report: string = widget_report("fetch-" + rho_int_to_str(u32(widget.id)))
+    let report: string = widget_report("fetch-" + int_to_str(u32(widget.id)))
     let code: u32 = rho_exec("curl", "-fsS -m 3" + widget_auth_header() + " " + widget_arg_quote(widget.source), report)
     if code != 0 {
         return ""
     }
     let text: string = widget_trim(rho_read_text(report))
-    if rho_strlen(text) == 0 {
+    if strlen(text) == 0 {
         return ""
     }
     let opened: Result[SqlDb, string] = sql_open(widget_db_path())
@@ -200,13 +200,13 @@ fn widget_refresh(widget: Widgets) string {
         return ""
     }
     let db: SqlDb = opened.ok
-    ignore_u32(sql_apply(db, ""))
-    if rho_str_eq(widget_latest_text(db, u32(widget.id)), text) {
+    sql_apply(db, "")
+    if str_eq(widget_latest_text(db, u32(widget.id)), text) {
         sql_close(db)
         return ""
     }
-    widget_ignore_result(InsertWidgetValue(rho_int_to_str(u32(widget.id)), text,
-        rho_int_to_str(u32(widget_parse_milli(text))), rho_int_to_str(widget_now()), db))
+    widget_ignore_result(InsertWidgetValue(int_to_str(u32(widget.id)), text,
+        int_to_str(u32(widget_parse_milli(text))), int_to_str(widget_now()), db))
     sql_close(db)
     return text
 }
@@ -268,7 +268,7 @@ fn widget_chart(values: WidgetValues[100], count: u32, locale: string) string {
         if yval < low { yval = low }
         if yval > high { yval = high }
         let y: u32 = 27 - u32(((yval - low) * 22) / (high - low + 1))
-        points = points + rho_int_to_str(x) + "," + rho_int_to_str(y) + " "
+        points = points + int_to_str(x) + "," + int_to_str(y) + " "
         i = i + 1
     }
     return template_fill(widget_template("cards/chart"), vars("points", widget_trim(points)) + vars("__locale", locale))
@@ -295,49 +295,49 @@ fn widget_field(line: string, index: u32) string {
     var rest: string = line
     var i: u32 = 0
     while i < index {
-        let at: i32 = rho_str_index_of(rest, "|")
+        let at: i32 = str_index_of(rest, "|")
         if at < 0 {
             return ""
         }
-        rest = rho_str_slice(rest, u32(at) + 1, u32(rho_strlen(rest)) - u32(at) - 1)
+        rest = str_slice(rest, u32(at) + 1, u32(strlen(rest)) - u32(at) - 1)
         i = i + 1
     }
-    let at: i32 = rho_str_index_of(rest, "|")
+    let at: i32 = str_index_of(rest, "|")
     if at < 0 {
         return rest
     }
-    return rho_str_slice(rest, 0, u32(at))
+    return str_slice(rest, 0, u32(at))
 }
 
 fn widget_json_string_field(text: string, key: string) string {
-    let at: i32 = rho_str_index_of(text, "\"" + key + "\":\"")
+    let at: i32 = str_index_of(text, "\"" + key + "\":\"")
     if at < 0 {
         return ""
     }
-    let start: u32 = u32(at) + u32(rho_strlen(key)) + 4
-    let rest: string = rho_str_slice(text, start, u32(rho_strlen(text)) - start)
-    let end: i32 = rho_str_index_of(rest, "\"")
+    let start: u32 = u32(at) + u32(strlen(key)) + 4
+    let rest: string = str_slice(text, start, u32(strlen(text)) - start)
+    let end: i32 = str_index_of(rest, "\"")
     if end < 0 {
         return ""
     }
-    return rho_str_slice(rest, 0, u32(end))
+    return str_slice(rest, 0, u32(end))
 }
 
 fn widget_json_number_field(text: string, key: string) string {
-    let at: i32 = rho_str_index_of(text, "\"" + key + "\":")
+    let at: i32 = str_index_of(text, "\"" + key + "\":")
     if at < 0 {
         return ""
     }
-    let start: u32 = u32(at) + u32(rho_strlen(key)) + 3
-    var rest: string = rho_str_slice(text, start, u32(rho_strlen(text)) - start)
+    let start: u32 = u32(at) + u32(strlen(key)) + 3
+    var rest: string = str_slice(text, start, u32(strlen(text)) - start)
     var out: string = ""
     var i: u32 = 0
-    while i < u32(rho_strlen(rest)) {
-        let ch: string = rho_str_slice(rest, i, 1)
-        if (ch >= "0" && ch <= "9") || rho_str_eq(ch, ".") || rho_str_eq(ch, "-") || rho_str_eq(ch, "e") || rho_str_eq(ch, "E") || rho_str_eq(ch, "+") {
+    while i < u32(strlen(rest)) {
+        let ch: string = str_slice(rest, i, 1)
+        if (ch >= "0" && ch <= "9") || str_eq(ch, ".") || str_eq(ch, "-") || str_eq(ch, "e") || str_eq(ch, "E") || str_eq(ch, "+") {
             out = out + ch
             i = i + 1
-        } else if out == "" && (rho_str_eq(ch, " ") || rho_str_eq(ch, "\t")) {
+        } else if out == "" && (str_eq(ch, " ") || str_eq(ch, "\t")) {
             i = i + 1
         } else {
             break
@@ -352,8 +352,8 @@ fn widget_write_setting(key: string, value: string) void {
         workspace = getenv("HOME") + "/.rho/modules/widgets"
     }
     let dir: string = workspace + "/data"
-    ignore_u32(rho_exec("mkdir", "-p " + dir, dir + "/mkdir.txt"))
-    ignore_bool(rho_write_text(dir + "/" + key, value))
+    rho_exec("mkdir", "-p " + dir, dir + "/mkdir.txt")
+    rho_write_text(dir + "/" + key, value)
 }
 
 // The host's gateway contract supplies the sources. The widgets module knows
@@ -369,20 +369,20 @@ struct WidgetJsonObject {
 
 fn widget_next_object(text: string) WidgetJsonObject {
     var out: WidgetJsonObject = WidgetJsonObject{ "", text }
-    let open_rel: i32 = rho_str_index_of(text, "{")
+    let open_rel: i32 = str_index_of(text, "{")
     if open_rel < 0 {
         return out
     }
     let open_at: u32 = u32(open_rel)
-    let close_rel: i32 = rho_str_index_of(rho_str_slice(text, open_at + 1,
-        u32(rho_strlen(text)) - open_at - 1), "}")
+    let close_rel: i32 = str_index_of(str_slice(text, open_at + 1,
+        u32(strlen(text)) - open_at - 1), "}")
     if close_rel < 0 {
         return out
     }
     let close_at: u32 = open_at + 1 + u32(close_rel)
-    out.object = rho_str_slice(text, open_at, close_at - open_at + 1)
-    out.rest = rho_str_slice(text, close_at + 1,
-        u32(rho_strlen(text)) - close_at - 1)
+    out.object = str_slice(text, open_at, close_at - open_at + 1)
+    out.rest = str_slice(text, close_at + 1,
+        u32(strlen(text)) - close_at - 1)
     return out
 }
 
@@ -393,7 +393,7 @@ fn widget_gateway_source_options(selected: string) string {
         return out
     }
     var rest: string = text
-    while rho_strlen(rest) > 0 {
+    while strlen(rest) > 0 {
         let parsed: WidgetJsonObject = widget_next_object(rest)
         if parsed.object == "" {
             break
@@ -412,9 +412,9 @@ fn widget_gateway_source_options(selected: string) string {
             continue
         }
         var mark: string = ""
-        if (selected != "" && rho_str_eq(value_url, selected)) ||
-            (selected != "" && rho_str_eq(action_url, selected)) ||
-            (selected != "" && rho_str_eq(id, selected)) {
+        if (selected != "" && str_eq(value_url, selected)) ||
+            (selected != "" && str_eq(action_url, selected)) ||
+            (selected != "" && str_eq(id, selected)) {
             mark = " selected"
         }
         var text_label: string = owner
@@ -424,7 +424,7 @@ fn widget_gateway_source_options(selected: string) string {
         if unit != "" {
             text_label = text_label + " (" + unit + ")"
         }
-        if rho_str_eq(direction, "output") {
+        if str_eq(direction, "output") {
             text_label = text_label + " — output"
         }
         out = out + "<option value=\"" + escape_html(id) + "\"" +
@@ -445,7 +445,7 @@ fn widget_gateway_source_choices() string {
         return out
     }
     var rest: string = text
-    while rho_strlen(rest) > 0 {
+    while strlen(rest) > 0 {
         let parsed: WidgetJsonObject = widget_next_object(rest)
         if parsed.object == "" {
             break
@@ -468,7 +468,7 @@ fn widget_gateway_source_choices() string {
         if unit != "" {
             text_label = text_label + " (" + unit + ")"
         }
-        if rho_str_eq(direction, "output") {
+        if str_eq(direction, "output") {
             text_label = text_label + " — output"
         }
         if out != "" { out = out + "," }
@@ -482,16 +482,16 @@ fn widget_kind_options(selected: string) string {
     let kinds: string = "numeric|Number\nchart|Chart\ntable|Table\nstatus|Status\nbutton|Button\ntoggle|Switch"
     var rest: string = kinds
     while rest != "" {
-        let at: i32 = rho_str_index_of(rest, "\n")
+        let at: i32 = str_index_of(rest, "\n")
         var line: string = rest
         if at < 0 {
             rest = ""
         } else {
-            line = rho_str_slice(rest, 0, u32(at))
-            rest = rho_str_slice(rest, u32(at) + 1, u32(rho_strlen(rest)) - u32(at) - 1)
+            line = str_slice(rest, 0, u32(at))
+            rest = str_slice(rest, u32(at) + 1, u32(strlen(rest)) - u32(at) - 1)
         }
         var mark: string = ""
-        if rho_str_eq(widget_field(line, 0), selected) {
+        if str_eq(widget_field(line, 0), selected) {
             mark = " selected"
         }
         out = out + "<option value=\"" + escape_html(widget_field(line, 0)) + "\"" + mark + ">" +
@@ -505,16 +505,16 @@ fn widget_source_kind_options(selected: string) string {
     let kinds: string = "manual|Manual\nurl|URL / hook\nmesh|Mesh telemetry"
     var rest: string = kinds
     while rest != "" {
-        let at: i32 = rho_str_index_of(rest, "\n")
+        let at: i32 = str_index_of(rest, "\n")
         var line: string = rest
         if at < 0 {
             rest = ""
         } else {
-            line = rho_str_slice(rest, 0, u32(at))
-            rest = rho_str_slice(rest, u32(at) + 1, u32(rho_strlen(rest)) - u32(at) - 1)
+            line = str_slice(rest, 0, u32(at))
+            rest = str_slice(rest, u32(at) + 1, u32(strlen(rest)) - u32(at) - 1)
         }
         var mark: string = ""
-        if rho_str_eq(widget_field(line, 0), selected) {
+        if str_eq(widget_field(line, 0), selected) {
             mark = " selected"
         }
         out = out + "<option value=\"" + escape_html(widget_field(line, 0)) + "\"" + mark + ">" +
@@ -525,7 +525,7 @@ fn widget_source_kind_options(selected: string) string {
 
 fn widget_method_options(selected: string) string {
     var out: string = ""
-    if !rho_str_eq(selected, "POST") {
+    if !str_eq(selected, "POST") {
         out = "<option value=\"GET\" selected>GET</option><option value=\"POST\">POST</option>"
     } else {
         out = "<option value=\"GET\">GET</option><option value=\"POST\" selected>POST</option>"
@@ -540,21 +540,21 @@ fn widget_round(value: string, decimals: u32) string {
     if v == "" {
         return v
     }
-    let dot: i32 = rho_str_index_of(v, ".")
+    let dot: i32 = str_index_of(v, ".")
     if dot < 0 {
         return v
     } else {
-        let intpart: string = rho_str_slice(v, 0, u32(dot))
-        let frac: string = rho_str_slice(v, u32(dot) + 1, u32(rho_strlen(v)) - u32(dot) - 1)
+        let intpart: string = str_slice(v, 0, u32(dot))
+        let frac: string = str_slice(v, u32(dot) + 1, u32(strlen(v)) - u32(dot) - 1)
         if decimals == 0 {
             return intpart
         } else {
             var n: u32 = decimals
             if n > 3 { n = 3 }
-            if u32(rho_strlen(frac)) <= n {
+            if u32(strlen(frac)) <= n {
                 return v
             } else {
-                let kept: string = rho_str_slice(frac, 0, n)
+                let kept: string = str_slice(frac, 0, n)
                 return intpart + "." + kept
             }
         }
@@ -576,7 +576,7 @@ fn widget_table(values: WidgetValues[100], count: u32, rows: u32, unit: string, 
         let epoch: u32 = u32(value.recordedEpoch)
         out = out + template_fill(widget_template("cards/table-row"),
             vars("__locale", locale) +
-            vars("epoch", rho_int_to_str(epoch)) +
+            vars("epoch", int_to_str(epoch)) +
             vars("value", widget_round(value.valueText, decimals)) +
             vars("unit", unit))
         i = i + 1
@@ -586,12 +586,12 @@ fn widget_table(values: WidgetValues[100], count: u32, rows: u32, unit: string, 
 
 
 fn widget_card_controls(id: u32, pinned: u32, kind: string, locale: string) string {
-    let sid: string = rho_int_to_str(id)
+    let sid: string = int_to_str(id)
     var pinnable: string = ""
     var pinned_flag: string = ""
     var pin_val: string = "1"
     var pin_icon: string = "📌"
-    if rho_str_eq(kind, "numeric") || rho_str_eq(kind, "chart") {
+    if str_eq(kind, "numeric") || str_eq(kind, "chart") {
         pinnable = "true"
         if pinned == 1 {
             pinned_flag = "true"
@@ -615,24 +615,24 @@ fn widget_card(db: SqlDb, widget: Widgets, locale: string) string {
     var latest: string = ""
     let unit: string = widget.unit
     let mesh_source: bool = widget_mesh_source(widget)
-    if mesh_source && (rho_str_eq(widget.kind, "chart") || rho_str_eq(widget.kind, "table")) {
+    if mesh_source && (str_eq(widget.kind, "chart") || str_eq(widget.kind, "table")) {
         // A chart shows at most widget.points buckets; reading a day of history
         // to keep 24 of them makes the page slow. Request only the recent window
         // that fills the chart, plus a little headroom.
         let history: string = gateway_source_history(widget.source, "2h", "", "60000")
-        let marker: i32 = rho_str_index_of(history, "\"points\":[")
+        let marker: i32 = str_index_of(history, "\"points\":[")
         if marker >= 0 {
-            var rest: string = rho_str_slice(history, u32(marker) + 10,
-                u32(rho_strlen(history)) - u32(marker) - 10)
+            var rest: string = str_slice(history, u32(marker) + 10,
+                u32(strlen(history)) - u32(marker) - 10)
             while rest != "" && count < VALUE_CAPACITY {
-                let at: i32 = rho_str_index_of(rest, "},{")
+                let at: i32 = str_index_of(rest, "},{")
                 var object: string = rest
                 if at < 0 {
                     rest = ""
                 } else {
-                    object = rho_str_slice(rest, 0, u32(at) + 1)
-                    rest = rho_str_slice(rest, u32(at) + 3,
-                        u32(rho_strlen(rest)) - u32(at) - 3)
+                    object = str_slice(rest, 0, u32(at) + 1)
+                    rest = str_slice(rest, u32(at) + 3,
+                        u32(strlen(rest)) - u32(at) - 3)
                 }
                 let value_text: string = widget_json_number_field(object, "v")
                 if value_text != "" {
@@ -670,19 +670,19 @@ fn widget_card(db: SqlDb, widget: Widgets, locale: string) string {
         }
         latest = widget_latest_text(db, u32(widget.id))
     }
-    let sid: string = rho_int_to_str(u32(widget.id))
+    let sid: string = int_to_str(u32(widget.id))
     let controls: string = widget_card_controls(u32(widget.id), u32(widget.pinned), widget.kind, locale)
-    if rho_str_eq(widget.kind, "button") {
+    if str_eq(widget.kind, "button") {
         return template_fill(widget_template("cards/button"),
             vars("__locale", locale) + vars("locale", locale) +
             vars("id", sid) + vars("size", widget.size) +
             vars("title", widget.title) + vars("controls", controls))
     }
-    if rho_str_eq(widget.kind, "toggle") {
+    if str_eq(widget.kind, "toggle") {
         let state: string = widget_toggle_state(db, u32(widget.id))
         var on_class: string = ""
         var on_flag: string = ""
-        if rho_str_eq(state, "on") {
+        if str_eq(state, "on") {
             on_class = " on"
             on_flag = "true"
         }
@@ -692,26 +692,26 @@ fn widget_card(db: SqlDb, widget: Widgets, locale: string) string {
             vars("title", widget.title) + vars("controls", controls) +
             vars("on_class", on_class) + vars("on", on_flag))
     }
-    if rho_str_eq(widget.kind, "table") {
+    if str_eq(widget.kind, "table") {
         return template_fill(widget_template("cards/table-card"),
             vars("__locale", locale) + vars("locale", locale) +
             vars("refresh_seconds", widget_setting("refresh_seconds", "10")) +
             vars("id", sid) + vars("size", widget.size) +
             vars("title", widget.title) + vars("controls", controls) +
             vars("table", widget_table(values, count, u32(widget.points), unit, u32(widget.decimals), locale)) +
-            vars("count", rho_int_to_str(count)) +
+            vars("count", int_to_str(count)) +
             vars("source_kind", widget.sourceKind))
     }
-    if rho_str_eq(widget.kind, "status") {
+    if str_eq(widget.kind, "status") {
         var state_class: string = "info"
         var text: string = latest
-        let colon: i32 = rho_str_index_of(latest, ":")
+        let colon: i32 = str_index_of(latest, ":")
         if colon >= 0 {
-            let prefix: string = rho_str_slice(latest, 0, u32(colon))
-            text = rho_str_slice(latest, u32(colon) + 1,
-                u32(rho_strlen(latest)) - u32(colon) - 1)
-            if rho_str_eq(prefix, "ok") || rho_str_eq(prefix, "warn") ||
-                rho_str_eq(prefix, "bad") || rho_str_eq(prefix, "info") {
+            let prefix: string = str_slice(latest, 0, u32(colon))
+            text = str_slice(latest, u32(colon) + 1,
+                u32(strlen(latest)) - u32(colon) - 1)
+            if str_eq(prefix, "ok") || str_eq(prefix, "warn") ||
+                str_eq(prefix, "bad") || str_eq(prefix, "info") {
                 state_class = prefix
             }
         }
@@ -725,7 +725,7 @@ fn widget_card(db: SqlDb, widget: Widgets, locale: string) string {
             vars("state_class", state_class) + vars("text", text))
     }
     var chart: string = ""
-    if rho_str_eq(widget.kind, "chart") {
+    if str_eq(widget.kind, "chart") {
         chart = widget_chart(values, count, locale)
     }
     return template_fill(widget_template("cards/numeric"),
@@ -744,14 +744,14 @@ fn widgets_dashboard_cards(refresh: bool, locale: string) string {
     // fragment route re-renders what is stored and does not fetch again, so a
     // client that follows an event does not start another fetch.
     if refresh {
-        ignore_u32(widgets_sync_state())
+        widgets_sync_state()
     }
     let opened: Result[SqlDb, string] = sql_open(widget_db_path())
     if !opened.is_ok {
         return ""
     }
     let db: SqlDb = opened.ok
-    ignore_u32(sql_apply(db, ""))
+    sql_apply(db, "")
     let widgets: Widgets[128]
     let slice: Slice[Widgets] = Slice[Widgets]{ Ptr[Widgets](&widgets[0]), WIDGET_CAPACITY }
     let listed: Result[u32, SqlError] = ListWidgets(db, slice, WIDGET_CAPACITY)
@@ -783,15 +783,15 @@ fn widget_rows(db: SqlDb, widgets: Widgets[128], count: u32, locale: string) str
         let latest: string = widget_latest_text(db, u32(widget.id))
         out = out + template_fill(widget_template("rows/widget-row"),
             vars("__locale", locale) +
-            vars("id", rho_int_to_str(u32(widget.id))) +
+            vars("id", int_to_str(u32(widget.id))) +
             vars("title", widget.title) +
             vars("kind", widget.kind) +
             vars("source", widget.sourceKind + " · " + widget.source) +
             vars("latest", latest + " " + widget.unit) +
             vars("method", widget.method) +
-            vars("manual", if rho_str_eq(widget.sourceKind, "manual") { "1" } else { "" }) +
-            vars("pressable", if rho_str_eq(widget.kind, "button") ||
-                rho_str_eq(widget.kind, "toggle") { "1" } else { "" }))
+            vars("manual", if str_eq(widget.sourceKind, "manual") { "1" } else { "" }) +
+            vars("pressable", if str_eq(widget.kind, "button") ||
+                str_eq(widget.kind, "toggle") { "1" } else { "" }))
         i = i + 1
     }
     if out == "" {
@@ -827,11 +827,11 @@ fn widgets_live_changed() bool {
         return false
     }
     let seen_file: string = widget_state_dir() + "/mesh-live.seen"
-    let size: string = rho_int_to_str(u32(rho_strlen(rho_read_text(path))))
-    if rho_str_eq(size, rho_read_text(seen_file)) {
+    let size: string = int_to_str(u32(strlen(rho_read_text(path))))
+    if str_eq(size, rho_read_text(seen_file)) {
         return false
     }
-    ignore_bool(rho_write_text(seen_file, size))
+    rho_write_text(seen_file, size)
     return true
 }
 
@@ -841,7 +841,7 @@ fn widgets_refresh_all() u32 {
         return 0
     }
     let db: SqlDb = opened.ok
-    ignore_u32(sql_apply(db, ""))
+    sql_apply(db, "")
     let widgets: Widgets[128]
     let slice: Slice[Widgets] = Slice[Widgets]{ Ptr[Widgets](&widgets[0]), WIDGET_CAPACITY }
     let listed: Result[u32, SqlError] = ListWidgets(db, slice, WIDGET_CAPACITY)
@@ -854,7 +854,7 @@ fn widgets_refresh_all() u32 {
     while i < count {
         let current: string = widget_latest_text(db, u32(widgets[i].id))
         let latest: string = widget_refresh(widgets[i])
-        if latest != "" && !rho_str_eq(latest, current) {
+        if latest != "" && !str_eq(latest, current) {
             widget_event(u32(widgets[i].id), latest)
             changed = changed + 1
         }
@@ -865,14 +865,14 @@ fn widgets_refresh_all() u32 {
 }
 
 fn widgets_page_message(req: Request, message: string) Response {
-    ignore_u32(widgets_sync_state())
+    widgets_sync_state()
     let opened: Result[SqlDb, string] = sql_open(widget_db_path())
     if !opened.is_ok {
         return html(status_internal(), "<h1>Widgets</h1><p>The database could not be opened: " +
             escape_html(opened.err) + "</p>")
     }
     let db: SqlDb = opened.ok
-    ignore_u32(sql_apply(db, ""))
+    sql_apply(db, "")
     let widgets: Widgets[128]
     let slice: Slice[Widgets] = Slice[Widgets]{ Ptr[Widgets](&widgets[0]), WIDGET_CAPACITY }
     let listed: Result[u32, SqlError] = ListWidgets(db, slice, WIDGET_CAPACITY)
@@ -935,20 +935,20 @@ fn widgets_add(req: Request) Response {
         return widgets_page_message(req, i18n_t(req, "widget.csrf_refused"))
     }
     let title: string = widget_trim(widget_form_value(body, "title"))
-    if rho_strlen(title) == 0 {
+    if strlen(title) == 0 {
         return widgets_page_message(req, "A widget needs a title.")
     }
     var kind: string = widget_form_value(body, "kind")
-    if rho_strlen(kind) == 0 {
+    if strlen(kind) == 0 {
         kind = "numeric"
     }
     var source_kind: string = widget_form_value(body, "source_kind")
-    if rho_strlen(source_kind) == 0 {
+    if strlen(source_kind) == 0 {
         source_kind = "manual"
     }
     var source: string = widget_trim(widget_form_value(body, "source"))
     var method: string = widget_trim(widget_form_value(body, "method"))
-    if rho_strlen(method) == 0 {
+    if strlen(method) == 0 {
         method = "GET"
     }
     var mesh_source: string = widget_trim(widget_form_value(body, "mesh_source"))
@@ -963,7 +963,7 @@ fn widgets_add(req: Request) Response {
         method = "GET"
     }
     let unit: string = widget_trim(widget_form_value(body, "unit"))
-    var points: u32 = rho_int_from_str(widget_trim(widget_form_value(body, "points")))
+    var points: u32 = int_from_str(widget_trim(widget_form_value(body, "points")))
     if points == 0 {
         points = 24
     }
@@ -972,10 +972,10 @@ fn widgets_add(req: Request) Response {
         return widgets_page_message(req, "The database could not be opened: " + opened.err)
     }
     let db: SqlDb = opened.ok
-    ignore_u32(sql_apply(db, ""))
+    sql_apply(db, "")
     let added: Result[u32, SqlError] = InsertWidget(title, kind, source_kind, source,
-        method, unit, rho_int_to_str(points), "0", "small", "2",
-        rho_int_to_str(widget_now()), db)
+        method, unit, int_to_str(points), "0", "small", "2",
+        int_to_str(widget_now()), db)
     sql_close(db)
     if !added.is_ok {
         notification_push_level_locale(i18n_t(req, "toast.widget_failed") + ": " + added.err.message, "error", 10, i18n_locale(req))
@@ -987,13 +987,13 @@ fn widgets_add(req: Request) Response {
 }
 
 fn widget_edit_page(req: Request) Response {
-    let id: u32 = rho_int_from_str(request_query_param(req, "id"))
+    let id: u32 = int_from_str(request_query_param(req, "id"))
     let opened: Result[SqlDb, string] = sql_open(widget_db_path())
     if !opened.is_ok {
         return widgets_page_message(req, "The database could not be opened: " + opened.err)
     }
     let db: SqlDb = opened.ok
-    ignore_u32(sql_apply(db, ""))
+    sql_apply(db, "")
     let widgets: Widgets[128]
     let slice: Slice[Widgets] = Slice[Widgets]{ Ptr[Widgets](&widgets[0]), WIDGET_CAPACITY }
     let listed: Result[u32, SqlError] = ListWidgets(db, slice, WIDGET_CAPACITY)
@@ -1016,7 +1016,7 @@ fn widget_edit_page(req: Request) Response {
     let index: u32 = u32(found)
     let widget: Widgets = widgets[index]
     let body: string = template_fill(widget_template("pages/widget-edit"),
-        vars("id", rho_int_to_str(u32(widget.id))) +
+        vars("id", int_to_str(u32(widget.id))) +
         vars("title", widget.title) +
         vars("kind", widget.kind) +
         vars("source_kind", widget.sourceKind) +
@@ -1027,17 +1027,17 @@ fn widget_edit_page(req: Request) Response {
         vars("method_options", widget_method_options(widget.method)) +
         vars("device_options", widget_gateway_source_options(widget.source)) +
         vars("unit", widget.unit) +
-        vars("points", rho_int_to_str(u32(widget.points))) +
-        vars("decimals", rho_int_to_str(u32(widget.decimals))) +
-        vars("manual", if rho_str_eq(widget.sourceKind, "manual") { "1" } else { "" }) +
-        vars("pressable", if rho_str_eq(widget.kind, "button") ||
-            rho_str_eq(widget.kind, "toggle") { "1" } else { "" }))
+        vars("points", int_to_str(u32(widget.points))) +
+        vars("decimals", int_to_str(u32(widget.decimals))) +
+        vars("manual", if str_eq(widget.sourceKind, "manual") { "1" } else { "" }) +
+        vars("pressable", if str_eq(widget.kind, "button") ||
+            str_eq(widget.kind, "toggle") { "1" } else { "" }))
     return host_shell(req, "Edit widget", body, "")
 }
 
 fn widgets_edit_save(req: Request) Response {
     let body: string = request_body(req)
-    let id: u32 = rho_int_from_str(widget_trim(widget_form_value(body, "id")))
+    let id: u32 = int_from_str(widget_trim(widget_form_value(body, "id")))
     if id == 0 {
         return widgets_page_message(req, "That widget was not found.")
     }
@@ -1046,7 +1046,7 @@ fn widgets_edit_save(req: Request) Response {
         return widgets_page_message(req, "The database could not be opened: " + opened.err)
     }
     let db: SqlDb = opened.ok
-    ignore_u32(sql_apply(db, ""))
+    sql_apply(db, "")
     var source: string = widget_trim(widget_form_value(body, "source"))
     var method: string = widget_trim(widget_form_value(body, "method"))
     var source_kind: string = widget_form_value(body, "source_kind")
@@ -1061,8 +1061,8 @@ fn widgets_edit_save(req: Request) Response {
         source_kind = "mesh"
         method = "GET"
     }
-    let points: u32 = rho_int_from_str(widget_trim(widget_form_value(body, "points")))
-    var decimals: u32 = rho_int_from_str(widget_trim(widget_form_value(body, "decimals")))
+    let points: u32 = int_from_str(widget_trim(widget_form_value(body, "points")))
+    var decimals: u32 = int_from_str(widget_trim(widget_form_value(body, "decimals")))
     if decimals > 3 { decimals = 3 }
     let updated: Result[u32, SqlError] = UpdateWidget(
         widget_trim(widget_form_value(body, "title")),
@@ -1082,13 +1082,13 @@ fn widgets_edit_save(req: Request) Response {
 
 fn widgets_delete(req: Request) Response {
     let body: string = request_body(req)
-    let id: u32 = rho_int_from_str(widget_trim(widget_form_value(body, "id")))
+    let id: u32 = int_from_str(widget_trim(widget_form_value(body, "id")))
     let opened: Result[SqlDb, string] = sql_open(widget_db_path())
     if !opened.is_ok {
         return widgets_page_message(req, "The database could not be opened: " + opened.err)
     }
     let db: SqlDb = opened.ok
-    ignore_u32(sql_apply(db, ""))
+    sql_apply(db, "")
     let removed: Result[u32, SqlError] = DeleteWidget(i64(id), db)
     sql_close(db)
     if !removed.is_ok {
@@ -1099,7 +1099,7 @@ fn widgets_delete(req: Request) Response {
 }
 
 fn widgets_move_response(req: Request) Response {
-    if rho_str_eq(header_str(req, "HX-Request"), "true") {
+    if str_eq(header_str(req, "HX-Request"), "true") {
         return html(status_ok(), widgets_dashboard_cards(false, i18n_locale(req)))
     }
     return widgets_page_message(req, "Widget moved.")
@@ -1107,12 +1107,12 @@ fn widgets_move_response(req: Request) Response {
 
 fn widgets_move(req: Request) Response {
     let body: string = request_body(req)
-    let id: u32 = rho_int_from_str(widget_trim(widget_form_value(body, "id")))
+    let id: u32 = int_from_str(widget_trim(widget_form_value(body, "id")))
     let delta_str: string = widget_trim(widget_form_value(body, "delta"))
     var delta: i32 = 0
-    if rho_str_eq(delta_str, "-1") || rho_str_eq(delta_str, "-") {
+    if str_eq(delta_str, "-1") || str_eq(delta_str, "-") {
         delta = -1
-    } else if rho_str_eq(delta_str, "1") || rho_str_eq(delta_str, "+") {
+    } else if str_eq(delta_str, "1") || str_eq(delta_str, "+") {
         delta = 1
     }
     if id == 0 {
@@ -1123,7 +1123,7 @@ fn widgets_move(req: Request) Response {
         return widgets_page_message(req, "The database could not be opened: " + opened.err)
     }
     let db: SqlDb = opened.ok
-    ignore_u32(sql_apply(db, ""))
+    sql_apply(db, "")
     let widgets: Widgets[128]
     let slice: Slice[Widgets] = Slice[Widgets]{ Ptr[Widgets](&widgets[0]), WIDGET_CAPACITY }
     let listed: Result[u32, SqlError] = ListWidgets(db, slice, WIDGET_CAPACITY)
@@ -1167,7 +1167,7 @@ fn widgets_move(req: Request) Response {
 
 fn widgets_resize(req: Request) Response {
     let body: string = request_body(req)
-    let id: u32 = rho_int_from_str(widget_trim(widget_form_value(body, "id")))
+    let id: u32 = int_from_str(widget_trim(widget_form_value(body, "id")))
     if id == 0 {
         return widgets_page_message(req, "No such widget.")
     }
@@ -1180,7 +1180,7 @@ fn widgets_resize(req: Request) Response {
             return widgets_page_message(req, "The database could not be opened: " + opened0.err)
         }
         let db0: SqlDb = opened0.ok
-        ignore_u32(sql_apply(db0, ""))
+        sql_apply(db0, "")
         let widgets: Widgets[128]
         let slice: Slice[Widgets] = Slice[Widgets]{ Ptr[Widgets](&widgets[0]), WIDGET_CAPACITY }
         let listed: Result[u32, SqlError] = ListWidgets(db0, slice, WIDGET_CAPACITY)
@@ -1195,13 +1195,13 @@ fn widgets_resize(req: Request) Response {
             i = i + 1
         }
         sql_close(db0)
-        if rho_str_eq(delta, "inc") {
-            if rho_str_eq(cur, "small") { size = "medium" }
-            else if rho_str_eq(cur, "medium") { size = "big" }
+        if str_eq(delta, "inc") {
+            if str_eq(cur, "small") { size = "medium" }
+            else if str_eq(cur, "medium") { size = "big" }
             else { size = "big" }
         } else {
-            if rho_str_eq(cur, "big") { size = "medium" }
-            else if rho_str_eq(cur, "medium") { size = "small" }
+            if str_eq(cur, "big") { size = "medium" }
+            else if str_eq(cur, "medium") { size = "small" }
             else { size = "small" }
         }
     }
@@ -1211,11 +1211,11 @@ fn widgets_resize(req: Request) Response {
         return widgets_page_message(req, "The database could not be opened: " + opened.err)
     }
     let db: SqlDb = opened.ok
-    ignore_u32(sql_apply(db, ""))
+    sql_apply(db, "")
     ignore_result(ResizeWidget(size, i64(id), db))
     sql_close(db)
     notification_push_level_locale(i18n_t(req, "toast.widget_resized"), "info", 5, i18n_locale(req))
-    if rho_str_eq(header_str(req, "HX-Request"), "true") {
+    if str_eq(header_str(req, "HX-Request"), "true") {
         return html(status_ok(), widget_card_html(id, i18n_locale(req)))
     }
     return widgets_page_message(req, "Widget resized.")
@@ -1224,7 +1224,7 @@ fn widgets_resize(req: Request) Response {
 
 fn widgets_pin(req: Request) Response {
     let body: string = request_body(req)
-    let id: u32 = rho_int_from_str(widget_trim(widget_form_value(body, "id")))
+    let id: u32 = int_from_str(widget_trim(widget_form_value(body, "id")))
     let pinned: string = widget_trim(widget_form_value(body, "pinned"))
     if id == 0 {
         return widgets_page_message(req, "No such widget.")
@@ -1234,14 +1234,14 @@ fn widgets_pin(req: Request) Response {
         return widgets_page_message(req, "The database could not be opened: " + opened.err)
     }
     let db: SqlDb = opened.ok
-    ignore_u32(sql_apply(db, ""))
+    sql_apply(db, "")
     var pval: i64 = 1
-    if rho_str_eq(pinned, "0") {
+    if str_eq(pinned, "0") {
         pval = 0
     }
     ignore_result(PinWidget(pval, i64(id), db))
     sql_close(db)
-    if rho_str_eq(header_str(req, "HX-Request"), "true") {
+    if str_eq(header_str(req, "HX-Request"), "true") {
         return html(status_ok(), widget_card_html(id, i18n_locale(req)))
     }
     return widgets_page_message(req, "Widget pinned.")
@@ -1249,9 +1249,9 @@ fn widgets_pin(req: Request) Response {
 
 fn widgets_value(req: Request) Response {
     let body: string = request_body(req)
-    let id: u32 = rho_int_from_str(widget_trim(widget_form_value(body, "id")))
+    let id: u32 = int_from_str(widget_trim(widget_form_value(body, "id")))
     let value: string = widget_trim(widget_form_value(body, "value"))
-    if id == 0 || rho_strlen(value) == 0 {
+    if id == 0 || strlen(value) == 0 {
         return widgets_page_message(req, "A value needs a widget and a number.")
     }
     let opened: Result[SqlDb, string] = sql_open(widget_db_path())
@@ -1259,22 +1259,22 @@ fn widgets_value(req: Request) Response {
         return widgets_page_message(req, "The database could not be opened: " + opened.err)
     }
     let db: SqlDb = opened.ok
-    ignore_u32(sql_apply(db, ""))
-    widget_ignore_result(InsertWidgetValue(rho_int_to_str(id), value,
-        rho_int_to_str(u32(widget_parse_milli(value))), rho_int_to_str(widget_now()), db))
+    sql_apply(db, "")
+    widget_ignore_result(InsertWidgetValue(int_to_str(id), value,
+        int_to_str(u32(widget_parse_milli(value))), int_to_str(widget_now()), db))
     sql_close(db)
     return widgets_page_message(req, "Value recorded.")
 }
 
 fn widgets_press(req: Request) Response {
     let body: string = request_body(req)
-    let id: u32 = rho_int_from_str(widget_trim(widget_form_value(body, "id")))
+    let id: u32 = int_from_str(widget_trim(widget_form_value(body, "id")))
     let opened: Result[SqlDb, string] = sql_open(widget_db_path())
     if !opened.is_ok {
         return widgets_page_message(req, "The database could not be opened: " + opened.err)
     }
     let db: SqlDb = opened.ok
-    ignore_u32(sql_apply(db, ""))
+    sql_apply(db, "")
     let widgets: Widgets[128]
     let slice: Slice[Widgets] = Slice[Widgets]{ Ptr[Widgets](&widgets[0]), WIDGET_CAPACITY }
     let listed: Result[u32, SqlError] = ListWidgets(db, slice, WIDGET_CAPACITY)
@@ -1298,9 +1298,9 @@ fn widgets_press(req: Request) Response {
     let widget: Widgets = widgets[found_index]
     var hook: string = widget.source
     var new_state: string = ""
-    if rho_str_eq(widget.kind, "toggle") {
+    if str_eq(widget.kind, "toggle") {
         var state: string = widget_toggle_state(db, id)
-        if rho_str_eq(state, "on") {
+        if str_eq(state, "on") {
             new_state = "off"
         } else {
             new_state = "on"
@@ -1308,12 +1308,12 @@ fn widgets_press(req: Request) Response {
         hook = widget_hook(widget.source, new_state)
     }
     let method: string = widget.method
-    let report: string = widget_report("press-" + rho_int_to_str(id))
+    let report: string = widget_report("press-" + int_to_str(id))
     let code: u32 = rho_exec("curl",
         "-fsS -m 5 -X " + method + widget_auth_header() + " " + widget_arg_quote(hook), report)
-    if rho_str_eq(widget.kind, "toggle") && code == 0 {
-        widget_ignore_result(InsertWidgetValue(rho_int_to_str(id), new_state,
-            "0", rho_int_to_str(widget_now()), db))
+    if str_eq(widget.kind, "toggle") && code == 0 {
+        widget_ignore_result(InsertWidgetValue(int_to_str(id), new_state,
+            "0", int_to_str(widget_now()), db))
         // A second dashboard is listening to the stream; the press itself is
         // the event, not only the difference a poll would find later.
         widget_event(id, new_state)
@@ -1323,14 +1323,14 @@ fn widgets_press(req: Request) Response {
         event_message = event_message + " (hook failed)"
     }
     widget_ignore_result(InsertEvent("INFO", "widget", event_message,
-        rho_int_to_str(widget_now()), db))
+        int_to_str(widget_now()), db))
     let card: string = widget_card(db, widget, i18n_locale(req))
     sql_close(db)
-    if rho_str_eq(header_str(req, "HX-Request"), "true") {
+    if str_eq(header_str(req, "HX-Request"), "true") {
         return html(status_ok(), card)
     }
     let back: string = widget_form_value(body, "return")
-    if rho_str_eq(back, "dashboard") {
+    if str_eq(back, "dashboard") {
         var ok: string = "true"
         if code != 0 {
             ok = "false"
@@ -1360,7 +1360,7 @@ fn widget_state_dir() string {
         workspace = getenv("HOME") + "/.rho/modules/widgets"
     }
     let dir: string = workspace + "/data"
-    ignore_u32(rho_exec("mkdir", "-p " + dir, dir + "/mkdir.txt"))
+    rho_exec("mkdir", "-p " + dir, dir + "/mkdir.txt")
     return dir
 }
 
@@ -1372,7 +1372,7 @@ fn widget_card_html(widget_id: u32, locale: string) string {
         return ""
     }
     let db: SqlDb = opened.ok
-    ignore_u32(sql_apply(db, ""))
+    sql_apply(db, "")
     let widgets: Widgets[128]
     let slice: Slice[Widgets] = Slice[Widgets]{ Ptr[Widgets](&widgets[0]), WIDGET_CAPACITY }
     let listed: Result[u32, SqlError] = ListWidgets(db, slice, WIDGET_CAPACITY)
@@ -1401,20 +1401,20 @@ fn widget_event(widget_id: u32, state: string) void {
     var lines: string = ""
     var locales: string = "en\nro"
     while locales != "" {
-        let at: i32 = rho_str_index_of(locales, "\n")
+        let at: i32 = str_index_of(locales, "\n")
         var code: string = locales
         if at < 0 { locales = "" } else {
-            code = rho_str_slice(locales, 0, u32(at))
-            locales = rho_str_slice(locales, u32(at) + 1, u32(rho_strlen(locales)) - u32(at) - 1)
+            code = str_slice(locales, 0, u32(at))
+            locales = str_slice(locales, u32(at) + 1, u32(strlen(locales)) - u32(at) - 1)
         }
         if code != "" {
             let card: string = widget_card_html(widget_id, code)
             if card != "" {
-                lines = lines + widget_event_json("widget-" + rho_int_to_str(widget_id) + "-" + code, card)
+                lines = lines + widget_event_json("widget-" + int_to_str(widget_id) + "-" + code, card)
             }
         }
     }
-    ignore_bool(rho_write_text(file, rho_read_text(file) + lines))
+    rho_write_text(file, rho_read_text(file) + lines)
 }
 
 fn widgets_snapshot_events() void {
@@ -1423,7 +1423,7 @@ fn widgets_snapshot_events() void {
         return
     }
     let db: SqlDb = opened.ok
-    ignore_u32(sql_apply(db, ""))
+    sql_apply(db, "")
     let widgets: Widgets[128]
     let slice: Slice[Widgets] = Slice[Widgets]{ Ptr[Widgets](&widgets[0]), WIDGET_CAPACITY }
     let listed: Result[u32, SqlError] = ListWidgets(db, slice, WIDGET_CAPACITY)
@@ -1436,21 +1436,21 @@ fn widgets_snapshot_events() void {
     while i < count {
         var locales: string = "en\nro"
         while locales != "" {
-            let at: i32 = rho_str_index_of(locales, "\n")
+            let at: i32 = str_index_of(locales, "\n")
             var code: string = locales
             if at < 0 { locales = "" } else {
-                code = rho_str_slice(locales, 0, u32(at))
-                locales = rho_str_slice(locales, u32(at) + 1, u32(rho_strlen(locales)) - u32(at) - 1)
+                code = str_slice(locales, 0, u32(at))
+                locales = str_slice(locales, u32(at) + 1, u32(strlen(locales)) - u32(at) - 1)
             }
             if code != "" {
-                out = out + widget_event_json("widget-" + rho_int_to_str(u32(widgets[i].id)) + "-" + code,
+                out = out + widget_event_json("widget-" + int_to_str(u32(widgets[i].id)) + "-" + code,
                     widget_card(db, widgets[i], code))
             }
         }
         i = i + 1
     }
     sql_close(db)
-    ignore_bool(rho_write_text(widgets_snapshot_file(), out))
+    rho_write_text(widgets_snapshot_file(), out)
 }
 
 fn widgets_events(req: Request) Response {
@@ -1477,7 +1477,7 @@ fn widgets_sync_state() u32 {
         return 0
     }
     let db: SqlDb = opened.ok
-    ignore_u32(sql_apply(db, ""))
+    sql_apply(db, "")
     let widgets: Widgets[128]
     let slice: Slice[Widgets] = Slice[Widgets]{ Ptr[Widgets](&widgets[0]), WIDGET_CAPACITY }
     let listed: Result[u32, SqlError] = ListWidgets(db, slice, WIDGET_CAPACITY)
@@ -1489,45 +1489,45 @@ fn widgets_sync_state() u32 {
     var i: u32 = 0
     while i < count {
         let widget: Widgets = widgets[i]
-        if rho_str_eq(widget.kind, "toggle") {
-            let marker: i32 = rho_str_index_of(widget.source, "/api/v1/devices/")
+        if str_eq(widget.kind, "toggle") {
+            let marker: i32 = str_index_of(widget.source, "/api/v1/devices/")
             if marker >= 0 {
-                let tail: string = rho_str_slice(widget.source, u32(marker) + 16,
-                    u32(rho_strlen(widget.source)) - u32(marker) - 16)
-                let slash: i32 = rho_str_index_of(tail, "/")
+                let tail: string = str_slice(widget.source, u32(marker) + 16,
+                    u32(strlen(widget.source)) - u32(marker) - 16)
+                let slash: i32 = str_index_of(tail, "/")
                 if slash > 0 {
-                    let device_id: string = rho_str_slice(tail, 0, u32(slash))
+                    let device_id: string = str_slice(tail, 0, u32(slash))
                     var rest: string = states
                     var state: string = ""
                     while rest != "" {
-                        let at: i32 = rho_str_index_of(rest, "\n")
+                        let at: i32 = str_index_of(rest, "\n")
                         let line: string = ""
                         if at < 0 {
                             line = rest
                             rest = ""
                         } else {
-                            line = rho_str_slice(rest, 0, u32(at))
-                            rest = rho_str_slice(rest, u32(at) + 1,
-                                u32(rho_strlen(rest)) - u32(at) - 1)
+                            line = str_slice(rest, 0, u32(at))
+                            rest = str_slice(rest, u32(at) + 1,
+                                u32(strlen(rest)) - u32(at) - 1)
                         }
-                        let colon: i32 = rho_str_index_of(line, ":")
-                        if colon > 0 && rho_str_eq(rho_str_slice(line, 0, u32(colon)), device_id) {
-                            state = rho_str_slice(line, u32(colon) + 1,
-                                u32(rho_strlen(line)) - u32(colon) - 1)
+                        let colon: i32 = str_index_of(line, ":")
+                        if colon > 0 && str_eq(str_slice(line, 0, u32(colon)), device_id) {
+                            state = str_slice(line, u32(colon) + 1,
+                                u32(strlen(line)) - u32(colon) - 1)
                         }
                     }
-                    if state != "" && !rho_str_eq(widget_toggle_state(db, u32(widget.id)), state) {
-                        widget_ignore_result(InsertWidgetValue(rho_int_to_str(u32(widget.id)), state,
-                            "0", rho_int_to_str(widget_now()), db))
+                    if state != "" && !str_eq(widget_toggle_state(db, u32(widget.id)), state) {
+                        widget_ignore_result(InsertWidgetValue(int_to_str(u32(widget.id)), state,
+                            "0", int_to_str(widget_now()), db))
                         widget_event(u32(widget.id), state)
                         updated = updated + 1
                     }
                 }
             }
             let gateway_state: string = widget_gateway_state(widget)
-            if gateway_state != "" && !rho_str_eq(widget_toggle_state(db, u32(widget.id)), gateway_state) {
-                widget_ignore_result(InsertWidgetValue(rho_int_to_str(u32(widget.id)), gateway_state,
-                    "0", rho_int_to_str(widget_now()), db))
+            if gateway_state != "" && !str_eq(widget_toggle_state(db, u32(widget.id)), gateway_state) {
+                widget_ignore_result(InsertWidgetValue(int_to_str(u32(widget.id)), gateway_state,
+                    "0", int_to_str(widget_now()), db))
                 widget_event(u32(widget.id), gateway_state)
                 updated = updated + 1
             }
@@ -1544,7 +1544,7 @@ fn widgets_refresh_values() u32 {
         return 0
     }
     let db: SqlDb = opened.ok
-    ignore_u32(sql_apply(db, ""))
+    sql_apply(db, "")
     let widgets: Widgets[128]
     let slice: Slice[Widgets] = Slice[Widgets]{ Ptr[Widgets](&widgets[0]), WIDGET_CAPACITY }
     let listed: Result[u32, SqlError] = ListWidgets(db, slice, WIDGET_CAPACITY)
@@ -1569,11 +1569,11 @@ fn widget_event_cards() void {
     var lines: string = ""
     var locales: string = "en\nro"
     while locales != "" {
-        let at: i32 = rho_str_index_of(locales, "\n")
+        let at: i32 = str_index_of(locales, "\n")
         var code: string = locales
         if at < 0 { locales = "" } else {
-            code = rho_str_slice(locales, 0, u32(at))
-            locales = rho_str_slice(locales, u32(at) + 1, u32(rho_strlen(locales)) - u32(at) - 1)
+            code = str_slice(locales, 0, u32(at))
+            locales = str_slice(locales, u32(at) + 1, u32(strlen(locales)) - u32(at) - 1)
         }
         if code != "" {
             let grid: string = widgets_dashboard_cards(false, code)
@@ -1582,7 +1582,7 @@ fn widget_event_cards() void {
             }
         }
     }
-    ignore_bool(rho_write_text(file, rho_read_text(file) + lines))
+    rho_write_text(file, rho_read_text(file) + lines)
 }
 
 fn widgets_refresh(req: Request) Response {
@@ -1591,8 +1591,8 @@ fn widgets_refresh(req: Request) Response {
     if changed > 0 {
         widget_event_cards()
     }
-    return json(status_ok(), "{\"updated\":" + rho_int_to_str(updated) +
-        ",\"changed\":" + rho_int_to_str(changed) + "}")
+    return json(status_ok(), "{\"updated\":" + int_to_str(updated) +
+        ",\"changed\":" + int_to_str(changed) + "}")
 }
 
 fn widgets_cards(req: Request) Response {
@@ -1600,7 +1600,7 @@ fn widgets_cards(req: Request) Response {
 }
 
 fn widgets_card_endpoint(req: Request) Response {
-    let id: u32 = u32(rho_int_from_str(param(req, "id")))
+    let id: u32 = u32(int_from_str(param(req, "id")))
     let card: string = widget_card_html(id, i18n_locale(req))
     if card == "" {
         return text(status_not_found(), "not found")
@@ -1617,13 +1617,13 @@ fn widget_json(db: SqlDb, widget: Widgets) string {
     if widget_mesh_source(widget) {
         latest = gateway_source_latest(widget.source)
     }
-    return "{\"id\":" + rho_int_to_str(u32(widget.id)) +
+    return "{\"id\":" + int_to_str(u32(widget.id)) +
         ",\"title\":" + json_string(widget.title) +
         ",\"kind\":" + json_string(widget.kind) +
         ",\"source_kind\":" + json_string(widget.sourceKind) +
         ",\"latest\":" + json_string(latest) +
         ",\"unit\":" + json_string(widget.unit) +
-        ",\"pinned\":" + rho_int_to_str(u32(widget.pinned)) + "}"
+        ",\"pinned\":" + int_to_str(u32(widget.pinned)) + "}"
 }
 
 fn widgets_api_list(req: Request) Response {
@@ -1632,7 +1632,7 @@ fn widgets_api_list(req: Request) Response {
         return json(status_internal(), "{\"error\":" + json_string(opened.err) + "}")
     }
     let db: SqlDb = opened.ok
-    ignore_u32(sql_apply(db, ""))
+    sql_apply(db, "")
     let widgets: Widgets[128]
     let slice: Slice[Widgets] = Slice[Widgets]{ Ptr[Widgets](&widgets[0]), WIDGET_CAPACITY }
     let listed: Result[u32, SqlError] = ListWidgets(db, slice, WIDGET_CAPACITY)
@@ -1657,7 +1657,7 @@ fn widgets_api_value(req: Request) Response {
     let id: string = param(req, "id")
     let body: string = request_body(req)
     let value: string = widget_trim(widget_form_value(body, "value"))
-    if rho_strlen(id) == 0 || rho_strlen(value) == 0 {
+    if strlen(id) == 0 || strlen(value) == 0 {
         return json(status_bad_request(), "{\"ok\":false}")
     }
     let opened: Result[SqlDb, string] = sql_open(widget_db_path())
@@ -1665,9 +1665,9 @@ fn widgets_api_value(req: Request) Response {
         return json(status_internal(), "{\"ok\":false}")
     }
     let db: SqlDb = opened.ok
-    ignore_u32(sql_apply(db, ""))
+    sql_apply(db, "")
     widget_ignore_result(InsertWidgetValue(id, value,
-        rho_int_to_str(u32(widget_parse_milli(value))), rho_int_to_str(widget_now()), db))
+        int_to_str(u32(widget_parse_milli(value))), int_to_str(widget_now()), db))
     sql_close(db)
     return json(status_ok(), "{\"ok\":true}")
 }
@@ -1679,7 +1679,7 @@ fn widgets_api_press(req: Request) Response {
         return json(status_internal(), "{\"ok\":false}")
     }
     let db: SqlDb = opened.ok
-    ignore_u32(sql_apply(db, ""))
+    sql_apply(db, "")
     let widgets: Widgets[128]
     let slice: Slice[Widgets] = Slice[Widgets]{ Ptr[Widgets](&widgets[0]), WIDGET_CAPACITY }
     let listed: Result[u32, SqlError] = ListWidgets(db, slice, WIDGET_CAPACITY)
@@ -1690,7 +1690,7 @@ fn widgets_api_press(req: Request) Response {
     var i: u32 = 0
     var found: i32 = -1
     while i < count {
-        if rho_str_eq(rho_int_to_str(u32(widgets[i].id)), id) {
+        if str_eq(int_to_str(u32(widgets[i].id)), id) {
             found = i32(i)
         }
         i = i + 1
@@ -1703,9 +1703,9 @@ fn widgets_api_press(req: Request) Response {
     let widget: Widgets = widgets[found_id]
     var hook: string = widget.source
     var new_state: string = ""
-    if rho_str_eq(widget.kind, "toggle") {
+    if str_eq(widget.kind, "toggle") {
         var state: string = widget_toggle_state(db, u32(found_id))
-        if rho_str_eq(state, "on") {
+        if str_eq(state, "on") {
             new_state = "off"
         } else {
             new_state = "on"
@@ -1715,13 +1715,13 @@ fn widgets_api_press(req: Request) Response {
     let report: string = widget_report("api-press-" + id)
     let code: u32 = rho_exec("curl",
         "-fsS -m 5 -X " + widget.method + widget_auth_header() + " " + widget_arg_quote(hook), report)
-    if rho_str_eq(widget.kind, "toggle") && code == 0 {
+    if str_eq(widget.kind, "toggle") && code == 0 {
         widget_ignore_result(InsertWidgetValue(id, new_state, "0",
-            rho_int_to_str(widget_now()), db))
+            int_to_str(widget_now()), db))
         widget_event(found_id, new_state)
     }
     widget_ignore_result(InsertEvent("INFO", "widget",
-        "Button " + widget.title + " pressed", rho_int_to_str(widget_now()), db))
+        "Button " + widget.title + " pressed", int_to_str(widget_now()), db))
     sql_close(db)
     var ok: string = "true"
     if code != 0 {

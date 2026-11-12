@@ -6,3 +6,8 @@ include "logconfig.rho"
 // in module.yml and imported, rather than left for the host to include.
 import robohub.settings
 import robohub.forms
+
+// The runtime functions this module calls.
+extern fn rho_exec(program: string, arguments: string, output_path: string) u32
+extern fn rho_read_text(path: string) string
+extern fn rho_path_exists(path: string) bool

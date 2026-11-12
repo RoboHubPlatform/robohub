@@ -11,13 +11,17 @@ module:
   previous_ids:
     - robohub.providers.mesh
   type: provider
-  version: 0.2.1
+  version: 0.2.2
   description: Serves Mesh projects, sources, gateway state and telemetry to the gateway contract.
   maintainer: "Aurel Miron"
   license: "MIT"
   created: "2026-11-04"
 
 main: src/provider.rho
+
+# It logs through the toolchain's logger.
+deps:
+  rho-log: ">=0.1.2"
 
 provider:
   contract: gateway

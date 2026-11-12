@@ -82,3 +82,7 @@ and pin actions over HTMX. `widgets_refresh_all` lets a host background worker
 refresh sources and emit per-locale card events. The module's `db/schema.sql`
 and `db/queries.sql` are the canonical card layout and statement set, and both
 host homes now include the card CSS.
+
+## [0.2.4] - 2026-11-12
+
+The module declares the runtime functions it calls rather than relying on the including application. Its smoke test signs in with a keeper ticket and sends the form token the module checks; a widget's latest value is read back again with the toolchain's fix for arrays a database read fills.

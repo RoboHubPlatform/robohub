@@ -12,3 +12,7 @@ The module publishes its interface: it is imported as `robohub.htmx`, and export
 imports it cannot reach its helpers, and they never collide with the
 application's own names. Including it by name still works and is reported with
 the import to use instead.
+
+## [0.2.1] - 2026-11-12
+
+The module builds on its own: it compares strings with the language's own `str_eq` rather than a runtime function its includer had to declare.

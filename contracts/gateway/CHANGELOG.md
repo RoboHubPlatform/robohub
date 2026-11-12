@@ -8,3 +8,7 @@ The sim provider is retired. No application could reach it: energy's
 simulation reaches widgets through Mesh, which serves every reading, and the
 simulated endpoints the provider called were never served. The contract now
 compiles in the mesh provider only.
+
+## [0.2.1] - 2026-11-12
+
+The contract declares `rho-log`, which the mesh provider it includes imports, and calls the language's string functions.

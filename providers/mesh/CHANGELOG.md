@@ -20,3 +20,7 @@ ID and asks `/mesh/api/projects/{project}/telemetry/series`.
 
 Provider now resolves source IDs from URLs, value URLs, and source= params.
 Latest and history calls work with any stored form.
+
+## [0.2.2] - 2026-11-12
+
+The provider declares `rho-log`, which it imports, and calls the language's string functions rather than runtime functions its includer had to declare.

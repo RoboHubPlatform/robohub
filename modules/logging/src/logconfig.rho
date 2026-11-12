@@ -12,19 +12,19 @@ const LOG_FATAL: u32 = 5
 
 fn log_trim(text: string) string {
     var out: string = text
-    while rho_strlen(out) > 0 &&
-        (rho_str_eq(rho_str_slice(out, 0, 1), " ") ||
-         rho_str_eq(rho_str_slice(out, 0, 1), "\n") ||
-         rho_str_eq(rho_str_slice(out, 0, 1), "\r") ||
-         rho_str_eq(rho_str_slice(out, 0, 1), "\t")) {
-        out = rho_str_slice(out, 1, u32(rho_strlen(out)) - 1)
+    while strlen(out) > 0 &&
+        (str_eq(str_slice(out, 0, 1), " ") ||
+         str_eq(str_slice(out, 0, 1), "\n") ||
+         str_eq(str_slice(out, 0, 1), "\r") ||
+         str_eq(str_slice(out, 0, 1), "\t")) {
+        out = str_slice(out, 1, u32(strlen(out)) - 1)
     }
-    while rho_strlen(out) > 0 {
-        let at: u32 = u32(rho_strlen(out)) - 1
-        let last: string = rho_str_slice(out, at, 1)
-        if rho_str_eq(last, " ") || rho_str_eq(last, "\n") ||
-            rho_str_eq(last, "\r") || rho_str_eq(last, "\t") {
-            out = rho_str_slice(out, 0, at)
+    while strlen(out) > 0 {
+        let at: u32 = u32(strlen(out)) - 1
+        let last: string = str_slice(out, at, 1)
+        if str_eq(last, " ") || str_eq(last, "\n") ||
+            str_eq(last, "\r") || str_eq(last, "\t") {
+            out = str_slice(out, 0, at)
         } else {
             break
         }
@@ -34,11 +34,11 @@ fn log_trim(text: string) string {
 
 fn log_level_index(name: string) u32 {
     let value: string = log_trim(name)
-    if rho_str_eq(value, "trace") { return LOG_TRACE }
-    if rho_str_eq(value, "debug") { return LOG_DEBUG }
-    if rho_str_eq(value, "warn") || rho_str_eq(value, "warning") { return LOG_WARN }
-    if rho_str_eq(value, "error") || rho_str_eq(value, "err") { return LOG_ERROR }
-    if rho_str_eq(value, "fatal") { return LOG_FATAL }
+    if str_eq(value, "trace") { return LOG_TRACE }
+    if str_eq(value, "debug") { return LOG_DEBUG }
+    if str_eq(value, "warn") || str_eq(value, "warning") { return LOG_WARN }
+    if str_eq(value, "error") || str_eq(value, "err") { return LOG_ERROR }
+    if str_eq(value, "fatal") { return LOG_FATAL }
     return LOG_INFO
 }
 
@@ -61,7 +61,7 @@ fn log_default_file(app: string) string {
         base = home + "/.local/state"
     }
     let dir: string = base + "/robohub/" + app
-    ignore_u32(rho_exec("mkdir", "-p " + dir, "/dev/null"))
+    rho_exec("mkdir", "-p " + dir, "/dev/null")
     return dir + "/app.log"
 }
 
@@ -78,7 +78,7 @@ fn log_parse_u32(text: string, fallback: u32) u32 {
     if value == "" {
         return fallback
     }
-    let parsed: u32 = rho_int_from_str(value)
+    let parsed: u32 = int_from_str(value)
     if parsed == 0 {
         return fallback
     }
@@ -93,18 +93,18 @@ fn log_file_in_settings_file(path: string, app: string) string {
     }
     var rest: string = rho_read_text(path)
     while rest != "" {
-        let at: i32 = rho_str_index_of(rest, "\n")
+        let at: i32 = str_index_of(rest, "\n")
         var line: string = rest
         if at < 0 {
             rest = ""
         } else {
-            line = rho_str_slice(rest, 0, u32(at))
-            rest = rho_str_slice(rest, u32(at) + 1,
-                u32(rho_strlen(rest)) - u32(at) - 1)
+            line = str_slice(rest, 0, u32(at))
+            rest = str_slice(rest, u32(at) + 1,
+                u32(strlen(rest)) - u32(at) - 1)
         }
-        if rho_str_index_of(line, "log.file=") == 0 {
-            let value: string = log_trim(rho_str_slice(line, 9,
-                u32(rho_strlen(line)) - 9))
+        if str_index_of(line, "log.file=") == 0 {
+            let value: string = log_trim(str_slice(line, 9,
+                u32(strlen(line)) - 9))
             if value != "" {
                 return value
             }
@@ -127,14 +127,14 @@ fn log_file_for_app(app: string) string {
 fn log_config_apply(app: string) void {
     let level: u32 = log_level_index(log_setting("level", "info"))
     var format: string = log_setting("format", "text")
-    if !rho_str_eq(format, "json") {
+    if !str_eq(format, "json") {
         format = "text"
     }
     let file: string = log_file_for_app(app)
     let max_bytes: u32 = log_parse_u32(log_setting("max_bytes", "5242880"), 5242880)
     let keep: u32 = log_parse_u32(log_setting("keep", "5"), 5)
     let stderr: u32 = 1
-    if rho_str_eq(log_setting("stderr", "1"), "0") {
+    if str_eq(log_setting("stderr", "1"), "0") {
         stderr = 0
     }
     configure(level, format, file, i64(max_bytes), keep, stderr)
@@ -185,13 +185,13 @@ fn log_settings_save(app: string, body: string) bool {
         return false
     }
     let level: string = log_trim(forms_parse(body, "level"))
-    if rho_str_eq(level, "trace") || rho_str_eq(level, "debug") ||
-        rho_str_eq(level, "info") || rho_str_eq(level, "warn") ||
-        rho_str_eq(level, "error") || rho_str_eq(level, "fatal") {
+    if str_eq(level, "trace") || str_eq(level, "debug") ||
+        str_eq(level, "info") || str_eq(level, "warn") ||
+        str_eq(level, "error") || str_eq(level, "fatal") {
         settings_set("log.level", level)
     }
     let format: string = log_trim(forms_parse(body, "format"))
-    if rho_str_eq(format, "text") || rho_str_eq(format, "json") {
+    if str_eq(format, "text") || str_eq(format, "json") {
         settings_set("log.format", format)
     }
     var file: string = log_trim(forms_parse(body, "file"))
@@ -199,9 +199,9 @@ fn log_settings_save(app: string, body: string) bool {
         file = log_default_file(app)
     }
     settings_set("log.file", file)
-    settings_set("log.max_bytes", rho_int_to_str(log_parse_u32(
+    settings_set("log.max_bytes", int_to_str(log_parse_u32(
         forms_parse(body, "max_bytes"), 5242880)))
-    settings_set("log.keep", rho_int_to_str(log_parse_u32(
+    settings_set("log.keep", int_to_str(log_parse_u32(
         forms_parse(body, "keep"), 5)))
     var stderr: string = log_trim(forms_parse(body, "stderr"))
     if stderr == "" {

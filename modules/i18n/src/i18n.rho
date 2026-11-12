@@ -14,16 +14,16 @@ fn i18n_template(name: string) string {
 // The languages this module knows. A new catalog is one entry here and one
 // file in the module's `locales:`.
 fn i18n_supported(code: string) bool {
-    if rho_str_eq(code, "en") { return true }
-    if rho_str_eq(code, "ro") { return true }
+    if str_eq(code, "en") { return true }
+    if str_eq(code, "ro") { return true }
     return false
 }
 
 fn i18n_trim(value: string) string {
     var start: u32 = 0
-    var end: u32 = u32(rho_strlen(value))
+    var end: u32 = u32(strlen(value))
     while start < end {
-        let ch: string = rho_str_slice(value, start, 1)
+        let ch: string = str_slice(value, start, 1)
         if ch == " " || ch == "\t" || ch == "\n" || ch == "\r" {
             start = start + 1
         } else {
@@ -31,14 +31,14 @@ fn i18n_trim(value: string) string {
         }
     }
     while end > start {
-        let ch: string = rho_str_slice(value, end - 1, 1)
+        let ch: string = str_slice(value, end - 1, 1)
         if ch == " " || ch == "\t" || ch == "\n" || ch == "\r" {
             end = end - 1
         } else {
             break
         }
     }
-    return rho_str_slice(value, start, end - start)
+    return str_slice(value, start, end - start)
 }
 
 fn i18n_lower(value: string) string {
@@ -46,12 +46,12 @@ fn i18n_lower(value: string) string {
     let lower: string = "abcdefghijklmnopqrstuvwxyz"
     var out: string = ""
     var i: u32 = 0
-    let length: u32 = u32(rho_strlen(value))
+    let length: u32 = u32(strlen(value))
     while i < length {
-        let ch: string = rho_str_slice(value, i, 1)
-        let at: i32 = rho_str_index_of(upper, ch)
+        let ch: string = str_slice(value, i, 1)
+        let at: i32 = str_index_of(upper, ch)
         if at >= 0 {
-            ch = rho_str_slice(lower, u32(at), 1)
+            ch = str_slice(lower, u32(at), 1)
         }
         out = out + ch
         i = i + 1
@@ -60,7 +60,7 @@ fn i18n_lower(value: string) string {
 }
 
 fn i18n_starts(value: string, prefix: string) bool {
-    return rho_str_index_of(value, prefix) == 0
+    return str_index_of(value, prefix) == 0
 }
 
 // i18n_cookie reads one cookie without a session: the language choice is a
@@ -71,21 +71,21 @@ fn i18n_cookie(req: Request, name: string) string {
     }
     var rest: string = header_str(req, "Cookie")
     while rest != "" {
-        let semi: i32 = rho_str_index_of(rest, ";")
+        let semi: i32 = str_index_of(rest, ";")
         var part: string = rest
         if semi < 0 {
             rest = ""
         } else {
-            part = rho_str_slice(rest, 0, u32(semi))
-            rest = rho_str_slice(rest, u32(semi) + 1, u32(rho_strlen(rest)) - u32(semi) - 1)
+            part = str_slice(rest, 0, u32(semi))
+            rest = str_slice(rest, u32(semi) + 1, u32(strlen(rest)) - u32(semi) - 1)
         }
         part = i18n_trim(part)
-        let equals: i32 = rho_str_index_of(part, "=")
+        let equals: i32 = str_index_of(part, "=")
         if equals >= 0 {
-            let key: string = i18n_trim(rho_str_slice(part, 0, u32(equals)))
-            if rho_str_eq(key, name) {
-                return i18n_trim(rho_str_slice(part, u32(equals) + 1,
-                    u32(rho_strlen(part)) - u32(equals) - 1))
+            let key: string = i18n_trim(str_slice(part, 0, u32(equals)))
+            if str_eq(key, name) {
+                return i18n_trim(str_slice(part, u32(equals) + 1,
+                    u32(strlen(part)) - u32(equals) - 1))
             }
         }
     }
@@ -102,21 +102,21 @@ fn i18n_accept(req: Request) string {
     if rest == "" {
         return ""
     }
-    let comma: i32 = rho_str_index_of(rest, ",")
+    let comma: i32 = str_index_of(rest, ",")
     if comma >= 0 {
-        rest = rho_str_slice(rest, 0, u32(comma))
+        rest = str_slice(rest, 0, u32(comma))
     }
-    let semi: i32 = rho_str_index_of(rest, ";")
+    let semi: i32 = str_index_of(rest, ";")
     if semi >= 0 {
-        rest = rho_str_slice(rest, 0, u32(semi))
+        rest = str_slice(rest, 0, u32(semi))
     }
     rest = i18n_lower(i18n_trim(rest))
     if i18n_supported(rest) {
         return rest
     }
-    let dash: i32 = rho_str_index_of(rest, "-")
+    let dash: i32 = str_index_of(rest, "-")
     if dash >= 0 {
-        let primary: string = rho_str_slice(rest, 0, u32(dash))
+        let primary: string = str_slice(rest, 0, u32(dash))
         if i18n_supported(primary) {
             return primary
         }
@@ -137,7 +137,7 @@ fn i18n_locale(req: Request) string {
 }
 
 fn i18n_flag(locale: string, code: string) string {
-    if rho_str_eq(locale, code) {
+    if str_eq(locale, code) {
         return "true"
     }
     return ""
@@ -171,17 +171,17 @@ fn i18n_safe_next(value: string) string {
     if value == "" { return "/" }
     if !i18n_starts(value, "/") { return "/" }
     if i18n_starts(value, "//") { return "/" }
-    if rho_str_index_of(value, "://") >= 0 { return "/" }
+    if str_index_of(value, "://") >= 0 { return "/" }
     return value
 }
 
 fn i18n_switch(req: Request) Response {
     let body: string = request_body(req)
-    var code: string = i18n_lower(i18n_trim(form_value(body, "locale")))
+    var code: string = i18n_lower(i18n_trim(forms_parse(body, "locale")))
     if !i18n_supported(code) {
         code = "en"
     }
-    let next: string = i18n_safe_next(i18n_trim(form_value(body, "next")))
+    let next: string = i18n_safe_next(i18n_trim(forms_parse(body, "next")))
     let headers: string = "Set-Cookie: locale=" + code +
         "; Path=/; Max-Age=31536000; SameSite=Lax\nHX-Redirect: " + next
     return with_headers(redirect(next), headers)

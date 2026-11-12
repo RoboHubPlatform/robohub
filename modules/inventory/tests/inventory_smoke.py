@@ -7,7 +7,9 @@ a low-stock state after consuming it, the edit form, and the database under the
 workspace rather than in the module folder.
 """
 
+import html
 import os
+import re
 import socket
 import subprocess
 import sys
@@ -25,6 +27,52 @@ HOST = ROBOHUB / "applications" / "aquarium"
 PROJECTS = ROBOHUB.parent
 RHO = PROJECTS / "rho" / "bin" / "rho"
 
+# The bearer ticket every request carries: one the keeper would issue for the
+# host, minted by the test with a key pair of its own (see mint_token).
+TOKEN = ""
+
+
+def mint_token(home: str, audience: str) -> str:
+    """A ticket for the host, as the keeper would issue one.
+
+    The host verifies tickets against ~/.rho/auth/public.pem in its own home,
+    so the test makes a key pair there and signs the ticket with it.
+    """
+    rho = str(RHO) if RHO.exists() else "rho"
+    keys = os.path.join(home, ".rho", "auth")
+    os.makedirs(keys, exist_ok=True)
+    subprocess.run([rho, "auth", "keygen", "--dir", keys, "--force"],
+                   check=True, capture_output=True, text=True)
+    result = subprocess.run(
+        [rho, "auth", "ticket", "--private", os.path.join(keys, "private.pem"),
+         "--issuer", "keeper", "--audience", audience, "--subject", "smoke",
+         "--scopes", "*", "--ttl", "1h"],
+        check=True, capture_output=True, text=True)
+    return result.stdout.strip()
+
+
+CSRF = ""
+
+
+def learn_csrf(base: str, page: str) -> None:
+    """The form token the host draws its forms with, which every post carries."""
+    global CSRF
+    with open_url(base + page) as response:
+        text = response.read().decode("utf-8", "replace")
+    found = re.search(r'name="csrf" value="([^"]*)"', text)
+    if not found:
+        raise AssertionError(f"{page} draws no form token")
+    CSRF = html.unescape(found.group(1))
+
+
+def open_url(target, timeout: float = 10):
+    """urlopen with the test's ticket, which every page of the host asks for."""
+    request = target if isinstance(target, urllib.request.Request) else urllib.request.Request(target)
+    if TOKEN:
+        request.add_header("Authorization", f"Bearer {TOKEN}")
+    return urllib.request.urlopen(request, timeout=timeout)
+
+
 
 def free_port() -> int:
     with socket.socket() as sock:
@@ -36,7 +84,7 @@ def wait_for(base: str, timeout: float = 20.0) -> None:
     deadline = time.time() + timeout
     while time.time() < deadline:
         try:
-            with urllib.request.urlopen(base + "/", timeout=1) as response:
+            with open_url(base + "/", timeout=1) as response:
                 if response.status == 200:
                     return
         except (urllib.error.URLError, ConnectionError):
@@ -45,15 +93,17 @@ def wait_for(base: str, timeout: float = 20.0) -> None:
 
 
 def get(base: str, path: str) -> str:
-    with urllib.request.urlopen(base + path, timeout=10) as response:
+    with open_url(base + path, timeout=10) as response:
         return response.read().decode("utf-8", "replace")
 
 
 def post(base: str, path: str, fields: dict) -> str:
+    if CSRF and "csrf" not in fields:
+        fields = dict(fields, csrf=CSRF)
     body = urllib.parse.urlencode(fields).encode()
     request = urllib.request.Request(base + path, data=body, method="POST")
     request.add_header("Content-Type", "application/x-www-form-urlencoded")
-    with urllib.request.urlopen(request, timeout=20) as response:
+    with open_url(request, timeout=20) as response:
         return response.read().decode("utf-8", "replace")
 
 
@@ -87,12 +137,17 @@ def main() -> int:
         env["ROBOHUB_APP_WORKSPACE"] = workspace
         env["ROBOHUB_APP_MANIFEST"] = str(HOST / "module.yml")
         env["RHO_HTTP_ADDR"] = f":{port}"
+        global TOKEN
+        auth_home = env.get("HOME") if env.get("HOME", "").startswith(tempfile.gettempdir()) else tempfile.mkdtemp(prefix="aquarium-home-")
+        env["HOME"] = auth_home
+        TOKEN = mint_token(auth_home, "aquarium")
         process = subprocess.Popen([str(binary)], cwd=HOST, env=env,
                                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                                    text=True)
         try:
             wait_for(base)
-            asset = urllib.request.urlopen(base + "/static/aquarium-background.jpg", timeout=10)
+            learn_csrf(base, "/expenses")
+            asset = open_url(base + "/static/aquarium-background.jpg", timeout=10)
             if asset.status != 200 or asset.headers.get_content_type() != "image/jpeg":
                 raise AssertionError("the aquarium background asset is not served")
 

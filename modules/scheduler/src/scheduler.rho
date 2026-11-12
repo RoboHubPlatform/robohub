@@ -43,7 +43,7 @@ fn scheduler_db_path() string {
         return override
     }
     let dir: string = scheduler_workspace() + "/data"
-    ignore_u32(rho_exec("mkdir", "-p " + dir, dir + "/mkdir.txt"))
+    rho_exec("mkdir", "-p " + dir, dir + "/mkdir.txt")
     return dir + "/app.db"
 }
 
@@ -58,7 +58,7 @@ fn scheduler_template(name: string) string {
 fn scheduler_now() u32 {
     let report: string = scheduler_db_path() + ".now"
     if rho_exec("date", "+%s", report) == 0 {
-        return rho_int_from_str(scheduler_trim(rho_read_text(report)))
+        return int_from_str(scheduler_trim(rho_read_text(report)))
     }
     return 0
 }
@@ -68,7 +68,7 @@ fn scheduler_date(epoch: u32) string {
         return ""
     }
     let report: string = scheduler_db_path() + ".date"
-    if rho_exec("date", "-d @" + rho_int_to_str(epoch) + " \"+%Y-%m-%d %H:%M\"", report) == 0 {
+    if rho_exec("date", "-d @" + int_to_str(epoch) + " \"+%Y-%m-%d %H:%M\"", report) == 0 {
         return scheduler_trim(rho_read_text(report))
     }
     return ""
@@ -77,7 +77,7 @@ fn scheduler_date(epoch: u32) string {
 fn scheduler_epoch(text: string) u32 {
     let report: string = scheduler_db_path() + ".epoch"
     if rho_exec("date", "-d \"" + text + "\" +%s", report) == 0 {
-        return rho_int_from_str(scheduler_trim(rho_read_text(report)))
+        return int_from_str(scheduler_trim(rho_read_text(report)))
     }
     return 0
 }
@@ -86,14 +86,14 @@ fn scheduler_field(expression: string, wanted: u32) string {
     var rest: string = expression
     var index: u32 = 0
     while rest != "" {
-        let at: i32 = rho_str_index_of(rest, " ")
+        let at: i32 = str_index_of(rest, " ")
         var field_text: string = ""
         if at < 0 {
             field_text = rest
             rest = ""
         } else {
-            field_text = rho_str_slice(rest, 0, u32(at))
-            rest = rho_str_slice(rest, u32(at) + 1, u32(rho_strlen(rest)) - u32(at) - 1)
+            field_text = str_slice(rest, 0, u32(at))
+            rest = str_slice(rest, u32(at) + 1, u32(strlen(rest)) - u32(at) - 1)
         }
         if index == wanted {
             return field_text
@@ -104,22 +104,22 @@ fn scheduler_field(expression: string, wanted: u32) string {
 }
 
 fn scheduler_weekday(value: string) string {
-    if rho_str_eq(value, "0") {
+    if str_eq(value, "0") {
         return "sunday"
     }
-    if rho_str_eq(value, "1") {
+    if str_eq(value, "1") {
         return "monday"
     }
-    if rho_str_eq(value, "2") {
+    if str_eq(value, "2") {
         return "tuesday"
     }
-    if rho_str_eq(value, "3") {
+    if str_eq(value, "3") {
         return "wednesday"
     }
-    if rho_str_eq(value, "4") {
+    if str_eq(value, "4") {
         return "thursday"
     }
-    if rho_str_eq(value, "5") {
+    if str_eq(value, "5") {
         return "friday"
     }
     return "saturday"
@@ -134,17 +134,17 @@ fn scheduler_cron_next(expression: string, now: u32) u32 {
     let dom: string = scheduler_field(expression, 2)
     let month: string = scheduler_field(expression, 3)
     let dow: string = scheduler_field(expression, 4)
-    if minute == "" || hour == "" || !rho_str_eq(dom, "*") || !rho_str_eq(month, "*") {
+    if minute == "" || hour == "" || !str_eq(dom, "*") || !str_eq(month, "*") {
         return now + 86400
     }
     var time: string = hour + ":" + minute
-    if rho_strlen(minute) < 2 {
+    if strlen(minute) < 2 {
         time = hour + ":0" + minute
     }
-    if rho_strlen(hour) < 2 {
+    if strlen(hour) < 2 {
         time = "0" + time
     }
-    if rho_str_eq(dow, "*") {
+    if str_eq(dow, "*") {
         let today: u32 = scheduler_epoch("today " + time)
         if today > now {
             return today
@@ -156,16 +156,16 @@ fn scheduler_cron_next(expression: string, now: u32) u32 {
 }
 
 fn scheduler_next_due(kind: string, value: string, interval_hours: u32, now: u32) u32 {
-    if rho_str_eq(kind, "interval") {
+    if str_eq(kind, "interval") {
         if interval_hours == 0 {
             return now + 86400
         }
         return now + interval_hours * 3600
     }
-    if rho_str_eq(kind, "cron") {
+    if str_eq(kind, "cron") {
         return scheduler_cron_next(value, now)
     }
-    if rho_str_eq(kind, "one_time") {
+    if str_eq(kind, "one_time") {
         return scheduler_epoch(value)
     }
     return 0
@@ -178,14 +178,14 @@ fn scheduler_status(chore: Chores, now: u32) string {
     if chore.snoozedUntilEpoch > i64(now) {
         return "pending"
     }
-    if rho_str_eq(chore.scheduleKind, "usage") {
+    if str_eq(chore.scheduleKind, "usage") {
         if chore.usageIntervalHours > 0 &&
             chore.usageAccumSeconds >= chore.usageIntervalHours * 3600 {
             return "due"
         }
         return "pending"
     }
-    if rho_str_eq(chore.scheduleKind, "one_time") && chore.nextDueEpoch == 0 {
+    if str_eq(chore.scheduleKind, "one_time") && chore.nextDueEpoch == 0 {
         if chore.lastCompletedEpoch > 0 {
             return "completed"
         }
@@ -204,29 +204,29 @@ fn scheduler_status(chore: Chores, now: u32) string {
 }
 
 fn scheduler_status_badge(status: string) string {
-    if rho_str_eq(status, "overdue") {
+    if str_eq(status, "overdue") {
         return "<span class=\"badge overdue\">overdue</span>"
     }
-    if rho_str_eq(status, "due") {
+    if str_eq(status, "due") {
         return "<span class=\"badge due\">due</span>"
     }
-    if rho_str_eq(status, "completed") {
+    if str_eq(status, "completed") {
         return "<span class=\"badge done\">completed</span>"
     }
-    if rho_str_eq(status, "disabled") {
+    if str_eq(status, "disabled") {
         return "<span class=\"badge\">disabled</span>"
     }
     return "<span class=\"badge pending\">pending</span>"
 }
 
 fn scheduler_due_text(chore: Chores) string {
-    if rho_str_eq(chore.scheduleKind, "usage") {
+    if str_eq(chore.scheduleKind, "usage") {
         let interval: u32 = u32(chore.usageIntervalHours)
         if interval == 0 {
             return "no usage target"
         }
         return scheduler_hours_text(chore.usageAccumSeconds) + " / " +
-            rho_int_to_str(interval) + " h of use"
+            int_to_str(interval) + " h of use"
     }
     if chore.nextDueEpoch == 0 {
         return ""
@@ -235,7 +235,7 @@ fn scheduler_due_text(chore: Chores) string {
 }
 
 fn scheduler_hours_text(seconds: i64) string {
-    return rho_int_to_str(u32(seconds / 3600)) + " h"
+    return int_to_str(u32(seconds / 3600)) + " h"
 }
 
 fn scheduler_rows(chores: Chores[256], count: u32, now: u32) string {
@@ -244,7 +244,7 @@ fn scheduler_rows(chores: Chores[256], count: u32, now: u32) string {
     while i < count {
         let chore: Chores = chores[i]
         let status: string = scheduler_status(chore, now)
-        let id: string = rho_int_to_str(u32(chore.id))
+        let id: string = int_to_str(u32(chore.id))
         let html: string = template_fill(scheduler_template("rows/chore-row"),
             vars("id", id) +
             vars("title", chore.title) +
@@ -295,7 +295,7 @@ fn scheduler_page_message(req: Request, message: string) Response {
             escape_html(opened.err) + "</p>")
     }
     let db: SqlDb = opened.ok
-    ignore_u32(sql_apply(db, scheduler_schema()))
+    sql_apply(db, scheduler_schema())
     let chores: Chores[256]
     let chore_slice: Slice[Chores] = Slice[Chores]{
         Ptr[Chores](&chores[0]), CHORE_CAPACITY }
@@ -393,16 +393,16 @@ fn chores_add(req: Request) Response {
         return scheduler_page_message(req, i18n_t(req, "scheduler.csrf_refused"))
     }
     let title: string = scheduler_trim(scheduler_form_value(body, "title"))
-    if rho_strlen(title) == 0 {
+    if strlen(title) == 0 {
         return scheduler_page_message(req, "A chore needs a title.")
     }
     let kind: string = scheduler_form_value(body, "kind")
     let value: string = scheduler_trim(scheduler_form_value(body, "value"))
-    let interval_hours: u32 = rho_int_from_str(scheduler_trim(scheduler_form_value(body, "interval_hours")))
-    let usage_hours: u32 = rho_int_from_str(scheduler_trim(scheduler_form_value(body, "usage_hours")))
-    let grace: u32 = rho_int_from_str(scheduler_trim(scheduler_form_value(body, "grace_hours")))
+    let interval_hours: u32 = int_from_str(scheduler_trim(scheduler_form_value(body, "interval_hours")))
+    let usage_hours: u32 = int_from_str(scheduler_trim(scheduler_form_value(body, "usage_hours")))
+    let grace: u32 = int_from_str(scheduler_trim(scheduler_form_value(body, "grace_hours")))
     var priority: string = scheduler_trim(scheduler_form_value(body, "priority"))
-    if rho_strlen(priority) == 0 {
+    if strlen(priority) == 0 {
         priority = "normal"
     }
     let now: u32 = scheduler_now()
@@ -412,17 +412,17 @@ fn chores_add(req: Request) Response {
         return scheduler_page_message(req, "The database could not be opened: " + opened.err)
     }
     let db: SqlDb = opened.ok
-    ignore_u32(sql_apply(db, scheduler_schema()))
+    sql_apply(db, scheduler_schema())
     let added: Result[u32, SqlError] = InsertChore(
         title,
         scheduler_trim(scheduler_form_value(body, "description")),
         kind,
         value,
-        rho_int_to_str(interval_hours),
-        rho_int_to_str(usage_hours),
-        rho_int_to_str(grace),
+        int_to_str(interval_hours),
+        int_to_str(usage_hours),
+        int_to_str(grace),
         priority,
-        rho_int_to_str(next),
+        int_to_str(next),
         "1",
         db)
     sql_close(db)
@@ -440,7 +440,7 @@ fn chores_complete(req: Request) Response {
 }
 
 fn chores_complete_body(req: Request, body: string) Response {
-    let id: u32 = rho_int_from_str(scheduler_trim(scheduler_form_value(body, "id")))
+    let id: u32 = int_from_str(scheduler_trim(scheduler_form_value(body, "id")))
     if id == 0 {
         return scheduler_page_message(req, "That chore was not found.")
     }
@@ -449,7 +449,7 @@ fn chores_complete_body(req: Request, body: string) Response {
         return scheduler_page_message(req, "The database could not be opened: " + opened.err)
     }
     let db: SqlDb = opened.ok
-    ignore_u32(sql_apply(db, scheduler_schema()))
+    sql_apply(db, scheduler_schema())
     let chores: Chores[256]
     let slice: Slice[Chores] = Slice[Chores]{ Ptr[Chores](&chores[0]), CHORE_CAPACITY }
     let listed: Result[u32, SqlError] = ListChores(db, slice, CHORE_CAPACITY)
@@ -466,15 +466,15 @@ fn chores_complete_body(req: Request, body: string) Response {
     let chore: Chores = chores[index]
     let now: u32 = scheduler_now()
     var next: u32 = 0
-    if rho_str_eq(chore.scheduleKind, "interval") {
+    if str_eq(chore.scheduleKind, "interval") {
         next = now + u32(chore.intervalHours) * 3600
-    } else if rho_str_eq(chore.scheduleKind, "cron") {
+    } else if str_eq(chore.scheduleKind, "cron") {
         next = scheduler_cron_next(chore.scheduleValue, now)
     }
     let updated: Result[u32, SqlError] = CompleteChore(i64(next), i64(now), i64(0),
         i64(id), db)
     if updated.is_ok {
-        scheduler_ignore_result(InsertCompletion(rho_int_to_str(id), rho_int_to_str(now),
+        scheduler_ignore_result(InsertCompletion(int_to_str(id), int_to_str(now),
             scheduler_trim(scheduler_form_value(body, "note")), db))
     }
     sql_close(db)
@@ -490,8 +490,8 @@ fn chores_snooze(req: Request) Response {
 }
 
 fn chores_snooze_body(req: Request, body: string) Response {
-    let id: u32 = rho_int_from_str(scheduler_trim(scheduler_form_value(body, "id")))
-    var hours: u32 = rho_int_from_str(scheduler_trim(scheduler_form_value(body, "hours")))
+    let id: u32 = int_from_str(scheduler_trim(scheduler_form_value(body, "id")))
+    var hours: u32 = int_from_str(scheduler_trim(scheduler_form_value(body, "hours")))
     if hours == 0 {
         hours = 24
     }
@@ -500,7 +500,7 @@ fn chores_snooze_body(req: Request, body: string) Response {
         return scheduler_page_message(req, "The database could not be opened: " + opened.err)
     }
     let db: SqlDb = opened.ok
-    ignore_u32(sql_apply(db, scheduler_schema()))
+    sql_apply(db, scheduler_schema())
     let updated: Result[u32, SqlError] = SnoozeChore(
         i64(scheduler_now() + hours * 3600), i64(id), db)
     sql_close(db)
@@ -515,8 +515,8 @@ fn chores_usage(req: Request) Response {
 }
 
 fn chores_usage_body(req: Request, body: string) Response {
-    let id: u32 = rho_int_from_str(scheduler_trim(scheduler_form_value(body, "id")))
-    let hours: u32 = rho_int_from_str(scheduler_trim(scheduler_form_value(body, "hours")))
+    let id: u32 = int_from_str(scheduler_trim(scheduler_form_value(body, "id")))
+    let hours: u32 = int_from_str(scheduler_trim(scheduler_form_value(body, "hours")))
     if id == 0 || hours == 0 {
         return scheduler_page_message(req, "A usage update needs a chore and hours.")
     }
@@ -525,8 +525,8 @@ fn chores_usage_body(req: Request, body: string) Response {
         return scheduler_page_message(req, "The database could not be opened: " + opened.err)
     }
     let db: SqlDb = opened.ok
-    ignore_u32(sql_apply(db, scheduler_schema()))
-    let updated: Result[u32, SqlError] = AddUsage(rho_int_to_str(hours * 3600),
+    sql_apply(db, scheduler_schema())
+    let updated: Result[u32, SqlError] = AddUsage(int_to_str(hours * 3600),
         i64(id), db)
     sql_close(db)
     if !updated.is_ok {
@@ -540,7 +540,7 @@ fn chores_usage_body(req: Request, body: string) Response {
 /* -------------------------------------------------------------------------- */
 
 fn scheduler_json_chore(chore: Chores, now: u32) string {
-    return "{\"id\":" + rho_int_to_str(u32(chore.id)) +
+    return "{\"id\":" + int_to_str(u32(chore.id)) +
         ",\"title\":" + json_string(chore.title) +
         ",\"kind\":" + json_string(chore.scheduleKind) +
         ",\"status\":" + json_string(scheduler_status(chore, now)) +
@@ -556,7 +556,7 @@ fn scheduler_api_list(req: Request) Response {
         return json(status_internal(), "{\"error\":" + json_string(opened.err) + "}")
     }
     let db: SqlDb = opened.ok
-    ignore_u32(sql_apply(db, scheduler_schema()))
+    sql_apply(db, scheduler_schema())
     let chores: Chores[256]
     let slice: Slice[Chores] = Slice[Chores]{ Ptr[Chores](&chores[0]), CHORE_CAPACITY }
     let listed: Result[u32, SqlError] = ListChores(db, slice, CHORE_CAPACITY)
@@ -580,7 +580,7 @@ fn scheduler_api_list(req: Request) Response {
 
 fn scheduler_api_add(req: Request) Response {
     let body: string = request_body(req)
-    if rho_strlen(scheduler_trim(scheduler_form_value(body, "title"))) == 0 {
+    if strlen(scheduler_trim(scheduler_form_value(body, "title"))) == 0 {
         return json(status_bad_request(), "{\"ok\":false}")
     }
     ignore_response(chores_add(req))
@@ -589,7 +589,7 @@ fn scheduler_api_add(req: Request) Response {
 
 fn scheduler_api_complete(req: Request) Response {
     let id: string = param(req, "id")
-    if rho_strlen(id) == 0 {
+    if strlen(id) == 0 {
         return json(status_bad_request(), "{\"ok\":false}")
     }
     ignore_response(chores_complete_body(req, request_body(req) + "&id=" + id))
@@ -598,7 +598,7 @@ fn scheduler_api_complete(req: Request) Response {
 
 fn scheduler_api_snooze(req: Request) Response {
     let id: string = param(req, "id")
-    if rho_strlen(id) == 0 {
+    if strlen(id) == 0 {
         return json(status_bad_request(), "{\"ok\":false}")
     }
     ignore_response(chores_snooze_body(req, request_body(req) + "&id=" + id))
@@ -607,7 +607,7 @@ fn scheduler_api_snooze(req: Request) Response {
 
 fn scheduler_api_usage(req: Request) Response {
     let id: string = param(req, "id")
-    if rho_strlen(id) == 0 {
+    if strlen(id) == 0 {
         return json(status_bad_request(), "{\"ok\":false}")
     }
     ignore_response(chores_usage_body(req, request_body(req) + "&id=" + id))

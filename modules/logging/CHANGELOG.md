@@ -12,3 +12,7 @@ the import to use instead.
 
 It imports robohub.settings and robohub.forms, which it uses and declares,
 instead of relying on whoever includes it to have included them first.
+
+## [0.2.1] - 2026-11-12
+
+The module builds on its own: it declares the runtime functions it calls rather than relying on the application that includes it.

@@ -17,6 +17,10 @@ import std.sql
 import std.web.http
 import std.web.template
 
+// The runtime functions this module calls.
+extern fn rho_exec(program: string, arguments: string, output_path: string) u32
+extern fn rho_read_text(path: string) string
+
 route GET  "/expenses"                  => inventory_page
 route GET  "/api/expenses/count"         => inventory_count
 route GET  "/expenses/items/edit"       => item_edit_page

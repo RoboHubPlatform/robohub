@@ -19,3 +19,7 @@ and scheduler defaults moved to parent settings.
 ## [0.1.3] - 2026-11-09
 
 Pages render content through the host shell, so the host application owns the header, footer and menu. The scheduler CSS moved into `templates/parts/style.html` with the content. Chore additions and completions are written to the host application log.
+
+## [0.1.4] - 2026-11-12
+
+The module declares the runtime functions it calls rather than relying on helpers the including application defines. Its smoke test signs in with a keeper ticket and sends the form token the module checks.

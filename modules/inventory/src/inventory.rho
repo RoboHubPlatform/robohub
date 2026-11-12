@@ -51,7 +51,7 @@ fn inventory_db_path() string {
     // two databases, and a module update never moves one out from under the
     // other.
     let dir: string = inventory_workspace() + "/data"
-    ignore_u32(rho_exec("mkdir", "-p " + dir, dir + "/mkdir.txt"))
+    rho_exec("mkdir", "-p " + dir, dir + "/mkdir.txt")
     return dir + "/app.db"
 }
 
@@ -66,43 +66,43 @@ fn inventory_host_config(key: string) string {
     }
     let text: string = rho_read_text(manifest)
     let marker: string = "\napp_modules:\n"
-    let start: i32 = rho_str_index_of(text, marker)
+    let start: i32 = str_index_of(text, marker)
     if start < 0 {
         return ""
     }
-    var i: u32 = u32(start) + u32(rho_strlen(marker))
+    var i: u32 = u32(start) + u32(strlen(marker))
     var mine: bool = false
     var in_config: bool = false
     var config_indent: u32 = 0
-    while i < u32(rho_strlen(text)) {
-        let at: i32 = rho_str_index_of(
-            rho_str_slice(text, i, u32(rho_strlen(text)) - i), "\n")
-        let end: u32 = u32(rho_strlen(text))
+    while i < u32(strlen(text)) {
+        let at: i32 = str_index_of(
+            str_slice(text, i, u32(strlen(text)) - i), "\n")
+        let end: u32 = u32(strlen(text))
         if at >= 0 {
             end = i + u32(at)
         }
-        let line: string = rho_str_slice(text, i, end - i)
+        let line: string = str_slice(text, i, end - i)
         let trimmed: string = trim(line)
-        if rho_strlen(trimmed) == 0 {
+        if strlen(trimmed) == 0 {
             i = end + 1
             continue
         }
-        if plugin_indent(line) == 0 && !rho_str_eq(trimmed, "app_modules:") {
+        if plugin_indent(line) == 0 && !str_eq(trimmed, "app_modules:") {
             break
         }
-        if rho_str_index_of(trimmed, "- name:") == 0 {
-            let name: string = unquote(rho_str_slice(trimmed, 7,
-                u32(rho_strlen(trimmed)) - 7))
-            mine = rho_str_eq(name, "inventory")
+        if str_index_of(trimmed, "- name:") == 0 {
+            let name: string = unquote(str_slice(trimmed, 7,
+                u32(strlen(trimmed)) - 7))
+            mine = str_eq(name, "inventory")
             in_config = false
-        } else if mine && rho_str_index_of(trimmed, "config:") == 0 {
+        } else if mine && str_index_of(trimmed, "config:") == 0 {
             in_config = true
             config_indent = plugin_indent(line)
         } else if mine && in_config && plugin_indent(line) > config_indent {
-            let colon: i32 = rho_str_index_of(trimmed, ":")
-            if colon > 0 && rho_str_eq(unquote(rho_str_slice(trimmed, 0, u32(colon))), key) {
-                return unquote(rho_str_slice(trimmed, u32(colon) + 1,
-                    u32(rho_strlen(trimmed)) - u32(colon) - 1))
+            let colon: i32 = str_index_of(trimmed, ":")
+            if colon > 0 && str_eq(unquote(str_slice(trimmed, 0, u32(colon))), key) {
+                return unquote(str_slice(trimmed, u32(colon) + 1,
+                    u32(strlen(trimmed)) - u32(colon) - 1))
             }
         }
         i = end + 1
@@ -128,12 +128,12 @@ fn inventory_setting(key: string, fallback: string) string {
 
 fn unquote(text: string) string {
     let value: string = trim(text)
-    if rho_strlen(value) >= 2 {
-        let first: string = rho_str_slice(value, 0, 1)
-        let last: string = rho_str_slice(value, u32(rho_strlen(value)) - 1, 1)
-        if (rho_str_eq(first, "\"") || rho_str_eq(first, "'")) &&
-            rho_str_eq(first, last) {
-            return rho_str_slice(value, 1, u32(rho_strlen(value)) - 2)
+    if strlen(value) >= 2 {
+        let first: string = str_slice(value, 0, 1)
+        let last: string = str_slice(value, u32(strlen(value)) - 1, 1)
+        if (str_eq(first, "\"") || str_eq(first, "'")) &&
+            str_eq(first, last) {
+            return str_slice(value, 1, u32(strlen(value)) - 2)
         }
     }
     return value
@@ -141,8 +141,8 @@ fn unquote(text: string) string {
 
 fn plugin_indent(line: string) u32 {
     var count: u32 = 0
-    while count < u32(rho_strlen(line)) &&
-        rho_str_eq(rho_str_slice(line, count, 1), " ") {
+    while count < u32(strlen(line)) &&
+        str_eq(str_slice(line, count, 1), " ") {
         count = count + 1
     }
     return count
@@ -152,11 +152,11 @@ fn inventory_date() string {
     let report: string = inventory_db_path() + ".date"
     if rho_exec("date", "+%Y-%m-%d", report) == 0 {
         let text: string = rho_read_text(report)
-        let at: i32 = rho_str_index_of(text, "\n")
+        let at: i32 = str_index_of(text, "\n")
         if at < 0 {
             return text
         }
-        return rho_str_slice(text, 0, u32(at))
+        return str_slice(text, 0, u32(at))
     }
     return ""
 }
@@ -177,59 +177,59 @@ fn inventory_money(cents: i64) string {
     }
     let whole: u32 = u32(value / 100)
     let fraction: u32 = u32(value % 100)
-    var frac: string = rho_int_to_str(fraction)
+    var frac: string = int_to_str(fraction)
     if fraction < 10 {
         frac = "0" + frac
     }
-    return sign + rho_int_to_str(whole) + "." + frac
+    return sign + int_to_str(whole) + "." + frac
 }
 
 fn inventory_quantity(milli: i64) string {
     let whole: u32 = u32(milli / 1000)
     let fraction: u32 = u32(milli % 1000)
     if fraction == 0 {
-        return rho_int_to_str(whole)
+        return int_to_str(whole)
     }
-    var frac: string = rho_int_to_str(fraction)
-    while rho_strlen(frac) < 3 {
+    var frac: string = int_to_str(fraction)
+    while strlen(frac) < 3 {
         frac = "0" + frac
     }
-    while rho_strlen(frac) > 0 &&
-        rho_str_eq(rho_str_slice(frac, u32(rho_strlen(frac)) - 1, 1), "0") {
-        frac = rho_str_slice(frac, 0, u32(rho_strlen(frac)) - 1)
+    while strlen(frac) > 0 &&
+        str_eq(str_slice(frac, u32(strlen(frac)) - 1, 1), "0") {
+        frac = str_slice(frac, 0, u32(strlen(frac)) - 1)
     }
-    return rho_int_to_str(whole) + "." + frac
+    return int_to_str(whole) + "." + frac
 }
 
 fn inventory_parse_scaled(text: string, scale: u32) u32 {
     var value: string = trim(text)
-    if rho_strlen(value) == 0 {
+    if strlen(value) == 0 {
         return 0
     }
-    if rho_str_eq(rho_str_slice(value, 0, 1), "+") {
-        value = rho_str_slice(value, 1, u32(rho_strlen(value)) - 1)
+    if str_eq(str_slice(value, 0, 1), "+") {
+        value = str_slice(value, 1, u32(strlen(value)) - 1)
     }
-    if rho_str_eq(rho_str_slice(value, 0, 1), "-") {
+    if str_eq(str_slice(value, 0, 1), "-") {
         return 0
     }
     var whole: string = value
     var fraction: string = ""
-    let dot: i32 = rho_str_index_of(value, ".")
+    let dot: i32 = str_index_of(value, ".")
     if dot >= 0 {
-        whole = rho_str_slice(value, 0, u32(dot))
-        fraction = rho_str_slice(value, u32(dot) + 1,
-            u32(rho_strlen(value)) - u32(dot) - 1)
+        whole = str_slice(value, 0, u32(dot))
+        fraction = str_slice(value, u32(dot) + 1,
+            u32(strlen(value)) - u32(dot) - 1)
     }
-    if rho_strlen(whole) == 0 {
+    if strlen(whole) == 0 {
         whole = "0"
     }
-    let whole_value: u32 = rho_int_from_str(whole)
+    let whole_value: u32 = int_from_str(whole)
     var frac_value: u32 = 0
     var i: u32 = 0
     while i < 3 {
-        if i < u32(rho_strlen(fraction)) {
-            let ch: string = rho_str_slice(fraction, i, 1)
-            frac_value = frac_value * 10 + rho_int_from_str(ch)
+        if i < u32(strlen(fraction)) {
+            let ch: string = str_slice(fraction, i, 1)
+            frac_value = frac_value * 10 + int_from_str(ch)
         } else {
             frac_value = frac_value * 10
         }
@@ -246,9 +246,9 @@ fn inventory_categories(categories: Categories[64], count: u32, selected: string
     var out: string = "<option value=\"\">Uncategorised</option>"
     var i: u32 = 0
     while i < count {
-        let id: string = rho_int_to_str(u32(categories[i].id))
+        let id: string = int_to_str(u32(categories[i].id))
         out = out + "<option value=\"" + id + "\""
-        if rho_str_eq(id, selected) {
+        if str_eq(id, selected) {
             out = out + " selected"
         }
         out = out + ">" + escape_html(categories[i].name) + "</option>"
@@ -261,9 +261,9 @@ fn inventory_items(items: ListItemsRow[512], count: u32, selected: string) strin
     var out: string = "<option value=\"\">Choose an item</option>"
     var i: u32 = 0
     while i < count {
-        let id: string = rho_int_to_str(u32(items[i].id))
+        let id: string = int_to_str(u32(items[i].id))
         out = out + "<option value=\"" + id + "\""
-        if rho_str_eq(id, selected) {
+        if str_eq(id, selected) {
             out = out + " selected"
         }
         out = out + ">" + escape_html(items[i].name) + "</option>"
@@ -277,7 +277,7 @@ fn inventory_category_choices(categories: Categories[64], count: u32) string {
     var i: u32 = 0
     while i < count {
         if out != "" { out = out + "," }
-        out = out + rho_int_to_str(u32(categories[i].id)) + "|" + categories[i].name
+        out = out + int_to_str(u32(categories[i].id)) + "|" + categories[i].name
         i = i + 1
     }
     return out
@@ -288,7 +288,7 @@ fn inventory_item_choices(items: ListItemsRow[512], count: u32) string {
     var i: u32 = 0
     while i < count {
         if out != "" { out = out + "," }
-        out = out + rho_int_to_str(u32(items[i].id)) + "|" + items[i].name
+        out = out + int_to_str(u32(items[i].id)) + "|" + items[i].name
         i = i + 1
     }
     return out
@@ -310,7 +310,7 @@ fn inventory_item_rows(items: ListItemsRow[512], count: u32) string {
     var i: u32 = 0
     while i < count {
         let row: ListItemsRow = items[i]
-        let id: string = rho_int_to_str(u32(row.id))
+        let id: string = int_to_str(u32(row.id))
         var low: string = ""
         if row.reorderMilli > 0 && row.quantityMilli <= row.reorderMilli {
             low = "<span class=\"badge low\">reorder</span>"
@@ -360,7 +360,7 @@ fn inventory_expense_rows(rows: ListExpensesRow[512], count: u32) string {
     while i < count {
         let row: ListExpensesRow = rows[i]
         let html: string = template_fill(inventory_template("rows/expense-row"),
-            vars("id", rho_int_to_str(u32(row.id))) +
+            vars("id", int_to_str(u32(row.id))) +
             vars("item", row.item) +
             vars("category", row.category) +
             vars("quantity", inventory_quantity(row.quantityMilli)) +
@@ -426,7 +426,7 @@ fn inventory_count(req: Request) Response {
         return html(status_internal(), "{\"count\":0}")
     }
     let db: SqlDb = opened.ok
-    ignore_u32(sql_apply(db, inventory_schema()))
+    sql_apply(db, inventory_schema())
     let items: ListItemsRow[512]
     let item_slice: Slice[ListItemsRow] = Slice[ListItemsRow]{
         Ptr[ListItemsRow](&items[0]), ITEM_CAPACITY }
@@ -434,7 +434,7 @@ fn inventory_count(req: Request) Response {
     var n: u32 = 0
     if listed.is_ok { n = listed.ok }
     sql_close(db)
-    return html(status_ok(), "{\"count\":" + rho_int_to_str(n) + "}")
+    return html(status_ok(), "{\"count\":" + int_to_str(n) + "}")
 }
 
 fn inventory_page_message(req: Request, message: string) Response {
@@ -444,7 +444,7 @@ fn inventory_page_message(req: Request, message: string) Response {
             escape_html(opened.err) + "</p>")
     }
     let db: SqlDb = opened.ok
-    ignore_u32(sql_apply(db, inventory_schema()))
+    sql_apply(db, inventory_schema())
 
     let categories: Categories[64]
     let category_slice: Slice[Categories] = Slice[Categories]{
@@ -566,9 +566,9 @@ fn inventory_page_message(req: Request, message: string) Response {
         vars("expense_rows", inventory_expense_rows(expenses, expense_count)) +
         vars("category_rows", inventory_category_rows(categories, category_count)) +
         vars("total", escape_html(inventory_money(total))) +
-        vars("item_count", rho_int_to_str(item_count)) +
-        vars("low_count", rho_int_to_str(low_count)) +
-        vars("expense_count", rho_int_to_str(expense_count)) +
+        vars("item_count", int_to_str(item_count)) +
+        vars("low_count", int_to_str(low_count)) +
+        vars("expense_count", int_to_str(expense_count)) +
         vars("docs", inventory_docs()))
 
     return host_shell(req, i18n_t(req, "inventory.title"), body, toast_js)
@@ -588,13 +588,13 @@ fn inventory_keeper_link() string {
 }
 
 fn item_edit_page(req: Request) Response {
-    let id: u32 = rho_int_from_str(request_query_param(req, "id"))
+    let id: u32 = int_from_str(request_query_param(req, "id"))
     let opened: Result[SqlDb, string] = sql_open(inventory_db_path())
     if !opened.is_ok {
         return inventory_page_message(req, "The database could not be opened: " + opened.err)
     }
     let db: SqlDb = opened.ok
-    ignore_u32(sql_apply(db, inventory_schema()))
+    sql_apply(db, inventory_schema())
     let categories: Categories[64]
     let category_slice: Slice[Categories] = Slice[Categories]{
         Ptr[Categories](&categories[0]), CATEGORY_CAPACITY }
@@ -622,10 +622,10 @@ fn item_edit_page(req: Request) Response {
     let body: string = template_fill(inventory_template("pages/item-edit"),
         i18n_vars(req) +
         vars("inventory_style", inventory_template("parts/style")) +
-        vars("id", rho_int_to_str(u32(row.id))) +
+        vars("id", int_to_str(u32(row.id))) +
         vars("name", row.name) +
         vars("category_options", inventory_categories(categories, category_count,
-            rho_int_to_str(u32(row.categoryId)))) +
+            int_to_str(u32(row.categoryId)))) +
         vars("unit", row.unit) +
         vars("quantity", inventory_quantity(row.quantityMilli)) +
         vars("reorder", inventory_quantity(row.reorderMilli)) +
@@ -644,7 +644,7 @@ fn items_add(req: Request) Response {
         return inventory_page_message(req, i18n_t(req, "inventory.csrf_refused"))
     }
     let name: string = trim(form_value(body, "name"))
-    if rho_strlen(name) == 0 {
+    if strlen(name) == 0 {
         return inventory_page_message(req, "An item needs a name.")
     }
     let quantity: u32 = inventory_parse_scaled(form_value(body, "quantity"), 1000)
@@ -654,13 +654,13 @@ fn items_add(req: Request) Response {
         return inventory_page_message(req, "The database could not be opened: " + opened.err)
     }
     let db: SqlDb = opened.ok
-    ignore_u32(sql_apply(db, inventory_schema()))
+    sql_apply(db, inventory_schema())
     let added: Result[u32, SqlError] = InsertItem(
         name,
         trim(form_value(body, "category_id")),
         trim(form_value(body, "unit")),
-        rho_int_to_str(quantity),
-        rho_int_to_str(reorder),
+        int_to_str(quantity),
+        int_to_str(reorder),
         trim(form_value(body, "location")),
         trim(form_value(body, "notes")),
         db)
@@ -675,7 +675,7 @@ fn items_add(req: Request) Response {
 
 fn items_edit_save(req: Request) Response {
     let body: string = request_body(req)
-    let id: u32 = rho_int_from_str(trim(form_value(body, "id")))
+    let id: u32 = int_from_str(trim(form_value(body, "id")))
     if id == 0 {
         return inventory_page_message(req, "That item was not found.")
     }
@@ -684,7 +684,7 @@ fn items_edit_save(req: Request) Response {
         return inventory_page_message(req, "The database could not be opened: " + opened.err)
     }
     let db: SqlDb = opened.ok
-    ignore_u32(sql_apply(db, inventory_schema()))
+    sql_apply(db, inventory_schema())
     let reorder: u32 = inventory_parse_scaled(form_value(body, "reorder"), 1000)
     let updated: Result[u32, SqlError] = UpdateItemDetails(
         trim(form_value(body, "name")),
@@ -707,7 +707,7 @@ fn items_consume(req: Request) Response {
     if !forms_csrf_ok(body) {
         return inventory_page_message(req, i18n_t(req, "inventory.csrf_refused"))
     }
-    let id: u32 = rho_int_from_str(trim(form_value(body, "item_id")))
+    let id: u32 = int_from_str(trim(form_value(body, "item_id")))
     let amount: u32 = inventory_parse_scaled(form_value(body, "quantity"), 1000)
     if id == 0 || amount == 0 {
         return inventory_page_message(req, "Choose an item and a quantity to remove.")
@@ -717,11 +717,11 @@ fn items_consume(req: Request) Response {
         return inventory_page_message(req, "The database could not be opened: " + opened.err)
     }
     let db: SqlDb = opened.ok
-    ignore_u32(sql_apply(db, inventory_schema()))
-    let delta: string = "-" + rho_int_to_str(amount)
+    sql_apply(db, inventory_schema())
+    let delta: string = "-" + int_to_str(amount)
     let updated: Result[u32, SqlError] = UpdateItemStock(delta, i64(id), db)
     if updated.is_ok {
-        ignore_result(InsertMovement(rho_int_to_str(id), "consume", delta, "0", "0",
+        ignore_result(InsertMovement(int_to_str(id), "consume", delta, "0", "0",
             trim(form_value(body, "source")), inventory_date(),
             trim(form_value(body, "comment")), db))
     }
@@ -739,7 +739,7 @@ fn expenses_add(req: Request) Response {
     if !forms_csrf_ok(body) {
         return inventory_page_message(req, i18n_t(req, "inventory.csrf_refused"))
     }
-    let item_id: u32 = rho_int_from_str(trim(form_value(body, "item_id")))
+    let item_id: u32 = int_from_str(trim(form_value(body, "item_id")))
     let quantity: u32 = inventory_parse_scaled(form_value(body, "quantity"), 1000)
     let unit_price: u32 = inventory_parse_scaled(form_value(body, "unit_price"), 100)
     if item_id == 0 {
@@ -751,7 +751,7 @@ fn expenses_add(req: Request) Response {
     }
     let total: u32 = (qty * unit_price) / 1000
     var purchased: string = trim(form_value(body, "purchased_at"))
-    if rho_strlen(purchased) == 0 {
+    if strlen(purchased) == 0 {
         purchased = inventory_date()
     }
     let opened: Result[SqlDb, string] = sql_open(inventory_db_path())
@@ -759,7 +759,7 @@ fn expenses_add(req: Request) Response {
         return inventory_page_message(req, "The database could not be opened: " + opened.err)
     }
     let db: SqlDb = opened.ok
-    ignore_u32(sql_apply(db, inventory_schema()))
+    sql_apply(db, inventory_schema())
 
     let items: ListItemsRow[512]
     let item_slice: Slice[ListItemsRow] = Slice[ListItemsRow]{
@@ -778,15 +778,15 @@ fn expenses_add(req: Request) Response {
     let item_name: string = items[item_index].name
 
     let inserted: Result[u32, SqlError] = InsertExpense(
-        rho_int_to_str(item_id), item_name,
+        int_to_str(item_id), item_name,
         trim(form_value(body, "category_id")),
-        rho_int_to_str(qty), rho_int_to_str(unit_price), rho_int_to_str(total),
+        int_to_str(qty), int_to_str(unit_price), int_to_str(total),
         trim(form_value(body, "source")), purchased,
         trim(form_value(body, "comment")), db)
     if inserted.is_ok {
-        ignore_result(UpdateItemStock(rho_int_to_str(qty), i64(item_id), db))
-        ignore_result(InsertMovement(rho_int_to_str(item_id), "purchase",
-            rho_int_to_str(qty), rho_int_to_str(unit_price), rho_int_to_str(total),
+        ignore_result(UpdateItemStock(int_to_str(qty), i64(item_id), db))
+        ignore_result(InsertMovement(int_to_str(item_id), "purchase",
+            int_to_str(qty), int_to_str(unit_price), int_to_str(total),
             trim(form_value(body, "source")), purchased,
             trim(form_value(body, "comment")), db))
     }
@@ -801,7 +801,7 @@ fn expenses_add(req: Request) Response {
 
 fn expenses_delete(req: Request) Response {
     let body: string = request_body(req)
-    let id: u32 = rho_int_from_str(trim(form_value(body, "id")))
+    let id: u32 = int_from_str(trim(form_value(body, "id")))
     if id == 0 {
         return inventory_page_message(req, "That purchase was not found.")
     }
@@ -810,7 +810,7 @@ fn expenses_delete(req: Request) Response {
         return inventory_page_message(req, "The database could not be opened: " + opened.err)
     }
     let db: SqlDb = opened.ok
-    ignore_u32(sql_apply(db, inventory_schema()))
+    sql_apply(db, inventory_schema())
     let removed: Result[u32, SqlError] = DeleteExpense(i64(id), db)
     sql_close(db)
     if !removed.is_ok {
@@ -825,7 +825,7 @@ fn categories_add(req: Request) Response {
         return inventory_page_message(req, i18n_t(req, "inventory.csrf_refused"))
     }
     let name: string = trim(form_value(body, "category"))
-    if rho_strlen(name) == 0 {
+    if strlen(name) == 0 {
         return inventory_page_message(req, "A category needs a name.")
     }
     let opened: Result[SqlDb, string] = sql_open(inventory_db_path())
@@ -833,7 +833,7 @@ fn categories_add(req: Request) Response {
         return inventory_page_message(req, "The database could not be opened: " + opened.err)
     }
     let db: SqlDb = opened.ok
-    ignore_u32(sql_apply(db, inventory_schema()))
+    sql_apply(db, inventory_schema())
     let added: Result[u32, SqlError] = InsertCategory(name, db)
     sql_close(db)
     if !added.is_ok {

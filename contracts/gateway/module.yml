@@ -9,7 +9,7 @@ module:
   name: robohub-contract-gateway
   id: robohub.contract.gateway
   type: module
-  version: 0.2.0
+  version: 0.2.1
   description: >
     The gateway functions an application calls for projects, sources, states and readings, dispatched to the provider it names.
   maintainer: "Aurel Miron"
@@ -19,5 +19,6 @@ module:
 main: manager.rho
 
 deps:
+  rho-log: ">=0.1.2"
   robohub:
     robohub-provider-mesh: ">=0.1.0"

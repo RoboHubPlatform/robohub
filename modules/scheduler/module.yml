@@ -13,7 +13,7 @@ module:
   type: module
   title: Scheduler
   category: maintenance
-  version: 0.1.3
+  version: 0.1.4
   description: >
     A chore scheduler for maintenance tasks: interval, cron, one-time and
     usage-based schedules, due and overdue states, completion notes and

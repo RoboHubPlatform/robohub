@@ -16,6 +16,10 @@ import std.sql
 import std.web.http
 import std.web.template
 
+// The runtime functions this module calls.
+extern fn rho_exec(program: string, arguments: string, output_path: string) u32
+extern fn rho_read_text(path: string) string
+
 route GET  "/scheduler"                          => scheduler_page
 route POST "/scheduler/chores/add"               => chores_add
 route POST "/scheduler/chores/complete"          => chores_complete

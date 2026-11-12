@@ -16,10 +16,10 @@ extern fn rho_asset(module: string, path: string) string
 // htmx_asset_name admits only the two names the module carries, so a request
 // for /assets/../../... cannot read a file outside the asset directory.
 fn htmx_asset_name(name: string) bool {
-    if rho_str_eq(name, "htmx.min.js") {
+    if str_eq(name, "htmx.min.js") {
         return true
     }
-    if rho_str_eq(name, "sse.min.js") {
+    if str_eq(name, "sse.min.js") {
         return true
     }
     return false
@@ -55,7 +55,7 @@ fn htmx_head() string {
 // htmx_is_request is whether the request came from HTMX, so a handler can
 // answer with a fragment and let a normal form submit keep its redirect.
 fn htmx_is_request(req: Request) bool {
-    return rho_str_eq(header_str(req, "HX-Request"), "true")
+    return str_eq(header_str(req, "HX-Request"), "true")
 }
 
 // htmx_redirect asks HTMX to change the page instead of swapping a redirect

@@ -3,5 +3,6 @@ module i18n
 include "i18n.rho"
 
 import std.web.http
+import robohub.forms
 
 route POST "/i18n/locale" => i18n_switch

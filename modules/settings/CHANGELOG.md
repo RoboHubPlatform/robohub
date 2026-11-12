@@ -18,3 +18,7 @@ The module publishes its interface: it is imported as `robohub.settings`, and ex
 imports it cannot reach its helpers, and they never collide with the
 application's own names. Including it by name still works and is reported with
 the import to use instead.
+
+## [0.2.1] - 2026-11-12
+
+The module builds on its own: it declares the runtime functions it calls and no longer needs the including application's `ignore_u32`.
