@@ -390,9 +390,16 @@ def main() -> int:
                             "fault SSE stream")
 
             post(base, "/api/energy/sim/fault", {"fault": "none"})
-            time.sleep(4)
-            if "ok:No power faults" not in get(base, "/api/energy/widgets/faults"):
-                raise AssertionError("clearing the scripted fault did not clear the badge")
+            # The fault clears on the simulator's next safety pass, whose
+            # interval a busy machine stretches; wait for it rather than for a
+            # fixed time.
+            deadline = time.time() + 20
+            while "ok:No power faults" not in get(base, "/api/energy/widgets/faults"):
+                if time.time() > deadline:
+                    fault_state = get(base, "/api/energy/widgets/faults")
+                    active = [re.sub(r"<[^>]+>", " ", row).split() for row in re.findall(r"<tr>(.*?)</tr>", get(base, "/faults"), re.S)][:6]
+                    raise AssertionError(f"clearing the scripted fault did not clear the badge: {fault_state} {active}")
+                time.sleep(0.5)
 
             events = get(base, "/events")
             assert_contains(events, ["Safety policy updated",

@@ -24,6 +24,9 @@ const ENERGY_OUTBOX_LIMIT: u32 = 500
 
 const ENERGY_OUTBOX_LOCK: string = "energy.outbox"
 
+// The site's state: what the tick steps and a request writes.
+const ENERGY_STATE_LOCK: string = "energy.state"
+
 extern fn rho_lock(name: string)
 extern fn rho_unlock(name: string)
 

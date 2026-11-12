@@ -61,3 +61,12 @@ and a request recorded readings at the same time and could give two readings one
 number, and an acknowledgement that rewrote the outbox between a read and an
 append lost the reading appended. project.yml writes only what differs from the
 built-in target, and carries the templates folder whole.
+
+## [0.1.4] - 2026-11-12
+
+The simulator's tick and the requests that write the site — an ingested
+reading, a scripted fault — hold one lock. A tick that read the site before an
+ingest and wrote its step after overwrote the ingested battery with the value it
+had replaced, so a cleared low-battery fault could stay raised. The smoke test
+waits for the fault to clear rather than for a fixed time, and says which faults
+are still active when one does not.

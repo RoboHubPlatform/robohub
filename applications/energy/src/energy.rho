@@ -1287,6 +1287,10 @@ fn energy_tick() void {
     }
     var db: SqlDb = opened.ok
     var now: u32 = energy_now()
+    // The tick reads the site, steps it and writes it back; a request that
+    // writes the site meanwhile would be overwritten by a step computed from
+    // what it replaced, so both hold the state lock.
+    rho_lock(ENERGY_STATE_LOCK)
     energy_control_tick(db, now)
     if energy_driver_is_mock() {
         energy_sim_tick(db, now)
@@ -1295,6 +1299,7 @@ fn energy_tick() void {
     }
     energy_evaluate_safety(db, now)
     energy_publish_live(db)
+    rho_unlock(ENERGY_STATE_LOCK)
     if widgets_live_changed() || energy_widget_refresh_due() {
         ignore_u32(widgets_refresh_all())
     }
@@ -3401,6 +3406,7 @@ fn energy_api_ingest(req: Request) Response {
     }
     var db: SqlDb = opened.ok
     var now: u32 = energy_now()
+    rho_lock(ENERGY_STATE_LOCK)
     var id: i64 = 0
     if rho_str_eq(kind, "battery") {
         id = energy_api_battery_ingest(db, body, now)
@@ -3416,12 +3422,14 @@ fn energy_api_ingest(req: Request) Response {
         }
     }
     if id == 0 {
+        rho_unlock(ENERGY_STATE_LOCK)
         sql_close(db)
         return json(400, "{\"ok\":false,\"error\":\"name and at least one value are required\"}")
     }
     energy_control_tick(db, now)
     energy_evaluate_safety(db, now)
     energy_publish_live(db)
+    rho_unlock(ENERGY_STATE_LOCK)
     sql_close(db)
     return json(status_ok(), "{\"ok\":true,\"type\":" + json_string(kind) + ",\"id\":" + energy_i64_to_str(id) + "}")
 }
@@ -3481,6 +3489,7 @@ fn energy_api_sim_fault(req: Request) Response {
     }
     var db: SqlDb = opened.ok
     var now: u32 = energy_now()
+    rho_lock(ENERGY_STATE_LOCK)
     energy_ignore_result(SetSimFault(fault, i64(now), db))
     if fault == "" {
         energy_ignore_result(InsertEvent("INFO", "simulator", "Scripted fault cleared", rho_int_to_str(now), db))
@@ -3489,6 +3498,7 @@ fn energy_api_sim_fault(req: Request) Response {
     }
     energy_evaluate_safety(db, now)
     energy_publish_live(db)
+    rho_unlock(ENERGY_STATE_LOCK)
     sql_close(db)
     return json(status_ok(), "{\"ok\":true,\"fault\":" + json_string(fault) + "}")
 }

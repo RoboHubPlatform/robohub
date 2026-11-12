@@ -16,7 +16,7 @@ module:
   previous_ids:
     - robohub.applications.energy
   type: rho
-  version: 0.1.3
+  version: 0.1.4
   kind: keeper-hosted
   title: Energy
   description: >
