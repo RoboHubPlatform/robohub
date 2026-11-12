@@ -256,13 +256,10 @@ smoke test read; `GET /api/energy/events` returns the latest audit events.
 
 ## Running
 
-```sh
-# Install it as the user service the keeper manages
-./scripts/deploy-app.sh energy
-```
-
-The keeper's Applications page also deploys the service on Start when a
-bundled application has no unit yet. Energy runs on port `8482`, with the same
+Start it from the keeper's Applications page: the keeper installs it as a user
+service with the deploy script it carries, building it from its folder or, once
+it is published with `rho module publish`, running the program its package
+carries. Energy runs on port `8482`, with the same
 unit shape, workspace and restart policy as mesh and aquarium.
 
 ```sh
