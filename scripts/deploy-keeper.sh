@@ -14,10 +14,14 @@ RHO="${RHO:-$HOME/.rho/bin/rho}"
 
 mkdir -p "$(dirname "$DEPLOY_LOG")"
 
-# If the service already exists, just report and exit.
-# A unit written before the keeper had a workspace of its own is written again.
+# If the service already exists and still describes this keeper, just report
+# and exit. A unit written before the keeper had a workspace of its own, or for a
+# checkout that has moved, is written again.
 if systemctl --user is-enabled "$SERVICE_NAME" >/dev/null 2>&1 &&
-   grep -q "ROBOHUB_APP_WORKSPACE" "$SERVICE_FILE" 2>/dev/null; then
+   grep -q "ROBOHUB_APP_WORKSPACE" "$SERVICE_FILE" 2>/dev/null &&
+   grep -qx "ExecStart=$KEEPER/build/keeper" "$SERVICE_FILE" &&
+   grep -qx "Environment=ROBOHUB_ROOT=$ROBOHUB" "$SERVICE_FILE" &&
+   grep -qx "Environment=ROBOHUB_WORKSPACE=$(dirname "$ROBOHUB")" "$SERVICE_FILE"; then
     echo "[$(date)] $SERVICE_NAME is already deployed."
     echo "  Status: $(systemctl --user is-active "$SERVICE_NAME" 2>/dev/null || echo 'inactive')"
     echo "  Use 'systemctl --user restart $SERVICE_NAME' to restart."
@@ -64,7 +68,10 @@ UNIT
 
 loginctl enable-linger "$(whoami)" 2>/dev/null || true
 systemctl --user daemon-reload
-systemctl --user enable --now "$SERVICE_NAME" >> "$DEPLOY_LOG" 2>&1 || {
+# restart, not start: a keeper already running from the unit written before
+# picks the new one up.
+systemctl --user enable "$SERVICE_NAME" >> "$DEPLOY_LOG" 2>&1 &&
+systemctl --user restart "$SERVICE_NAME" >> "$DEPLOY_LOG" 2>&1 || {
     echo "SERVICE START FAILED (user service may need user lingering)"; exit 1
 }
 
