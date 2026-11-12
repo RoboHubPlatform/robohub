@@ -24,3 +24,9 @@ meets. `alert.test`, `alert.providers`, `alert.enabled`, `alert.config` and
 installation without a rebuild. Only the bound providers are compiled in. The
 alert rules moved to `src/rule.rho` with their tests, which the interface runs
 itself (`rho test`), and string comparisons in them compare contents on C.
+
+## [1.1.0] - 2026-11-12
+
+`AlertRule` and `AlertEvaluation` are exported, so an application that keeps a
+rule names its type, as `alert.AlertRule` or, when no other module declares
+one, `AlertRule`.

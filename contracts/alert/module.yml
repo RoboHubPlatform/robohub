@@ -20,7 +20,7 @@ module:
   previous_ids:
     - robohub.contract.alert
   type: module
-  version: 1.0.0
+  version: 1.1.0
   description: >
     The alert interface: an application raises an alert, and every enabled
     channel it binds whose severity threshold the alert meets delivers it.
@@ -45,6 +45,8 @@ provides:
     - alert_rule_cleared
     - alert_rule_message
     - alert_rule_trigger
+    - AlertRule
+    - AlertEvaluation
 
 # What every channel implements.
 interface:

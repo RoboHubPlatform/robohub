@@ -13,3 +13,9 @@ The module publishes its interface: it is imported as `robohub.forms`, and expor
 imports it cannot reach its helpers, and they never collide with the
 application's own names. Including it by name still works and is reported with
 the import to use instead.
+
+## [0.3.0] - 2026-11-12
+
+`FormField` is exported, so an application that imports `robohub.forms` names
+the type of the fields it builds. A module's types are its own now, and one an
+importer names has to be listed under `provides.exports`.
