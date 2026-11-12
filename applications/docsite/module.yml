@@ -7,6 +7,7 @@ module:
   version: 0.3.7
   author: Aurel Miron
   maintainer: Aurel Miron
+  license: "MIT"
 description: Serves the RoboHub documentation as a site — an index, a menu, the pages, and the ecosystem's release notes
 main: src/main.rho
 
