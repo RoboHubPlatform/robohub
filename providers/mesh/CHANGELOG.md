@@ -24,3 +24,11 @@ Latest and history calls work with any stored form.
 ## [0.2.2] - 2026-11-12
 
 The provider declares `rho-log`, which it imports, and calls the language's string functions rather than runtime functions its includer had to declare.
+
+## [0.3.0] - 2026-11-12
+
+A provider of the gateway interface: it lists `robohub.gateway` under
+`implements`, exports the interface's functions by their own names, and reads
+Mesh's address and the project from the application's binding (`url`,
+`project`). The `provider:` block, the configuration string each function took,
+and the contract helpers it borrowed are gone.

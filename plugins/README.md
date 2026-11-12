@@ -5,12 +5,12 @@ with an identity, a `src/main.rho`, documentation, and a changelog, and it is
 listed in `registry.yml`. A directory without those is not a plugin and does not
 belong here.
 
-The plugins are `robohub-auth`, how an application signs a person in, and
-`mesh-gateway`, the gateway contract's mesh implementation.
+The plugin is `robohub-auth`, how an application signs a person in.
 
-Alert channels are not plugins. They are providers of the alert interface
-(`contracts/alert/`, `robohub-alert`): an application depends on the providers
-it wants and binds them in its `module.yml`. See `providers/README.md`.
+Alert channels and the Mesh gateway are not plugins. They are providers of an
+interface (`contracts/alert/`, `contracts/gateway/`): an application depends on
+the providers it wants and binds them in its `module.yml`. See
+`providers/README.md`.
 
 ## Dependencies
 

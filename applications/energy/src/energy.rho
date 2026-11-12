@@ -74,23 +74,19 @@ fn energy_snapshot_file() string {
     return energy_state_dir() + "/energy-live.snapshot"
 }
 
+// energy_gateway_conf_value is one of the gateway's settings: the binding's
+// default, or what the Settings page saved into it.
 fn energy_gateway_conf_value(key: string) string {
-    let path: string = energy_gateway_conf_path()
-    if !rho_path_exists(path) {
-        return ""
+    if rho_str_eq(key, "token") {
+        return gateway.token()
     }
-    return gateway_config_value(rho_read_text(path), key)
+    return gateway.config(key)
 }
 
 fn energy_hydrate_gateway_settings() void {
-    let path: string = energy_gateway_conf_path()
-    if !rho_path_exists(path) {
-        return
-    }
-    let conf: string = rho_read_text(path)
-    let url: string = gateway_config_value(conf, "url")
-    let project: string = gateway_config_value(conf, "project")
-    let token: string = gateway_config_value(conf, "token")
+    let url: string = gateway.config("url")
+    let project: string = gateway.config("project")
+    let token: string = gateway.token()
     if url != "" && settings_get("energy.mesh_url", "") == "" {
         settings_set("energy.mesh_url", url)
     }
@@ -2337,7 +2333,7 @@ fn energy_publish(topic: string, payload: string) void {
     if energy_driver_is_mock() {
         return
     }
-    ignore_string(gateway_publish(energy_project(), topic, payload))
+    ignore_string(gateway.publish(energy_project(), topic, payload))
 }
 
 // energy_register_mesh_client performs the handshake: Mesh learns the app, the
@@ -2348,7 +2344,7 @@ fn energy_register_mesh_client() void {
     if energy_driver_is_mock() {
         return
     }
-    let response: string = gateway_register_client("robohub-energy",
+    let response: string = gateway.register_client("robohub-energy",
         energy_instance_id(), energy_base_url() + "/api/energy/mesh/events",
         "energy.commands,grid.status.*")
     let client_id: string = energy_json_field(response, "client_id")
@@ -2371,7 +2367,7 @@ fn energy_mesh_heartbeat() void {
         energy_register_mesh_client()
         return
     }
-    ignore_string(gateway_client_heartbeat(client_id))
+    ignore_string(gateway.client_heartbeat(client_id))
 }
 
 fn energy_mesh_heartbeat_due() bool {
@@ -2416,38 +2412,30 @@ fn energy_mesh_callback(req: Request) Response {
     return json(status_ok(), "{\"ok\":true}")
 }
 
-fn energy_gateway_conf_path() string {
-    return energy_state_dir() + "/gateway.conf"
-}
-
-// The gateway.conf is the same file the gateway contract reads. Writing it here
-// means the provider's settings and the application's settings are one fact,
-// not two.
+// The gateway's settings are the binding's: writing the Settings page's values
+// into them means the provider's settings and the application's settings are
+// one fact, not two.
 fn energy_write_gateway_conf() void {
     // Simulated or real, readings come back the one way: through Mesh, which
     // stored them. The simulator's readings reached Mesh through this
     // application's outbox, like a gateway's.
-    var conf: string = "provider=mesh-gateway;transport=mesh"
     var url: string = settings_get("energy.mesh_url", "")
     var project: string = settings_get("energy.mesh_project", "default")
-    if url != "" {
-        conf = gateway_config_set(conf, "url", url)
+    if url != "" && !rho_str_eq(url, gateway.config("url")) {
+        ignore_bool(gateway.configure("url", url))
     }
-    if project != "" {
-        conf = gateway_config_set(conf, "project", project)
+    if project != "" && !rho_str_eq(project, gateway.config("project")) {
+        ignore_bool(gateway.configure("project", project))
     }
-    ignore_bool(rho_write_text(energy_gateway_conf_path(), conf))
 }
 
 fn energy_ensure_gateway_conf() void {
-    if !rho_path_exists(energy_gateway_conf_path()) {
-        energy_write_gateway_conf()
-    }
+    energy_write_gateway_conf()
 }
 
 fn energy_gateway_url() string {
     energy_ensure_gateway_conf()
-    return gateway_gateway()
+    return gateway.gateway()
 }
 
 fn energy_gateway_display_url() string {
@@ -2460,7 +2448,7 @@ fn energy_gateway_display_url() string {
 
 fn energy_gateway_status() string {
     energy_ensure_gateway_conf()
-    return gateway_telemetry_status()
+    return gateway.telemetry_status()
 }
 
 fn energy_gateway_project_choices() string {
@@ -2468,7 +2456,7 @@ fn energy_gateway_project_choices() string {
         return ""
     }
     energy_ensure_gateway_conf()
-    var text: string = gateway_projects()
+    var text: string = gateway.projects()
     var out: string = ""
     var pos: u32 = 0
     while pos < u32(rho_strlen(text)) {
@@ -2552,7 +2540,7 @@ fn energy_mesh_sources_html() string {
 
 fn energy_gateway_sources_text() string {
     energy_ensure_gateway_conf()
-    return gateway_sources()
+    return gateway.sources()
 }
 
 // In real-time mode the Mesh source behind a node is its primary reading:
@@ -2576,7 +2564,7 @@ fn energy_sync_from_gateway(db: SqlDb, now: u32) {
         var i: u32 = 0
         while i < source_rows.ok {
             if sources[i].meshSource != "" {
-                var latest: string = gateway_source_latest(sources[i].meshSource)
+                var latest: string = gateway.source_latest(sources[i].meshSource)
                 if latest != "" {
                     var power: i64 = energy_parse_watts(latest)
                     var voltage: i64 = sources[i].voltageMv
@@ -2601,7 +2589,7 @@ fn energy_sync_from_gateway(db: SqlDb, now: u32) {
         var j: u32 = 0
         while j < battery_rows.ok {
             if batteries[j].meshSource != "" {
-                var latest: string = gateway_source_latest(batteries[j].meshSource)
+                var latest: string = gateway.source_latest(batteries[j].meshSource)
                 if latest != "" {
                     var soc: i64 = energy_parse_milli(latest)
                     energy_ignore_result(UpdateBatteryReading(soc,
@@ -2623,7 +2611,7 @@ fn energy_sync_from_gateway(db: SqlDb, now: u32) {
         var k: u32 = 0
         while k < grid_rows.ok {
             if grids[k].meshSource != "" {
-                var latest: string = gateway_source_latest(grids[k].meshSource)
+                var latest: string = gateway.source_latest(grids[k].meshSource)
                 if latest != "" {
                     var net: i64 = energy_parse_watts(latest)
                     var import_w: i64 = 0

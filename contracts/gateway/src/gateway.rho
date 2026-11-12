@@ -1,0 +1,102 @@
+module robohub.gateway
+
+// The gateway interface.
+//
+// An application asks for a mesh's projects, sources and readings; the provider
+// it binds answers. A gateway is one place, so the first enabled provider bound
+// is the one asked. The calls to it — the *_to functions, bound_providers and
+// bind_config — are generated from the application's binding.
+
+// provider is the bound gateway that answers: the first enabled one.
+fn provider() string {
+    var rest: string = bound_providers()
+    while rest != "" {
+        let at: i32 = str_index_of(rest, "\n")
+        let name: string = str_slice(rest, 0, u32(at))
+        rest = str_slice(rest, u32(at) + 1, strlen(rest) - u32(at) - 1)
+        if bind_config(name, "enabled") != "false" {
+            return name
+        }
+    }
+    return ""
+}
+
+// config is one of the gateway's settings — its `url`, its `project` — and
+// configure changes it on the running installation.
+fn config(key: string) string {
+    let name: string = provider()
+    if name == "" {
+        return ""
+    }
+    return bind_config(name, key)
+}
+
+fn configure(key: string, value: string) bool {
+    let name: string = provider()
+    if name == "" {
+        return false
+    }
+    return bind_config_set(name, key, value)
+}
+
+// token is the service token the gateway was configured with, if any.
+fn token() string {
+    return config("token")
+}
+
+fn projects() string {
+    return projects_to(provider())
+}
+
+fn gateway() string {
+    return gateway_to(provider())
+}
+
+// sources are the project's inputs and outputs.
+fn sources() string {
+    return sources_to(provider())
+}
+
+// device_states are id:state lines for switch synchronisation.
+fn device_states() string {
+    return device_states_to(provider())
+}
+
+// follow follows the project's live stream into path, when the gateway has one.
+fn follow(path: string) bool {
+    return follow_to(provider(), path)
+}
+
+// source_state is the state behind one source URL.
+fn source_state(source: string) string {
+    return source_state_to(provider(), source)
+}
+
+// source_latest is the newest reading of one source, by ID or URL.
+fn source_latest(source: string) string {
+    return source_latest_to(provider(), source)
+}
+
+// source_history is one source's readings over a range. The times are Unix
+// milliseconds as text, 64-bit and passed through unchanged; an empty step asks
+// for raw readings.
+fn source_history(source: string, from_ms: string, to_ms: string, step_ms: string) string {
+    return source_history_to(provider(), source, from_ms, to_ms, step_ms)
+}
+
+fn register_client(app_name: string, instance_id: string, callback_url: string, topics: string) string {
+    return register_client_to(provider(), app_name, instance_id, callback_url, topics)
+}
+
+fn client_heartbeat(client_id: string) string {
+    return client_heartbeat_to(provider(), client_id)
+}
+
+fn publish(project: string, topic: string, payload: string) string {
+    return publish_to(provider(), project, topic, payload)
+}
+
+// telemetry_status is the store's own account of what it holds.
+fn telemetry_status() string {
+    return telemetry_status_to(provider())
+}

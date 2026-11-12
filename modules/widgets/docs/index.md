@@ -75,17 +75,14 @@ from its worker; the module fetches every URL source, stores the values that
 changed, and emits the same per-locale card events the dashboard already
 consumes. The host supplies values; it never renders a widget.
 
-## Simulated sources
+## Sources
 
-The gateway contract has a `sim` transport alongside `mesh`. When the energy
-application is in simulation mode it writes `transport=sim;base=<url>` to
-`gateway.conf`, and the source picker is filled from
-`/api/energy/sim/gateway/sources`: generation, load, SoC, grid, battery
-temperature, mode and faults. The seeded energy cards store those source IDs, so
-the picker preselects them and the cards read their values through the same
-`gateway_source_latest` path a real Mesh source uses. Switching to real-time
-mode writes the Mesh transport and clears the simulated selections; the operator
-then chooses a real project source.
+The sources come from the gateway interface the host binds (`robohub.gateway`):
+the picker lists `gateway.sources()`, a number reads `gateway.source_latest`, a
+chart `gateway.source_history`, and the live cards follow `gateway.follow`. The
+widgets module knows the fields of a source, not which provider produced them.
+A simulated reading takes the path a real one does: into Mesh, and back through
+the same provider.
 
 ## Storage and settings
 

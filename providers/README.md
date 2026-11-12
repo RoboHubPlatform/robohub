@@ -11,7 +11,7 @@ has an identity, a version, docs and a changelog.
 | `robohub-provider-email` | `robohub.alert` | `mode`, `to_address`, `from_address`, `app`, `subject_template`, `body_template`, `smtp_*`, `severity_threshold` |
 | `robohub-provider-telegram` | `robohub.alert` | `bot_token`, `chat_id`, `severity_threshold` |
 | `robohub-provider-webhook` | `robohub.alert` | `url`, `content_type`, `authorization`, `severity_threshold` |
-| `robohub-provider-mesh` | gateway | behind the gateway contract |
+| `robohub-provider-mesh` | `robohub.gateway` | `url`, `project`, `token` |
 
 Every provider also accepts `enabled`.
 

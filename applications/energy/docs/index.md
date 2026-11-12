@@ -177,14 +177,15 @@ tables, advances a solar bell curve and a wind band, charges and discharges the
 bank within the BMS current limits, and respects the operating mode.
 
 In **simulation** mode the simulator's readings take the path real ones do: out
-through the outbox into Mesh, and back through the `mesh-gateway` provider. There
+through the outbox into Mesh, and back through the gateway interface. There
 is no second, simulated data path to keep in step with the real one.
 
-In **real-time** mode the application uses the same `mesh-gateway` provider an
-aquarium uses. Settings keeps the Mesh URL and project and writes them to the
-workspace's `gateway.conf` (the token is the application's short-lived service
-token, never a setting), and the gateway contract answers with the real
-project's sources. The **Mesh project is a select populated from
+In **real-time** mode the application uses the same gateway an aquarium uses: the
+gateway interface, bound to the Mesh provider. Settings keeps the Mesh URL and
+project and writes them into the binding's settings (`bind.conf` in the
+application's workspace; the token is the application's short-lived service
+token, never a setting), and the gateway answers with the real project's
+sources. The **Mesh project is a select populated from
 `GET /mesh/api/projects` at the entered address**, so only projects the Mesh
 server reports can be chosen; save the URL once to load them. The telemetry
 project is not a separate input: it is the selected Mesh project, and the
@@ -216,16 +217,12 @@ clears and `energy.mode` when the operating mode changes. The application does
 not need to know which other applications are listening; Mesh matches the topic
 and routes the message to subscribers.
 
-The Mesh settings page and the energy dashboard use the same service token and
-the same `mesh-gateway` plugin as the aquarium. The project select is populated
-from `/mesh/api/projects`; the token is required for a protected Mesh, which is
-why the project list is empty until both the URL and token are saved. The token
-is per application and per project: generate it in the Mesh project settings
-(Application tokens), choose its lifetime, and copy it here. It expires, so a
-new one is generated and entered when it does. Because it is project-scoped,
-the select shows that project only. A token
-already present in `gateway.conf` is copied into settings on startup, and a
-blank token field on save keeps the existing token rather than clearing it.
+The Mesh settings page and the energy dashboard reach Mesh through the same
+gateway as the aquarium. The project select is populated from
+`/mesh/api/projects`. Every request carries the application's short-lived
+service token for Mesh, scoped to the project, which the runtime gets with the
+credential the keeper started the application with; nothing is copied into a
+setting.
 
 ## Logging
 

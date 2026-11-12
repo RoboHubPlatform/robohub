@@ -16,7 +16,7 @@ module:
   previous_ids:
     - robohub.applications.energy
   type: rho
-  version: 0.1.4
+  version: 0.2.0
   kind: keeper-hosted
   title: Energy
   description: >
@@ -52,10 +52,8 @@ modules:
     route: /widgets
     enabled: true
 
-# The gateway provider this application uses. The energy application does not
-# know Mesh's API; it asks the gateway contract, and this plugin answers. In
-# simulation mode the gateway is idle; in real-time mode the same provider that
-# feeds an aquarium dashboard feeds the energy one.
+# The plugins this application uses: how it signs a person in. Mesh is reached
+# through the gateway interface, bound below.
 plugins:
   - name: robohub-auth
     enabled: true
@@ -63,12 +61,6 @@ plugins:
       issuer: keeper
       mode: direct
       login_url: "http://127.0.0.1:19090/auth/login"
-  - name: mesh-gateway
-    enabled: true
-    config:
-      url: "http://127.0.0.1:8478"
-      project: "default"
-      token: ""
 
 # The runtime package the generated SQL calls into.
 requires:
@@ -97,8 +89,20 @@ deps:
     scheduler: ">=0.1.3"
     widgets: ">=0.2.3"
     robohub-auth: ">=0.1.0"
-    mesh-gateway: ">=0.2.1"
-    robohub-contract-gateway: ">=0.1.0"
+    robohub-gateway: ">=1.0.0"
+    robohub-provider-mesh: ">=0.3.0"
+
+# The gateway this application reaches the mesh through, and its settings. The
+# Settings page changes them on a running installation (bind.conf in the
+# application's workspace); these are the defaults.
+bind:
+  robohub.gateway:
+    providers:
+      - robohub-provider-mesh
+    config:
+      robohub-provider-mesh:
+        url: "http://127.0.0.1:8478"
+        project: "default"
 
 deploy:
   port: 8482

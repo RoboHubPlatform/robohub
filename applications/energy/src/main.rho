@@ -18,7 +18,6 @@ include "db/models.rho"
 include "db/queries.rho"
 include "inventory"
 include "scheduler"
-include "robohub-contract-gateway"
 include "widgets"
 include "logging"
 include "energy.rho"
@@ -26,6 +25,7 @@ import rho.log
 import std.sql
 import std.web.http
 import std.web.template
+import robohub.gateway
 route GET "/" => energy_home
 
 route GET "/docs" => energy_docs

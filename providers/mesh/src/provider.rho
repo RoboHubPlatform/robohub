@@ -1,13 +1,14 @@
-module robohub.providers.mesh
+module robohub.gateway_mesh
 
 import rho.log
 
 // The Mesh gateway provider.
 //
-// Every request in the Mesh API that another application needs is here, not in
-// the application. Aquarium and a future dashboard ask the gateway contract
-// for projects, a gateway, sources, device states and a source state; this
-// provider is the one that knows those paths are under /mesh/api.
+// A provider of the gateway interface (robohub-gateway). Every request in the
+// Mesh API that another application needs is here, not in the application: an
+// application asks the interface for projects, a gateway, sources and readings,
+// and this provider is the one that knows those paths are under /mesh/api. Its
+// settings — Mesh's address and the project — are the application's binding.
 //
 // It talks to Mesh and to nothing else. Every request carries a short-lived
 // service token for Mesh, scoped to the project, which the runtime gets from the
@@ -18,26 +19,103 @@ import rho.log
 extern fn rho_http_request(method: string, url: string, body: string, content_type: string,
     audience: string, scopes: string, output_path: string) u32
 extern fn rho_sse_follow(url: string, audience: string, scopes: string, path: string) bool
+extern fn rho_bind_config(provider: string, key: string) string
+extern fn rho_exec(program: string, arguments: string, output_path: string) u32
+extern fn rho_read_text(path: string) string
 
-// provider_mesh_follow follows the project's live telemetry stream into a local
+// mesh_setting is one of this provider's settings, from the application's
+// binding: `url`, Mesh's address, and `project`, the project it serves.
+fn mesh_setting(key: string) string {
+    return rho_bind_config("robohub-provider-mesh", key)
+}
+
+// mesh_report is where a request's answer is written: the application's own
+// workspace, or a folder of its own under the user's ~/.rho.
+fn mesh_report(name: string) string {
+    var dir: string = getenv("RHO_APP_WORKSPACE")
+    if dir == "" {
+        dir = getenv("ROBOHUB_APP_WORKSPACE")
+    }
+    if dir == "" {
+        dir = getenv("HOME") + "/.rho/gateway"
+    } else {
+        dir = dir + "/data"
+    }
+    rho_exec("mkdir", "-p " + dir, dir + "/mkdir.txt")
+    return dir + "/" + name + ".log"
+}
+
+fn mesh_trim(text: string) string {
+    var out: string = text
+    while strlen(out) > 0 && str_eq(str_slice(out, 0, 1), " ") {
+        out = str_slice(out, 1, u32(strlen(out)) - 1)
+    }
+    while strlen(out) > 0 &&
+        str_eq(str_slice(out, u32(strlen(out)) - 1, 1), " ") {
+        out = str_slice(out, 0, u32(strlen(out)) - 1)
+    }
+    return out
+}
+
+fn mesh_urlencode(text: string) string {
+    var out: string = ""
+    var i: u32 = 0
+    while i < u32(strlen(text)) {
+        let ch: string = str_slice(text, i, 1)
+        if str_eq(ch, ":") {
+            out = out + "%3A"
+        } else if str_eq(ch, "/") {
+            out = out + "%2F"
+        } else if str_eq(ch, "?") {
+            out = out + "%3F"
+        } else if str_eq(ch, "&") {
+            out = out + "%26"
+        } else if str_eq(ch, "=") {
+            out = out + "%3D"
+        } else if str_eq(ch, " ") {
+            out = out + "+"
+        } else {
+            out = out + ch
+        }
+        i = i + 1
+    }
+    return out
+}
+
+fn mesh_json_string_field(text: string, key: string) string {
+    let at: i32 = str_index_of(text, "\"" + key + "\":\"")
+    if at < 0 {
+        return ""
+    }
+    let start: u32 = u32(at) + u32(strlen(key)) + 4
+    let rest: string = str_slice(text, start, u32(strlen(text)) - start)
+    let end: i32 = str_index_of(rest, "\"")
+    if end < 0 {
+        return ""
+    }
+    return str_slice(rest, 0, u32(end))
+}
+
+
+// mesh_follow follows the project's live telemetry stream into a local
 // file, with the application's service token, reconnecting for as long as the
 // application runs. A page never connects to Mesh itself.
-fn provider_mesh_follow(config: string, path: string) bool {
-    let base: string = provider_mesh_base(config)
-    let project: string = provider_mesh_project(config)
+fn follow(path: string) bool {
+    let base: string = mesh_base()
+    let project: string = mesh_project()
     if base == "" || project == "" {
         return false
     }
     return rho_sse_follow(base + "/mesh/api/projects/" + project + "/telemetry/stream",
-        "mesh", provider_mesh_scope(config), path)
+        "mesh", mesh_scope(), path)
 }
 
-fn provider_mesh_base(config: string) string {
+fn mesh_base() string {
     // The supervisor that started the application says where Mesh is; a
     // setting is the fallback for an application started by hand.
     var url: string = getenv("RHO_SERVICE_MESH_URL")
     if url == "" {
-        url = gateway_config_value(config, "url")
+        url = mesh_setting("url")
     }
     while strlen(url) > 0 &&
         str_eq(str_slice(url, u32(strlen(url)) - 1, 1), "/") {
@@ -46,93 +124,93 @@ fn provider_mesh_base(config: string) string {
     return url
 }
 
-fn provider_mesh_project(config: string) string {
-    return gateway_config_value(config, "project")
+fn mesh_project() string {
+    return mesh_setting("project")
 }
 
-// provider_mesh_audience is the audience a request to `url` carries a token
+// mesh_audience is the audience a request to `url` carries a token
 // for: Mesh's, when the address is Mesh's, and none otherwise. A source a user
 // stored can name any address, and a token is only ever sent to its audience.
-fn provider_mesh_audience(config: string, url: string) string {
-    let base: string = provider_mesh_base(config)
+fn mesh_audience(url: string) string {
+    let base: string = mesh_base()
     if base != "" && (str_eq(url, base) || str_starts_with(url, base + "/")) {
         return "mesh"
     }
     return ""
 }
 
-fn provider_mesh_scope(config: string) string {
-    return "mesh:" + provider_mesh_project(config)
+fn mesh_scope() string {
+    return "mesh:" + mesh_project()
 }
 
-fn provider_mesh_fetch(config: string, url: string, name: string) string {
-    let report: string = gateway_report(name)
-    let status: u32 = rho_http_request("GET", url, "", "", provider_mesh_audience(config, url),
-        provider_mesh_scope(config), report)
+fn mesh_fetch(url: string, name: string) string {
+    let report: string = mesh_report(name)
+    let status: u32 = rho_http_request("GET", url, "", "", mesh_audience(url),
+        mesh_scope(), report)
     if status != 200 {
-        warn("mesh-gateway", "fetch failed (" + int_to_str(status) + "): " + url)
+        warn("gateway.mesh", "fetch failed (" + int_to_str(status) + "): " + url)
         return ""
     }
     return rho_read_text(report)
 }
 
-fn provider_mesh_projects(config: string) string {
-    let base: string = provider_mesh_base(config)
+fn projects() string {
+    let base: string = mesh_base()
     if base == "" {
         return ""
     }
-    return provider_mesh_fetch(config, base + "/mesh/api/projects", "mesh-projects")
+    return mesh_fetch(base + "/mesh/api/projects", "mesh-projects")
 }
 
-fn provider_mesh_gateway(config: string) string {
-    let base: string = provider_mesh_base(config)
-    let project: string = provider_mesh_project(config)
+fn gateway() string {
+    let base: string = mesh_base()
+    let project: string = mesh_project()
     if base == "" || project == "" {
         return ""
     }
-    let text: string = provider_mesh_fetch(config, base + "/mesh/api/projects/" + project + "/gateway",
+    let text: string = mesh_fetch(base + "/mesh/api/projects/" + project + "/gateway",
         "mesh-gateway")
     if str_index_of(text, "\"available\":true") < 0 {
         return ""
     }
-    return gateway_json_string_field(text, "url")
+    return mesh_json_string_field(text, "url")
 }
 
-fn provider_mesh_sources(config: string) string {
-    let base: string = provider_mesh_base(config)
-    let project: string = provider_mesh_project(config)
+fn sources() string {
+    let base: string = mesh_base()
+    let project: string = mesh_project()
     if base == "" || project == "" {
         return ""
     }
-    return provider_mesh_fetch(config, base + "/mesh/api/projects/" + project +
-        "/sources?base=" + gateway_urlencode(base), "mesh-sources")
+    return mesh_fetch(base + "/mesh/api/projects/" + project +
+        "/sources?base=" + mesh_urlencode(base), "mesh-sources")
 }
 
-// provider_mesh_device_states used to ask the project's gateway directly, which
+// mesh_device_states used to ask the project's gateway directly, which
 // is a second way to a device beside Mesh, with no token and no scope. A device's
-// state is a source's value, which gateway_source_state reads through Mesh, so
+// state is a source's value, which source_state reads through Mesh, so
 // this answers nothing and a caller falls back to that.
-fn provider_mesh_device_states(config: string) string {
+fn device_states() string {
     return ""
 }
 
-fn provider_mesh_source_state(config: string, source: string) string {
+fn source_state(source: string) string {
     let action: i32 = str_index_of(source, "/action")
     if str_index_of(source, "/mesh/api/") < 0 || action < 0 {
         return ""
     }
     let value_url: string = str_slice(source, 0, u32(action)) + "/value"
-    let state: string = gateway_trim(provider_mesh_fetch(config, value_url, "mesh-state"))
+    let state: string = mesh_trim(mesh_fetch(value_url, "mesh-state"))
     if str_eq(state, "on") || str_eq(state, "off") {
         return state
     }
     return ""
 }
 
-// provider_mesh_source_id accepts the forms a caller may have stored: the
-// source ID gateway_sources returned, a value or action URL, or a URL with a
+// mesh_source_id accepts the forms a caller may have stored: the
+// source ID sources returned, a value or action URL, or a URL with a
 // `source=` query. All three name the same series.
-fn provider_mesh_source_id(source: string) string {
+fn mesh_source_id(source: string) string {
     let marker: i32 = str_index_of(source, "source=")
     if marker >= 0 {
         return str_slice(source, u32(marker) + 7,
@@ -151,41 +229,41 @@ fn provider_mesh_source_id(source: string) string {
     return source
 }
 
-// provider_mesh_source_history asks Mesh for a source's series. The source ID
-// is the one gateway_sources returned, so an application never has to know
+// mesh_source_history asks Mesh for a source's series. The source ID
+// is the one sources returned, so an application never has to know
 // which area, node or field the reading was stored under.
-fn provider_mesh_source_history(config: string, source: string, from_ms: string, to_ms: string, step_ms: string) string {
-    let base: string = provider_mesh_base(config)
-    let project: string = provider_mesh_project(config)
+fn source_history(source: string, from_ms: string, to_ms: string, step_ms: string) string {
+    let base: string = mesh_base()
+    let project: string = mesh_project()
     if base == "" || project == "" || source == "" {
         return ""
     }
-    let id: string = provider_mesh_source_id(source)
+    let id: string = mesh_source_id(source)
     var url: string = base + "/mesh/api/projects/" + project +
-        "/telemetry/series?source=" + gateway_urlencode(id)
+        "/telemetry/series?source=" + mesh_urlencode(id)
     if from_ms != "" {
-        url = url + "&from=" + gateway_urlencode(from_ms)
+        url = url + "&from=" + mesh_urlencode(from_ms)
     }
     if to_ms != "" {
-        url = url + "&to=" + gateway_urlencode(to_ms)
+        url = url + "&to=" + mesh_urlencode(to_ms)
     }
     if step_ms != "" {
-        url = url + "&step=" + gateway_urlencode(step_ms)
+        url = url + "&step=" + mesh_urlencode(step_ms)
     }
-    return provider_mesh_fetch(config, url, "mesh-source-history")
+    return mesh_fetch(url, "mesh-source-history")
 }
 
-fn provider_mesh_telemetry_status(config: string) string {
-    let base: string = provider_mesh_base(config)
-    let project: string = provider_mesh_project(config)
+fn telemetry_status() string {
+    let base: string = mesh_base()
+    let project: string = mesh_project()
     if base == "" || project == "" {
         return ""
     }
-    return provider_mesh_fetch(config, base + "/mesh/api/projects/" + project +
+    return mesh_fetch(base + "/mesh/api/projects/" + project +
         "/telemetry/status", "mesh-telemetry-status")
 }
 
-fn provider_mesh_source_latest(config: string, source: string) string {
+fn source_latest(source: string) string {
     let action: i32 = str_index_of(source, "/action")
     var value_url: string = ""
     if str_index_of(source, "/mesh/api/") >= 0 && action >= 0 {
@@ -195,53 +273,53 @@ fn provider_mesh_source_latest(config: string, source: string) string {
         // A widget may store the value URL itself; it is already the endpoint.
         value_url = source
     } else if source != "" {
-        value_url = provider_mesh_base(config) + "/mesh/api/projects/" +
-            provider_mesh_project(config) + "/sources/" + source + "/value"
+        value_url = mesh_base() + "/mesh/api/projects/" +
+            mesh_project() + "/sources/" + source + "/value"
     }
     if value_url == "" {
         return ""
     }
-    return gateway_trim(provider_mesh_fetch(config, value_url, "mesh-source-latest"))
+    return mesh_trim(mesh_fetch(value_url, "mesh-source-latest"))
 }
 
 // The mutating side of the gateway: registration, heartbeat and publish, each a
 // JSON body sent to Mesh with its service token.
-fn provider_mesh_post(config: string, path: string, body: string, name: string) string {
-    let base: string = provider_mesh_base(config)
+fn mesh_post(path: string, body: string, name: string) string {
+    let base: string = mesh_base()
     if base == "" {
         return ""
     }
-    let report: string = gateway_report(name)
+    let report: string = mesh_report(name)
     let status: u32 = rho_http_request("POST", base + path, body, "application/json", "mesh",
-        provider_mesh_scope(config), report)
+        mesh_scope(), report)
     if status < 200 || status >= 300 {
         return ""
     }
     return rho_read_text(report)
 }
 
-fn provider_mesh_register_client(config: string, app_name: string,
+fn register_client(app_name: string,
     instance_id: string, callback_url: string, topics: string) string {
     let body: string = "{\"app_name\":" + json_string(app_name) +
-        ",\"project\":" + json_string(provider_mesh_project(config)) +
+        ",\"project\":" + json_string(mesh_project()) +
         ",\"instance_id\":" + json_string(instance_id) +
         ",\"callback_url\":" + json_string(callback_url) +
         ",\"topics\":" + json_string(topics) + "}"
-    return provider_mesh_post(config, "/mesh/api/clients/register", body,
+    return mesh_post("/mesh/api/clients/register", body,
         "mesh-register")
 }
 
-fn provider_mesh_client_heartbeat(config: string, client_id: string) string {
+fn client_heartbeat(client_id: string) string {
     let body: string = "{\"client_id\":" + json_string(client_id) + "}"
-    return provider_mesh_post(config, "/mesh/api/clients/heartbeat", body,
+    return mesh_post("/mesh/api/clients/heartbeat", body,
         "mesh-heartbeat")
 }
 
-fn provider_mesh_publish(config: string, project: string, topic: string,
+fn publish(project: string, topic: string,
     payload: string) string {
     let body: string = "{\"project\":" + json_string(project) +
         ",\"topic\":" + json_string(topic) +
         ",\"payload\":" + json_string(payload) + "}"
-    return provider_mesh_post(config, "/mesh/api/clients/publish", body,
+    return mesh_post("/mesh/api/clients/publish", body,
         "mesh-publish")
 }

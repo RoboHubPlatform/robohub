@@ -78,7 +78,7 @@ fn widget_curl(url: string, report: string) string {
 }
 
 fn widget_auth_header() string {
-    let token: string = gateway_service_token()
+    let token: string = gateway.token()
     if token == "" {
         return ""
     }
@@ -179,7 +179,7 @@ fn widget_ignore_string(value: string) void {
 
 fn widget_refresh(widget: Widgets) string {
     if str_eq(widget.sourceKind, "mesh") {
-        return gateway_source_latest(widget.source)
+        return gateway.source_latest(widget.source)
     }
     if str_eq(widget.kind, "button") || str_eq(widget.kind, "toggle") ||
         !str_eq(widget.sourceKind, "url") ||
@@ -356,10 +356,10 @@ fn widget_write_setting(key: string, value: string) void {
     rho_write_text(dir + "/" + key, value)
 }
 
-// The host's gateway contract supplies the sources. The widgets module knows
+// The gateway interface, as the host binds it, supplies the sources. The widgets module knows
 // only the fields of a source, not which provider produced them.
 fn widget_gateway_sources() string {
-    return gateway_sources()
+    return gateway.sources()
 }
 
 struct WidgetJsonObject {
@@ -619,7 +619,7 @@ fn widget_card(db: SqlDb, widget: Widgets, locale: string) string {
         // A chart shows at most widget.points buckets; reading a day of history
         // to keep 24 of them makes the page slow. Request only the recent window
         // that fills the chart, plus a little headroom.
-        let history: string = gateway_source_history(widget.source, "2h", "", "60000")
+        let history: string = gateway.source_history(widget.source, "2h", "", "60000")
         let marker: i32 = str_index_of(history, "\"points\":[")
         if marker >= 0 {
             var rest: string = str_slice(history, u32(marker) + 10,
@@ -654,12 +654,12 @@ fn widget_card(db: SqlDb, widget: Widgets, locale: string) string {
             values[count - 1 - i] = held
             i = i + 1
         }
-        latest = gateway_source_latest(widget.source)
+        latest = gateway.source_latest(widget.source)
         if latest == "" && count > 0 {
             latest = values[0].valueText
         }
     } else if mesh_source {
-        latest = gateway_source_latest(widget.source)
+        latest = gateway.source_latest(widget.source)
     } else {
         let slice: Slice[WidgetValues] = Slice[WidgetValues]{
             Ptr[WidgetValues](&values[0]), VALUE_CAPACITY }
@@ -823,7 +823,7 @@ fn widgets_live_file() string {
 // a timer, so a reading reaches a card as soon as Mesh has stored it.
 fn widgets_live_changed() bool {
     let path: string = widgets_live_file()
-    if !gateway_follow(path) {
+    if !gateway.follow(path) {
         return false
     }
     let seen_file: string = widget_state_dir() + "/mesh-live.seen"
@@ -1461,13 +1461,13 @@ fn widgets_events(req: Request) Response {
 }
 
 fn widget_device_states() string {
-    return gateway_device_states()
+    return gateway.device_states()
 }
 
 // widget_gateway_state reads the state behind a source URL. The provider knows
 // how its own URL answers; the widget only passes the source it stored.
 fn widget_gateway_state(widget: Widgets) string {
-    return gateway_source_state(widget.source)
+    return gateway.source_state(widget.source)
 }
 
 fn widgets_sync_state() u32 {
@@ -1615,7 +1615,7 @@ fn widgets_card_endpoint(req: Request) Response {
 fn widget_json(db: SqlDb, widget: Widgets) string {
     var latest: string = widget_latest_text(db, u32(widget.id))
     if widget_mesh_source(widget) {
-        latest = gateway_source_latest(widget.source)
+        latest = gateway.source_latest(widget.source)
     }
     return "{\"id\":" + int_to_str(u32(widget.id)) +
         ",\"title\":" + json_string(widget.title) +

@@ -1,15 +1,9 @@
 # The plugin registry database.
 #
-# This is the installed set. The manager reads it at load time, confirms each
-# path has a plugin module.yml, and uses only the entries whose directory is
-# still there. A plugin folder that is not in this file is not loaded; an entry
-# whose folder is gone is shown as missing by the keeper rather than dispatched
-# to. The keeper's install and uninstall actions edit this file, so a plugin
-# added from the dashboard is found by the next load without a rebuild.
+# This is the installed set the keeper lists. A plugin folder that is not in this
+# file is not listed; an entry whose folder is gone is shown as missing. The
+# keeper's install and uninstall actions edit this file.
 plugins:
-  - name: mesh-gateway
-    path: mesh-gateway
-    enabled: true
   - name: robohub-auth
     path: robohub-auth
     enabled: true

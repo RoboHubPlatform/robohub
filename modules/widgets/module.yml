@@ -13,7 +13,7 @@ module:
   type: module
   title: Widgets
   category: dashboard
-  version: 0.2.4
+  version: 0.2.5
   description: >
     Dashboard widgets with a configurable source: a number, a chart of recent
     values, or a button that calls a hook or API.
@@ -30,6 +30,7 @@ deps:
     settings: ">=0.1.0"
     notifications: ">=0.1.0"
     forms: ">=0.1.0"
+    robohub-gateway: ">=1.0.0"
 
 docs:
   title: Widgets

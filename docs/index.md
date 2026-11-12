@@ -178,10 +178,38 @@ a cooldown after an alert clears, and a rolling rate limit. An application
 evaluates a sample and, when the result says it fired, raises the alert. The
 rule knows nothing about e-mail or chat; the channels own delivery.
 
+## The gateway
+
+An application reaches a mesh through the gateway interface, `robohub-gateway`
+(import `robohub.gateway`): its projects, its sources, a source's latest reading
+and history, the live stream, and the client registration that lets it publish.
+The gateway is a provider — `robohub-provider-mesh` today — which the application
+declares and binds with Mesh's address and the project:
+
+```yaml
+bind:
+  robohub.gateway:
+    providers: [robohub-provider-mesh]
+    config:
+      robohub-provider-mesh:
+        url: "http://127.0.0.1:8478"
+        project: "default"
+```
+
+```rho
+import robohub.gateway
+
+let latest: string = gateway.source_latest("tank.temperature")
+```
+
+The first enabled provider bound answers. An application's Settings page changes
+the address and the project through `gateway.configure`, which keeps them in the
+application's `bind.conf`.
+
 ## Plugins
 
 A plugin is a Rho module under `plugins/` that extends an application at run
-time: `robohub-auth` signs a person in, `mesh-gateway` reaches a mesh's nodes.
+time: `robohub-auth` signs a person in.
 Its manifest says what kind it is (`module.plugin_kind`). The installed set is
 `plugins/registry.yml`; a folder that is not in it is not loaded, and an entry
 whose folder is gone is shown as missing. The keeper's `/plugins` page lists the

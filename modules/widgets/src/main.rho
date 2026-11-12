@@ -15,6 +15,7 @@ include "settings"
 import std.sql
 import std.web.http
 import std.web.template
+import robohub.gateway
 
 // The runtime functions this module calls.
 extern fn rho_exec(program: string, arguments: string, output_path: string) u32

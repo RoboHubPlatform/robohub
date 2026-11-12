@@ -1,24 +1,74 @@
 #
-# robohub-contract-gateway — the gateway contract.
+# robohub-gateway — the gateway interface.
 #
-# The interface an application calls and the manager that dispatches it to the
-# provider the application names. It is versioned on its own, and reaches its
-# providers by module name, so it builds wherever its dependencies resolve.
+# How an application reaches a mesh: its projects, its gateway, its sources and
+# their readings, and the client registration that lets it publish. A gateway
+# is a provider (robohub-provider-mesh); an application declares the one it uses
+# and binds it:
+#
+#   bind:
+#     robohub.gateway:
+#       providers: [robohub-provider-mesh]
+#       config:
+#         robohub-provider-mesh:
+#           url: http://127.0.0.1:8478
+#
+# The first enabled provider bound is the one that answers.
 #
 module:
-  name: robohub-contract-gateway
-  id: robohub.contract.gateway
+  name: robohub-gateway
+  id: robohub.interface.gateway
+  previous_ids:
+    - robohub.contract.gateway
   type: module
-  version: 0.2.1
+  version: 1.0.0
   description: >
-    The gateway functions an application calls for projects, sources, states and readings, dispatched to the provider it names.
+    The gateway interface: an application asks for a mesh's projects, sources,
+    readings and live stream, and the provider it binds answers.
   maintainer: "Aurel Miron"
   license: "MIT"
   created: "2026-11-12"
 
-main: manager.rho
+main: src/gateway.rho
 
-deps:
-  rho-log: ">=0.1.2"
-  robohub:
-    robohub-provider-mesh: ">=0.1.0"
+provides:
+  import: robohub.gateway
+  exports:
+    - provider
+    - config
+    - configure
+    - token
+    - projects
+    - gateway
+    - sources
+    - device_states
+    - follow
+    - source_state
+    - source_latest
+    - source_history
+    - register_client
+    - client_heartbeat
+    - publish
+    - telemetry_status
+
+# What every gateway provider implements, with these signatures.
+interface:
+  functions:
+    projects: "() string"
+    gateway: "() string"
+    sources: "() string"
+    device_states: "() string"
+    follow: "(path: string) bool"
+    source_state: "(source: string) string"
+    source_latest: "(source: string) string"
+    source_history: "(source: string, from_ms: string, to_ms: string, step_ms: string) string"
+    register_client: "(app_name: string, instance_id: string, callback_url: string, topics: string) string"
+    client_heartbeat: "(client_id: string) string"
+    publish: "(project: string, topic: string, payload: string) string"
+    telemetry_status: "() string"
+
+metadata:
+  tags:
+    - interface
+    - gateway
+    - mesh

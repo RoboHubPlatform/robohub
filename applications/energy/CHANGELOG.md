@@ -70,3 +70,7 @@ ingest and wrote its step after overwrote the ingested battery with the value it
 had replaced, so a cleared low-battery fault could stay raised. The smoke test
 waits for the fault to clear rather than for a fixed time, and says which faults
 are still active when one does not.
+
+## [0.2.0] - 2026-11-12
+
+Energy reaches Mesh through the gateway interface, binding the Mesh provider with Mesh's address and the project in `module.yml`. The Settings page writes those into the binding's settings for the installation; the `mesh-gateway` plugin entry, the contract include and `gateway.conf` are gone.

@@ -86,3 +86,7 @@ host homes now include the card CSS.
 ## [0.2.4] - 2026-11-12
 
 The module declares the runtime functions it calls rather than relying on the including application. Its smoke test signs in with a keeper ticket and sends the form token the module checks; a widget's latest value is read back again with the toolchain's fix for arrays a database read fills.
+
+## [0.2.5] - 2026-11-12
+
+Sources, readings, history and the live stream come from the gateway interface the host binds (`gateway.sources()`, `gateway.source_latest(...)` ...); the module declares `robohub-gateway` and imports it rather than calling the functions of a contract its host included.

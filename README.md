@@ -201,7 +201,7 @@ bearer token; Mesh polls that outbox into a SQLite store with latest values,
 raw history, one-minute and hourly rollups, and per-project retention. Drivers
 and board modules describe what they can read in `telemetry_fields` and
 `signals`; HTTP devices describe their JSON paths and scales. Aquarium and the
-widgets module read the store through the `mesh-gateway` provider: a number is
+widgets module read the store through the gateway interface and the Mesh provider it binds: a number is
 the latest value, a chart is a time-range series, and an output is the source's
 action URL. The energy application records generation, storage and grid
 readings in the same store and writes power faults into it, so its live SSE
@@ -211,6 +211,6 @@ See [Mesh](../robohub-mesh/docs/index.md),
 [Aquarium](applications/aquarium/docs/index.md),
 [Energy](applications/energy/docs/index.md),
 [widgets](modules/widgets/docs/index.md),
-[mesh-gateway](plugins/mesh-gateway/docs/index.md),
+[robohub-provider-mesh](providers/mesh/README.md),
 [robohub-devices](https://github.com/RoboHubPlatform/robohub-devices) and
 [robohub-drivers](https://github.com/RoboHubPlatform/robohub-drivers).
