@@ -1,20 +1,45 @@
-module robohub.providers.telegram
+module robohub.alert_telegram
 
-// A chat message through the Telegram bot API. The provider knows the API
-// shape; the caller supplies the text.
+// An alert channel that posts to a Telegram chat through a bot.
 
-fn provider_telegram_send(config: string, text: string) u32 {
-    let token: string = plugin_config_value(config, "bot_token")
-    let chat: string = plugin_config_value(config, "chat_id")
+// The runtime primitives this provider uses. Each command is run with its
+// arguments one per line, never through a shell, so a message or a password
+// is one argument whatever characters it holds.
+extern fn rho_exec_args(program: string, arguments: string, output_path: string) u32
+extern fn rho_read_text(path: string) string
+extern fn rho_write_text(path: string, text: string) bool
+extern fn rho_append_text(path: string, text: string) bool
+extern fn rho_bind_config(provider: string, key: string) string
+
+// state_dir is where this provider keeps what it writes on the way out: the
+// application's workspace when it has one.
+fn state_dir() string {
+    var dir: string = getenv("RHO_APP_WORKSPACE")
+    if dir == "" {
+        dir = getenv("HOME") + "/.rho"
+    }
+    dir = dir + "/alerts"
+    let made: u32 = rho_exec_args("mkdir", "-p\n" + dir + "\n", dir + ".mkdir.log")
+    return dir
+}
+
+fn report(name: string) string {
+    return state_dir() + "/" + name + ".log"
+}
+
+fn send(level: string, message: string, metadata: string) u32 {
+    let token: string = rho_bind_config("robohub-provider-telegram", "bot_token")
+    let chat: string = rho_bind_config("robohub-provider-telegram", "chat_id")
     if token == "" || chat == "" {
         return 0
     }
-    let url: string = "https://api.telegram.org/bot" + token + "/sendMessage"
-    let args: string = "-sS -X POST " + plugin_arg_quote(url) +
-        " --data-urlencode " + plugin_arg_quote("chat_id=" + chat) +
-        " --data-urlencode " + plugin_arg_quote("text=" + text)
-    let code: u32 = rho_exec("curl", args, plugin_report("telegram-provider"))
-    if code == 0 {
+    var text: string = "[" + level + "] " + message
+    if metadata != "" {
+        text = text + "\n" + metadata
+    }
+    let args: string = "-sS\n-X\nPOST\nhttps://api.telegram.org/bot" + token + "/sendMessage\n" +
+        "--data-urlencode\nchat_id=" + chat + "\n--data-urlencode\ntext=" + text + "\n"
+    if rho_exec_args("curl", args, report("telegram")) == 0 {
         return 1
     }
     return 0

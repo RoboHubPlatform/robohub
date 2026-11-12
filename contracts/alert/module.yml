@@ -1,26 +1,52 @@
 #
-# robohub-contract-alert — the alert contract.
+# robohub-alert — the alert interface.
 #
-# The interface an application calls and the manager that dispatches it to the
-# provider the application names. It is versioned on its own, and reaches its
-# providers by module name, so it builds wherever its dependencies resolve.
+# What an alert channel can do, and how an application's alerts reach the
+# channels it binds. The channels are providers (robohub-provider-log, -email,
+# -telegram, -webhook); an application declares the ones it uses and binds them:
+#
+#   bind:
+#     robohub.alert:
+#       providers: [robohub-provider-log, robohub-provider-telegram]
+#       config:
+#         robohub-provider-log:
+#           path: ~/.rho/myapp/alerts.log
+#
+# Only the bound providers are compiled into the application.
 #
 module:
-  name: robohub-contract-alert
-  id: robohub.contract.alert
+  name: robohub-alert
+  id: robohub.interface.alert
+  previous_ids:
+    - robohub.contract.alert
   type: module
-  version: 0.1.1
+  version: 1.0.0
   description: >
-    The alert functions an application calls to raise and route an alert, dispatched to the channels it names.
+    The alert interface: an application raises an alert, and every enabled
+    channel it binds whose severity threshold the alert meets delivers it.
   maintainer: "Aurel Miron"
   license: "MIT"
   created: "2026-11-12"
 
-main: manager.rho
+main: src/alert.rho
 
-deps:
-  robohub:
-    robohub-provider-log: ">=0.1.0"
-    robohub-provider-email: ">=0.1.0"
-    robohub-provider-telegram: ">=0.1.0"
-    robohub-provider-webhook: ">=0.1.0"
+provides:
+  import: robohub.alert
+  exports:
+    - raise
+    - test
+    - providers
+    - enabled
+    - config
+    - configure
+    - alert_rule_new
+    - alert_rule_evaluate
+    - alert_rule_violating
+    - alert_rule_cleared
+    - alert_rule_message
+    - alert_rule_trigger
+
+# What every channel implements.
+interface:
+  functions:
+    send: "(level: string, message: string, metadata: string) u32"

@@ -1,0 +1,16 @@
+# The alert interface's tests are a small C project of their own.
+#
+# The interface is not an application, so its tests need a manifest that says
+# what to build them as: the C backend, with the rule tests as the program.
+module:
+  name: robohub-alert-tests
+  id: robohub.interface.alert-tests
+  type: rho
+  version: 0.1.0
+
+main: rule_test.rho
+
+build:
+  language: c
+  targets:
+    - c

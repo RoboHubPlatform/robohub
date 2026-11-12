@@ -1,0 +1,7 @@
+# The alert interface's own tests: the rules an application evaluates readings
+# against.
+name: robohub-alert
+suites:
+  - name: tests/rule_test.rho
+    kind: rho
+    tags: [unit, rho]

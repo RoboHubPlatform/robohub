@@ -1,16 +1,18 @@
 # Contracts
 
-The stable interfaces an application calls, and the managers that dispatch them
-to an installed plugin. Each is a module (`robohub-contract-<name>`, `main: manager.rho`) that an
-application declares under `deps` and includes by name; it declares and includes
-its providers the same way, so no path reaches outside a module's own folder.
-`plugins/` holds the implementations.
+The interfaces an application calls. Each is a module an application declares
+under `deps`.
 
-| Contract | Manager | Providers |
-|----------|---------|-----------|
-| `alert` | `contracts/alert/manager.rho` | `providers/log`, `email`, `telegram`, `webhook` |
-| `gateway` | `contracts/gateway/manager.rho` | `providers/mesh` |
+| Module | Import | Implemented by |
+|--------|--------|----------------|
+| `robohub-alert` (`contracts/alert/`) | `robohub.alert` | `providers/log`, `email`, `telegram`, `webhook` |
+| `robohub-contract-gateway` (`contracts/gateway/`) | included by name | `providers/mesh`, through the `mesh-gateway` plugin |
 
-An application names the plugin it wants in its `plugins:` block, and the
-manager reads that block plus the provider's defaults. The application never
-names a provider's URLs; the provider owns them.
+The alert interface is an interface in the toolchain's sense: its `module.yml`
+declares the functions a provider implements (`interface: functions:`), and an
+application binds the providers it wants (`bind:`). The interface's code calls
+them through what the toolchain generates from the binding, so neither it nor
+the application names a provider's internals.
+
+The gateway contract still dispatches to the plugin an application names in its
+`plugins:` block; it moves to the same form next.

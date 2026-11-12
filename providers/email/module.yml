@@ -7,7 +7,7 @@ module:
   previous_ids:
     - robohub.providers.email
   type: provider
-  version: 0.1.0
+  version: 0.2.0
   description: Sends an alert by local outbox or SMTP.
   maintainer: "Aurel Miron"
   license: "MIT"
@@ -15,10 +15,27 @@ module:
 
 main: src/provider.rho
 
-provider:
-  contract: alert
-  transport: email
-  summary: A local outbox file or an SMTP upload.
+# It implements the alert interface: an application that binds it receives
+# its alerts through it, and reads its settings from the binding.
+implements: [robohub.alert]
+
+provides:
+  import: robohub.alert_email
+  exports: [send]
+  settings:
+    - mode
+    - to_address
+    - from_address
+    - app
+    - subject_template
+    - body_template
+    - smtp_host
+    - smtp_port
+    - smtp_security
+    - smtp_user
+    - smtp_pass
+    - severity_threshold
+
 
 metadata:
   tags:

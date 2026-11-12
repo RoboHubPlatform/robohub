@@ -120,57 +120,72 @@ The modules are:
 All of them store their tables in the host's main SQL database and their
 settings in the host application.
 
-## Plugins
+## Alerts
 
-An application's `module.yml` names the plugins it uses and their settings:
+An application raises an alert through the alert interface, `robohub-alert`, and
+the alert reaches every channel the application binds. A channel is a provider
+of the interface: a module that lists `robohub.alert` under `implements` and
+exports the interface's `send`. The application declares the interface and the
+providers it uses under `deps`, imports the interface, and binds the providers
+in its `module.yml`:
 
 ```yaml
-plugins:
-  - name: alert-dispatcher
-    enabled: true
+deps:
+  robohub:
+    robohub-alert: ">=1.0.0"
+    robohub-provider-log: ">=0.2.0"
+    robohub-provider-email: ">=0.2.0"
+
+bind:
+  robohub.alert:
+    providers: [robohub-provider-log, robohub-provider-email]
     config:
-      targets: "alert-log,email-alert,telegram-notifier"
-      severity_threshold: INFO
-  - name: email-alert
-    enabled: false
-    config:
-      provider: local
-      to_address: "ops@robohub.internal"
-      subject_template: "[RoboHub {app}] {level}: {rule}"
+      robohub-provider-log:
+        path: "~/.rho/myapp/alerts.log"
+      robohub-provider-email:
+        enabled: "false"
+        to_address: "ops@robohub.internal"
+        severity_threshold: ERROR
 ```
 
-A plugin is a Rho module under `plugins/` whose manifest has a `plugin:` block;
-that block, not the module type, is what makes it a plugin. The installed set is
-`plugins/registry.yml`. The manager reads it at load time, confirms each path
-still has a `module.yml`, and dispatches by the transport the plugin manifest
-names. A folder that is not in the registry is not loaded; an
-entry whose folder is gone is shown as missing. The keeper's `/plugins` page
-lists the registry, installs and removes plugins, toggles the keeper's own set
-and sends a test alert.
+```rho
+import robohub.alert
 
-The plugins are:
+let sent: u32 = alert.raise("WARNING", "The tank is above 28 C.", "node=1")
+```
 
-- [Dispatcher](alert-dispatcher/) — fans an alert out to the channels in its
-  target list;
-- [Local log](alert-log/) — appends to a file;
-- [E-mail](email-alert/) — SMTP or a local outbox, with templates;
-- [Telegram](telegram-notifier/) — a chat through the bot API;
-- [Webhook](webhook-alert/) — a generic HTTP endpoint.
+Only the bound providers are compiled into the application. A channel receives
+an alert when it is enabled and the alert meets its `severity_threshold`. The
+settings in `bind:` are defaults: an application's Settings page changes them on
+a running installation through `alert.configure`, which writes the
+application's `bind.conf`, so a new e-mail address does not need a rebuild.
 
-The transports are generic Rho code under `providers/`: `log`, `email`,
-`telegram` and `webhook`. An application can call a provider directly for a
-message that is not an alert. A plugin that needs a transport of its own names a
-`plugin.command`, a Rho program the manager runs with a request file; adding it
-does not rebuild the manager.
+The channels are:
+
+- [Local log](robohub-provider-log/) — appends to a file, rotating it at 1 MiB;
+- [E-mail](robohub-provider-email/) — SMTP or a local outbox, with templates;
+- [Telegram](robohub-provider-telegram/) — a chat through the bot API;
+- [Webhook](robohub-provider-webhook/) — a generic HTTP endpoint.
+
+The keeper's `/plugins` page lists the channels the keeper binds, switches one
+off and sends a test alert through it.
 
 ### Alert rules
 
-`contracts/alert/rule.rho` is the state machine above the dispatcher: hysteresis,
-a pending window that ignores a momentary spike, a cooldown after an alert
-clears, and a rolling rate limit. An application evaluates a sample and, when
-the result says it fired, hands the message to the alert dispatcher. The rule
-knows nothing about e-mail or chat; the dispatcher and its channels own
-delivery.
+`contracts/alert/src/rule.rho` is the state machine an application runs before
+it raises an alert: hysteresis, a pending window that ignores a momentary spike,
+a cooldown after an alert clears, and a rolling rate limit. An application
+evaluates a sample and, when the result says it fired, raises the alert. The
+rule knows nothing about e-mail or chat; the channels own delivery.
+
+## Plugins
+
+A plugin is a Rho module under `plugins/` that extends an application at run
+time: `robohub-auth` signs a person in, `mesh-gateway` reaches a mesh's nodes.
+Its manifest says what kind it is (`module.plugin_kind`). The installed set is
+`plugins/registry.yml`; a folder that is not in it is not loaded, and an entry
+whose folder is gone is shown as missing. The keeper's `/plugins` page lists the
+set, installs and removes plugins, and toggles the keeper's own.
 
 ## The registry
 

@@ -1,30 +1,77 @@
-module robohub.providers.webhook
+module robohub.alert_webhook
 
-// A generic HTTP POST. The body is written to a file and curl uploads it, so a
-// body may contain spaces and quotes without the argument splitter seeing them.
-// A caller that needs JSON sets content_type and passes a JSON body.
+// An alert channel that posts the alert to an HTTP endpoint.
 
-fn provider_http_post(config: string, body: string) u32 {
-    let url: string = plugin_config_value(config, "url")
+// The runtime primitives this provider uses. Each command is run with its
+// arguments one per line, never through a shell, so a message or a password
+// is one argument whatever characters it holds.
+extern fn rho_exec_args(program: string, arguments: string, output_path: string) u32
+extern fn rho_read_text(path: string) string
+extern fn rho_write_text(path: string, text: string) bool
+extern fn rho_append_text(path: string, text: string) bool
+extern fn rho_bind_config(provider: string, key: string) string
+
+// state_dir is where this provider keeps what it writes on the way out: the
+// application's workspace when it has one.
+fn state_dir() string {
+    var dir: string = getenv("RHO_APP_WORKSPACE")
+    if dir == "" {
+        dir = getenv("HOME") + "/.rho"
+    }
+    dir = dir + "/alerts"
+    let made: u32 = rho_exec_args("mkdir", "-p\n" + dir + "\n", dir + ".mkdir.log")
+    return dir
+}
+
+fn report(name: string) string {
+    return state_dir() + "/" + name + ".log"
+}
+
+fn urlencode(text: string) string {
+    var out: string = ""
+    var i: u32 = 0
+    while i < strlen(text) {
+        let ch: string = str_slice(text, i, 1)
+        if ch == " " {
+            out = out + "+"
+        } else if ch == "&" {
+            out = out + "%26"
+        } else if ch == "=" {
+            out = out + "%3D"
+        } else if ch == "+" {
+            out = out + "%2B"
+        } else if ch == "%" {
+            out = out + "%25"
+        } else if ch == "\n" {
+            out = out + "%0A"
+        } else {
+            out = out + ch
+        }
+        i = i + 1
+    }
+    return out
+}
+
+// send posts `level`, `message` and `metadata` as a form, from a file, so the
+// body never passes through an argument.
+fn send(level: string, message: string, metadata: string) u32 {
+    let url: string = rho_bind_config("robohub-provider-webhook", "url")
     if url == "" {
         return 0
     }
-    var content_type: string = plugin_config_value(config, "content_type")
+    var content_type: string = rho_bind_config("robohub-provider-webhook", "content_type")
     if content_type == "" {
         content_type = "application/x-www-form-urlencoded"
     }
-    let file: string = plugin_state_dir() + "/http-body.txt"
-    ignore_bool(rho_write_text(file, body))
-    var args: string = "-sS -X POST -H " +
-        plugin_arg_quote("Content-Type: " + content_type) +
-        " --data-binary " + plugin_arg_quote("@" + file) +
-        " " + plugin_arg_quote(url)
-    let authorization: string = plugin_config_value(config, "authorization")
+    let file: string = state_dir() + "/webhook-body.txt"
+    let written: bool = rho_write_text(file, "level=" + urlencode(level) + "&message=" + urlencode(message) +
+        "&metadata=" + urlencode(metadata))
+    var args: string = "-sS\n-X\nPOST\n-H\nContent-Type: " + content_type + "\n--data-binary\n@" + file + "\n"
+    let authorization: string = rho_bind_config("robohub-provider-webhook", "authorization")
     if authorization != "" {
-        args = args + " -H " + plugin_arg_quote("Authorization: " + authorization)
+        args = args + "-H\nAuthorization: " + authorization + "\n"
     }
-    let code: u32 = rho_exec("curl", args, plugin_report("webhook-provider"))
-    if code == 0 {
+    if rho_exec_args("curl", args + url + "\n", report("webhook")) == 0 {
         return 1
     }
     return 0

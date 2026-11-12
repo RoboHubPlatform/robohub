@@ -72,21 +72,21 @@ fn alert_rule_prune(rule: AlertRule, now: u32) string {
     var out: string = ""
     var rest: string = rule.fire_times
     while rest != "" {
-        let at: i32 = rho_str_index_of(rest, " ")
+        let at: i32 = str_index_of(rest, " ")
         var text: string = ""
         if at < 0 {
             text = rest
             rest = ""
         } else {
-            text = rho_str_slice(rest, 0, u32(at))
-            rest = rho_str_slice(rest, u32(at) + 1, u32(rho_strlen(rest)) - u32(at) - 1)
+            text = str_slice(rest, 0, u32(at))
+            rest = str_slice(rest, u32(at) + 1, u32(strlen(rest)) - u32(at) - 1)
         }
         if text == "" {
             continue
         }
-        let fired_at: u32 = rho_int_from_str(text)
+        let fired_at: u32 = int_from_str(text)
         if now - fired_at < rule.window_seconds {
-            if rho_strlen(out) > 0 {
+            if strlen(out) > 0 {
                 out = out + " "
             }
             out = out + text
@@ -99,12 +99,12 @@ fn alert_rule_count(times: string) u32 {
     var count: u32 = 0
     var rest: string = times
     while rest != "" {
-        let at: i32 = rho_str_index_of(rest, " ")
+        let at: i32 = str_index_of(rest, " ")
         if at < 0 {
             rest = ""
         } else {
-            rest = rho_str_slice(rest, u32(at) + 1,
-                u32(rho_strlen(rest)) - u32(at) - 1)
+            rest = str_slice(rest, u32(at) + 1,
+                u32(strlen(rest)) - u32(at) - 1)
         }
         count = count + 1
     }
@@ -129,7 +129,7 @@ fn alert_rule_evaluate(rule: AlertRule, value: f64, now: u32) AlertEvaluation {
     var cleared: bool = false
     let violating: bool = alert_rule_violating(next, value)
 
-    if rho_str_eq(next.state, "normal") {
+    if str_eq(next.state, "normal") {
         if violating {
             next.state = "pending"
             next.first_seen = now
@@ -138,20 +138,20 @@ fn alert_rule_evaluate(rule: AlertRule, value: f64, now: u32) AlertEvaluation {
                 next = alert_rule_trigger(next, now, value)
             }
         }
-    } else if rho_str_eq(next.state, "pending") {
+    } else if str_eq(next.state, "pending") {
         if !violating {
             next.state = "normal"
         } else if now - next.first_seen >= next.pending_seconds {
             fired = alert_rule_allowed(next, now)
             next = alert_rule_trigger(next, now, value)
         }
-    } else if rho_str_eq(next.state, "triggered") {
+    } else if str_eq(next.state, "triggered") {
         if alert_rule_cleared(next, value) {
             next.state = "cooldown"
             next.last_cleared = now
             cleared = true
         }
-    } else if rho_str_eq(next.state, "cooldown") {
+    } else if str_eq(next.state, "cooldown") {
         if now - next.last_cleared >= next.cooldown_seconds {
             if violating {
                 next.state = "pending"
@@ -177,10 +177,10 @@ fn alert_rule_trigger(rule: AlertRule, now: u32, value: f64) AlertRule {
         next.last_fired = now
         return next
     }
-    if rho_strlen(next.fire_times) > 0 {
+    if strlen(next.fire_times) > 0 {
         next.fire_times = next.fire_times + " "
     }
-    next.fire_times = next.fire_times + rho_int_to_str(now)
+    next.fire_times = next.fire_times + int_to_str(now)
     next.state = "triggered"
     next.last_fired = now
     return next

@@ -1,73 +1,113 @@
-module robohub.providers.email
+module robohub.alert_email
 
-// E-mail through a provider rather than through one transport.
-//
-// `local` writes the rendered message beside the plugin state, so a development
-// machine with no mail server still sees exactly what would have been sent.
-// `smtp` uploads the same message with curl, which is already how the rest of
-// the toolchain reaches the network and needs no mail daemon on the host. A
-// provider that speaks an HTTP API is another branch in provider_email_send;
-// the caller passes the same from, to, subject and body.
+// An alert channel that sends an e-mail, through SMTP or to a local outbox.
 
-fn provider_email_send(provider: string, config: string, from: string, to: string,
-    subject: string, body: string) u32 {
-    if rho_str_eq(provider, "local") {
-        let file: string = plugin_state_dir() + "/email-outbox.eml"
-        let mail: string = "From: " + from + "\n" +
-            "To: " + to + "\n" +
-            "Subject: " + subject + "\n" +
-            "MIME-Version: 1.0\n" +
-            "Content-Type: text/plain; charset=utf-8\n\n" + body + "\n"
-        let old: string = rho_read_text(file)
-        if rho_write_text(file, old + "--- message ---\n" + mail) {
+// The runtime primitives this provider uses. Each command is run with its
+// arguments one per line, never through a shell, so a message or a password
+// is one argument whatever characters it holds.
+extern fn rho_exec_args(program: string, arguments: string, output_path: string) u32
+extern fn rho_read_text(path: string) string
+extern fn rho_write_text(path: string, text: string) bool
+extern fn rho_append_text(path: string, text: string) bool
+extern fn rho_bind_config(provider: string, key: string) string
+
+// state_dir is where this provider keeps what it writes on the way out: the
+// application's workspace when it has one.
+fn state_dir() string {
+    var dir: string = getenv("RHO_APP_WORKSPACE")
+    if dir == "" {
+        dir = getenv("HOME") + "/.rho"
+    }
+    dir = dir + "/alerts"
+    let made: u32 = rho_exec_args("mkdir", "-p\n" + dir + "\n", dir + ".mkdir.log")
+    return dir
+}
+
+fn report(name: string) string {
+    return state_dir() + "/" + name + ".log"
+}
+
+fn setting(key: string, fallback: string) string {
+    let value: string = rho_bind_config("robohub-provider-email", key)
+    if value == "" {
+        return fallback
+    }
+    return value
+}
+
+fn replace(text: string, needle: string, replacement: string) string {
+    var out: string = ""
+    var rest: string = text
+    while rest != "" {
+        let at: i32 = str_index_of(rest, needle)
+        if at < 0 {
+            out = out + rest
+            break
+        }
+        out = out + str_slice(rest, 0, u32(at)) + replacement
+        rest = str_slice(rest, u32(at) + strlen(needle), strlen(rest) - u32(at) - strlen(needle))
+    }
+    return out
+}
+
+fn render(template: string, level: string, message: string, metadata: string, app: string) string {
+    var rule: string = metadata
+    if rule == "" {
+        rule = "alert"
+    }
+    var out: string = replace(template, "{level}", level)
+    out = replace(out, "{message}", message)
+    out = replace(out, "{metadata}", metadata)
+    out = replace(out, "{app}", app)
+    return replace(out, "{rule}", rule)
+}
+
+// send writes the message to a local outbox (`mode: local`, the default), so a
+// machine with no mail server still shows what would have gone out, or uploads
+// it to an SMTP server (`mode: smtp`).
+fn send(level: string, message: string, metadata: string) u32 {
+    let to: string = setting("to_address", "")
+    if to == "" {
+        return 0
+    }
+    let from: string = setting("from_address", "alerts@robohub.internal")
+    let app: string = setting("app", "RoboHub")
+    let subject: string = render(setting("subject_template", "[RoboHub {app}] {level}: {rule}"), level, message, metadata, app)
+    let body: string = render(setting("body_template", "{message} ({app})"), level, message, metadata, app)
+    let mail: string = "From: " + from + "\nTo: " + to + "\nSubject: " + subject + "\n" +
+        "MIME-Version: 1.0\nContent-Type: text/plain; charset=utf-8\n\n" + body + "\n"
+    let mode: string = setting("mode", "local")
+    if mode == "local" {
+        if rho_append_text(state_dir() + "/email-outbox.eml", "--- message ---\n" + mail) {
             return 1
         }
         return 0
     }
-    if rho_str_eq(provider, "smtp") {
-        return provider_email_smtp(config, from, to, subject, body)
-    }
-    // An unknown provider is a configuration error, not a silent success.
-    return 0
-}
-
-fn provider_email_smtp(config: string, from: string, to: string, subject: string,
-    body: string) u32 {
-    let host: string = plugin_config_value(config, "smtp_host")
-    if host == "" || to == "" {
+    if mode != "smtp" {
         return 0
     }
-    var port: string = plugin_config_value(config, "smtp_port")
-    if port == "" {
-        port = "587"
+    let host: string = setting("smtp_host", "")
+    if host == "" {
+        return 0
     }
-    let security: string = plugin_config_value(config, "smtp_security")
+    let port: string = setting("smtp_port", "587")
+    let security: string = setting("smtp_security", "")
     var url: string = "smtp://" + host + ":" + port
-    var args: string = ""
-    if rho_str_eq(security, "ssl") || rho_str_eq(security, "smtps") {
+    if security == "ssl" || security == "smtps" {
         url = "smtps://" + host + ":" + port
     }
-    let file: string = plugin_state_dir() + "/email-message.eml"
-    let mail: string = "From: " + from + "\n" +
-        "To: " + to + "\n" +
-        "Subject: " + subject + "\n" +
-        "MIME-Version: 1.0\n" +
-        "Content-Type: text/plain; charset=utf-8\n\n" + body + "\n"
-    ignore_bool(rho_write_text(file, mail))
-    args = "-sS --url " + plugin_arg_quote(url) +
-        " --mail-from " + plugin_arg_quote(from) +
-        " --mail-rcpt " + plugin_arg_quote(to) +
-        " --upload-file " + plugin_arg_quote(file)
-    let user: string = plugin_config_value(config, "smtp_user")
+    let file: string = state_dir() + "/email-message.eml"
+    let written: bool = rho_write_text(file, mail)
+    var args: string = "-sS\n--url\n" + url + "\n--mail-from\n" + from + "\n--mail-rcpt\n" + to +
+        "\n--upload-file\n" + file + "\n"
+    let user: string = setting("smtp_user", "")
     if user != "" {
-        args = args + " --user " + plugin_arg_quote(user + ":" +
-            plugin_config_value(config, "smtp_pass"))
+        args = args + "--user\n" + user + ":" + setting("smtp_pass", "") + "\n"
     }
-    if rho_str_eq(security, "starttls") || rho_str_eq(security, "tls") {
-        args = args + " --ssl-reqd"
+    if security == "starttls" || security == "tls" {
+        args = args + "--ssl-reqd\n"
     }
-    let code: u32 = rho_exec("curl", args, plugin_report("email-provider"))
-    if code == 0 {
+    if rho_exec_args("curl", args, report("email")) == 0 {
         return 1
     }
     return 0

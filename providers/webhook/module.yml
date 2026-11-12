@@ -7,7 +7,7 @@ module:
   previous_ids:
     - robohub.providers.webhook
   type: provider
-  version: 0.1.0
+  version: 0.2.0
   description: Posts an alert body to an HTTP endpoint.
   maintainer: "Aurel Miron"
   license: "MIT"
@@ -15,10 +15,19 @@ module:
 
 main: src/provider.rho
 
-provider:
-  contract: alert
-  transport: webhook
-  summary: A POST to a URL the user configures.
+# It implements the alert interface: an application that binds it receives
+# its alerts through it, and reads its settings from the binding.
+implements: [robohub.alert]
+
+provides:
+  import: robohub.alert_webhook
+  exports: [send]
+  settings:
+    - url
+    - content_type
+    - authorization
+    - severity_threshold
+
 
 metadata:
   tags:

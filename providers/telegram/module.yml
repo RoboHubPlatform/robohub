@@ -7,7 +7,7 @@ module:
   previous_ids:
     - robohub.providers.telegram
   type: provider
-  version: 0.1.0
+  version: 0.2.0
   description: Posts an alert to a Telegram chat through the bot API.
   maintainer: "Aurel Miron"
   license: "MIT"
@@ -15,10 +15,18 @@ module:
 
 main: src/provider.rho
 
-provider:
-  contract: alert
-  transport: telegram
-  summary: A chat message through a bot.
+# It implements the alert interface: an application that binds it receives
+# its alerts through it, and reads its settings from the binding.
+implements: [robohub.alert]
+
+provides:
+  import: robohub.alert_telegram
+  exports: [send]
+  settings:
+    - bot_token
+    - chat_id
+    - severity_threshold
+
 
 metadata:
   tags:

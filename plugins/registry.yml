@@ -7,21 +7,6 @@
 # to. The keeper's install and uninstall actions edit this file, so a plugin
 # added from the dashboard is found by the next load without a rebuild.
 plugins:
-  - name: alert-dispatcher
-    path: alert-dispatcher
-    enabled: true
-  - name: alert-log
-    path: alert-log
-    enabled: true
-  - name: email-alert
-    path: email-alert
-    enabled: false
-  - name: telegram-notifier
-    path: telegram-notifier
-    enabled: false
-  - name: webhook-alert
-    path: webhook-alert
-    enabled: false
   - name: mesh-gateway
     path: mesh-gateway
     enabled: true

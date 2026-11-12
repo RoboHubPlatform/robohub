@@ -1,33 +1,79 @@
-module robohub.providers.log
+module robohub.alert_log
 
+// An alert channel that appends a line to a file on the machine.
+
+// The runtime primitives this provider uses. Each command is run with its
+// arguments one per line, never through a shell, so a message or a password
+// is one argument whatever characters it holds.
+extern fn rho_exec_args(program: string, arguments: string, output_path: string) u32
+extern fn rho_read_text(path: string) string
+extern fn rho_write_text(path: string, text: string) bool
 extern fn rho_append_text(path: string, text: string) bool
+extern fn rho_bind_config(provider: string, key: string) string
 
-// A file sink. It is the smallest provider and the one an alert channel falls
-// back to when nothing else is configured.
+// state_dir is where this provider keeps what it writes on the way out: the
+// application's workspace when it has one.
+fn state_dir() string {
+    var dir: string = getenv("RHO_APP_WORKSPACE")
+    if dir == "" {
+        dir = getenv("HOME") + "/.rho"
+    }
+    dir = dir + "/alerts"
+    let made: u32 = rho_exec_args("mkdir", "-p\n" + dir + "\n", dir + ".mkdir.log")
+    return dir
+}
 
-fn provider_log_append(config: string, line: string) u32 {
-    var path: string = plugin_expand_home(plugin_config_value(config, "path"))
+fn report(name: string) string {
+    return state_dir() + "/" + name + ".log"
+}
+
+fn log_path() string {
+    let home: string = getenv("HOME")
+    var path: string = rho_bind_config("robohub-provider-log", "path")
     if path == "" {
-        path = plugin_home() + "/.rho/alerts.log"
+        path = home + "/.rho/alerts.log"
     }
-    let dir: string = plugin_parent_dir(path)
+    if str_index_of(path, "~/") == 0 {
+        path = home + str_slice(path, 1, strlen(path) - 1)
+    }
+    return path
+}
+
+fn parent_dir(path: string) string {
+    var last: i32 = -1
+    var i: u32 = 0
+    while i < strlen(path) {
+        if str_slice(path, i, 1) == "/" {
+            last = i32(i)
+        }
+        i = i + 1
+    }
+    if last <= 0 {
+        return ""
+    }
+    return str_slice(path, 0, u32(last))
+}
+
+// send appends one line. The log is rotated at 1 MB, keeping three old files,
+// and appended to rather than rewritten, which is kinder to flash.
+fn send(level: string, message: string, metadata: string) u32 {
+    let path: string = log_path()
+    let dir: string = parent_dir(path)
     if dir != "" {
-        ignore_u32(rho_exec("mkdir", "-p " + dir, dir + "/mkdir.txt"))
+        let made: u32 = rho_exec_args("mkdir", "-p\n" + dir + "\n", report("alert-log-mkdir"))
     }
-    // Append, not read-and-rewrite: an alert should not rewrite a growing log
-    // on flash. Rotate at 1 MB and keep three old files.
-    let report: string = plugin_report("alert-log-size")
     var size: u32 = 0
-    if rho_exec("stat", "-c %s " + plugin_arg_quote(path), report) == 0 {
-        size = u32(rho_int_from_str(plugin_trim(rho_read_text(report))))
+    if rho_exec_args("stat", "-c\n%s\n" + path + "\n", report("alert-log-size")) == 0 {
+        size = int_from_str(rho_read_text(report("alert-log-size")))
     }
     if size > 1048576 {
-        ignore_u32(rho_exec("mv", "-f " + plugin_arg_quote(path + ".2") + " " +
-            plugin_arg_quote(path + ".3"), plugin_report("alert-log-rotate-3")))
-        ignore_u32(rho_exec("mv", "-f " + plugin_arg_quote(path + ".1") + " " +
-            plugin_arg_quote(path + ".2"), plugin_report("alert-log-rotate-2")))
-        ignore_u32(rho_exec("mv", "-f " + plugin_arg_quote(path) + " " +
-            plugin_arg_quote(path + ".1"), plugin_report("alert-log-rotate-1")))
+        let third: u32 = rho_exec_args("mv", "-f\n" + path + ".2\n" + path + ".3\n", report("alert-log-rotate"))
+        let second: u32 = rho_exec_args("mv", "-f\n" + path + ".1\n" + path + ".2\n", report("alert-log-rotate"))
+        let first: u32 = rho_exec_args("mv", "-f\n" + path + "\n" + path + ".1\n", report("alert-log-rotate"))
+    }
+    var line: string = "[" + level + "] " + message
+    if metadata != "" {
+        line = line + " " + metadata
     }
     if rho_append_text(path, line + "\n") {
         return 1

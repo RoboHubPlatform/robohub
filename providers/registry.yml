@@ -2,32 +2,33 @@
 #
 # This is the installed set, read the same way plugins/registry.yml is. Each
 # provider is a module of its own with a module.yml identity; this file is what
-# the keeper lists and what an install or uninstall edits. A provider is not
-# selected by an application — the plugin that names it is — but it is a module
-# a person can install and inspect like any other.
+# the keeper lists and what an install or uninstall edits. An application does
+# not reach a provider through this file: it depends on the provider and binds
+# it to the interface it implements. The file is what makes it a module a person
+# can install and inspect like any other.
 providers:
   - name: robohub-provider-log
     path: log
-    contract: alert
+    implements: robohub.alert
     transport: log
     enabled: true
   - name: robohub-provider-email
     path: email
-    contract: alert
+    implements: robohub.alert
     transport: email
     enabled: true
   - name: robohub-provider-telegram
     path: telegram
-    contract: alert
+    implements: robohub.alert
     transport: telegram
     enabled: true
   - name: robohub-provider-webhook
     path: webhook
-    contract: alert
+    implements: robohub.alert
     transport: webhook
     enabled: true
   - name: robohub-provider-mesh
     path: mesh
-    contract: gateway
+    implements: gateway
     transport: mesh
     enabled: true
