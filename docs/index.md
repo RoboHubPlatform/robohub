@@ -316,7 +316,7 @@ own lives here, in `shared/`:
 |------|-------|
 | The host-test runner every module uses | `shared/tests/run-host-tests.sh` |
 | The configuration a CI build resolves | `shared/ci/project.conf` |
-| The workflow itself | `shared/.github/workflows/robohub-ci.yml` |
+| The workflow every repository calls | `.github/workflows/robohub-ci.yml` (at this repository's root, where a called workflow has to be) |
 
 A repository takes what it needs from here and says where it came from, rather
 than carrying a copy that drifts. The host-test runner is the clearest case:

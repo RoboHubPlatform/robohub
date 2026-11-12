@@ -1,0 +1,170 @@
+# The workflow every repository in the RoboHub ecosystem runs.
+#
+# One workflow, called by each repository, rather than one workflow written
+# thirteen times: the steps are the same, and a copy of a step is a step that
+# is fixed in one repository and not the others. It lives here, at this
+# repository's root, because a called workflow is only found in a repository's
+# own `.github/workflows`.
+#
+# A repository calls it from its own workflow:
+#
+#   jobs:
+#     ci:
+#       uses: RoboHubPlatform/robohub/.github/workflows/robohub-ci.yml@main
+#       secrets: inherit
+#       with:
+#         siblings: robohub-common
+#         components: rho-cimport rho-target rho-kconfig
+#         targets: uno-r3
+#         build: examples/*/hello_world
+#
+# Every step goes through the rho toolchain: nothing here calls cmake, ctest or a
+# compiler, so what runs here is what a person runs.
+name: RoboHub CI
+
+on:
+  workflow_call:
+    inputs:
+      siblings:
+        description: The repositories checked out beside this one, as its manifests name them under ${ROBOHUB_WORKSPACE}.
+        required: false
+        type: string
+        default: ""
+      components:
+        description: The toolchain modules published besides the test runner, for what this repository builds.
+        required: false
+        type: string
+        default: ""
+      targets:
+        description: The boards each `build` project is built for. Empty builds for the project's own default.
+        required: false
+        type: string
+        default: ""
+      build:
+        description: The projects `rho build` builds, as globs relative to this repository.
+        required: false
+        type: string
+        default: ""
+      machine:
+        description: Install what this repository's system_deps name (a cross compiler, a flasher) before building, through rho keeper.
+        required: false
+        type: boolean
+        default: false
+    secrets:
+      RHO_TOKEN:
+        description: Read access to the toolchain's repository, when it is private.
+        required: false
+      ROBOHUB_TOKEN:
+        description: Read access to the sibling repositories, when they are private.
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-24.04
+    env:
+      # The workspace is the directory the checkouts sit in, the same layout a
+      # developer's machine has, so a manifest's ${ROBOHUB_WORKSPACE}/<repo>
+      # resolves here as it does there.
+      ROBOHUB_WORKSPACE: ${{ github.workspace }}/ws
+      RHO_WORKSPACE: ${{ github.workspace }}/ws
+      SELF: ${{ github.workspace }}/ws/${{ github.event.repository.name }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+        with:
+          path: ws/${{ github.event.repository.name }}
+
+      # The toolchain. A platform is not built by cmake: it is built by rho, for a
+      # board, from an application — a board cannot be compiled on its own and
+      # neither can the platform, because a driver is compiled against a part's
+      # headers and a board's. Its host tests are run by `rho test`.
+      - name: Check out the toolchain
+        uses: actions/checkout@v5
+        with:
+          repository: RoboHubPlatform/rho
+          path: ws/rho
+          token: ${{ secrets.RHO_TOKEN || github.token }}
+
+      - name: Check out the sibling repositories
+        if: inputs.siblings != ''
+        env:
+          TOKEN: ${{ secrets.ROBOHUB_TOKEN || github.token }}
+        run: |
+          for sibling in ${{ inputs.siblings }}; do
+            [ "${sibling}" = "${{ github.event.repository.name }}" ] && continue
+            git clone --depth 1 \
+              "https://x-access-token:${TOKEN}@github.com/RoboHubPlatform/${sibling}.git" \
+              "${ROBOHUB_WORKSPACE}/${sibling}"
+          done
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: ws/rho/go.mod
+
+      # check.sh builds the toolchain and publishes the modules named into the
+      # local registry: the test runner, its plugins, and what this repository
+      # builds with.
+      - name: Install the toolchain
+        working-directory: ws/rho
+        run: |
+          ./scripts/check.sh publish rho-test rho-test-ctest rho-test-junit ${{ inputs.components }}
+          echo "$HOME/.rho/bin" >> "$GITHUB_PATH"
+
+      # What a platform needs from the machine — its cross compiler — is in its
+      # own system_deps, and `rho keeper sync` is what installs it: the module is
+      # published so the doctor reads it, and nothing is installed by name here.
+      - name: Install what this repository needs from the machine
+        if: inputs.machine
+        working-directory: ws/${{ github.event.repository.name }}
+        run: |
+          rho module publish .
+          name="$(sed -n 's/^  name: *//p' module.yml | head -1)"
+          rho keeper sync --yes --module "${name}"
+
+      # A path under someone's home is true for one machine and published to all:
+      # a manifest names a sibling by ${ROBOHUB_WORKSPACE}.
+      - name: No local paths
+        run: ws/rho/scripts/check-local-paths.sh "${SELF}"
+
+      # A module's id is what registries, lock files and saved plans refer to it by,
+      # so two modules with one id, or an id that is another's previous id, cannot
+      # both be true.
+      - name: Module ids
+        run: rho module ids "${SELF}"
+
+      - name: Build
+        if: inputs.build != ''
+        working-directory: ws/${{ github.event.repository.name }}
+        run: |
+          set -e
+          for project in ${{ inputs.build }}; do
+            [ -f "${project}/module.yml" ] || continue
+            if [ -z "${{ inputs.targets }}" ]; then
+              echo "::group::${project}"
+              rho build "${project}"
+              echo "::endgroup::"
+              continue
+            fi
+            for target in ${{ inputs.targets }}; do
+              echo "::group::${project} for ${target}"
+              rho build -target "${target}" "${project}"
+              echo "::endgroup::"
+            done
+          done
+
+      # The module's tests are declared in its tests/tests.yml, and `rho test` runs
+      # them: the ctest kind configures with the host tests switched on, builds,
+      # runs, and fails a run that found none. A repository that declares no suite
+      # has nothing to run, which is said rather than passed silently.
+      - name: Test
+        working-directory: ws/${{ github.event.repository.name }}
+        run: |
+          if [ -f tests/tests.yml ]; then
+            rho test .
+          else
+            echo "::notice::${{ github.event.repository.name }} declares no tests (tests/tests.yml)"
+          fi
