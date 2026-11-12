@@ -155,6 +155,10 @@ def main() -> int:
     with tempfile.TemporaryDirectory(prefix="energy-") as workspace:
         outbox = Path(workspace) / "data" / "outbox.jsonl"
         env = dict(os.environ)
+        # The application finds the toolchain (the documentation generator, the
+        # components) by its home; the test gives the application a HOME of its own,
+        # so the toolchain's home is named before that happens.
+        env.setdefault("RHO_HOME", os.path.join(os.path.expanduser("~"), ".rho"))
         env["ROBOHUB_WORKSPACE"] = str(ROBOHUB)
         env["ROBOHUB_APP_WORKSPACE"] = workspace
         env["ROBOHUB_APP_MANIFEST"] = str(APP / "module.yml")
