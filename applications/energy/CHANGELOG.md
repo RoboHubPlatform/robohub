@@ -53,3 +53,11 @@ keeper's sign-in.
 ## [0.1.2] - 2026-11-12
 
 Every list read into a fixed array asks for at most what the array holds: the fault lists asked for 128 rows into 32 places. The smoke test signs in with a keeper ticket, checks the telemetry outbox Mesh polls instead of the store energy no longer keeps, and reads the fault state from energy rather than from the dashboard card Mesh feeds.
+
+## [0.1.3] - 2026-11-12
+
+The telemetry outbox is numbered and rewritten under one lock. The simulator
+and a request recorded readings at the same time and could give two readings one
+number, and an acknowledgement that rewrote the outbox between a read and an
+append lost the reading appended. project.yml writes only what differs from the
+built-in target, and carries the templates folder whole.

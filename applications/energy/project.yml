@@ -1,14 +1,9 @@
-version: 1
-
-output_dir: build/generated
-build_dir: build
+# What the energy go-server target has that the toolchain's built-in one does
+# not. The files, the kind, the router and the output folders are the built-in
+# target's.
 
 targets:
   - id: go-server
-    emitter: go
-    kind: server
-    description: Energy HTTP service
-    router: serveMux
     middleware:
       - name: auth
         options:
@@ -21,59 +16,12 @@ targets:
           skip_paths: "/healthz,/auth/login,/assets,/assets/,/i18n,/auth/callback,/static"
     ports:
       - logemit
-    files:
-      - path: app.go
-        role: implementation
-      - path: runtime.go
-        role: runtime
-      - path: server.go
-        role: server
-      - path: main.go
-        role: entrypoint
-      - path: go.mod
-        role: build
-      - path: static
-        kind: dir
     default_locale: en
     locales:
       - locale: en
         file: locales/en.json
       - locale: ro
         file: locales/ro.json
+    # Every file under templates/ is a template, named by its file name.
     templates:
-      - name: layout
-        file: templates/layouts/layout.html
-      - name: home
-        file: templates/pages/home.html
-      - name: sources
-        file: templates/pages/sources.html
-      - name: source-row
-        file: templates/rows/source-row.html
-      - name: storage
-        file: templates/pages/storage.html
-      - name: battery-row
-        file: templates/rows/battery-row.html
-      - name: grid
-        file: templates/pages/grid.html
-      - name: grid-row
-        file: templates/rows/grid-row.html
-      - name: loads
-        file: templates/pages/loads.html
-      - name: load-row
-        file: templates/rows/load-row.html
-      - name: modes
-        file: templates/pages/modes.html
-      - name: safety
-        file: templates/pages/safety.html
-      - name: faults
-        file: templates/pages/faults.html
-      - name: fault-row
-        file: templates/rows/fault-row.html
-      - name: events
-        file: templates/pages/events.html
-      - name: events-row
-        file: templates/rows/events-row.html
-      - name: settings
-        file: templates/pages/settings.html
-      - name: docs
-        file: templates/pages/docs.html
+      - dir: templates

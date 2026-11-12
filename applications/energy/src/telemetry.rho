@@ -22,6 +22,11 @@ extern fn rho_write_secret(path: string, text: string) -> bool
 
 const ENERGY_OUTBOX_LIMIT: u32 = 500
 
+const ENERGY_OUTBOX_LOCK: string = "energy.outbox"
+
+extern fn rho_lock(name: string)
+extern fn rho_unlock(name: string)
+
 fn energy_outbox_file() string {
     return energy_state_dir() + "/outbox.jsonl"
 }
@@ -33,7 +38,19 @@ fn energy_outbox_seq_file() string {
 // energy_outbox_record appends one reading and answers 0, the answer a
 // recording call gives when it worked. Mesh attributes the reading to the project
 // that polls this outbox.
+// The outbox is numbered and rewritten under one lock: the simulator's tick and
+// a request record readings on goroutines of their own, and reading the last
+// number and writing the next is two steps another can come between, which gave
+// two readings one number; an acknowledgement that rewrote the file between a
+// read and an append lost the reading appended.
 fn energy_outbox_record(area: u32, node: u32, field_name: string, value: string, status: u32) -> u32 {
+    rho_lock(ENERGY_OUTBOX_LOCK)
+    let recorded: u32 = energy_outbox_record_held(area, node, field_name, value, status)
+    rho_unlock(ENERGY_OUTBOX_LOCK)
+    return recorded
+}
+
+fn energy_outbox_record_held(area: u32, node: u32, field_name: string, value: string, status: u32) -> u32 {
     if field_name == "" || value == "" {
         return 1
     }
@@ -136,6 +153,7 @@ fn energy_gateway_ack(req: Request) -> Response {
         i = i + 1
     }
     let acked: u32 = rho_int_from_str(digits)
+    rho_lock(ENERGY_OUTBOX_LOCK)
     var kept: string = ""
     var rest: string = rho_read_text(energy_outbox_file())
     while rest != "" {
@@ -152,5 +170,6 @@ fn energy_gateway_ack(req: Request) -> Response {
         }
     }
     ignore_bool(rho_write_secret(energy_outbox_file(), kept))
+    rho_unlock(ENERGY_OUTBOX_LOCK)
     return json(status_ok(), "{\"ok\":true,\"seq\":" + rho_int_to_str(acked) + "}")
 }
