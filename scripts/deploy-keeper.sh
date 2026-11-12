@@ -11,6 +11,10 @@ SERVICE_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
 SERVICE_FILE="$SERVICE_DIR/$SERVICE_NAME.service"
 DEPLOY_LOG="$HOME/.rho/keeper/deploy.log"
 RHO="${RHO:-$HOME/.rho/bin/rho}"
+# The keeper runs `rho` to build applications and to mint sign-in tickets, and
+# `go` through it, so its service sees the toolchain where it is installed: a
+# user unit otherwise has systemd's PATH, which has neither.
+export PATH="$(dirname "$RHO"):$HOME/.local/bin:/usr/local/go/bin:$PATH"
 
 mkdir -p "$(dirname "$DEPLOY_LOG")"
 
@@ -21,7 +25,8 @@ if systemctl --user is-enabled "$SERVICE_NAME" >/dev/null 2>&1 &&
    grep -q "ROBOHUB_APP_WORKSPACE" "$SERVICE_FILE" 2>/dev/null &&
    grep -qx "ExecStart=$KEEPER/build/keeper" "$SERVICE_FILE" &&
    grep -qx "Environment=ROBOHUB_ROOT=$ROBOHUB" "$SERVICE_FILE" &&
-   grep -qx "Environment=ROBOHUB_WORKSPACE=$(dirname "$ROBOHUB")" "$SERVICE_FILE"; then
+   grep -qx "Environment=ROBOHUB_WORKSPACE=$(dirname "$ROBOHUB")" "$SERVICE_FILE" &&
+   grep -q "^Environment=PATH=$(dirname "$RHO"):" "$SERVICE_FILE"; then
     echo "[$(date)] $SERVICE_NAME is already deployed."
     echo "  Status: $(systemctl --user is-active "$SERVICE_NAME" 2>/dev/null || echo 'inactive')"
     echo "  Use 'systemctl --user restart $SERVICE_NAME' to restart."
@@ -56,6 +61,7 @@ Restart=on-failure
 RestartSec=3
 WorkingDirectory=$ROBOHUB
 Environment=HOME=$HOME
+Environment=PATH=$PATH
 Environment=ROBOHUB_ROOT=$ROBOHUB
 Environment=ROBOHUB_WORKSPACE=$(dirname "$ROBOHUB")
 Environment=RHO_HTTP_ADDR=:$KEEPER_PORT
