@@ -15,7 +15,7 @@ module:
   type: module
   title: Forms
   category: forms
-  version: 0.1.1
+  version: 0.2.0
   description: >
     A schema-driven form engine: a module declares its fields as data and the
     engine renders the controls, validates the input and emits the payload.
@@ -24,6 +24,21 @@ module:
   created: "2026-11-06"
 
 main: src/main.rho
+
+# What other code may use, and by what name: `import robohub.forms`. Everything else
+# in this module is its own.
+provides:
+  import: robohub.forms
+  exports:
+    - forms_open
+    - forms_parse
+    - forms_read
+    - forms_validate
+    - forms_value
+    - forms_payload
+    - forms_csrf_field
+    - forms_csrf_ok
+    - forms_style
 
 
 docs:

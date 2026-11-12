@@ -12,7 +12,7 @@ module:
   type: module
   title: Settings
   category: core
-  version: 0.1.1
+  version: 0.2.0
   description: >
     A small key-value store for runtime settings owned by the host application,
     with namespaced keys and a plain key=value file.
@@ -21,6 +21,15 @@ module:
   created: "2026-11-08"
 
 main: src/main.rho
+
+# What other code may use, and by what name: `import robohub.settings`. Everything else
+# in this module is its own.
+provides:
+  import: robohub.settings
+  exports:
+    - settings_get
+    - settings_set
+    - settings_list
 
 docs:
   title: Settings store

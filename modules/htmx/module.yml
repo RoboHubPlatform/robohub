@@ -12,7 +12,7 @@ module:
   type: module
   title: HTMX
   category: ui
-  version: 0.1.0
+  version: 0.2.0
   description: >
     A pinned copy of HTMX and its Server-Sent Events extension, served from the
     host, with the small helpers a Rho page uses to answer fragments and
@@ -22,6 +22,16 @@ module:
   created: "2026-11-08"
 
 main: src/main.rho
+
+# What other code may use, and by what name: `import robohub.htmx`. Everything else
+# in this module is its own.
+provides:
+  import: robohub.htmx
+  exports:
+    - htmx_head
+    - htmx_is_request
+    - htmx_redirect
+    - htmx_trigger
 
 
 docs:

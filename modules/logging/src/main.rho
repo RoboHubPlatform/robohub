@@ -1,3 +1,8 @@
 module logging
 
 include "logconfig.rho"
+
+// The settings it keeps the policy in, and the form it edits it with: declared
+// in module.yml and imported, rather than left for the host to include.
+import robohub.settings
+import robohub.forms

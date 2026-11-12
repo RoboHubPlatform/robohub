@@ -11,7 +11,7 @@ module:
   previous_ids:
     - robohub.modules.logging
   type: module
-  version: 0.1.0
+  version: 0.2.0
   title: Logging
   description: >
     Per-application logging policy: level, text or JSON, a rotating file under
@@ -21,6 +21,16 @@ module:
   created: "2026-11-09"
 
 main: src/main.rho
+
+# What other code may use, and by what name: `import robohub.logging`. Everything else
+# in this module is its own.
+provides:
+  import: robohub.logging
+  exports:
+    - log_config_apply
+    - log_settings_form
+    - log_settings_save
+    - log_file_in_settings_file
 
 deps:
   rho-log: ">=0.1.2"
