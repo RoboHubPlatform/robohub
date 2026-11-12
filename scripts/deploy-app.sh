@@ -83,6 +83,7 @@ Environment=HOME=$HOME
 Environment=PATH=$PATH
 Environment=ROBOHUB_ROOT=$ROBOHUB
 Environment=ROBOHUB_WORKSPACE=$(dirname "$ROBOHUB")
+Environment=RHO_APP_WORKSPACE=$HOME/.rho/keeper/workspaces/$NAME
 Environment=ROBOHUB_APP_WORKSPACE=$HOME/.rho/keeper/workspaces/$NAME
 Environment=ROBOHUB_APP_MANIFEST=$APP/module.yml
 Environment=RHO_KEEPER_PORT=${RHO_KEEPER_PORT:-19090}

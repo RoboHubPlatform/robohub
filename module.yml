@@ -106,3 +106,6 @@ docs:
   sources:
     - docs/index.md
     - docs/reactive-ui.md
+    - docs/stack.md
+    - docs/networking.md
+    - docs/secure-telemetry.md
