@@ -1,0 +1,24 @@
+#
+# robohub-contract-gateway — the gateway contract.
+#
+# The interface an application calls and the manager that dispatches it to the
+# provider the application names. It is versioned on its own, and reaches its
+# providers by module name, so it builds wherever its dependencies resolve.
+#
+module:
+  name: robohub-contract-gateway
+  id: robohub.contract.gateway
+  type: module
+  version: 0.1.0
+  description: >
+    The gateway functions an application calls for projects, sources, states and readings, dispatched to the provider it names.
+  maintainer: "Aurel Miron"
+  license: "MIT"
+  created: "2026-11-12"
+
+main: manager.rho
+
+deps:
+  robohub:
+    robohub-provider-mesh: ">=0.1.0"
+    robohub-provider-sim: ">=0.1.0"

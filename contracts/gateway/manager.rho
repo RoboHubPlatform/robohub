@@ -18,8 +18,8 @@ module robohub.plugins.gateway
 //                             the readings of one source (ID or URL) over a range
 //   gateway_telemetry_status() the store's own account of what it holds
 
-include "../../providers/mesh/src/provider.rho"
-include "../../providers/sim/src/provider.rho"
+include "robohub-provider-mesh"
+include "robohub-provider-sim"
 
 /* -------------------------------------------------------------------------- */
 /*  Strings and settings                                                      */

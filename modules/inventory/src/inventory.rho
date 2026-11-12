@@ -16,6 +16,9 @@ import std.sql
 import std.web.http
 import std.web.template
 
+// A module's own files, embedded in the program that includes it.
+extern fn rho_asset(module: string, path: string) string
+
 const ITEM_CAPACITY: u32 = 512
 const EXPENSES_CAPACITY: u32 = 512
 const CATEGORY_CAPACITY: u32 = 64
@@ -25,22 +28,6 @@ const LOW_STOCK_CAPACITY: u32 = 128
 /*  Where the database and its schema are                                     */
 /* -------------------------------------------------------------------------- */
 
-fn inventory_root() string {
-    if rho_path_exists("module.yml") &&
-        yaml.value("module.yml", "module.name") == "inventory" {
-        return "."
-    }
-    let root: string = getenv("ROBOHUB_ROOT")
-    if root != "" {
-        if rho_path_exists(root + "/modules/inventory/module.yml") {
-            return root + "/modules/inventory"
-        }
-        if rho_path_exists(root + "/robohub/modules/inventory/module.yml") {
-            return root + "/robohub/modules/inventory"
-        }
-    }
-    return "modules/inventory"
-}
 
 fn inventory_workspace() string {
     let workspace: string = getenv("ROBOHUB_APP_WORKSPACE")
@@ -51,11 +38,7 @@ fn inventory_workspace() string {
 }
 
 fn inventory_template(name: string) string {
-    let path: string = inventory_root() + "/templates/" + name + ".html"
-    if rho_path_exists(path) {
-        return rho_read_text(path)
-    }
-    return rho_read_text("templates/" + name + ".html")
+    return rho_asset("inventory", "templates/" + name + ".html")
 }
 
 fn inventory_db_path() string {
@@ -73,11 +56,7 @@ fn inventory_db_path() string {
 }
 
 fn inventory_schema() string {
-    let path: string = inventory_root() + "/db/schema.sql"
-    if rho_path_exists(path) {
-        return rho_read_text(path)
-    }
-    return rho_read_text("db/schema.sql")
+    return rho_asset("inventory", "db/schema.sql")
 }
 
 fn inventory_host_config(key: string) string {
@@ -419,12 +398,11 @@ fn inventory_total(db: SqlDb) i64 {
 /* -------------------------------------------------------------------------- */
 
 fn inventory_docs() string {
-    let root: string = inventory_root()
-    let path: string = root + "/docs/index.md"
-    if rho_path_exists(path) {
-        return rho_read_text(path)
+    let text: string = rho_asset("inventory", "docs/index.md")
+    if text == "" {
+        return "No documentation found."
     }
-    return "No documentation found."
+    return text
 }
 
 fn inventory_category_rows(categories: Categories[64], count: u32) string {

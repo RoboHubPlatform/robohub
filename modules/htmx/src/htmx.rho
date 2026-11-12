@@ -9,31 +9,9 @@ module htmx
 
 import std.web.http
 
-fn htmx_root() string {
-    let root: string = getenv("ROBOHUB_ROOT")
-    if root != "" {
-        if rho_path_exists(root + "/modules/htmx/module.yml") {
-            return root + "/modules/htmx"
-        }
-        if rho_path_exists(root + "/robohub/modules/htmx/module.yml") {
-            return root + "/robohub/modules/htmx"
-        }
-    }
-    if rho_path_exists("modules/htmx/module.yml") {
-        return "modules/htmx"
-    }
-    if rho_path_exists("../../modules/htmx/module.yml") {
-        return "../../modules/htmx"
-    }
-    if rho_path_exists("module.yml") && rho_path_exists("assets/htmx.min.js") {
-        return "."
-    }
-    let home: string = getenv("HOME")
-    if home != "" {
-        return home + "/.rho/modules/htmx"
-    }
-    return "."
-}
+// A module's own files, embedded in the program that includes it.
+extern fn rho_asset(module: string, path: string) string
+
 
 // htmx_asset_name admits only the two names the module carries, so a request
 // for /assets/../../... cannot read a file outside the asset directory.
@@ -51,11 +29,7 @@ fn htmx_asset_text(name: string) string {
     if !htmx_asset_name(name) {
         return ""
     }
-    let path: string = htmx_root() + "/assets/" + name
-    if rho_path_exists(path) {
-        return rho_read_text(path)
-    }
-    return ""
+    return rho_asset("htmx", "assets/" + name)
 }
 
 fn htmx_asset(name: string) Response {

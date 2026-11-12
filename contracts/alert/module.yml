@@ -1,0 +1,26 @@
+#
+# robohub-contract-alert — the alert contract.
+#
+# The interface an application calls and the manager that dispatches it to the
+# provider the application names. It is versioned on its own, and reaches its
+# providers by module name, so it builds wherever its dependencies resolve.
+#
+module:
+  name: robohub-contract-alert
+  id: robohub.contract.alert
+  type: module
+  version: 0.1.0
+  description: >
+    The alert functions an application calls to raise and route an alert, dispatched to the channels it names.
+  maintainer: "Aurel Miron"
+  license: "MIT"
+  created: "2026-11-12"
+
+main: manager.rho
+
+deps:
+  robohub:
+    robohub-provider-log: ">=0.1.0"
+    robohub-provider-email: ">=0.1.0"
+    robohub-provider-telegram: ">=0.1.0"
+    robohub-provider-webhook: ">=0.1.0"

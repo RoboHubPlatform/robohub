@@ -33,3 +33,15 @@ docs:
   index: docs/index.md
   sources:
     - docs/index.md
+
+# What this module reads at run time by name (rho_asset), embedded into every
+# application that includes it, so it never reads its own folder.
+assets:
+  - templates
+
+# Its translations, merged into every application that includes it.
+locales:
+  - locale: en
+    file: locales/en.json
+  - locale: ro
+    file: locales/ro.json

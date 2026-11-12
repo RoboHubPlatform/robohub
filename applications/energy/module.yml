@@ -91,6 +91,7 @@ deps:
     scheduler: ">=0.1.3"
     widgets: ">=0.2.3"
     mesh-gateway: ">=0.2.1"
+    robohub-contract-gateway: ">=0.1.0"
 
 deploy:
   port: 8482
@@ -105,3 +106,7 @@ docs:
   index: docs/index.md
   sources:
     - docs/index.md
+
+# The application's own documentation page, embedded at build time.
+assets:
+  - docs/index.md

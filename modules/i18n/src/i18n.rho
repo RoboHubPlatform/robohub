@@ -3,36 +3,16 @@ module i18n
 import std.web.http
 import std.web.template
 
-// The languages this module knows. A new catalog is one entry here and one
-// file in the host's project.yml.
-fn i18n_root() string {
-    let root: string = getenv("ROBOHUB_ROOT")
-    if root != "" {
-        if rho_path_exists(root + "/modules/i18n/module.yml") {
-            return root + "/modules/i18n"
-        }
-    }
-    if rho_path_exists("modules/i18n/module.yml") {
-        return "modules/i18n"
-    }
-    if rho_path_exists("../../modules/i18n/module.yml") {
-        return "../../modules/i18n"
-    }
-    let home: string = getenv("HOME")
-    if home != "" {
-        return home + "/.rho/modules/i18n"
-    }
-    return "."
-}
+// A module's own files, embedded in the program that includes it.
+extern fn rho_asset(module: string, path: string) string
+
 
 fn i18n_template(name: string) string {
-    let path: string = i18n_root() + "/templates/" + name + ".html"
-    if rho_path_exists(path) {
-        return rho_read_text(path)
-    }
-    return ""
+    return rho_asset("i18n", "templates/" + name + ".html")
 }
 
+// The languages this module knows. A new catalog is one entry here and one
+// file in the module's `locales:`.
 fn i18n_supported(code: string) bool {
     if rho_str_eq(code, "en") { return true }
     if rho_str_eq(code, "ro") { return true }

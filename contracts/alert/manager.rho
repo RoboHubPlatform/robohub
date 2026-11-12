@@ -30,10 +30,10 @@ module robohub.plugins.manager
 //   registry = registry_register(registry, "alert-log", plugins_root())
 //   ignore_u32(registry_alert(registry, "WARNING", "message", "node=1"))
 
-include "../../providers/log/src/provider.rho"
-include "../../providers/email/src/provider.rho"
-include "../../providers/telegram/src/provider.rho"
-include "../../providers/webhook/src/provider.rho"
+include "robohub-provider-log"
+include "robohub-provider-email"
+include "robohub-provider-telegram"
+include "robohub-provider-webhook"
 
 /* -------------------------------------------------------------------------- */
 /*  Strings                                                                   */

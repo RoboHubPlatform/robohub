@@ -59,22 +59,6 @@ fn notification_escape(text: string) string {
     return out
 }
 
-fn notification_root() string {
-    if rho_path_exists("module.yml") &&
-        yaml.value("module.yml", "module.name") == "notifications" {
-        return "."
-    }
-    let root: string = getenv("ROBOHUB_ROOT")
-    if root != "" {
-        if rho_path_exists(root + "/modules/notifications/module.yml") {
-            return root + "/modules/notifications"
-        }
-        if rho_path_exists(root + "/robohub/modules/notifications/module.yml") {
-            return root + "/robohub/modules/notifications"
-        }
-    }
-    return "modules/notifications"
-}
 
 fn notification_workspace() string {
     let workspace: string = getenv("ROBOHUB_APP_WORKSPACE")
@@ -95,11 +79,7 @@ fn notification_db_path() string {
 }
 
 fn notification_schema() string {
-    let path: string = notification_root() + "/db/schema.sql"
-    if rho_path_exists(path) {
-        return rho_read_text(path)
-    }
-    return rho_read_text("db/schema.sql")
+    return rho_asset("notifications", "db/schema.sql")
 }
 
 fn notification_now() u32 {

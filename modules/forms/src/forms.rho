@@ -8,36 +8,16 @@ module forms
 import std.core.ptr
 import std.core.slice
 
+// A module's own files, embedded in the program that includes it.
+extern fn rho_asset(module: string, path: string) string
+
 /* -------------------------------------------------------------------------- */
 /*  Escaping and text                                                           */
 /* -------------------------------------------------------------------------- */
 
-// forms_escape makes a value safe to place inside HTML: the characters that
-// begin markup are turned into entities so a submitted value cannot change the
-// page's structure.
-fn forms_root() string {
-    let root: string = getenv("ROBOHUB_ROOT")
-    if root != "" {
-        if rho_path_exists(root + "/modules/forms/module.yml") {
-            return root + "/modules/forms"
-        }
-    }
-    if rho_path_exists("module.yml") && rho_path_exists("templates/assets/forms.css") {
-        return "."
-    }
-    let home: string = getenv("HOME")
-    if home != "" {
-        return home + "/.rho/modules/forms"
-    }
-    return "."
-}
 
 fn forms_template(name: string) string {
-    let path: string = forms_root() + "/templates/" + name
-    if rho_path_exists(path) {
-        return rho_read_text(path)
-    }
-    return rho_read_text("templates/" + name)
+    return rho_asset("forms", "templates/" + name)
 }
 
 // forms_style is the module's own CSS, read from its template assets, so any
@@ -47,6 +27,9 @@ fn forms_style() string {
     return "<style>" + forms_template("assets/forms.css") + "</style>"
 }
 
+// forms_escape makes a value safe to place inside HTML: the characters that
+// begin markup are turned into entities so a submitted value cannot change the
+// page's structure.
 fn forms_escape(text: string) string {
     var out: string = ""
     var i: u32 = 0

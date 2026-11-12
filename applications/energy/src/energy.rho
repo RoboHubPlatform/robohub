@@ -3071,14 +3071,9 @@ fn energy_settings_save(req: Request) Response {
 }
 
 fn energy_docs(req: Request) Response {
-    var root: string = getenv("ROBOHUB_ROOT")
-    var path: string = "applications/energy/docs/index.md"
-    if root != "" {
-        path = root + "/applications/energy/docs/index.md"
-    }
-    var content: string = "No documentation found."
-    if rho_path_exists(path) {
-        content = rho_read_text(path)
+    var content: string = rho_asset("energy", "docs/index.md")
+    if content == "" {
+        content = "No documentation found."
     }
     var body: string = template_fill(template_get("docs"), vars("content", escape_html(content)))
     return energy_page(req, "Documentation", body)

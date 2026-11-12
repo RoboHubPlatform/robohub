@@ -1,8 +1,10 @@
 # Contracts
 
 The stable interfaces an application calls, and the managers that dispatch them
-to an installed plugin. They are Rho sources included by the application, not
-plugins themselves; `plugins/` holds the implementations.
+to an installed plugin. Each is a module (`robohub-contract-<name>`, `main: manager.rho`) that an
+application declares under `deps` and includes by name; it declares and includes
+its providers the same way, so no path reaches outside a module's own folder.
+`plugins/` holds the implementations.
 
 | Contract | Manager | Providers |
 |----------|---------|-----------|

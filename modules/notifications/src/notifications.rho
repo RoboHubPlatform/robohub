@@ -6,6 +6,9 @@ import std.sql
 import std.web.http
 import std.web.template
 
+// A module's own files, embedded in the program that includes it.
+extern fn rho_asset(module: string, path: string) string
+
 const NOTIFICATION_INFO: string = "info"
 const NOTIFICATION_WARNING: string = "warning"
 const NOTIFICATION_ERROR: string = "error"
@@ -112,11 +115,7 @@ fn notification_events(req: Request) Response {
 // `rho:event`, so a page that cares about the change can refresh its own data
 // without knowing where the event came from.
 fn notification_template(name: string) string {
-    let path: string = notification_root() + "/templates/" + name + ".html"
-    if rho_path_exists(path) {
-        return rho_read_text(path)
-    }
-    return rho_read_text("templates/" + name + ".html")
+    return rho_asset("notifications", "templates/" + name + ".html")
 }
 
 

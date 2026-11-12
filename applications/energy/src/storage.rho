@@ -1,5 +1,8 @@
 module energy
 
+// The application's own files, embedded at build time.
+extern fn rho_asset(module: string, path: string) -> string
+
 // The host functions the application uses for paths, text and process output.
 // They are the same names the other RoboHub applications declare, so a module
 // included here resolves against the host it is running in.

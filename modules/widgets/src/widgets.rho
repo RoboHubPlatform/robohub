@@ -14,25 +14,12 @@ import std.sql
 import std.web.http
 import std.web.template
 
+// A module's own files, embedded in the program that includes it.
+extern fn rho_asset(module: string, path: string) string
+
 const WIDGET_CAPACITY: u32 = 128
 const VALUE_CAPACITY: u32 = 100
 
-fn widget_root() string {
-    if rho_path_exists("module.yml") &&
-        yaml.value("module.yml", "module.name") == "widgets" {
-        return "."
-    }
-    let root: string = getenv("ROBOHUB_ROOT")
-    if root != "" {
-        if rho_path_exists(root + "/modules/widgets/module.yml") {
-            return root + "/modules/widgets"
-        }
-        if rho_path_exists(root + "/robohub/modules/widgets/module.yml") {
-            return root + "/robohub/modules/widgets"
-        }
-    }
-    return "modules/widgets"
-}
 
 fn widget_workspace() string {
     let workspace: string = getenv("ROBOHUB_APP_WORKSPACE")
@@ -53,19 +40,11 @@ fn widget_db_path() string {
 }
 
 fn widget_schema() string {
-    let path: string = widget_root() + "/db/schema.sql"
-    if rho_path_exists(path) {
-        return rho_read_text(path)
-    }
-    return rho_read_text("db/schema.sql")
+    return rho_asset("widgets", "db/schema.sql")
 }
 
 fn widget_template(name: string) string {
-    let path: string = widget_root() + "/templates/" + name + ".html"
-    if rho_path_exists(path) {
-        return rho_read_text(path)
-    }
-    return rho_read_text("templates/" + name + ".html")
+    return rho_asset("widgets", "templates/" + name + ".html")
 }
 
 fn widgets_style() string {
@@ -822,15 +801,11 @@ fn widget_rows(db: SqlDb, widgets: Widgets[128], count: u32, locale: string) str
 }
 
 fn widgets_docs() string {
-    let root: string = getenv("ROBOHUB_ROOT")
-    var path: string = "modules/widgets/docs/index.md"
-    if root != "" {
-        path = root + "/modules/widgets/docs/index.md"
+    let text: string = rho_asset("widgets", "docs/index.md")
+    if text == "" {
+        return "No documentation found."
     }
-    if rho_path_exists(path) {
-        return rho_read_text(path)
-    }
-    return "No documentation found."
+    return text
 }
 
 // widgets_refresh_all pulls every URL source once and emits an SSE event for

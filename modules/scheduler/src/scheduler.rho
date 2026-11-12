@@ -13,6 +13,9 @@ import std.sql
 import std.web.http
 import std.web.template
 
+// A module's own files, embedded in the program that includes it.
+extern fn rho_asset(module: string, path: string) string
+
 const CHORE_CAPACITY: u32 = 256
 
 fn scheduler_ignore_result(value: Result[u32, SqlError]) void {
@@ -25,22 +28,6 @@ fn ignore_response(value: Response) void {
 }
 const COMPLETION_CAPACITY: u32 = 64
 
-fn scheduler_root() string {
-    if rho_path_exists("module.yml") &&
-        yaml.value("module.yml", "module.name") == "scheduler" {
-        return "."
-    }
-    let root: string = getenv("ROBOHUB_ROOT")
-    if root != "" {
-        if rho_path_exists(root + "/modules/scheduler/module.yml") {
-            return root + "/modules/scheduler"
-        }
-        if rho_path_exists(root + "/robohub/modules/scheduler/module.yml") {
-            return root + "/robohub/modules/scheduler"
-        }
-    }
-    return "modules/scheduler"
-}
 
 fn scheduler_workspace() string {
     let workspace: string = getenv("ROBOHUB_APP_WORKSPACE")
@@ -61,19 +48,11 @@ fn scheduler_db_path() string {
 }
 
 fn scheduler_schema() string {
-    let path: string = scheduler_root() + "/db/schema.sql"
-    if rho_path_exists(path) {
-        return rho_read_text(path)
-    }
-    return rho_read_text("db/schema.sql")
+    return rho_asset("scheduler", "db/schema.sql")
 }
 
 fn scheduler_template(name: string) string {
-    let path: string = scheduler_root() + "/templates/" + name + ".html"
-    if rho_path_exists(path) {
-        return rho_read_text(path)
-    }
-    return rho_read_text("templates/" + name + ".html")
+    return rho_asset("scheduler", "templates/" + name + ".html")
 }
 
 fn scheduler_now() u32 {
@@ -302,15 +281,11 @@ fn scheduler_completion_rows(rows: ListCompletionsRow[64], count: u32) string {
 }
 
 fn scheduler_docs() string {
-    let root: string = getenv("ROBOHUB_ROOT")
-    var path: string = "modules/scheduler/docs/index.md"
-    if root != "" {
-        path = root + "/modules/scheduler/docs/index.md"
+    let text: string = rho_asset("scheduler", "docs/index.md")
+    if text == "" {
+        return "No documentation found."
     }
-    if rho_path_exists(path) {
-        return rho_read_text(path)
-    }
-    return "No documentation found."
+    return text
 }
 
 fn scheduler_page_message(req: Request, message: string) Response {
