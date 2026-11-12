@@ -9,7 +9,7 @@ module:
   name: robohub-contract-alert
   id: robohub.contract.alert
   type: module
-  version: 0.1.0
+  version: 0.1.1
   description: >
     The alert functions an application calls to raise and route an alert, dispatched to the channels it names.
   maintainer: "Aurel Miron"

@@ -15,7 +15,9 @@ RHO="${RHO:-$HOME/.rho/bin/rho}"
 mkdir -p "$(dirname "$DEPLOY_LOG")"
 
 # If the service already exists, just report and exit.
-if systemctl --user is-enabled "$SERVICE_NAME" >/dev/null 2>&1; then
+# A unit written before the keeper had a workspace of its own is written again.
+if systemctl --user is-enabled "$SERVICE_NAME" >/dev/null 2>&1 &&
+   grep -q "ROBOHUB_APP_WORKSPACE" "$SERVICE_FILE" 2>/dev/null; then
     echo "[$(date)] $SERVICE_NAME is already deployed."
     echo "  Status: $(systemctl --user is-active "$SERVICE_NAME" 2>/dev/null || echo 'inactive')"
     echo "  Use 'systemctl --user restart $SERVICE_NAME' to restart."
@@ -27,6 +29,15 @@ cd "$KEEPER"
 "$RHO" build . >> "$DEPLOY_LOG" 2>&1 || {
     echo "BUILD FAILED"; exit 1
 }
+
+# The keeper's own workspace, as every application it starts has one: its
+# settings live there rather than in the store shared by anything started
+# without one. Settings written to that shared store before are carried over once.
+WORKSPACE="$HOME/.rho/keeper"
+mkdir -p "$WORKSPACE/data"
+if [ ! -f "$WORKSPACE/data/settings.conf" ] && [ -f "$HOME/.rho/robohub/data/settings.conf" ]; then
+    cp "$HOME/.rho/robohub/data/settings.conf" "$WORKSPACE/data/settings.conf"
+fi
 
 echo "[$(date)] Writing systemd unit …" | tee -a "$DEPLOY_LOG"
 mkdir -p "$SERVICE_DIR"
@@ -44,6 +55,8 @@ Environment=HOME=$HOME
 Environment=ROBOHUB_ROOT=$ROBOHUB
 Environment=ROBOHUB_WORKSPACE=$(dirname "$ROBOHUB")
 Environment=RHO_HTTP_ADDR=:$KEEPER_PORT
+Environment=ROBOHUB_APP_WORKSPACE=$WORKSPACE
+Environment=RHO_APP_WORKSPACE=$WORKSPACE
 
 [Install]
 WantedBy=default.target

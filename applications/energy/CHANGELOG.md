@@ -44,3 +44,8 @@ loads in one service.
   setting, with `ROBOHUB_DRIVER_MODE` as the environment default, and scripted
   fault injection for tests and demonstrations.
 - A smoke test that runs the whole loop on a workstation with no hardware.
+
+## [0.1.1] - 2026-11-12
+
+Energy declares the robohub-auth plugin, like aquarium; it already used the
+keeper's sign-in.

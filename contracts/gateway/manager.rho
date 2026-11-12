@@ -19,7 +19,6 @@ module robohub.plugins.gateway
 //   gateway_telemetry_status() the store's own account of what it holds
 
 include "robohub-provider-mesh"
-include "robohub-provider-sim"
 
 /* -------------------------------------------------------------------------- */
 /*  Strings and settings                                                      */
@@ -383,9 +382,6 @@ fn gateway_projects() string {
     if gateway_config_value(config, "transport") == "mesh" {
         return provider_mesh_projects(config)
     }
-    if gateway_config_value(config, "transport") == "sim" {
-        return provider_sim_projects(config)
-    }
     return ""
 }
 
@@ -393,9 +389,6 @@ fn gateway_gateway() string {
     let config: string = gateway_config()
     if gateway_config_value(config, "transport") == "mesh" {
         return provider_mesh_gateway(config)
-    }
-    if gateway_config_value(config, "transport") == "sim" {
-        return provider_sim_gateway(config)
     }
     return ""
 }
@@ -409,9 +402,6 @@ fn gateway_sources() string {
     if gateway_config_value(config, "transport") == "mesh" {
         return provider_mesh_sources(config)
     }
-    if gateway_config_value(config, "transport") == "sim" {
-        return provider_sim_sources(config)
-    }
     return ""
 }
 
@@ -419,9 +409,6 @@ fn gateway_device_states() string {
     let config: string = gateway_config()
     if gateway_config_value(config, "transport") == "mesh" {
         return provider_mesh_device_states(config)
-    }
-    if gateway_config_value(config, "transport") == "sim" {
-        return provider_sim_device_states(config)
     }
     return ""
 }
@@ -441,9 +428,6 @@ fn gateway_source_state(source: string) string {
     if gateway_config_value(config, "transport") == "mesh" {
         return provider_mesh_source_state(config, source)
     }
-    if gateway_config_value(config, "transport") == "sim" {
-        return provider_sim_source_state(config, source)
-    }
     return ""
 }
 
@@ -455,9 +439,6 @@ fn gateway_source_latest(source: string) string {
     if gateway_config_value(config, "transport") == "mesh" {
         return provider_mesh_source_latest(config, source)
     }
-    if gateway_config_value(config, "transport") == "sim" {
-        return provider_sim_source_latest(config, source)
-    }
     return ""
 }
 
@@ -465,9 +446,6 @@ fn gateway_source_history(source: string, from_ms: string, to_ms: string, step_m
     let config: string = gateway_config()
     if gateway_config_value(config, "transport") == "mesh" {
         return provider_mesh_source_history(config, source, from_ms, to_ms, step_ms)
-    }
-    if gateway_config_value(config, "transport") == "sim" {
-        return provider_sim_source_history(config, source, from_ms, to_ms, step_ms)
     }
     return ""
 }
@@ -502,9 +480,6 @@ fn gateway_telemetry_status() string {
     let config: string = gateway_config()
     if gateway_config_value(config, "transport") == "mesh" {
         return provider_mesh_telemetry_status(config)
-    }
-    if gateway_config_value(config, "transport") == "sim" {
-        return provider_sim_telemetry_status(config)
     }
     return ""
 }
