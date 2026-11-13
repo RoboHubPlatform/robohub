@@ -1,0 +1,25 @@
+//
+// @file main.rho
+// @brief The appshell module: the shell, settings and docs pages every RoboHub application on the gateway shares.
+//
+// @module appshell
+// @project robohub
+// @author Aurel Miron
+// @date 2026-11-13
+//
+// SPDX-License-Identifier: MIT
+//
+
+module appshell
+
+include "shell.rho"
+include "settings.rho"
+
+import std.web.http
+import robohub.gateway
+
+extern fn rho_asset(module: string, path: string) string
+
+route GET  "/settings" => appshell_settings_page
+route POST "/settings" => appshell_settings_save
+route GET  "/docs"     => appshell_docs

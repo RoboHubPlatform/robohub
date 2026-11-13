@@ -1,0 +1,50 @@
+#
+# appshell — what every RoboHub application on the gateway draws the same way.
+#
+# The settings page (where readings come from, the inventory's, scheduler's and
+# dashboard's settings, logging, about), the docs page, and the pieces of the
+# shell: the rail's links, the top bar with the gateway and the mode, a toast.
+# An application includes it, keeps its own rail and layout, and answers
+# host_app() and host_app_title().
+#
+module:
+  name: appshell
+  id: robohub.module.appshell
+  type: module
+  title: RoboHub application shell
+  category: ui
+  version: 0.1.0
+  description: >
+    The shell, settings and docs pages every RoboHub application on the gateway
+    shares, so aquarium, energy and those after them draw them once.
+  maintainer: "Aurel Miron"
+  author: "Aurel Miron"
+  license: "MIT"
+  created: "2026-11-13"
+
+main: src/main.rho
+
+deps:
+  robohub:
+    ui: ">=0.1.0"
+    forms: ">=0.3.0"
+    settings: ">=0.2.0"
+    i18n: ">=0.4.0"
+    logging: ">=0.2.0"
+    rules: ">=0.1.0"
+    journal: ">=0.1.0"
+    robohub-gateway: ">=1.2.0"
+
+docs:
+  title: RoboHub application shell
+  section: modules
+  order: "37"
+  index: docs/index.md
+  sources:
+    - docs/index.md
+
+locales:
+  - locale: en
+    file: locales/en.json
+  - locale: ro
+    file: locales/ro.json

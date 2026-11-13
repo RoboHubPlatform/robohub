@@ -27,3 +27,6 @@ modules:
   - name: simulator
     path: simulator
     enabled: true
+  - name: appshell
+    path: appshell
+    enabled: true

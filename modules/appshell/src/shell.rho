@@ -1,0 +1,165 @@
+//
+// @file shell.rho
+// @brief The RoboHub shell an application on the gateway draws its pages in: the rail's links, the top bar, the docs page, a toast.
+//
+// @module appshell
+// @project robohub
+// @author Aurel Miron
+// @date 2026-11-13
+//
+// SPDX-License-Identifier: MIT
+//
+
+module appshell
+
+// What every keeper-hosted application draws the same way. The application keeps
+// what is its own — the places on its rail, the action on its top bar, its
+// layout — and answers two questions the module asks: host_app(), its name
+// (`aquarium`), and host_app_title(), how it is shown (`Aquarium`). Its pages,
+// and the modules', are drawn through its host_shell.
+
+fn appshell_trim(text: string) string {
+    var out: string = text
+    while strlen(out) > 0 && (str_eq(str_slice(out, 0, 1), " ") || str_eq(str_slice(out, 0, 1), "\n") ||
+        str_eq(str_slice(out, 0, 1), "\r") || str_eq(str_slice(out, 0, 1), "\t")) {
+        out = str_slice(out, 1, u32(strlen(out)) - 1)
+    }
+    while strlen(out) > 0 {
+        let last: string = str_slice(out, u32(strlen(out)) - 1, 1)
+        if !str_eq(last, " ") && !str_eq(last, "\n") && !str_eq(last, "\r") && !str_eq(last, "\t") {
+            break
+        }
+        out = str_slice(out, 0, u32(strlen(out)) - 1)
+    }
+    return out
+}
+
+fn appshell_form(body: string, name: string) string {
+    return appshell_trim(form_value(body, name))
+}
+
+// appshell_field is the field at an index of a `|`-separated line.
+fn appshell_field(line: string, index: u32) string {
+    var rest: string = line
+    var i: u32 = 0
+    while true {
+        let at: i32 = str_index_of(rest, "|")
+        if i == index {
+            if at < 0 {
+                return rest
+            }
+            return str_slice(rest, 0, u32(at))
+        }
+        if at < 0 {
+            return ""
+        }
+        rest = str_slice(rest, u32(at) + 1, u32(strlen(rest)) - u32(at) - 1)
+        i = i + 1
+    }
+    return ""
+}
+
+// appshell_toast is the script that shows a message once the page has loaded.
+fn appshell_toast(message: string) string {
+    if message == "" {
+        return ""
+    }
+    return "<script>document.addEventListener(\"DOMContentLoaded\",function(){if(window.rhoToast){window.rhoToast(" +
+        json_string(message) + ", \"info\");}});</script>"
+}
+
+// appshell_rail_link is one place on the rail, marked when the page is it or
+// under it; `phone` keeps it in the bar a phone shows at the bottom.
+fn appshell_rail_link(req: Request, href: string, icon: string, label: string, extra: string, phone: bool) string {
+    let path: string = request_path(req)
+    var on: string = ""
+    if str_eq(path, href) || (!str_eq(href, "/") && str_starts_with(path, href)) {
+        on = " class=\"on\""
+    }
+    var on_phone: string = ""
+    if phone {
+        on_phone = " data-phone"
+    }
+    return "<a" + on + on_phone + " href=\"" + href + "\"><i>" + icon + "</i>" + escape_html(label) + extra + "</a>"
+}
+
+// appshell_count is a count beside a place, or nothing when it is zero.
+fn appshell_count(n: u32, css: string) string {
+    if n == 0 {
+        return ""
+    }
+    return "<span class=\"n" + css + "\">" + int_to_str(n) + "</span>"
+}
+
+// appshell_rail_system is the rail's last group: the open journal, the
+// dashboard, settings and docs, which every application has.
+fn appshell_rail_tail(req: Request) string {
+    return "<h6>" + i18n_t(req, "nav.group.system") + "</h6>" +
+        appshell_rail_link(req, "/settings", "⚑", i18n_t(req, "nav.settings"), "", false) +
+        appshell_rail_link(req, "/docs", "▧", i18n_t(req, "nav.docs"), "", false)
+}
+
+// appshell_gateway_label is where readings come from, as the top bar says it:
+// the Mesh project and its transport, the simulator, or none.
+fn appshell_gateway_label(req: Request) string {
+    let name: string = gateway.provider()
+    if str_eq(name, "simulator") {
+        return i18n_t(req, "top.simulator")
+    }
+    if name == "" {
+        return i18n_t(req, "top.no_gateway")
+    }
+    var project: string = gateway.config("project")
+    if project == "" {
+        project = "Mesh"
+    }
+    return project + " · Mesh · " + gateway.transport()
+}
+
+// appshell_middle is the top bar's middle: where readings come from, the mode in
+// force, and a button that starts the application's quick mode (`feeding`,
+// `load-shed`) or ends the mode in force.
+fn appshell_middle(req: Request, quick_mode: string, quick_label: string) string {
+    let mode: string = rules_mode()
+    var mode_label: string = i18n_t(req, "top.auto")
+    var action: string = ""
+    if quick_mode != "" {
+        action = "<form method=\"post\" action=\"/rules/mode\" class=\"inline\">" + forms_csrf_field() +
+            "<input type=\"hidden\" name=\"mode\" value=\"" + escape_html(quick_mode) + "\"><button class=\"quiet\">" +
+            escape_html(quick_label) + "</button></form>"
+    }
+    if mode != "" {
+        mode_label = mode
+        action = "<form method=\"post\" action=\"/rules/mode\" class=\"inline\">" + forms_csrf_field() +
+            "<input type=\"hidden\" name=\"end\" value=\"1\"><button class=\"quiet\">" + i18n_t(req, "top.end_mode") + "</button></form>"
+    }
+    return "<span class=\"app-chip ok\">" + escape_html(appshell_gateway_label(req)) + "</span><span class=\"app-chip mode\">" +
+        escape_html(mode_label) + "</span>" + action
+}
+
+// appshell_topbar is the RoboHub top bar for the application: the switcher of
+// the keeper's applications, the middle, and the person signed in.
+fn appshell_topbar(req: Request, middle: string) string {
+    let keeper_port: string = getenv("RHO_KEEPER_PORT")
+    var who: string = header_str(req, "X-Rho-Subject")
+    if who == "" {
+        who = i18n_t(req, "top.signed_in")
+    }
+    var signout: string = ""
+    if keeper_port != "" {
+        signout = "<a class=\"app-open\" href=\"#\" data-app-port=\"" + escape_html(keeper_port) +
+            "\" data-app-route=\"/logout\">" + i18n_t(req, "top.sign_out") + "</a>"
+    }
+    return ui_topbar_remote(host_app(), host_app_title(), keeper_port, middle,
+        ui_person(req, who, "", ui_language(i18n_locale(req), request_path(req)), signout, true))
+}
+
+// appshell_docs is the application's own documentation page, its docs/index.md.
+fn appshell_docs(req: Request) Response {
+    var content: string = rho_asset(host_app(), "docs/index.md")
+    if content == "" {
+        content = "No documentation found."
+    }
+    return host_shell(req, i18n_t(req, "nav.docs"), "<div class=\"ph\"><h1>" + i18n_t(req, "nav.docs") +
+        "</h1></div><section class=\"rh-card wide\"><pre class=\"docs\">" + escape_html(content) + "</pre></section>", "")
+}
