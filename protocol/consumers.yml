@@ -1,0 +1,47 @@
+# Every place the RoboHub wire protocol is generated from a copy of the schemas.
+#
+# A consumer keeps its copy in its own `schemas/` directory, byte for byte the
+# source's, and the code generated from it where it has always been: nothing
+# about a device repository changes but where its copy comes from.
+# tools/sync.py writes the copies and runs each `generate` entry; with --check
+# it only says what differs.
+#
+#   path      the consumer, from the workspace (ROBOHUB_WORKSPACE)
+#   schemas   which of schemas/*.rho it carries
+#   generate  `rho protocol generate --platform robohub` runs: a target, the
+#             schema it starts from, and where the code goes
+consumers:
+  - path: robohub-gateway
+    schemas: [common, link, uplink, gateway]
+    generate:
+      - {target: rho, schema: link.rho, out: src/gateway/link}
+      - {target: rho, schema: uplink.rho, out: src/gateway/uplink}
+      - {target: rho, schema: gateway.rho, out: src/gateway/wire}
+  - path: robohub-devices/runtime/device-node
+    schemas: [common, link]
+    generate:
+      - {target: c, schema: link.rho, out: src/protocol}
+  - path: robohub-devices/nodes/gateway-node
+    schemas: [common, link]
+    generate:
+      - {target: c, schema: link.rho, out: src/protocol}
+  - path: robohub-drivers/examples/gateway/c/relay
+    schemas: [common, link, uplink, gateway]
+    generate:
+      - {target: c, schema: gateway.rho, out: src/protocol}
+  - path: robohub-drivers/examples/gateway/c/relay-host
+    schemas: [common, link, uplink, gateway]
+    generate:
+      - {target: c, schema: gateway.rho, out: src/protocol}
+  - path: robohub-drivers/examples/gateway/c/uplink-host
+    schemas: [common, link, uplink, gateway]
+    generate:
+      - {target: c, schema: gateway.rho, out: src/protocol}
+  - path: robohub-drivers/examples/gateway/c/repeater
+    schemas: [common, link]
+    generate:
+      - {target: c, schema: link.rho, out: src/protocol}
+  - path: robohub-drivers/examples/temperature/ds18b20/c/telemetry
+    schemas: [common, link]
+    generate:
+      - {target: c, schema: link.rho, out: src/protocol}

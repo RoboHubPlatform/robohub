@@ -17,3 +17,6 @@ internals. An alert reaches every enabled channel bound; a gateway is one place,
 so the first enabled provider bound answers; a bus is one broker, the same way.
 
 `registry.yml` is the installed set, in the shape of `providers/registry.yml`.
+
+The wire protocol a board and a gateway speak is not an interface an application
+calls; its schemas are in `protocol/`, one source copied into every consumer.

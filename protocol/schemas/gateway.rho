@@ -1,0 +1,32 @@
+//
+// @file gateway.rho
+// @brief The gateway's whole wire: both protocol levels in one schema.
+//
+// The one source of the RoboHub wire protocol is robohub/protocol/schemas. Every
+// other copy is written from it by robohub/protocol/tools/sync.py: edit it here,
+// then run the tool, which also regenerates each consumer's code.
+//
+// @module robohub-protocol
+// @project robohub-protocol
+// @author Aurel Miron
+// @date 2026-10-13
+//
+// SPDX-License-Identifier: MIT
+//
+
+module gateway.protocol
+
+// The gateway's whole wire: both levels in one schema.
+//
+// A gateway hears boards (L2) and speaks to its parent and its children (L1), so
+// it generates from a root that includes both. `common.rho` is reached through
+// either level and merged once, so the shared identity is one declaration and
+// the two levels cannot disagree about a device id.
+//
+// A node generates `link.rho` alone and a relay generates `uplink.rho` alone;
+// only a gateway needs both, and this is where it says so.
+
+namespace robohub.v1
+
+include "link.rho"
+include "uplink.rho"

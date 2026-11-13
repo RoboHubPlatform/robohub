@@ -1,0 +1,31 @@
+#
+# robohub-protocol — the RoboHub wire protocol, written once.
+#
+# The schemas a board, a gateway and a relay generate their payloads from. Each
+# consumer keeps a copy beside its own code, as it always has; the copies are
+# written from these by tools/sync.py, which regenerates each consumer's code
+# too, and `tools/sync.py --check` fails when any copy or generated file is not
+# what the source makes. consumers.yml says who they are.
+#
+module:
+  name: robohub-protocol
+  id: robohub.protocol
+  type: module
+  version: 1.0.0
+  description: >
+    The RoboHub wire protocol in one place: the identity and message families
+    both levels share, L2 between a board and its gateway, L1 between gateways,
+    and the gateway's whole wire, copied into every consumer and regenerated
+    there by one tool.
+  maintainer: "Aurel Miron"
+  author: "Aurel Miron"
+  license: "MIT"
+  created: "2026-11-14"
+
+main: schemas/gateway.rho
+
+metadata:
+  tags:
+    - protocol
+    - wire
+    - schema
