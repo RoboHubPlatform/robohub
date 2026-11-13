@@ -163,10 +163,8 @@ fn notifications_list(req: Request) Response {
     while more == 1 {
         let more_slice: Slice[u32] = Slice[u32]{ Ptr[u32](&more), 1 }
         let ok: u32 = sql_run(stmt, more_slice.ptr)
-        if ok == 0 { break }
-        if more == 0 && ok == 1 {
-            // last row processed, more is 0
-        }
+        // A run that finds no row says so with more = 0: there is nothing to read.
+        if ok == 0 || more == 0 { break }
         // Read columns
         let v0: SqlValue = null_value()
         let v1: SqlValue = null_value()
@@ -186,11 +184,10 @@ fn notifications_list(req: Request) Response {
         if !first { out = out + "," }
         first = false
         out = out + "{\"id\":" + int_to_str(u32(v0.integer)) +
-            ",\"level\":\"" + notification_escape(v1.text) + "\"" +
-            ",\"message\":\"" + notification_escape(v2.text) + "\"" +
+            ",\"level\":" + json_string(v1.text) +
+            ",\"message\":" + json_string(v2.text) +
             ",\"created_at\":" + int_to_str(u32(v3.integer)) +
             ",\"expires_at\":" + int_to_str(u32(v4.integer)) + "}"
-        if more == 0 { break }
     }
     sql_finalize(stmt)
     sql_close(db)
@@ -243,7 +240,8 @@ fn notifications_render(req: Request) Response {
     while more == 1 {
         let more_slice: Slice[u32] = Slice[u32]{ Ptr[u32](&more), 1 }
         let ok: u32 = sql_run(stmt, more_slice.ptr)
-        if ok == 0 { break }
+        // A run that finds no row says so with more = 0: there is nothing to read.
+        if ok == 0 || more == 0 { break }
         let v0: SqlValue = null_value()
         let v1: SqlValue = null_value()
         let v2: SqlValue = null_value()

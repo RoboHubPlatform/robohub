@@ -12,3 +12,7 @@ settings are declared under `provides.settings` and read with
 `rho_bind_config`, from the binding of the application that uses it; the
 `provider:` block and the `key=value;` configuration string are gone, and the
 alert plugin that wrapped it was removed.
+
+## [0.2.1] - 2026-11-13
+
+An HTTP error is a failure, not a delivery (`-f`). A content type of application/json sends a JSON body. The URL must be http or https.

@@ -56,17 +56,27 @@ fn urlencode(text: string) string {
 // body never passes through an argument.
 fn send(level: string, message: string, metadata: string) u32 {
     let url: string = rho_bind_config("robohub-provider-webhook", "url")
-    if url == "" {
+    // An http or https address on one line: anything else would be another
+    // protocol, or an option of curl.
+    if (!str_starts_with(url, "http://") && !str_starts_with(url, "https://")) || str_index_of(url, "\n") >= 0 {
         return 0
     }
     var content_type: string = rho_bind_config("robohub-provider-webhook", "content_type")
     if content_type == "" {
         content_type = "application/x-www-form-urlencoded"
     }
+    // The body is what the content type says it is: JSON for application/json,
+    // a form otherwise. An HTTP error is a failure (-f), not a delivery.
     let file: string = state_dir() + "/webhook-body.txt"
-    let written: bool = rho_write_text(file, "level=" + urlencode(level) + "&message=" + urlencode(message) +
-        "&metadata=" + urlencode(metadata))
-    var args: string = "-sS\n-X\nPOST\n-H\nContent-Type: " + content_type + "\n--data-binary\n@" + file + "\n"
+    var payload: string = "level=" + urlencode(level) + "&message=" + urlencode(message) + "&metadata=" + urlencode(metadata)
+    if str_index_of(content_type, "json") >= 0 {
+        payload = "{\"level\":" + json_string(level) + ",\"message\":" + json_string(message) +
+            ",\"metadata\":" + json_string(metadata) + "}"
+    }
+    if str_index_of(content_type, "\n") >= 0 || !rho_write_text(file, payload) {
+        return 0
+    }
+    var args: string = "-fsS\n-X\nPOST\n-H\nContent-Type: " + content_type + "\n--data-binary\n@" + file + "\n"
     let authorization: string = rho_bind_config("robohub-provider-webhook", "authorization")
     if authorization != "" {
         args = args + "-H\nAuthorization: " + authorization + "\n"

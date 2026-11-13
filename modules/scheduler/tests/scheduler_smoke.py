@@ -217,6 +217,35 @@ def main() -> int:
                 moved = conn.execute("SELECT kind, quantity_milli, source FROM stock_movements WHERE item_id = (SELECT id FROM items WHERE handle='filter-pads')").fetchall()
             if left != 2000 or moved != [("consume", -1000, f"chore#{chore_id}")]:
                 raise AssertionError(f"completing the chore did not use a pad: {left} {moved}")
+
+            # Cron: steps, ranges and lists are read, and the next time is the
+            # first one after now in local time; an expression naming no time is
+            # refused, from the API too.
+            import datetime
+            assert post(base, "/api/scheduler/chores", {"title": "Every quarter hour", "kind": "cron", "value": "*/15 * * * *"})["ok"]
+            assert post(base, "/api/scheduler/chores", {"title": "Weekday mornings", "kind": "cron", "value": "30 9 * * 1-5"})["ok"]
+            assert post(base, "/api/scheduler/chores", {"title": "Sundays", "kind": "cron", "value": "0 8 * * 7"})["ok"]
+            with sqlite3.connect(db) as conn:
+                due = dict(conn.execute("SELECT title, next_due_epoch FROM chores WHERE schedule_kind='cron'").fetchall())
+            now = time.time()
+            quarter = datetime.datetime.fromtimestamp(due["Every quarter hour"])
+            if not (0 < due["Every quarter hour"] - now <= 900 and quarter.minute % 15 == 0):
+                raise AssertionError(f"*/15 is due at {quarter}")
+            morning = datetime.datetime.fromtimestamp(due["Weekday mornings"])
+            if morning.weekday() > 4 or (morning.hour, morning.minute) != (9, 30) or not 0 < due["Weekday mornings"] - now <= 4 * 86400:
+                raise AssertionError(f"30 9 * * 1-5 is due at {morning}")
+            sunday = datetime.datetime.fromtimestamp(due["Sundays"])
+            if sunday.weekday() != 6 or sunday.hour != 8:
+                raise AssertionError(f"0 8 * * 7 is due at {sunday}")
+            request = urllib.request.Request(base + "/api/scheduler/chores", method="POST",
+                data=urllib.parse.urlencode({"title": "Never", "kind": "cron", "value": "61 * * * *", "csrf": CSRF}).encode())
+            request.add_header("Content-Type", "application/x-www-form-urlencoded")
+            try:
+                with open_url(request, timeout=20) as response:
+                    raise AssertionError(f"a cron naming no time was answered {response.status}")
+            except urllib.error.HTTPError as error:
+                if error.code != 400 or "names no time" not in error.read().decode():
+                    raise AssertionError(f"a cron naming no time was answered {error.code}")
         finally:
             process.terminate()
             try:

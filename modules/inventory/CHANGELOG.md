@@ -52,3 +52,7 @@ The page's message (`?msg=`) is written into its toast as a JavaScript string, s
 ## [0.2.2] - 2026-11-13
 
 The clock is read from the process (`rho_now_s`, rho 0.6.0) instead of from `date` written to a file and read back, which a request and the background loop could truncate under each other: entries dated 1970 and modes that expired at once. Today's date likewise (`rho_local_date`).
+
+## [0.2.3] - 2026-11-13
+
+A purchase's total is reckoned in 64 bits (100 units at 500.00 overflowed); a stock taken below zero is shown negative instead of as four billion; a decimal comma (2,50) is a decimal point; a capability bound from the Automation tab is kept under its name (`power`, not `power?`), so it is found again.

@@ -9,10 +9,14 @@ VALUES (:id, :value, :unit, :label, :kind, :updated_at);
 INSERT INTO appapi_history (id, at, value) VALUES (:id, :at, :value);
 
 -- name: list_appapi_points
-SELECT at, value FROM appapi_history
-WHERE id = :id AND at >= :since AND at <= :until
-ORDER BY at
-LIMIT 5000;
+-- The newest 5000 points of the window, oldest first: a long window shows its
+-- recent end rather than stopping where it began.
+SELECT at, value FROM (
+    SELECT at, value FROM appapi_history
+    WHERE id = :id AND at >= :since AND at <= :until
+    ORDER BY at DESC
+    LIMIT 5000
+) ORDER BY at;
 
 -- name: prune_appapi_points
 DELETE FROM appapi_history WHERE at < :before;

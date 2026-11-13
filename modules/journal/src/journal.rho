@@ -130,13 +130,13 @@ fn journal_open_count() u32 {
     }
     let db: SqlDb = opened.ok
     sql_apply(db, journal_schema())
-    let rows: JournalEntries[500]
-    let slice: Slice[JournalEntries] = Slice[JournalEntries]{
-        Ptr[JournalEntries](&rows[0]), JOURNAL_CAPACITY }
-    let listed: Result[u32, SqlError] = ListOpenJournalEntries(db, slice, JOURNAL_CAPACITY)
+    let rows: CountOpenJournalEntriesRow[1]
+    let slice: Slice[CountOpenJournalEntriesRow] = Slice[CountOpenJournalEntriesRow]{
+        Ptr[CountOpenJournalEntriesRow](&rows[0]), 1 }
+    let counted: Result[u32, SqlError] = CountOpenJournalEntries(db, slice, 1)
     sql_close(db)
-    if listed.is_ok {
-        return listed.ok
+    if counted.is_ok && counted.ok > 0 {
+        return int_from_str(journal_trim(rows[0].entries))
     }
     return 0
 }

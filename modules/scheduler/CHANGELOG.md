@@ -44,3 +44,7 @@ application whose own record is the chore (a water change logged).
 ## [0.2.1] - 2026-11-13
 
 The clock is read from the process (`rho_now_s`, rho 0.6.0) instead of from `date` written to a file and read back, which a request and the background loop could truncate under each other: entries dated 1970 and modes that expired at once. A date a person typed is one argument of `date -d`, run without a shell (`rho_exec_capture`), and its answer is returned rather than read from a shared file.
+
+## [0.2.2] - 2026-11-13
+
+Cron is read as cron: `*`, numbers, ranges, lists and steps in all five fields (`*/15 * * * *`, `30 9 * * 1-5`, `0 8 * * 7`), day of week 7 as Sunday, and a day of the month or of the week matching when both are restricted, in local time with the offset of each moment. Before, `*/15` was never due and every weekday range was Saturday. A cron that names no time is refused. The API's add says whether the chore was kept, and why not, instead of always answering 201.

@@ -6,6 +6,7 @@ module robohub.alert_log
 // arguments one per line, never through a shell, so a message or a password
 // is one argument whatever characters it holds.
 extern fn rho_exec_args(program: string, arguments: string, output_path: string) u32
+extern fn rho_exec_capture(program: string, arguments: string) string
 extern fn rho_read_text(path: string) string
 extern fn rho_write_text(path: string, text: string) bool
 extern fn rho_append_text(path: string, text: string) bool
@@ -62,10 +63,14 @@ fn send(level: string, message: string, metadata: string) u32 {
     if dir != "" {
         let made: u32 = rho_exec_args("mkdir", "-p\n" + dir + "\n", report("alert-log-mkdir"))
     }
-    var size: u32 = 0
-    if rho_exec_args("stat", "-c\n%s\n" + path + "\n", report("alert-log-size")) == 0 {
-        size = int_from_str(rho_read_text(report("alert-log-size")))
+    // stat answers the size and a line break; read without it (with it, the
+    // number read as 0 and the log was never rotated).
+    var size_text: string = rho_exec_capture("stat", "-c\n%s\n" + path + "\n")
+    let newline: i32 = str_index_of(size_text, "\n")
+    if newline >= 0 {
+        size_text = str_slice(size_text, 0, u32(newline))
     }
+    let size: u32 = int_from_str(size_text)
     if size > 1048576 {
         let third: u32 = rho_exec_args("mv", "-f\n" + path + ".2\n" + path + ".3\n", report("alert-log-rotate"))
         let second: u32 = rho_exec_args("mv", "-f\n" + path + ".1\n" + path + ".2\n", report("alert-log-rotate"))

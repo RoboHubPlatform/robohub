@@ -8,6 +8,7 @@ module robohub.alert_email
 extern fn rho_exec_args(program: string, arguments: string, output_path: string) u32
 extern fn rho_read_text(path: string) string
 extern fn rho_write_text(path: string, text: string) bool
+extern fn rho_write_secret(path: string, text: string) bool
 extern fn rho_append_text(path: string, text: string) bool
 extern fn rho_bind_config(provider: string, key: string) string
 
@@ -50,8 +51,41 @@ fn replace(text: string, needle: string, replacement: string) string {
     return out
 }
 
+// one_line is a header's value with its line breaks taken out: a message or a
+// rule name with a line break in it would otherwise start a header of its own
+// (`Bcc: …`) in the mail it is written into.
+fn one_line(text: string) string {
+    var out: string = ""
+    var i: u32 = 0
+    while i < u32(strlen(text)) {
+        let ch: string = str_slice(text, i, 1)
+        if ch == "\n" || ch == "\r" {
+            out = out + " "
+        } else {
+            out = out + ch
+        }
+        i = i + 1
+    }
+    return out
+}
+
+// metadata_rule is the rule an alert's metadata names (`{"rule":"too-warm"}`),
+// or the metadata itself when it names none.
+fn metadata_rule(metadata: string) string {
+    let at: i32 = str_index_of(metadata, "\"rule\":\"")
+    if at < 0 {
+        return metadata
+    }
+    let rest: string = str_slice(metadata, u32(at) + 8, u32(strlen(metadata)) - u32(at) - 8)
+    let end: i32 = str_index_of(rest, "\"")
+    if end < 0 {
+        return metadata
+    }
+    return str_slice(rest, 0, u32(end))
+}
+
 fn render(template: string, level: string, message: string, metadata: string, app: string) string {
-    var rule: string = metadata
+    var rule: string = metadata_rule(metadata)
     if rule == "" {
         rule = "alert"
     }
@@ -66,13 +100,13 @@ fn render(template: string, level: string, message: string, metadata: string, ap
 // machine with no mail server still shows what would have gone out, or uploads
 // it to an SMTP server (`mode: smtp`).
 fn send(level: string, message: string, metadata: string) u32 {
-    let to: string = setting("to_address", "")
+    let to: string = one_line(setting("to_address", ""))
     if to == "" {
         return 0
     }
-    let from: string = setting("from_address", "alerts@robohub.internal")
+    let from: string = one_line(setting("from_address", "alerts@robohub.internal"))
     let app: string = setting("app", "RoboHub")
-    let subject: string = render(setting("subject_template", "[RoboHub {app}] {level}: {rule}"), level, message, metadata, app)
+    let subject: string = one_line(render(setting("subject_template", "[RoboHub {app}] {level}: {rule}"), level, message, metadata, app))
     let body: string = render(setting("body_template", "{message} ({app})"), level, message, metadata, app)
     let mail: string = "From: " + from + "\nTo: " + to + "\nSubject: " + subject + "\n" +
         "MIME-Version: 1.0\nContent-Type: text/plain; charset=utf-8\n\n" + body + "\n"
@@ -98,11 +132,19 @@ fn send(level: string, message: string, metadata: string) u32 {
     }
     let file: string = state_dir() + "/email-message.eml"
     let written: bool = rho_write_text(file, mail)
-    var args: string = "-sS\n--url\n" + url + "\n--mail-from\n" + from + "\n--mail-rcpt\n" + to +
+    var args: string = "-fsS\n--url\n" + url + "\n--mail-from\n" + from + "\n--mail-rcpt\n" + to +
         "\n--upload-file\n" + file + "\n"
+    // The password is read by curl from a file only this user can read, never
+    // from its command line, which any user of the machine can list.
     let user: string = setting("smtp_user", "")
     if user != "" {
-        args = args + "--user\n" + user + ":" + setting("smtp_pass", "") + "\n"
+        let password: string = setting("smtp_pass", "")
+        let config: string = state_dir() + "/email-smtp.curl"
+        if str_index_of(user, "\"") >= 0 || str_index_of(password, "\"") >= 0 || str_index_of(user + password, "\n") >= 0 ||
+            str_index_of(user + password, "\\") >= 0 || !rho_write_secret(config, "user = \"" + user + ":" + password + "\"\n") {
+            return 0
+        }
+        args = args + "-K\n" + config + "\n"
     }
     if security == "starttls" || security == "tls" {
         args = args + "--ssl-reqd\n"

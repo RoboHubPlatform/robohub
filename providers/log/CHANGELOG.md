@@ -17,3 +17,7 @@ settings are declared under `provides.settings` and read with
 `rho_bind_config`, from the binding of the application that uses it; the
 `provider:` block and the `key=value;` configuration string are gone, and the
 alert plugin that wrapped it was removed.
+
+## [0.2.1] - 2026-11-13
+
+The log is rotated at 1 MB again: the size stat answers ends in a line break, which made it read as 0, so the log was never rotated.

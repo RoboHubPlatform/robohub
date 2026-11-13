@@ -30,5 +30,6 @@
   "scheduler.csrf_refused": "Refused: the form token did not match.",
   "scheduler.runtime_of": "Runtime of (item)",
   "scheduler.consumes": "Uses (item)",
-  "scheduler.consumes_qty": "Quantity used"
+  "scheduler.consumes_qty": "Quantity used",
+  "scheduler.bad_cron": "That cron expression names no time: five fields, minute hour day month weekday, each *, a number, a range a-b, a list a,b or a step */n."
 }

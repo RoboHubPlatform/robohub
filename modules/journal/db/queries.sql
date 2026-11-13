@@ -30,3 +30,8 @@ FROM journal_entries
 WHERE kind = :kind AND (:subject = '' OR subject = :subject)
 ORDER BY at DESC, id DESC
 LIMIT 1;
+
+-- name: count_open_journal_entries
+-- How many entries are still open, counted rather than read: the badge is not
+-- capped at the rows a page reads.
+SELECT COUNT(*) AS entries FROM journal_entries WHERE resolved_at = 0 AND level <> 'info';

@@ -290,8 +290,13 @@ fn rules_mode_end(actor: string) void {
     let modes: RuleModes[64]
     let slice: Slice[RuleModes] = Slice[RuleModes]{ Ptr[RuleModes](&modes[0]), MODES_CAPACITY }
     let listed: Result[u32, SqlError] = ListRuleModes(db, slice, MODES_CAPACITY)
-    ignore_rules(ClearActiveMode(db))
+    // Whoever clears the mode ends it: a tick and a person ending it at the same
+    // moment run its end actions once, not twice.
+    let cleared: Result[u32, SqlError] = ClearActiveMode(db)
     sql_close(db)
+    if !cleared.is_ok || cleared.ok == 0 {
+        return
+    }
     var count: u32 = 0
     if listed.is_ok {
         count = listed.ok
@@ -474,18 +479,25 @@ fn rules_seconds(text: string) u32 {
     if value == "" {
         return 0
     }
+    // A number of seconds, minutes, hours or days, with a decimal part if it has
+    // one: `90s`, `10m`, `1.5h`, `1d`. Plain digits are seconds.
     let last: string = str_slice(value, u32(strlen(value)) - 1, 1)
-    let number: string = str_slice(value, 0, u32(strlen(value)) - 1)
-    if str_eq(last, "s") {
-        return int_from_str(number)
+    var unit: i64 = 0
+    if str_eq(last, "s") { unit = 1 }
+    if str_eq(last, "m") { unit = 60 }
+    if str_eq(last, "h") { unit = 3600 }
+    if str_eq(last, "d") { unit = 86400 }
+    var number: string = value
+    if unit > 0 {
+        number = str_slice(value, 0, u32(strlen(value)) - 1)
+    } else {
+        unit = 1
     }
-    if str_eq(last, "m") {
-        return int_from_str(number) * 60
+    let parsed: RulesNumber = rules_number(number)
+    if !parsed.ok || parsed.milli < 0 {
+        return 0
     }
-    if str_eq(last, "h") {
-        return int_from_str(number) * 3600
-    }
-    return int_from_str(value)
+    return u32((parsed.milli * unit) / 1000)
 }
 
 fn rules_preset_value(path: string, key: string) string {

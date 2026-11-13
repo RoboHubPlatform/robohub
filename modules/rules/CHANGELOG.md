@@ -21,3 +21,7 @@ An ordering comparison (`<`, `<=`, `>`, `>=`) of a reading that is not a number 
 ## [0.1.2] - 2026-11-13
 
 The clock is read from the process (`rho_now_s`, rho 0.6.0) instead of from `date` written to a file and read back, which a request and the background loop could truncate under each other: entries dated 1970 and modes that expired at once. The time of day for `time between` likewise (`rho_local_clock`).
+
+## [0.1.3] - 2026-11-13
+
+Durations read decimals and days: `1.5h` is 5400 seconds and `1d` 86400, where both were 0 and a rule's `for` or `cooldown` silently vanished. A mode is ended once: whoever clears it runs its end actions, so a tick and a person ending it together do not run them twice.

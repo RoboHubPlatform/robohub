@@ -178,7 +178,9 @@ def main() -> int:
             while time.time() < deadline:
                 state = json.loads(get(base, "/api/rules"))
                 rules = {r["name"]: r for r in state["rules"]}
-                if rules.get("always", {}).get("state") == "active":
+                # Both rules are evaluated in the same tick, but the answer may
+                # be read between them: wait for both.
+                if rules.get("always", {}).get("state") == "active" and rules.get("unread", {}).get("problem"):
                     break
                 time.sleep(1)
             rules = {r["name"]: r for r in state["rules"]}

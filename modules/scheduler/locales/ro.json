@@ -30,5 +30,6 @@
   "scheduler.csrf_refused": "Refuzat: tokenul formularului nu corespunde.",
   "scheduler.runtime_of": "Funcționarea articolului",
   "scheduler.consumes": "Consumă (articol)",
-  "scheduler.consumes_qty": "Cantitate consumată"
+  "scheduler.consumes_qty": "Cantitate consumată",
+  "scheduler.bad_cron": "Expresia cron nu numește niciun moment: cinci câmpuri, minut oră zi lună zi-a-săptămânii, fiecare *, un număr, un interval a-b, o listă a,b sau un pas */n."
 }

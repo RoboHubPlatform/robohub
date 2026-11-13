@@ -24,3 +24,7 @@ A notification's level is escaped where it becomes part of a class attribute.
 ## [0.1.5] - 2026-11-13
 
 The clock is read from the process (`rho_now_s`, rho 0.6.0) instead of from `date` written to a file and read back, which a request and the background loop could truncate under each other: entries dated 1970 and modes that expired at once.
+
+## [0.1.6] - 2026-11-13
+
+An empty list has no blank notification: a run that finds no row is not read as one. Level and message are JSON strings in the API.

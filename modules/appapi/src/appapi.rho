@@ -562,7 +562,13 @@ fn appapi_history_api(req: Request) Response {
         if out != "" {
             out = out + ","
         }
-        out = out + "{\"t\":" + int_to_str(u32(points[i].at)) + "000,\"v\":" + appapi_decimal(i64(points[i].value * 1000.0)) + "}"
+        // To the nearest thousandth: 0.007 is 7, not 6.
+        let scaled: f64 = points[i].value * 1000.0
+        var milli: i64 = i64(scaled + 0.5)
+        if scaled < 0.0 {
+            milli = i64(scaled - 0.5)
+        }
+        out = out + "{\"t\":" + int_to_str(u32(points[i].at)) + "000,\"v\":" + appapi_decimal(milli) + "}"
         i = i + 1
     }
     return json(status_ok(), "{\"ok\":true,\"points\":[" + out + "]}")

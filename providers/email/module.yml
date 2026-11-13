@@ -7,7 +7,7 @@ module:
   previous_ids:
     - robohub.providers.email
   type: provider
-  version: 0.2.0
+  version: 0.2.1
   description: Sends an alert by local outbox or SMTP.
   maintainer: "Aurel Miron"
   license: "MIT"

@@ -14,7 +14,7 @@ module:
   type: module
   title: Notifications
   category: ui
-  version: 0.1.5
+  version: 0.1.6
   description: >
     Transient toast notifications with severity levels (info, warning, error)
     that auto-dismiss after a configurable timeout.

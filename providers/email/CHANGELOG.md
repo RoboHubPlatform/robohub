@@ -12,3 +12,7 @@ settings are declared under `provides.settings` and read with
 `rho_bind_config`, from the binding of the application that uses it; the
 `provider:` block and the `key=value;` configuration string are gone, and the
 alert plugin that wrapped it was removed.
+
+## [0.2.1] - 2026-11-13
+
+A header's value has its line breaks taken out, so a message or a rule name cannot add a header of its own; the SMTP password is read by curl from a file only this user can read, not from its command line; `{rule}` is the rule's name rather than the whole metadata; an SMTP error is a failure.

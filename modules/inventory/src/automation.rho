@@ -823,7 +823,10 @@ fn items_bind(req: Request) Response {
     if !forms_csrf_ok(body) {
         return item_automation_message(req, id, i18n_t(req, "inventory.csrf_refused"))
     }
-    let capability: string = trim(form_value(body, "capability"))
+    // The capability as its category writes it (`power?`), and as it is bound
+    // and looked up (`power`): binding under the first left it never found.
+    let written: string = trim(form_value(body, "capability"))
+    let capability: string = inventory_capability_name(written)
     let source: string = trim(form_value(body, "source"))
     if id == 0 || capability == "" {
         return inventory_page_message(req, i18n_t(req, "inventory.not_found"))
@@ -839,7 +842,7 @@ fn items_bind(req: Request) Response {
         sql_close(db)
         return item_automation_message(req, id, i18n_t(req, "inventory.unbound"))
     }
-    let access: string = inventory_capability_access(capability)
+    let access: string = inventory_capability_access(written)
     let bindings: ListBindingsRow[512]
     let binding_slice: Slice[ListBindingsRow] = Slice[ListBindingsRow]{ Ptr[ListBindingsRow](&bindings[0]), BINDING_CAPACITY }
     let bound: Result[u32, SqlError] = ListBindings(db, binding_slice, BINDING_CAPACITY)
