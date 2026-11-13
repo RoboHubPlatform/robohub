@@ -1,3 +1,15 @@
+//
+// @file rule_test.rho
+// @brief The alert state machine, checked: pending, firing, clearing and cooldown.
+//
+// @module robohub.alert.rule_test
+// @project robohub
+// @author Aurel Miron
+// @date 2026-11-12
+//
+// SPDX-License-Identifier: MIT
+//
+
 module robohub.alert.rule_test
 
 include "../src/rule.rho"

@@ -1,3 +1,15 @@
+//
+// @file forms.rho
+// @brief The form engine: rendering, state, validation and the payload a consumer reads.
+//
+// @module forms
+// @project robohub
+// @author Aurel Miron
+// @date 2026-11-07
+//
+// SPDX-License-Identifier: MIT
+//
+
 module forms
 
 // The engine: rendering, state, validation and the payload. A consumer builds

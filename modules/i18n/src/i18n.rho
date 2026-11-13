@@ -1,3 +1,15 @@
+//
+// @file i18n.rho
+// @brief The language a request is answered in, the catalogs, and the switch between them.
+//
+// @module i18n
+// @project robohub
+// @author Aurel Miron
+// @date 2026-11-08
+//
+// SPDX-License-Identifier: MIT
+//
+
 module i18n
 
 import std.web.http

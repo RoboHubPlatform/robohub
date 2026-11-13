@@ -1,3 +1,15 @@
+//
+// @file rule.rho
+// @brief The alert state machine: hysteresis, a pending window, a cooldown and a clear condition.
+//
+// @module robohub.alert.rule
+// @project robohub
+// @author Aurel Miron
+// @date 2026-11-02
+//
+// SPDX-License-Identifier: MIT
+//
+
 module robohub.alert.rule
 
 // The alert state machine: hysteresis, a pending window, a cooldown, and a

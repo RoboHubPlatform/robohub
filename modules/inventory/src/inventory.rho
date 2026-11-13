@@ -1,3 +1,15 @@
+//
+// @file inventory.rho
+// @brief Items, categories, purchases and stock: the inventory's records and its pages.
+//
+// @module inventory
+// @project inventory
+// @author Aurel Miron
+// @date 2026-11-02
+//
+// SPDX-License-Identifier: MIT
+//
+
 module inventory
 
 import rho.log

@@ -1,3 +1,15 @@
+//
+// @file main.rho
+// @brief The stock, expense and equipment module: what it includes and the routes it registers.
+//
+// @module inventory
+// @project inventory
+// @author Aurel Miron
+// @date 2026-11-02
+//
+// SPDX-License-Identifier: MIT
+//
+
 module inventory
 
 // inventory — the stock and expense module.

@@ -1,3 +1,15 @@
+//
+// @file main.rho
+// @brief The RoboHub documentation site: the ecosystem's pages, built and served.
+//
+// @module docsite
+// @project robohub
+// @author Aurel Miron
+// @date 2026-10-22
+//
+// SPDX-License-Identifier: MIT
+//
+
 module docsite
 
 // The RoboHub documentation, built.

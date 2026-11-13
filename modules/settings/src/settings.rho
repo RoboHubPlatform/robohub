@@ -1,3 +1,15 @@
+//
+// @file settings.rho
+// @brief Settings kept in the application's workspace: read, written and defaulted.
+//
+// @module settings
+// @project robohub
+// @author Aurel Miron
+// @date 2026-11-08
+//
+// SPDX-License-Identifier: MIT
+//
+
 module settings
 
 fn settings_file() string {

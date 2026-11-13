@@ -1,3 +1,15 @@
+//
+// @file provider.rho
+// @brief An alert channel that appends a line to a file on the machine.
+//
+// @module robohub.alert_log
+// @project robohub
+// @author Aurel Miron
+// @date 2026-11-02
+//
+// SPDX-License-Identifier: MIT
+//
+
 module robohub.alert_log
 
 // An alert channel that appends a line to a file on the machine.

@@ -1,3 +1,15 @@
+//
+// @file simulator_test.rho
+// @brief The suite's entry point; the smoke test tests.yml declares does the checking.
+//
+// @module simulator
+// @project simulator
+// @author Aurel Miron
+// @date 2026-11-13
+//
+// SPDX-License-Identifier: MIT
+//
+
 module simulator.tests
 
 fn main() void {

@@ -1,3 +1,15 @@
+//
+// @file main.rho
+// @brief Dashboard widgets for a host application: its routes.
+//
+// @module widgets
+// @project robohub
+// @author Aurel Miron
+// @date 2026-11-02
+//
+// SPDX-License-Identifier: MIT
+//
+
 module widgets
 
 // widgets — dashboard widgets included by a host application.

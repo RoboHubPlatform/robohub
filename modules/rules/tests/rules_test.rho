@@ -1,3 +1,15 @@
+//
+// @file rules_test.rho
+// @brief The suite's entry point; the smoke test tests.yml declares does the checking.
+//
+// @module rules
+// @project rules
+// @author Aurel Miron
+// @date 2026-11-13
+//
+// SPDX-License-Identifier: MIT
+//
+
 module rules.tests
 
 fn main() void {

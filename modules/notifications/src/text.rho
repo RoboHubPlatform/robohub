@@ -1,3 +1,15 @@
+//
+// @file text.rho
+// @brief Escaping a notification for a page, and where the module keeps its records.
+//
+// @module notifications
+// @project robohub
+// @author Aurel Miron
+// @date 2026-11-07
+//
+// SPDX-License-Identifier: MIT
+//
+
 module notifications
 
 fn notification_escape(text: string) string {

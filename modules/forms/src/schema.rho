@@ -1,3 +1,15 @@
+//
+// @file schema.rho
+// @brief The schema: what a form is, as a list of field descriptors.
+//
+// @module forms
+// @project robohub
+// @author Aurel Miron
+// @date 2026-11-07
+//
+// SPDX-License-Identifier: MIT
+//
+
 module forms
 
 // The schema: what a form is. A form is a list of field descriptors and

@@ -1,3 +1,15 @@
+//
+// @file scheduler.rho
+// @brief Chores, their recurrence and cron, what is due, and the page that lists them.
+//
+// @module scheduler
+// @project robohub
+// @author Aurel Miron
+// @date 2026-11-02
+//
+// SPDX-License-Identifier: MIT
+//
+
 module scheduler
 
 import rho.log

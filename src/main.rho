@@ -1,3 +1,15 @@
+//
+// @file main.rho
+// @brief The orchestrator of the RoboHub ecosystem: its commands.
+//
+// @module robohub.main
+// @project robohub
+// @author Aurel Miron
+// @date 2026-10-22
+//
+// SPDX-License-Identifier: MIT
+//
+
 module robohub.main
 
 // robohub — the orchestrator of the RoboHub ecosystem.

@@ -1,3 +1,15 @@
+//
+// @file registry.rho
+// @brief The registry: what the orchestrator knows about the ecosystem's modules.
+//
+// @module robohub.registry
+// @project robohub
+// @author Aurel Miron
+// @date 2026-10-22
+//
+// SPDX-License-Identifier: MIT
+//
+
 module robohub.registry
 
 // The registry: what the orchestrator knows about the ecosystem.

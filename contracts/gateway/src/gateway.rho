@@ -1,3 +1,15 @@
+//
+// @file gateway.rho
+// @brief The gateway interface: the sources an application reads and the switches it drives.
+//
+// @module robohub.gateway
+// @project robohub
+// @author Aurel Miron
+// @date 2026-11-12
+//
+// SPDX-License-Identifier: MIT
+//
+
 module robohub.gateway
 
 // The gateway interface.

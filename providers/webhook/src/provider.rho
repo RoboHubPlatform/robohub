@@ -1,3 +1,15 @@
+//
+// @file provider.rho
+// @brief An alert channel that posts the alert to an HTTP endpoint.
+//
+// @module robohub.alert_webhook
+// @project robohub
+// @author Aurel Miron
+// @date 2026-11-02
+//
+// SPDX-License-Identifier: MIT
+//
+
 module robohub.alert_webhook
 
 // An alert channel that posts the alert to an HTTP endpoint.

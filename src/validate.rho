@@ -1,3 +1,15 @@
+//
+// @file validate.rho
+// @brief The ecosystem's own check: whether the files it carries are the files it lists.
+//
+// @module robohub.validate
+// @project robohub
+// @author Aurel Miron
+// @date 2026-10-22
+//
+// SPDX-License-Identifier: MIT
+//
+
 module robohub.validate
 
 // The ecosystem's own check: whether the files it carries are the files it

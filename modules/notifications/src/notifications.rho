@@ -1,3 +1,15 @@
+//
+// @file notifications.rho
+// @brief Notifications kept, pushed live to the pages that are open, and listed.
+//
+// @module notifications
+// @project robohub
+// @author Aurel Miron
+// @date 2026-11-07
+//
+// SPDX-License-Identifier: MIT
+//
+
 module notifications
 
 import rho.log

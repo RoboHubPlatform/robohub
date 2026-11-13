@@ -1,3 +1,15 @@
+//
+// @file main.rho
+// @brief A schema-driven form engine for a host application, and the CSRF field every form carries.
+//
+// @module forms
+// @project robohub
+// @author Aurel Miron
+// @date 2026-11-07
+//
+// SPDX-License-Identifier: MIT
+//
+
 module forms
 
 // A schema-driven form engine for a host application.

@@ -1,3 +1,15 @@
+//
+// @file widgets_test.rho
+// @brief The suite's entry point; the smoke test tests.yml declares does the checking.
+//
+// @module widgets
+// @project robohub
+// @author Aurel Miron
+// @date 2026-11-02
+//
+// SPDX-License-Identifier: MIT
+//
+
 module widgets.tests
 
 fn main() void {

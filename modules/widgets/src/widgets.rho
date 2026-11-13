@@ -1,3 +1,15 @@
+//
+// @file widgets.rho
+// @brief The dashboard: widgets, their sources, live values and the cards that show them.
+//
+// @module widgets
+// @project robohub
+// @author Aurel Miron
+// @date 2026-11-02
+//
+// SPDX-License-Identifier: MIT
+//
+
 module widgets
 
 import rho.log

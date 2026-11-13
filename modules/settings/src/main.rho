@@ -1,3 +1,15 @@
+//
+// @file main.rho
+// @brief Key-value settings for a host application: what it includes.
+//
+// @module settings
+// @project robohub
+// @author Aurel Miron
+// @date 2026-11-08
+//
+// SPDX-License-Identifier: MIT
+//
+
 module settings
 
 include "settings.rho"

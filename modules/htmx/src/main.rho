@@ -1,3 +1,15 @@
+//
+// @file main.rho
+// @brief The module's one route: the vendored scripts under /assets/.
+//
+// @module htmx
+// @project robohub
+// @author Aurel Miron
+// @date 2026-11-08
+//
+// SPDX-License-Identifier: MIT
+//
+
 module htmx
 
 // The module's only route: the two vendored scripts under /assets/. A host

@@ -1,3 +1,15 @@
+//
+// @file registry_test.rho
+// @brief The registry's own rules, checked.
+//
+// @module robohub.tests.registry
+// @project robohub
+// @author Aurel Miron
+// @date 2026-10-22
+//
+// SPDX-License-Identifier: MIT
+//
+
 module robohub.tests.registry
 
 // The registry's own rules, checked.

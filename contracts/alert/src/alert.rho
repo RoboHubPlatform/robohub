@@ -1,3 +1,15 @@
+//
+// @file alert.rho
+// @brief The alert interface: what an alert is and the channels a provider delivers it through.
+//
+// @module robohub.alert
+// @project robohub
+// @author Aurel Miron
+// @date 2026-11-12
+//
+// SPDX-License-Identifier: MIT
+//
+
 module robohub.alert
 
 // The alert interface.

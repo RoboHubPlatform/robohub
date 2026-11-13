@@ -1,3 +1,15 @@
+//
+// @file logconfig.rho
+// @brief The log levels and destinations an application's settings choose, applied at start.
+//
+// @module logging
+// @project robohub
+// @author Aurel Miron
+// @date 2026-11-10
+//
+// SPDX-License-Identifier: MIT
+//
+
 module logging
 
 import rho.log
