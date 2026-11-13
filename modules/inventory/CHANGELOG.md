@@ -60,3 +60,7 @@ A purchase's total is reckoned in 64 bits (100 units at 500.00 overflowed); a st
 ## [0.2.4] - 2026-11-14
 
 Trimming, URL escapes, form fields and decimals come from the toolchain (rho 0.7.0: `str_trim`, `str_url_encode`/`str_url_decode`, `form_field`, `milli_*`) rather than this module's own copy, the same on both backends. Needs rho 0.7.0. The unprefixed `trim`, `url_decode` and `form_value` this module leaked into every application are gone; a `%` not followed by two hex digits is kept as written instead of becoming a zero byte.
+
+## [0.3.0] - 2026-11-14
+
+The Devices page is the inventory's: `/devices`, one page for every application, where what is behind each piece of equipment is chosen — which item fills a role the rules name, and which gateway source each capability reads — and equipment is added to a section's categories. The aquarium and energy each had their own; what differs between them is asked of the application through `host_devices_*` functions, which an application that includes the inventory now defines (see Devices in the docs). An item is only added to a category its section offers.

@@ -75,5 +75,21 @@
   "inventory.source_taken": "Sursa este deja controlată de",
   "inventory.switched": "Comutat.",
   "inventory.switch_failed": "Gateway-ul nu a comutat.",
-  "inventory.handle_taken": "Alt articol are deja acest identificator."
+  "inventory.handle_taken": "Alt articol are deja acest identificator.",
+  "inventory.devices.add": "Adaugă echipament",
+  "inventory.devices.added": "Echipament adăugat; leagă-l mai jos.",
+  "inventory.devices.category": "Categorie",
+  "inventory.devices.item": "Jucat de",
+  "inventory.devices.lede": "Ce se află în spatele fiecărui echipament numit de reguli și pagini: ce articol din inventar este și ce sursă listată de gateway citește fiecare capabilitate a lui, aleasă la fel cum i se dă o sursă unui widget.",
+  "inventory.devices.name": "Nume",
+  "inventory.devices.need": "Sunt necesare un nume și o categorie a grupei.",
+  "inventory.devices.new_item": "Articol nou:",
+  "inventory.devices.no_item": "Articolul nu a putut primi rolul.",
+  "inventory.devices.now": "acum",
+  "inventory.devices.save": "Salvează asocierea",
+  "inventory.devices.saved": "asociat.",
+  "inventory.devices.taken": "Echipamentul nu a putut fi adăugat.",
+  "inventory.devices.title": "Dispozitive",
+  "inventory.devices.unfilled": "neasociat",
+  "inventory.devices.unknown": "Nu există acest rol."
 }

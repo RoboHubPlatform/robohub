@@ -75,5 +75,21 @@
   "inventory.source_taken": "That source is already controlled by",
   "inventory.switched": "Switched.",
   "inventory.switch_failed": "The gateway did not switch it.",
-  "inventory.handle_taken": "Another item already has that handle."
+  "inventory.handle_taken": "Another item already has that handle.",
+  "inventory.devices.add": "Add equipment",
+  "inventory.devices.added": "Equipment added; bind it below.",
+  "inventory.devices.category": "Category",
+  "inventory.devices.item": "Played by",
+  "inventory.devices.lede": "What is behind each piece of equipment the rules and pages name: which inventory item it is, and which source the gateway lists for each of its capabilities, chosen the way a widget is given one.",
+  "inventory.devices.name": "Name",
+  "inventory.devices.need": "A name and one of the group's categories are needed.",
+  "inventory.devices.new_item": "New item:",
+  "inventory.devices.no_item": "That item could not be given the role.",
+  "inventory.devices.now": "now",
+  "inventory.devices.save": "Save the mapping",
+  "inventory.devices.saved": "mapped.",
+  "inventory.devices.taken": "That equipment could not be added.",
+  "inventory.devices.title": "Devices",
+  "inventory.devices.unfilled": "not mapped",
+  "inventory.devices.unknown": "There is no such role."
 }

@@ -9,6 +9,7 @@ module inventory
 
 include "inventory.rho"
 include "automation.rho"
+include "devices.rho"
 include "notifications"
 include "forms"
 include "settings"
@@ -37,3 +38,7 @@ route POST "/expenses/categories/add"   => categories_add
 route GET  "/expenses/items/automation" => item_automation_page
 route POST "/expenses/items/bind"       => items_bind
 route POST "/expenses/items/switch"     => items_switch
+// The Devices page: what is behind each handle the application's rules name.
+route GET  "/devices"                   => devices_page
+route POST "/devices"                   => devices_save
+route POST "/devices/add"               => devices_add

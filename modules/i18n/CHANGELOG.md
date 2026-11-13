@@ -31,3 +31,7 @@ the import to use instead.
 ## [0.3.0] - 2026-11-12
 
 The language switcher reads its form through the form engine, which i18n now declares as a dependency, instead of a `form_value` the including application happened to define. The module builds on its own.
+
+## [0.4.2] - 2026-11-14
+
+Trimming comes from the toolchain (`str_trim`, rho 0.7.0) rather than this module's own copy.

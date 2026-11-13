@@ -82,10 +82,40 @@ What the application and other modules call:
 | `inventory_runtime_hours(handle)`, `inventory_runtime_seconds(handle)` | the runtime counted so far |
 | `inventory_presets(text)` | seeds the categories from the application's presets |
 | `inventory_choices(category, kind)`, `inventory_item_name(handle)`, `inventory_item_id(handle)` | items as choices for a form; one item's name and unit; its id |
-| `inventory_assign_handle(id, handle)`, `inventory_add_equipment(name, category, handle)`, `inventory_bind(id, capability, source)` | what an application's own device page (filling its roles) calls |
+| `inventory_assign_handle(id, handle)`, `inventory_add_equipment(name, category, handle)`, `inventory_add_named(name, category)`, `inventory_bind(id, capability, source)` | filling a role, adding equipment, binding a capability, as the Devices page does |
 
 Rules, dashboard cards and chores name `handle.capability`; replacing a plug is
 one binding changed, and nothing that names the item changes.
+
+## Devices
+
+`/devices` is the page where an application says what is behind each piece of
+equipment its rules name: which item, and which gateway source each of its
+capabilities reads. It is one page for every application, in sections the
+application names, and a section shows either or both of:
+
+- **roles** — a handle the rules use (`heater`), filled by one item at a time,
+  any equipment or a new item made for it; choosing another item moves the
+  handle to it;
+- **items** — every equipment item of the section's categories, with a form to
+  add another to one of them.
+
+What differs between applications is asked of the application, which defines:
+
+| Function | Answers |
+|---|---|
+| `host_devices_sections(req)` | one section per line, `key\|label`; an empty label shows no heading |
+| `host_devices_roles(req, key)` | the section's roles, one per line: `handle\|label\|category\|capabilities\|hint` |
+| `host_devices_categories(req, key)` | the categories the section lists and adds to, comma-separated, or `""` |
+| `host_devices_query(req)` | what the page keeps in its address across a save (`tank=2`), or `""` |
+| `host_devices_intro(req)` | what is shown above the sections (a tank chooser), or `""` |
+| `host_devices_value(capability, text)` | a reading as the page shows it (`1.2 kW`) |
+| `host_devices_added(id, category)` | what follows an item added on the page |
+| `host_devices_changed(handle, what)` | a mapping changed; the application's journal is the usual place |
+
+The aquarium has one unnamed section of roles, one tank at a time; energy has a
+section per group (generation, storage, grid, loads) listing its equipment. An
+item added is only ever added to a category its section offers.
 
 ## Storage
 
@@ -140,5 +170,8 @@ an older one end with the same table.
 | `GET /items/automation?id=` | an equipment item's bindings |
 | `POST /items/bind` | bind (or, with no source, unbind) one capability |
 | `POST /items/switch` | switch an item on or off through the gateway |
+| `GET /devices` | the Devices page, in the application's sections |
+| `POST /devices` | fill a role, or bind an item's capabilities |
+| `POST /devices/add` | add equipment to one of a section's categories |
 
 Item saves and stock changes are written to the host application log under the `inventory` subject.

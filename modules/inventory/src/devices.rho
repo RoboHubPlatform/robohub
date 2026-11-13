@@ -1,0 +1,461 @@
+//
+// @file devices.rho
+// @brief The Devices page every application shares: its equipment, the item behind each role, and the gateway source each capability reads.
+//
+// @module inventory
+// @project inventory
+// @author Aurel Miron
+// @date 2026-11-14
+//
+// SPDX-License-Identifier: MIT
+//
+
+module inventory
+
+// An application's rules and pages name equipment by handle (`heater.switch`),
+// and this page says what is behind each: which inventory item, and which source
+// the gateway lists for each of its capabilities, the way a widget is given its
+// source. Nothing here knows a Mesh address.
+//
+// The page is in sections the application names. A section shows two things,
+// either or both:
+//
+//   roles — a handle the application's rules use, filled by one item at a time
+//           (the aquarium's heater, light, main filter), and offered every
+//           equipment item to fill it or a new one made for it;
+//   items — every equipment item of the section's categories, as it is, with a
+//           form to add another (energy's batteries, inverters, loads).
+//
+// What the page cannot know is asked of the application:
+//
+//   host_devices_sections(req)       one section per line: key|label
+//   host_devices_roles(req, key)     one role per line: handle|label|category|capabilities|hint
+//   host_devices_categories(req, key)  the categories whose items the section lists
+//                                      and adds to, comma-separated; "" for none
+//   host_devices_query(req)          what the page keeps in its address (`tank=2`), or ""
+//   host_devices_intro(req)          what the page shows above its sections (a tank chooser)
+//   host_devices_value(capability, text)  a reading as the page shows it
+//   host_devices_added(id, category) what follows an item added here
+//   host_devices_changed(handle, what)    a mapping changed, for the application's journal
+
+fn inventory_toast(message: string) string {
+    if message == "" {
+        return ""
+    }
+    return "<script>document.addEventListener(\"DOMContentLoaded\",function(){if(window.rhoToast){window.rhoToast(" +
+        json_string(message) + ", \"info\");}});</script>"
+}
+
+// inventory_field is one `|`-separated field of a line, trimmed.
+fn inventory_field(line: string, index: u32) string {
+    var rest: string = line
+    var i: u32 = 0
+    while i < index {
+        let at: i32 = str_index_of(rest, "|")
+        if at < 0 {
+            return ""
+        }
+        rest = str_slice(rest, u32(at) + 1, u32(strlen(rest)) - u32(at) - 1)
+        i = i + 1
+    }
+    let end: i32 = str_index_of(rest, "|")
+    if end >= 0 {
+        rest = str_slice(rest, 0, u32(end))
+    }
+    return str_trim(rest)
+}
+
+fn inventory_first_line(text: string) string {
+    let at: i32 = str_index_of(text, "\n")
+    if at < 0 {
+        return text
+    }
+    return str_slice(text, 0, u32(at))
+}
+
+fn inventory_other_lines(text: string) string {
+    let at: i32 = str_index_of(text, "\n")
+    if at < 0 {
+        return ""
+    }
+    return str_slice(text, u32(at) + 1, u32(strlen(text)) - u32(at) - 1)
+}
+
+// inventory_in_list is whether a comma-separated list names a value.
+fn inventory_in_list(list: string, value: string) bool {
+    var rest: string = list
+    while rest != "" {
+        let at: i32 = str_index_of(rest, ",")
+        var one: string = rest
+        if at < 0 {
+            rest = ""
+        } else {
+            one = str_slice(rest, 0, u32(at))
+            rest = str_slice(rest, u32(at) + 1, u32(strlen(rest)) - u32(at) - 1)
+        }
+        if str_eq(str_trim(one), value) && value != "" {
+            return true
+        }
+    }
+    return false
+}
+
+// inventory_role_line is a section's role with this handle, or "".
+fn inventory_role_line(req: Request, section: string, handle: string) string {
+    var rest: string = host_devices_roles(req, section)
+    while rest != "" {
+        let line: string = inventory_first_line(rest)
+        rest = inventory_other_lines(rest)
+        if handle != "" && str_eq(inventory_field(line, 0), handle) {
+            return line
+        }
+    }
+    return ""
+}
+
+fn inventory_devices_url(req: Request, message: string) string {
+    var url: string = "/devices"
+    let query: string = host_devices_query(req)
+    if query != "" {
+        url = url + "?" + query
+    }
+    if message != "" {
+        if query != "" {
+            url = url + "&"
+        } else {
+            url = url + "?"
+        }
+        url = url + "msg=" + str_url_encode(message)
+    }
+    return url
+}
+
+// inventory_capability_rows is one row per capability: which source it reads,
+// and what that source says now.
+fn inventory_capability_rows(req: Request, capabilities: string, item_id: i64, bindings: ListBindingsRow[512], binding_count: u32) string {
+    var rows: string = ""
+    var caps: string = inventory_capability_list(capabilities)
+    while caps != "" {
+        let capability: string = inventory_first_line(caps)
+        caps = inventory_other_lines(caps)
+        if capability == "" {
+            continue
+        }
+        let name: string = inventory_capability_name(capability)
+        let source: string = inventory_binding_source(bindings, binding_count, item_id, name)
+        var now: string = "—"
+        if source != "" {
+            let value: string = gateway.source_latest(source)
+            if value != "" {
+                now = host_devices_value(name, value)
+            }
+        }
+        var need: string = i18n_t(req, "inventory.required")
+        if inventory_capability_optional(capability) {
+            need = i18n_t(req, "inventory.optional")
+        }
+        rows = rows + "<tr><td><b>" + escape_html(name) + "</b> <small>" + escape_html(need) + "</small></td><td><select name=\"src_" +
+            escape_html(name) + "\">" + inventory_source_options(capability, source, bindings, binding_count, item_id) +
+            "</select></td><td class=\"num\">" + escape_html(now) + "</td></tr>"
+    }
+    if rows == "" {
+        rows = "<tr><td colspan=\"3\" class=\"hint\">" + i18n_t(req, "inventory.no_capabilities") + "</td></tr>"
+    }
+    return "<table><thead><tr><th>" + i18n_t(req, "inventory.capability") + "</th><th>" + i18n_t(req, "inventory.gateway_source") +
+        "</th><th>" + i18n_t(req, "inventory.now") + "</th></tr></thead><tbody>" + rows + "</tbody></table>"
+}
+
+fn inventory_state_badge(req: Request, filled: bool, connected: bool) string {
+    if !filled {
+        return "<span class=\"badge low\">" + i18n_t(req, "inventory.devices.unfilled") + "</span>"
+    }
+    if connected {
+        return "<span class=\"badge auto\">" + i18n_t(req, "inventory.connected") + "</span>"
+    }
+    return "<span class=\"badge due\">" + i18n_t(req, "inventory.not_connected") + "</span>"
+}
+
+fn inventory_role_card(req: Request, section: string, role: string, items: ListItemsRow[512], item_count: u32,
+    bindings: ListBindingsRow[512], binding_count: u32) string {
+    let handle: string = inventory_field(role, 0)
+    let label: string = inventory_field(role, 1)
+    let at: i32 = inventory_find_handle(items, item_count, handle)
+    var item_id: i64 = 0
+    var connected: bool = false
+    if at >= 0 {
+        let row: u32 = u32(at)
+        item_id = items[row].id
+        connected = inventory_connected(items[row], bindings, binding_count)
+    }
+    // The items that could fill it: any equipment, and a new one made for it.
+    var options: string = "<option value=\"new\">" + escape_html(i18n_t(req, "inventory.devices.new_item") + " " + label) + "</option>"
+    var i: u32 = 0
+    while i < item_count {
+        if str_eq(items[i].kind, "equipment") {
+            var mark: string = ""
+            if items[i].id == item_id {
+                mark = " selected"
+            }
+            var note: string = items[i].category
+            if items[i].handle != "" && !str_eq(items[i].handle, handle) {
+                note = note + " · " + i18n_t(req, "inventory.devices.now") + " " + items[i].handle
+            }
+            options = options + "<option value=\"" + int_to_str(u32(items[i].id)) + "\"" + mark + ">" +
+                escape_html(items[i].name + " (" + note + ")") + "</option>"
+        }
+        i = i + 1
+    }
+    return "<section class=\"app-card\" id=\"role-" + escape_html(handle) + "\"><h2>" + escape_html(label) + " <span><code>" +
+        escape_html(handle) + "</code> " + inventory_state_badge(req, at >= 0, connected) + "</span></h2>" +
+        "<p class=\"hint\">" + escape_html(inventory_field(role, 4)) + "</p>" +
+        "<form method=\"post\" action=\"" + escape_html(inventory_devices_url(req, "")) + "\" class=\"app-form\">" + forms_csrf_field() +
+        "<input type=\"hidden\" name=\"section\" value=\"" + escape_html(section) + "\">" +
+        "<input type=\"hidden\" name=\"role\" value=\"" + escape_html(handle) + "\">" +
+        "<label>" + i18n_t(req, "inventory.devices.item") + "<select name=\"pick\">" + options + "</select></label>" +
+        inventory_capability_rows(req, inventory_field(role, 3), item_id, bindings, binding_count) +
+        "<div><button class=\"primary\">" + i18n_t(req, "inventory.devices.save") + "</button></div></form></section>"
+}
+
+fn inventory_item_card(req: Request, item: ListItemsRow, bindings: ListBindingsRow[512], binding_count: u32) string {
+    var handle: string = ""
+    if item.handle != "" {
+        handle = "<code>" + escape_html(item.handle) + "</code> "
+    }
+    return "<section class=\"app-card\" id=\"item-" + int_to_str(u32(item.id)) + "\"><h2>" + escape_html(item.name) + " <span>" +
+        handle + inventory_state_badge(req, true, inventory_connected(item, bindings, binding_count)) + "</span></h2>" +
+        "<p class=\"hint\">" + escape_html(item.category) + "</p>" +
+        "<form method=\"post\" action=\"" + escape_html(inventory_devices_url(req, "")) + "\" class=\"app-form\">" + forms_csrf_field() +
+        "<input type=\"hidden\" name=\"item\" value=\"" + int_to_str(u32(item.id)) + "\">" +
+        inventory_capability_rows(req, item.capabilities, item.id, bindings, binding_count) +
+        "<div><button class=\"primary\">" + i18n_t(req, "inventory.devices.save") + "</button></div></form></section>"
+}
+
+fn inventory_add_card(req: Request, section: string, categories: string) string {
+    var options: string = ""
+    var rest: string = categories
+    while rest != "" {
+        let at: i32 = str_index_of(rest, ",")
+        var one: string = rest
+        if at < 0 {
+            rest = ""
+        } else {
+            one = str_slice(rest, 0, u32(at))
+            rest = str_slice(rest, u32(at) + 1, u32(strlen(rest)) - u32(at) - 1)
+        }
+        let name: string = str_trim(one)
+        if name != "" {
+            options = options + "<option>" + escape_html(name) + "</option>"
+        }
+    }
+    var action: string = "/devices/add"
+    let query: string = host_devices_query(req)
+    if query != "" {
+        action = action + "?" + query
+    }
+    return "<section class=\"app-card app-add\"><h2>" + i18n_t(req, "inventory.devices.add") + "</h2>" +
+        "<form method=\"post\" action=\"" + escape_html(action) + "\" class=\"app-form\">" + forms_csrf_field() +
+        "<input type=\"hidden\" name=\"section\" value=\"" + escape_html(section) + "\">" +
+        "<label>" + i18n_t(req, "inventory.devices.name") + "<input name=\"name\" required></label>" +
+        "<label>" + i18n_t(req, "inventory.devices.category") + "<select name=\"category\">" + options + "</select></label>" +
+        "<div><button>" + i18n_t(req, "inventory.devices.add") + "</button></div></form></section>"
+}
+
+fn devices_page(req: Request) Response {
+    return devices_page_message(req, request_query_param(req, "msg"))
+}
+
+fn devices_page_message(req: Request, message: string) Response {
+    let title: string = i18n_t(req, "inventory.devices.title")
+    let opened: Result[SqlDb, string] = sql_open(inventory_db_path())
+    if !opened.is_ok {
+        return host_shell(req, title, "<p>" + escape_html(opened.err) + "</p>", "")
+    }
+    let db: SqlDb = opened.ok
+    let items: ListItemsRow[512]
+    let item_slice: Slice[ListItemsRow] = Slice[ListItemsRow]{ Ptr[ListItemsRow](&items[0]), 512 }
+    let listed: Result[u32, SqlError] = ListItems(db, item_slice, 512)
+    let bindings: ListBindingsRow[512]
+    let binding_slice: Slice[ListBindingsRow] = Slice[ListBindingsRow]{ Ptr[ListBindingsRow](&bindings[0]), 512 }
+    let bound: Result[u32, SqlError] = ListBindings(db, binding_slice, 512)
+    sql_close(db)
+    var item_count: u32 = 0
+    if listed.is_ok {
+        item_count = listed.ok
+    }
+    var binding_count: u32 = 0
+    if bound.is_ok {
+        binding_count = bound.ok
+    }
+    var sections: string = ""
+    var section_rest: string = host_devices_sections(req)
+    while section_rest != "" {
+        let section_line: string = inventory_first_line(section_rest)
+        section_rest = inventory_other_lines(section_rest)
+        let section: string = inventory_field(section_line, 0)
+        if section == "" {
+            continue
+        }
+        var cards: string = ""
+        // The roles first: an item that fills one is shown there, not again below.
+        var role_handles: string = ""
+        var roles: string = host_devices_roles(req, section)
+        while roles != "" {
+            let role: string = inventory_first_line(roles)
+            roles = inventory_other_lines(roles)
+            if inventory_field(role, 0) != "" {
+                role_handles = role_handles + inventory_field(role, 0) + ","
+                cards = cards + inventory_role_card(req, section, role, items, item_count, bindings, binding_count)
+            }
+        }
+        let categories: string = host_devices_categories(req, section)
+        if categories != "" {
+            var i: u32 = 0
+            while i < item_count {
+                if str_eq(items[i].kind, "equipment") && inventory_in_list(categories, items[i].category) &&
+                    !inventory_in_list(role_handles, items[i].handle) {
+                    cards = cards + inventory_item_card(req, items[i], bindings, binding_count)
+                }
+                i = i + 1
+            }
+            cards = cards + inventory_add_card(req, section, categories)
+        }
+        var heading: string = ""
+        let label: string = inventory_field(section_line, 1)
+        if label != "" {
+            heading = "<h2 class=\"app-group group-" + escape_html(section) + "\">" + escape_html(label) + "</h2>"
+        }
+        sections = sections + heading + "<div class=\"app-cards\">" + cards + "</div>"
+    }
+    var notice: string = ""
+    if !inventory_automated() {
+        notice = "<p class=\"notice\">" + i18n_t(req, "inventory.no_gateway") + "</p>"
+    }
+    let body: string = "<div class=\"ph\"><h1>" + title + "</h1><p>" + i18n_t(req, "inventory.devices.lede") + "</p></div>" +
+        notice + host_devices_intro(req) + sections
+    return host_shell(req, title, body, inventory_toast(message))
+}
+
+// inventory_bind_all binds each capability to the source the form chose, and
+// answers the first problem, or "".
+fn inventory_bind_all(id: u32, capabilities: string, body: string) string {
+    var problem: string = ""
+    var caps: string = inventory_capability_list(capabilities)
+    while caps != "" {
+        let capability: string = inventory_first_line(caps)
+        caps = inventory_other_lines(caps)
+        if capability != "" {
+            let failed: string = inventory_bind(id, capability, form_field(body, "src_" + inventory_capability_name(capability)))
+            if failed != "" && problem == "" {
+                problem = failed
+            }
+        }
+    }
+    return problem
+}
+
+fn devices_save(req: Request) Response {
+    let body: string = request_body(req)
+    if !forms_csrf_ok(body) {
+        return devices_page_message(req, i18n_t(req, "form.expired"))
+    }
+    let handle: string = form_field(body, "role")
+    if handle != "" {
+        return inventory_role_save(req, body, handle)
+    }
+    let id: u32 = int_from_str(form_field(body, "item"))
+    let opened: Result[SqlDb, string] = sql_open(inventory_db_path())
+    if id == 0 || !opened.is_ok {
+        return devices_page_message(req, i18n_t(req, "inventory.devices.no_item"))
+    }
+    let items: ListItemsRow[512]
+    let item_slice: Slice[ListItemsRow] = Slice[ListItemsRow]{ Ptr[ListItemsRow](&items[0]), 512 }
+    let listed: Result[u32, SqlError] = ListItems(opened.ok, item_slice, 512)
+    sql_close(opened.ok)
+    if !listed.is_ok {
+        return devices_page_message(req, i18n_t(req, "inventory.devices.no_item"))
+    }
+    let at: i32 = inventory_find_item(items, listed.ok, id)
+    if at < 0 {
+        return devices_page_message(req, i18n_t(req, "inventory.devices.no_item"))
+    }
+    let row: u32 = u32(at)
+    let item: ListItemsRow = items[row]
+    let problem: string = inventory_bind_all(id, item.capabilities, body)
+    host_devices_changed(item.handle, item.name + " mapped")
+    if problem != "" {
+        return redirect(inventory_devices_url(req, problem) + "#item-" + int_to_str(id))
+    }
+    return redirect(inventory_devices_url(req, item.name + ": " + i18n_t(req, "inventory.devices.saved")) + "#item-" + int_to_str(id))
+}
+
+// inventory_role_save fills a role with the item chosen, or a new one made for
+// it, and binds its capabilities.
+fn inventory_role_save(req: Request, body: string, handle: string) Response {
+    let role: string = inventory_role_line(req, form_field(body, "section"), handle)
+    if role == "" {
+        return devices_page_message(req, i18n_t(req, "inventory.devices.unknown"))
+    }
+    let label: string = inventory_field(role, 1)
+    var id: u32 = 0
+    let chosen: string = form_field(body, "pick")
+    if str_eq(chosen, "new") || chosen == "" {
+        id = inventory_item_id(handle)
+        if id == 0 {
+            id = inventory_add_equipment(label, inventory_field(role, 2), handle)
+            if id > 0 {
+                host_devices_added(id, inventory_field(role, 2))
+            }
+        }
+    } else {
+        id = int_from_str(chosen)
+        if !inventory_assign_handle(id, handle) {
+            id = 0
+        }
+    }
+    if id == 0 {
+        return devices_page_message(req, i18n_t(req, "inventory.devices.no_item"))
+    }
+    let problem: string = inventory_bind_all(id, inventory_field(role, 3), body)
+    host_devices_changed(handle, label + " mapped")
+    if problem != "" {
+        return redirect(inventory_devices_url(req, problem) + "#role-" + handle)
+    }
+    return redirect(inventory_devices_url(req, label + ": " + i18n_t(req, "inventory.devices.saved")) + "#role-" + handle)
+}
+
+// inventory_add_named adds an equipment item with a handle made from its name,
+// the next free one when that is taken (`battery`, `battery-2`), and answers its
+// id, or 0.
+fn inventory_add_named(name: string, category: string) u32 {
+    var base: string = inventory_handle(name)
+    if base == "" {
+        base = "equipment"
+    }
+    var handle: string = base
+    var n: u32 = 2
+    while inventory_item_id(handle) > 0 && n < 50 {
+        handle = base + "-" + int_to_str(n)
+        n = n + 1
+    }
+    return inventory_add_equipment(name, category, handle)
+}
+
+fn devices_add(req: Request) Response {
+    let body: string = request_body(req)
+    if !forms_csrf_ok(body) {
+        return devices_page_message(req, i18n_t(req, "form.expired"))
+    }
+    let name: string = form_field(body, "name")
+    let category: string = form_field(body, "category")
+    // Only a category the section offers: the form is not the authority.
+    if name == "" || !inventory_in_list(host_devices_categories(req, form_field(body, "section")), category) {
+        return devices_page_message(req, i18n_t(req, "inventory.devices.need"))
+    }
+    let id: u32 = inventory_add_named(name, category)
+    if id == 0 {
+        return devices_page_message(req, i18n_t(req, "inventory.devices.taken"))
+    }
+    host_devices_added(id, category)
+    host_devices_changed(inventory_handle(name), name + " added to " + category)
+    return redirect(inventory_devices_url(req, name + ": " + i18n_t(req, "inventory.devices.added")) + "#item-" + int_to_str(id))
+}

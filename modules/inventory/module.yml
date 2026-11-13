@@ -14,7 +14,7 @@ module:
   type: module
   title: Inventory & expenses
   category: inventory
-  version: 0.2.4
+  version: 0.3.0
   description: >
     Everything an installation has, in one place: consumables, parts and the
     equipment itself, in the categories the application defines; stock, reorder
