@@ -48,3 +48,7 @@ rule that asked says so.
 ## [0.2.1] - 2026-11-13
 
 The page's message (`?msg=`) is written into its toast as a JavaScript string, so a crafted link can no longer run script on the inventory page.
+
+## [0.2.2] - 2026-11-13
+
+The clock is read from the process (`rho_now_s`, rho 0.6.0) instead of from `date` written to a file and read back, which a request and the background loop could truncate under each other: entries dated 1970 and modes that expired at once. Today's date likewise (`rho_local_date`).

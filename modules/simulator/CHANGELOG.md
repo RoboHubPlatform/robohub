@@ -16,3 +16,7 @@ device names in the presets (`board:`), and every device under its board. A `sum
 model adds and subtracts other sources (`of: a + b - c`, the signs between
 spaces, so a dash inside a name such as `sim-ev.power` is part of it): a battery's
 power from the site's surplus, a grid meter from what is left.
+
+## [0.2.1] - 2026-11-13
+
+The clock is read from the process (`rho_now_s`, rho 0.6.0) instead of from `date` written to a file and read back, which a request and the background loop could truncate under each other: entries dated 1970 and modes that expired at once. The time of day the `day` model follows likewise.

@@ -52,11 +52,7 @@ fn widgets_style() string {
 }
 
 fn widget_now() u32 {
-    let report: string = widget_db_path() + ".now"
-    if rho_exec("date", "+%s", report) == 0 {
-        return int_from_str(widget_trim(rho_read_text(report)))
-    }
-    return 0
+    return rho_now_s()
 }
 
 // widget_url_ok is whether a URL a person gave a widget may be fetched: http or
@@ -83,13 +79,18 @@ fn widget_curl_args(method: string, url: string, timeout: string, report: string
     if !widget_url_ok(url) {
         return 255
     }
+    return rho_exec_args("curl", widget_curl_line(method, url, timeout), report)
+}
+
+// widget_curl_line is curl's arguments for one request, one per line.
+fn widget_curl_line(method: string, url: string, timeout: string) string {
     var args: string = "-fsS\n--proto\n=http,https\n-m\n" + timeout + "\n-X\n" + widget_method(method) + "\n"
     let token: string = gateway.token()
     let base: string = gateway.config("url")
     if token != "" && base != "" && str_index_of(token, "\n") < 0 && str_starts_with(url, base + "/") {
         args = args + "-H\nAuthorization: Bearer " + token + "\n"
     }
-    return rho_exec_args("curl", args + url + "\n", report)
+    return args + url + "\n"
 }
 
 fn widget_report(name: string) string {
@@ -98,11 +99,13 @@ fn widget_report(name: string) string {
     return dir + "/" + name + ".txt"
 }
 
+// widget_curl is what a URL answers, read as a value rather than from a file
+// another request could be writing; "" when it does not answer.
 fn widget_curl(url: string, report: string) string {
-    if widget_curl_args("GET", url, "3", report) != 0 {
+    if !widget_url_ok(url) {
         return ""
     }
-    return rho_read_text(report)
+    return rho_exec_capture("curl", widget_curl_line("GET", url, "3"))
 }
 
 fn widget_parse_milli(text: string) i64 {
@@ -362,12 +365,7 @@ fn widget_refresh(widget: Widgets) string {
         strlen(widget.source) == 0 {
         return ""
     }
-    let report: string = widget_report("fetch-" + int_to_str(u32(widget.id)))
-    let code: u32 = widget_curl_args("GET", widget.source, "3", report)
-    if code != 0 {
-        return ""
-    }
-    let text: string = widget_trim(rho_read_text(report))
+    let text: string = widget_trim(widget_curl(widget.source, ""))
     if strlen(text) == 0 {
         return ""
     }

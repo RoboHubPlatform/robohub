@@ -17,3 +17,7 @@ evaluation.
 ## [0.1.1] - 2026-11-13
 
 An ordering comparison (`<`, `<=`, `>`, `>=`) of a reading that is not a number is a problem, as a missing reading already was, not a false answer: `not t > 30` no longer holds — and acts — when the sensor says "unavailable".
+
+## [0.1.2] - 2026-11-13
+
+The clock is read from the process (`rho_now_s`, rho 0.6.0) instead of from `date` written to a file and read back, which a request and the background loop could truncate under each other: entries dated 1970 and modes that expired at once. The time of day for `time between` likewise (`rho_local_clock`).

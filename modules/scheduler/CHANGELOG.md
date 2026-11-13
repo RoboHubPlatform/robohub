@@ -40,3 +40,7 @@ completing the chore takes off the shelf, recorded as a stock movement for that
 chore. An application seeds its chores from its presets (`scheduler_presets`);
 a seeded chore is added once and is the person's after that. `scheduler_complete_title(title, note)` completes a chore by its title, for an
 application whose own record is the chore (a water change logged).
+
+## [0.2.1] - 2026-11-13
+
+The clock is read from the process (`rho_now_s`, rho 0.6.0) instead of from `date` written to a file and read back, which a request and the background loop could truncate under each other: entries dated 1970 and modes that expired at once. A date a person typed is one argument of `date -d`, run without a shell (`rho_exec_capture`), and its answer is returned rather than read from a shared file.

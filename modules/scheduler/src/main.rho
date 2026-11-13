@@ -20,6 +20,9 @@ extern fn rho_write_text(path: string, text: string) bool
 
 // The runtime functions this module calls.
 extern fn rho_exec(program: string, arguments: string, output_path: string) u32
+// The clock and a program's output, from the runtime rather than through a file.
+extern fn rho_now_s() u32
+extern fn rho_exec_capture(program: string, arguments: string) string
 extern fn rho_read_text(path: string) string
 
 route GET  "/scheduler"                          => scheduler_page

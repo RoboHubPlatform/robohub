@@ -53,11 +53,7 @@ fn journal_template(name: string) string {
 }
 
 fn journal_now() u32 {
-    let report: string = journal_db_path() + ".now"
-    if rho_exec("date", "+%s", report) == 0 {
-        return int_from_str(journal_trim(rho_read_text(report)))
-    }
-    return 0
+    return rho_now_s()
 }
 
 fn journal_trim(text: string) string {
@@ -220,24 +216,11 @@ fn journal_since(period: string) u32 {
     return now - span
 }
 
-// journal_offset is the machine's distance from UTC in seconds, read once per
-// page: `+0200` is 7200. A time is shown as the machine's clock shows it.
+// journal_offset is the machine's distance from UTC now, in seconds: `+0200` is
+// 7200. journal_time no longer needs it — each time is shown with the offset it
+// had — and it is kept for the callers that pass it.
 fn journal_offset() i64 {
-    let report: string = journal_db_path() + ".zone"
-    if rho_exec("date", "+%z", report) != 0 {
-        return 0
-    }
-    let zone: string = journal_trim(rho_read_text(report))
-    if strlen(zone) != 5 {
-        return 0
-    }
-    let hours: i64 = i64(int_from_str(str_slice(zone, 1, 2)))
-    let minutes: i64 = i64(int_from_str(str_slice(zone, 3, 2)))
-    let seconds: i64 = hours * 3600 + minutes * 60
-    if str_eq(str_slice(zone, 0, 1), "-") {
-        return 0 - seconds
-    }
-    return seconds
+    return rho_utc_offset_at(i64(rho_now_s()))
 }
 
 fn journal_two(value: i64) string {
@@ -247,10 +230,12 @@ fn journal_two(value: i64) string {
     return int_to_str(u32(value))
 }
 
-// journal_time is a time as `2026-11-13 14:02`, from Unix seconds and the
-// offset, by the civil calendar's own arithmetic (days since 1970 to a date).
+// journal_time is a time as `2026-11-13 14:02`, from Unix seconds, by the civil
+// calendar's own arithmetic (days since 1970 to a date). The offset is the one in
+// force at that moment, not today's: an entry from last winter is not an hour
+// off in summer. The offset passed is the old way of saying it and is not read.
 fn journal_time(at: i64, offset: i64) string {
-    let local: i64 = at + offset
+    let local: i64 = at + rho_utc_offset_at(at)
     let days: i64 = local / 86400
     let rest: i64 = local - days * 86400
     let z: i64 = days + 719468

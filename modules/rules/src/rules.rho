@@ -50,23 +50,16 @@ fn rules_template(name: string) string {
 }
 
 fn rules_now() u32 {
-    let report: string = rules_db_path() + ".now"
-    if rho_exec("date", "+%s", report) == 0 {
-        return int_from_str(rules_trim(rho_read_text(report)))
-    }
-    return 0
+    return rho_now_s()
 }
 
 // rules_clock is the machine's time of day in minutes since midnight.
 fn rules_clock() u32 {
-    let report: string = rules_db_path() + ".clock"
-    if rho_exec("date", "+%H:%M", report) == 0 {
-        let minutes: u32 = rules_minutes(rules_trim(rho_read_text(report)))
-        if minutes != 9999 {
-            return minutes
-        }
+    let minutes: u32 = rules_minutes(rho_local_clock())
+    if minutes == 9999 {
+        return 0
     }
-    return 0
+    return minutes
 }
 
 fn rules_open() Result[SqlDb, string] {

@@ -26,6 +26,9 @@ import rho.log
 // cannot tell it from a mesh.
 
 extern fn rho_exec(program: string, arguments: string, output_path: string) u32
+// The clock and a program's output, from the runtime rather than through a file.
+extern fn rho_now_s() u32
+extern fn rho_local_clock() string
 extern fn rho_read_text(path: string) string
 extern fn rho_write_text(path: string, text: string) bool
 extern fn rho_append_text(path: string, text: string) bool
@@ -57,20 +60,13 @@ fn sim_dir() string {
 }
 
 fn sim_now() u32 {
-    let report: string = sim_dir() + "/now.txt"
-    if rho_exec("date", "+%s", report) == 0 {
-        return int_from_str(sim_trim(rho_read_text(report)))
-    }
-    return 0
+    return rho_now_s()
 }
 
 fn sim_minutes() u32 {
-    let report: string = sim_dir() + "/clock.txt"
-    if rho_exec("date", "+%H:%M", report) == 0 {
-        let text: string = sim_trim(rho_read_text(report))
-        if strlen(text) == 5 {
-            return int_from_str(str_slice(text, 0, 2)) * 60 + int_from_str(str_slice(text, 3, 2))
-        }
+    let text: string = rho_local_clock()
+    if strlen(text) == 5 {
+        return int_from_str(str_slice(text, 0, 2)) * 60 + int_from_str(str_slice(text, 3, 2))
     }
     return 0
 }

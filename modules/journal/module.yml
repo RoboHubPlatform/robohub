@@ -13,7 +13,7 @@ module:
   type: module
   title: Journal
   category: operations
-  version: 0.1.0
+  version: 0.1.1
   description: >
     What happened, in one table every RoboHub application shares the shape of:
     the time, the level, the kind of thing, its subject, who or what did it and

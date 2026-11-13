@@ -113,3 +113,7 @@ the same position.
 ## [0.3.1] - 2026-11-13
 
 A widget's URL is passed to curl as one argument, with no shell and only over http or https, so a source can no longer carry options of its own (`-o`, `--data @file`). The gateway's token is sent only to the gateway's own URL, never to an address a person typed into a widget. The method is GET, POST or PUT.
+
+## [0.3.2] - 2026-11-13
+
+A URL widget's answer is read as a value (`rho_exec_capture`) rather than from a per-widget file a refresh and a page could both be writing. The clock is read from the process (`rho_now_s`, rho 0.6.0) instead of from `date` written to a file and read back, which a request and the background loop could truncate under each other: entries dated 1970 and modes that expired at once.

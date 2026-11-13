@@ -48,3 +48,7 @@ child process on every request.
 
 Implements robohub-gateway 1.2.0's `nodes()`, from Mesh's
 `/mesh/api/projects/<project>/nodes` (Mesh 0.18).
+
+## [0.5.1] - 2026-11-13
+
+A reading is returned as the response body (`rho_http_body`, rho 0.6.0) instead of through one `mesh-source-latest` file every caller shared: a page and the background loop asking at once could be handed each other's reading, so a load's switch could read another source's value. A source id in a URL is encoded, including `%`, `#` and `+`, and a value ending in a line break is trimmed ("on\n" is "on").

@@ -52,11 +52,7 @@ fn appapi_open() Result[SqlDb, string] {
 }
 
 fn appapi_now() u32 {
-    let report: string = appapi_db_path() + ".now"
-    if rho_exec("date", "+%s", report) == 0 {
-        return int_from_str(appapi_trim(rho_read_text(report)))
-    }
-    return 0
+    return rho_now_s()
 }
 
 fn appapi_trim(text: string) string {

@@ -149,16 +149,7 @@ fn plugin_indent(line: string) u32 {
 }
 
 fn inventory_date() string {
-    let report: string = inventory_db_path() + ".date"
-    if rho_exec("date", "+%Y-%m-%d", report) == 0 {
-        let text: string = rho_read_text(report)
-        let at: i32 = str_index_of(text, "\n")
-        if at < 0 {
-            return text
-        }
-        return str_slice(text, 0, u32(at))
-    }
-    return ""
+    return rho_local_date()
 }
 
 /* -------------------------------------------------------------------------- */

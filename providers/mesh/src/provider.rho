@@ -18,6 +18,10 @@ import rho.log
 
 extern fn rho_http_request(method: string, url: string, body: string, content_type: string,
     audience: string, scopes: string, output_path: string) u32
+// A request whose answer is its body, returned: two callers at once cannot read
+// each other's answer, as they could from one report file.
+extern fn rho_http_body(method: string, url: string, body: string, content_type: string,
+    audience: string, scopes: string) string
 extern fn rho_sse_follow(url: string, audience: string, scopes: string, path: string) bool
 extern fn rho_bind_config(provider: string, key: string) string
 extern fn rho_exec(program: string, arguments: string, output_path: string) u32
@@ -49,13 +53,18 @@ fn mesh_report(name: string) string {
     return dir + "/" + name + ".log"
 }
 
+// mesh_space is whether a character is white space: a value Mesh answers may
+// end in a line break, and "on\n" is "on".
+fn mesh_space(ch: string) bool {
+    return str_eq(ch, " ") || str_eq(ch, "\n") || str_eq(ch, "\r") || str_eq(ch, "\t")
+}
+
 fn mesh_trim(text: string) string {
     var out: string = text
-    while strlen(out) > 0 && str_eq(str_slice(out, 0, 1), " ") {
+    while strlen(out) > 0 && mesh_space(str_slice(out, 0, 1)) {
         out = str_slice(out, 1, u32(strlen(out)) - 1)
     }
-    while strlen(out) > 0 &&
-        str_eq(str_slice(out, u32(strlen(out)) - 1, 1), " ") {
+    while strlen(out) > 0 && mesh_space(str_slice(out, u32(strlen(out)) - 1, 1)) {
         out = str_slice(out, 0, u32(strlen(out)) - 1)
     }
     return out
@@ -77,7 +86,15 @@ fn mesh_urlencode(text: string) string {
         } else if str_eq(ch, "=") {
             out = out + "%3D"
         } else if str_eq(ch, " ") {
-            out = out + "+"
+            out = out + "%20"
+        } else if str_eq(ch, "%") {
+            out = out + "%25"
+        } else if str_eq(ch, "#") {
+            out = out + "%23"
+        } else if str_eq(ch, "+") {
+            out = out + "%2B"
+        } else if str_eq(ch, "\n") || str_eq(ch, "\r") {
+            out = out + ""
         } else {
             out = out + ch
         }
@@ -189,15 +206,11 @@ fn mesh_scope() string {
     return "mesh:" + mesh_project()
 }
 
+// mesh_fetch is what a Mesh URL answers, or "" when it does not answer with a
+// success. The answer is returned, not written to a file: a page and the
+// background loop asking at once must not read each other's reading.
 fn mesh_fetch(url: string, name: string) string {
-    let report: string = mesh_report(name)
-    let status: u32 = rho_http_request("GET", url, "", "", mesh_audience(url),
-        mesh_scope(), report)
-    if status != 200 {
-        warn("gateway.mesh", "fetch failed (" + int_to_str(status) + "): " + url)
-        return ""
-    }
-    return rho_read_text(report)
+    return rho_http_body("GET", url, "", "", mesh_audience(url), mesh_scope())
 }
 
 fn projects() string {
@@ -330,7 +343,7 @@ fn source_latest(source: string) string {
         value_url = source
     } else if source != "" {
         value_url = mesh_base() + "/mesh/api/projects/" +
-            mesh_project() + "/sources/" + source + "/value"
+            mesh_urlencode(mesh_project()) + "/sources/" + mesh_urlencode(source) + "/value"
     }
     if value_url == "" {
         return ""
@@ -345,13 +358,7 @@ fn mesh_post(path: string, body: string, name: string) string {
     if base == "" {
         return ""
     }
-    let report: string = mesh_report(name)
-    let status: u32 = rho_http_request("POST", base + path, body, "application/json", "mesh",
-        mesh_scope(), report)
-    if status < 200 || status >= 300 {
-        return ""
-    }
-    return rho_read_text(report)
+    return rho_http_body("POST", base + path, body, "application/json", "mesh", mesh_scope())
 }
 
 // action switches an output source on or off. The source is named the way

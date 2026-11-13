@@ -92,11 +92,7 @@ fn inventory_capability_access(capability: string) string {
 /* -------------------------------------------------------------------------- */
 
 fn inventory_now() u32 {
-    let report: string = inventory_db_path() + ".now"
-    if rho_exec("date", "+%s", report) == 0 {
-        return int_from_str(trim(rho_read_text(report)))
-    }
-    return 0
+    return rho_now_s()
 }
 
 // inventory_find_handle is the row of the item with this handle, or -1.

@@ -56,30 +56,22 @@ fn scheduler_template(name: string) string {
 }
 
 fn scheduler_now() u32 {
-    let report: string = scheduler_db_path() + ".now"
-    if rho_exec("date", "+%s", report) == 0 {
-        return int_from_str(scheduler_trim(rho_read_text(report)))
-    }
-    return 0
+    return rho_now_s()
 }
 
 fn scheduler_date(epoch: u32) string {
     if epoch == 0 {
         return ""
     }
-    let report: string = scheduler_db_path() + ".date"
-    if rho_exec("date", "-d @" + int_to_str(epoch) + " \"+%Y-%m-%d %H:%M\"", report) == 0 {
-        return scheduler_trim(rho_read_text(report))
-    }
-    return ""
+    return scheduler_trim(rho_exec_capture("date", "-d\n@" + int_to_str(epoch) + "\n+%Y-%m-%d %H:%M\n"))
 }
 
 fn scheduler_epoch(text: string) u32 {
-    let report: string = scheduler_db_path() + ".epoch"
-    if rho_exec("date", "-d \"" + text + "\" +%s", report) == 0 {
-        return int_from_str(scheduler_trim(rho_read_text(report)))
+    // The text is one argument of date, whatever it holds: a person typed it.
+    if str_index_of(text, "\n") >= 0 || str_starts_with(text, "-") {
+        return 0
     }
-    return 0
+    return int_from_str(scheduler_trim(rho_exec_capture("date", "-d\n" + text + "\n+%s\n")))
 }
 
 fn scheduler_field(expression: string, wanted: u32) string {
