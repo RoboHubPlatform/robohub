@@ -56,3 +56,7 @@ Trimming, URL escapes, form fields and decimals come from the toolchain (rho 0.7
 ## [0.2.4] - 2026-11-14
 
 Cron is read in src/cron.rho, apart from the chores, and has unit tests of its own (tests/scheduler_test.rho): fields, lists, ranges and steps, the next time in local time in any time zone, and expressions that name no time. Nothing it does changed.
+
+## [0.2.5] - 2026-11-14
+
+The route handlers are `scheduler_chores_add`, `scheduler_chores_complete` and so on, and the helpers and constants carry the prefix too (`ignore_string` is `scheduler_ignore_string`); unprefixed, they were in every including application's namespace.

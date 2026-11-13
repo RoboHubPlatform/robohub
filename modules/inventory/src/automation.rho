@@ -30,7 +30,7 @@ const INVENTORY_RUNTIME_FIRST: u32 = 604800
 /// How often an item's runtime is counted again, in seconds.
 const INVENTORY_RUNTIME_EVERY: u32 = 3600
 
-const BINDING_CAPACITY: u32 = 512
+const INVENTORY_BINDING_CAPACITY: u32 = 512
 
 /* -------------------------------------------------------------------------- */
 /*  Capabilities                                                              */
@@ -123,6 +123,55 @@ fn inventory_find_ref(items: ListItemsRow[512], count: u32, ref: string) i32 {
     return inventory_find_item(items, count, id)
 }
 
+/// One item, looked up by what names it, and whether there was one.
+struct InventoryOne {
+    found: bool
+    row: ListItemsRow
+}
+
+fn inventory_none() InventoryOne {
+    return InventoryOne{ false, ListItemsRow{ 0, "", "", 0, "", 0, 0, "", "", "", "", 0, 0, 0, "", "" } }
+}
+
+// inventory_one is the item a reference names — its handle, or its id — read
+// by a lookup rather than found in a list of every item: a rule reads an item's
+// capability every few seconds.
+fn inventory_one(db: SqlDb, ref: string) InventoryOne {
+    if ref != "" {
+        let by_handle: GetItemByHandleRow[1]
+        let handle_slice: Slice[GetItemByHandleRow] = Slice[GetItemByHandleRow]{ Ptr[GetItemByHandleRow](&by_handle[0]), 1 }
+        let got: Result[u32, SqlError] = GetItemByHandle(ref, db, handle_slice, 1)
+        if got.is_ok && got.ok > 0 {
+            let r: GetItemByHandleRow = by_handle[0]
+            return InventoryOne{ true, ListItemsRow{ r.id, r.name, r.category, r.categoryId, r.unit, r.quantityMilli, r.reorderMilli, r.location, r.notes, r.kind, r.handle, r.runtimeS, r.runtimeAt, r.portionMilli, r.capabilities, r.uses } }
+        }
+    }
+    let id: u32 = int_from_str(ref)
+    if id == 0 {
+        return inventory_none()
+    }
+    let by_id: GetItemByIdRow[1]
+    let id_slice: Slice[GetItemByIdRow] = Slice[GetItemByIdRow]{ Ptr[GetItemByIdRow](&by_id[0]), 1 }
+    let got: Result[u32, SqlError] = GetItemById(i64(id), db, id_slice, 1)
+    if got.is_ok && got.ok > 0 {
+        let r: GetItemByIdRow = by_id[0]
+        return InventoryOne{ true, ListItemsRow{ r.id, r.name, r.category, r.categoryId, r.unit, r.quantityMilli, r.reorderMilli, r.location, r.notes, r.kind, r.handle, r.runtimeS, r.runtimeAt, r.portionMilli, r.capabilities, r.uses } }
+    }
+    return inventory_none()
+}
+
+// inventory_lookup opens the store for one lookup.
+fn inventory_lookup(ref: string) InventoryOne {
+    let opened: Result[SqlDb, string] = sql_open(inventory_db_path())
+    if !opened.is_ok {
+        return inventory_none()
+    }
+    sql_apply(opened.ok, inventory_schema())
+    let one: InventoryOne = inventory_one(opened.ok, ref)
+    sql_close(opened.ok)
+    return one
+}
+
 // inventory_binding_source is the source one item's capability is bound to.
 fn inventory_binding_source(bindings: ListBindingsRow[512], count: u32, item_id: i64, capability: string) string {
     var i: u32 = 0
@@ -168,23 +217,18 @@ fn inventory_resolve(ref: string, capability: string) string {
     }
     let db: SqlDb = opened.ok
     sql_apply(db, inventory_schema())
-    let items: ListItemsRow[512]
-    let item_slice: Slice[ListItemsRow] = Slice[ListItemsRow]{ Ptr[ListItemsRow](&items[0]), ITEM_CAPACITY }
-    let listed: Result[u32, SqlError] = ListItems(db, item_slice, ITEM_CAPACITY)
-    let bindings: ListBindingsRow[512]
-    let binding_slice: Slice[ListBindingsRow] = Slice[ListBindingsRow]{ Ptr[ListBindingsRow](&bindings[0]), BINDING_CAPACITY }
-    let bound: Result[u32, SqlError] = ListBindings(db, binding_slice, BINDING_CAPACITY)
+    let one: InventoryOne = inventory_one(db, ref)
+    var source: string = ""
+    if one.found {
+        let rows: GetBindingRow[1]
+        let slice: Slice[GetBindingRow] = Slice[GetBindingRow]{ Ptr[GetBindingRow](&rows[0]), 1 }
+        let got: Result[u32, SqlError] = GetBinding(one.row.id, inventory_capability_name(capability), db, slice, 1)
+        if got.is_ok && got.ok > 0 {
+            source = rows[0].source
+        }
+    }
     sql_close(db)
-    if !listed.is_ok || !bound.is_ok {
-        return ""
-    }
-    let at: i32 = inventory_find_ref(items, listed.ok, ref)
-    if at < 0 {
-        return ""
-    }
-    let row: u32 = u32(at)
-    return inventory_binding_source(bindings, bound.ok, items[row].id,
-        inventory_capability_name(capability))
+    return source
 }
 
 // inventory_read is the newest reading of an item's capability, through the
@@ -231,24 +275,16 @@ fn inventory_consume(ref: string, quantity_milli: u32, reason: string, for_ref: 
     }
     let db: SqlDb = opened.ok
     sql_apply(db, inventory_schema())
-    let items: ListItemsRow[512]
-    let item_slice: Slice[ListItemsRow] = Slice[ListItemsRow]{ Ptr[ListItemsRow](&items[0]), ITEM_CAPACITY }
-    let listed: Result[u32, SqlError] = ListItems(db, item_slice, ITEM_CAPACITY)
-    var count: u32 = 0
-    if listed.is_ok {
-        count = listed.ok
-    }
-    let at: i32 = inventory_find_ref(items, count, ref)
-    if at < 0 {
+    let one: InventoryOne = inventory_one(db, ref)
+    if !one.found {
         sql_close(db)
         return false
     }
-    let row: u32 = u32(at)
-    let id: i64 = items[row].id
+    let id: i64 = one.row.id
     let delta: string = "-" + int_to_str(quantity_milli)
     let updated: Result[u32, SqlError] = UpdateItemStock(delta, id, db)
     if updated.is_ok {
-        ignore_result(InsertMovement(int_to_str(u32(id)), "consume", delta, "0", "0",
+        inventory_ignore(InsertMovement(int_to_str(u32(id)), "consume", delta, "0", "0",
             for_ref, inventory_date(), reason, db))
     }
     sql_close(db)
@@ -266,8 +302,8 @@ fn inventory_use(ref: string, actor: string) bool {
     let db: SqlDb = opened.ok
     sql_apply(db, inventory_schema())
     let items: ListItemsRow[512]
-    let item_slice: Slice[ListItemsRow] = Slice[ListItemsRow]{ Ptr[ListItemsRow](&items[0]), ITEM_CAPACITY }
-    let listed: Result[u32, SqlError] = ListItems(db, item_slice, ITEM_CAPACITY)
+    let item_slice: Slice[ListItemsRow] = Slice[ListItemsRow]{ Ptr[ListItemsRow](&items[0]), INVENTORY_ITEM_CAPACITY }
+    let listed: Result[u32, SqlError] = ListItems(db, item_slice, INVENTORY_ITEM_CAPACITY)
     sql_close(db)
     if !listed.is_ok {
         return false
@@ -305,8 +341,8 @@ fn inventory_choices(category: string, kind: string) string {
     let db: SqlDb = opened.ok
     sql_apply(db, inventory_schema())
     let items: ListItemsRow[512]
-    let item_slice: Slice[ListItemsRow] = Slice[ListItemsRow]{ Ptr[ListItemsRow](&items[0]), ITEM_CAPACITY }
-    let listed: Result[u32, SqlError] = ListItems(db, item_slice, ITEM_CAPACITY)
+    let item_slice: Slice[ListItemsRow] = Slice[ListItemsRow]{ Ptr[ListItemsRow](&items[0]), INVENTORY_ITEM_CAPACITY }
+    let listed: Result[u32, SqlError] = ListItems(db, item_slice, INVENTORY_ITEM_CAPACITY)
     sql_close(db)
     var out: string = ""
     if listed.is_ok {
@@ -331,25 +367,11 @@ fn inventory_choices(category: string, kind: string) string {
 
 // inventory_item_name is an item's name and unit by handle or id, `name|unit`.
 fn inventory_item_name(ref: string) string {
-    let opened: Result[SqlDb, string] = sql_open(inventory_db_path())
-    if !opened.is_ok {
+    let one: InventoryOne = inventory_lookup(ref)
+    if !one.found {
         return ""
     }
-    let db: SqlDb = opened.ok
-    sql_apply(db, inventory_schema())
-    let items: ListItemsRow[512]
-    let item_slice: Slice[ListItemsRow] = Slice[ListItemsRow]{ Ptr[ListItemsRow](&items[0]), ITEM_CAPACITY }
-    let listed: Result[u32, SqlError] = ListItems(db, item_slice, ITEM_CAPACITY)
-    sql_close(db)
-    if !listed.is_ok {
-        return ""
-    }
-    let at: i32 = inventory_find_ref(items, listed.ok, ref)
-    if at < 0 {
-        return ""
-    }
-    let row: u32 = u32(at)
-    return items[row].name + "|" + items[row].unit
+    return one.row.name + "|" + one.row.unit
 }
 
 // inventory_assign_handle gives an item a handle, taking it from any other item
@@ -366,7 +388,7 @@ fn inventory_assign_handle(id: u32, handle: string) bool {
     }
     let db: SqlDb = opened.ok
     sql_apply(db, inventory_schema())
-    ignore_result(ClearItemHandle(clean, int_to_str(id), db))
+    inventory_ignore(ClearItemHandle(clean, int_to_str(id), db))
     let done: Result[u32, SqlError] = SetItemHandle(clean, i64(id), db)
     sql_close(db)
     return done.is_ok && done.ok > 0
@@ -382,8 +404,8 @@ fn inventory_add_equipment(name: string, category: string, handle: string) u32 {
     let db: SqlDb = opened.ok
     sql_apply(db, inventory_schema())
     let categories: Categories[64]
-    let category_slice: Slice[Categories] = Slice[Categories]{ Ptr[Categories](&categories[0]), CATEGORY_CAPACITY }
-    let listed: Result[u32, SqlError] = ListCategories(db, category_slice, CATEGORY_CAPACITY)
+    let category_slice: Slice[Categories] = Slice[Categories]{ Ptr[Categories](&categories[0]), INVENTORY_CATEGORY_CAPACITY }
+    let listed: Result[u32, SqlError] = ListCategories(db, category_slice, INVENTORY_CATEGORY_CAPACITY)
     var category_id: string = ""
     if listed.is_ok {
         var i: u32 = 0
@@ -413,25 +435,11 @@ fn inventory_add_equipment(name: string, category: string, handle: string) u32 {
 
 // inventory_item_id is an item's id by handle, or 0.
 fn inventory_item_id(ref: string) u32 {
-    let opened: Result[SqlDb, string] = sql_open(inventory_db_path())
-    if !opened.is_ok {
+    let one: InventoryOne = inventory_lookup(ref)
+    if !one.found {
         return 0
     }
-    let db: SqlDb = opened.ok
-    sql_apply(db, inventory_schema())
-    let items: ListItemsRow[512]
-    let item_slice: Slice[ListItemsRow] = Slice[ListItemsRow]{ Ptr[ListItemsRow](&items[0]), ITEM_CAPACITY }
-    let listed: Result[u32, SqlError] = ListItems(db, item_slice, ITEM_CAPACITY)
-    sql_close(db)
-    if !listed.is_ok {
-        return 0
-    }
-    let at: i32 = inventory_find_ref(items, listed.ok, ref)
-    if at < 0 {
-        return 0
-    }
-    let row: u32 = u32(at)
-    return u32(items[row].id)
+    return u32(one.row.id)
 }
 
 // inventory_bind binds (or, with no source, unbinds) one capability of an item,
@@ -446,14 +454,14 @@ fn inventory_bind(id: u32, capability: string, source: string) string {
     sql_apply(db, inventory_schema())
     let name: string = inventory_capability_name(capability)
     if source == "" {
-        ignore_result(UnbindCapability(i64(id), name, db))
+        inventory_ignore(UnbindCapability(i64(id), name, db))
         sql_close(db)
         return ""
     }
     let access: string = inventory_capability_access(capability)
     let bindings: ListBindingsRow[512]
-    let binding_slice: Slice[ListBindingsRow] = Slice[ListBindingsRow]{ Ptr[ListBindingsRow](&bindings[0]), BINDING_CAPACITY }
-    let bound: Result[u32, SqlError] = ListBindings(db, binding_slice, BINDING_CAPACITY)
+    let binding_slice: Slice[ListBindingsRow] = Slice[ListBindingsRow]{ Ptr[ListBindingsRow](&bindings[0]), INVENTORY_BINDING_CAPACITY }
+    let bound: Result[u32, SqlError] = ListBindings(db, binding_slice, INVENTORY_BINDING_CAPACITY)
     if bound.is_ok && str_eq(access, "control") {
         let holder: string = inventory_controller(bindings, bound.ok, source, i64(id))
         if holder != "" {
@@ -509,18 +517,18 @@ fn inventory_presets(text: string) u32 {
         if key == "" {
             continue
         }
-        var name: string = unquote(yaml.value(path, "categories." + key + ".name"))
+        var name: string = inventory_unquote(yaml.value(path, "categories." + key + ".name"))
         if name == "" {
             name = key
         }
-        var kind: string = unquote(yaml.value(path, "categories." + key + ".kind"))
+        var kind: string = inventory_unquote(yaml.value(path, "categories." + key + ".kind"))
         if kind != "part" && kind != "equipment" {
             kind = "consumable"
         }
-        let capabilities: string = unquote(yaml.value(path, "categories." + key + ".capabilities"))
-        let uses: string = unquote(yaml.value(path, "categories." + key + ".uses"))
-        ignore_result(SeedCategory(name, kind, capabilities, uses, db))
-        ignore_result(UpdateCategoryPreset(kind, capabilities, uses, name, db))
+        let capabilities: string = inventory_unquote(yaml.value(path, "categories." + key + ".capabilities"))
+        let uses: string = inventory_unquote(yaml.value(path, "categories." + key + ".uses"))
+        inventory_ignore(SeedCategory(name, kind, capabilities, uses, db))
+        inventory_ignore(UpdateCategoryPreset(kind, capabilities, uses, name, db))
         count = count + 1
     }
     sql_close(db)
@@ -581,11 +589,11 @@ fn inventory_runtime_tick() u32 {
     let db: SqlDb = opened.ok
     sql_apply(db, inventory_schema())
     let items: ListItemsRow[512]
-    let item_slice: Slice[ListItemsRow] = Slice[ListItemsRow]{ Ptr[ListItemsRow](&items[0]), ITEM_CAPACITY }
-    let listed: Result[u32, SqlError] = ListItems(db, item_slice, ITEM_CAPACITY)
+    let item_slice: Slice[ListItemsRow] = Slice[ListItemsRow]{ Ptr[ListItemsRow](&items[0]), INVENTORY_ITEM_CAPACITY }
+    let listed: Result[u32, SqlError] = ListItems(db, item_slice, INVENTORY_ITEM_CAPACITY)
     let bindings: ListBindingsRow[512]
-    let binding_slice: Slice[ListBindingsRow] = Slice[ListBindingsRow]{ Ptr[ListBindingsRow](&bindings[0]), BINDING_CAPACITY }
-    let bound: Result[u32, SqlError] = ListBindings(db, binding_slice, BINDING_CAPACITY)
+    let binding_slice: Slice[ListBindingsRow] = Slice[ListBindingsRow]{ Ptr[ListBindingsRow](&bindings[0]), INVENTORY_BINDING_CAPACITY }
+    let bound: Result[u32, SqlError] = ListBindings(db, binding_slice, INVENTORY_BINDING_CAPACITY)
     if !listed.is_ok || !bound.is_ok {
         sql_close(db)
         return 0
@@ -603,7 +611,7 @@ fn inventory_runtime_tick() u32 {
                 int_to_str(now) + "000", "60000")
             if str_index_of(series, "\"ok\":true") >= 0 {
                 let added: u32 = inventory_on_seconds(series)
-                ignore_result(SetItemRuntime(i64(u32(items[i].runtimeS) + added), i64(now), items[i].id, db))
+                inventory_ignore(SetItemRuntime(i64(u32(items[i].runtimeS) + added), i64(now), items[i].id, db))
                 counted = counted + 1
             }
         }
@@ -621,25 +629,11 @@ fn inventory_runtime_hours(ref: string) u32 {
 // inventory_runtime_seconds is an item's runtime counted so far, in seconds:
 // what a usage-driven chore adds up.
 fn inventory_runtime_seconds(ref: string) u32 {
-    let opened: Result[SqlDb, string] = sql_open(inventory_db_path())
-    if !opened.is_ok {
+    let one: InventoryOne = inventory_lookup(ref)
+    if !one.found {
         return 0
     }
-    let db: SqlDb = opened.ok
-    sql_apply(db, inventory_schema())
-    let items: ListItemsRow[512]
-    let item_slice: Slice[ListItemsRow] = Slice[ListItemsRow]{ Ptr[ListItemsRow](&items[0]), ITEM_CAPACITY }
-    let listed: Result[u32, SqlError] = ListItems(db, item_slice, ITEM_CAPACITY)
-    sql_close(db)
-    if !listed.is_ok {
-        return 0
-    }
-    let at: i32 = inventory_find_ref(items, listed.ok, ref)
-    if at < 0 {
-        return 0
-    }
-    let row: u32 = u32(at)
-    return u32(items[row].runtimeS)
+    return u32(one.row.runtimeS)
 }
 
 /* -------------------------------------------------------------------------- */
@@ -720,12 +714,12 @@ fn inventory_connected(row: ListItemsRow, bindings: ListBindingsRow[512], count:
     return true
 }
 
-fn item_automation_page(req: Request) Response {
-    return item_automation_message(req, int_from_str(request_query_param(req, "id")),
+fn inventory_automation_page(req: Request) Response {
+    return inventory_automation_message(req, int_from_str(request_query_param(req, "id")),
         request_query_param(req, "msg"))
 }
 
-fn item_automation_message(req: Request, id: u32, message: string) Response {
+fn inventory_automation_message(req: Request, id: u32, message: string) Response {
     let opened: Result[SqlDb, string] = sql_open(inventory_db_path())
     if !opened.is_ok {
         return inventory_page_message(req, "The database could not be opened: " + opened.err)
@@ -733,11 +727,11 @@ fn item_automation_message(req: Request, id: u32, message: string) Response {
     let db: SqlDb = opened.ok
     sql_apply(db, inventory_schema())
     let items: ListItemsRow[512]
-    let item_slice: Slice[ListItemsRow] = Slice[ListItemsRow]{ Ptr[ListItemsRow](&items[0]), ITEM_CAPACITY }
-    let listed: Result[u32, SqlError] = ListItems(db, item_slice, ITEM_CAPACITY)
+    let item_slice: Slice[ListItemsRow] = Slice[ListItemsRow]{ Ptr[ListItemsRow](&items[0]), INVENTORY_ITEM_CAPACITY }
+    let listed: Result[u32, SqlError] = ListItems(db, item_slice, INVENTORY_ITEM_CAPACITY)
     let bindings: ListBindingsRow[512]
-    let binding_slice: Slice[ListBindingsRow] = Slice[ListBindingsRow]{ Ptr[ListBindingsRow](&bindings[0]), BINDING_CAPACITY }
-    let bound: Result[u32, SqlError] = ListBindings(db, binding_slice, BINDING_CAPACITY)
+    let binding_slice: Slice[ListBindingsRow] = Slice[ListBindingsRow]{ Ptr[ListBindingsRow](&bindings[0]), INVENTORY_BINDING_CAPACITY }
+    let bound: Result[u32, SqlError] = ListBindings(db, binding_slice, INVENTORY_BINDING_CAPACITY)
     sql_close(db)
     var count: u32 = 0
     if listed.is_ok {
@@ -817,11 +811,11 @@ fn item_automation_message(req: Request, id: u32, message: string) Response {
     return host_shell(req, row.name, body, toast_js)
 }
 
-fn items_bind(req: Request) Response {
+fn inventory_items_bind(req: Request) Response {
     let body: string = request_body(req)
     let id: u32 = int_from_str(str_trim(form_field(body, "id")))
     if !forms_csrf_ok(body) {
-        return item_automation_message(req, id, i18n_t(req, "inventory.csrf_refused"))
+        return inventory_automation_message(req, id, i18n_t(req, "inventory.csrf_refused"))
     }
     // The capability as its category writes it (`power?`), and as it is bound
     // and looked up (`power`): binding under the first left it never found.
@@ -833,44 +827,44 @@ fn items_bind(req: Request) Response {
     }
     let opened: Result[SqlDb, string] = sql_open(inventory_db_path())
     if !opened.is_ok {
-        return item_automation_message(req, id, "The database could not be opened: " + opened.err)
+        return inventory_automation_message(req, id, "The database could not be opened: " + opened.err)
     }
     let db: SqlDb = opened.ok
     sql_apply(db, inventory_schema())
     if source == "" {
-        ignore_result(UnbindCapability(i64(id), capability, db))
+        inventory_ignore(UnbindCapability(i64(id), capability, db))
         sql_close(db)
-        return item_automation_message(req, id, i18n_t(req, "inventory.unbound"))
+        return inventory_automation_message(req, id, i18n_t(req, "inventory.unbound"))
     }
     let access: string = inventory_capability_access(written)
     let bindings: ListBindingsRow[512]
-    let binding_slice: Slice[ListBindingsRow] = Slice[ListBindingsRow]{ Ptr[ListBindingsRow](&bindings[0]), BINDING_CAPACITY }
-    let bound: Result[u32, SqlError] = ListBindings(db, binding_slice, BINDING_CAPACITY)
+    let binding_slice: Slice[ListBindingsRow] = Slice[ListBindingsRow]{ Ptr[ListBindingsRow](&bindings[0]), INVENTORY_BINDING_CAPACITY }
+    let bound: Result[u32, SqlError] = ListBindings(db, binding_slice, INVENTORY_BINDING_CAPACITY)
     if bound.is_ok && str_eq(access, "control") {
         let holder: string = inventory_controller(bindings, bound.ok, source, i64(id))
         if holder != "" {
             sql_close(db)
-            return item_automation_message(req, id, i18n_t(req, "inventory.source_taken") + " " + holder)
+            return inventory_automation_message(req, id, i18n_t(req, "inventory.source_taken") + " " + holder)
         }
     }
     let saved: Result[u32, SqlError] = BindCapability(int_to_str(id), capability, source, access, db)
     sql_close(db)
     if !saved.is_ok {
-        return item_automation_message(req, id, saved.err.message)
+        return inventory_automation_message(req, id, saved.err.message)
     }
     info("inventory", "item " + int_to_str(id) + " " + capability + " bound to " + source)
-    return item_automation_message(req, id, i18n_t(req, "inventory.bound"))
+    return inventory_automation_message(req, id, i18n_t(req, "inventory.bound"))
 }
 
-fn items_switch(req: Request) Response {
+fn inventory_items_switch(req: Request) Response {
     let body: string = request_body(req)
     let id: u32 = int_from_str(str_trim(form_field(body, "id")))
     if !forms_csrf_ok(body) {
-        return item_automation_message(req, id, i18n_t(req, "inventory.csrf_refused"))
+        return inventory_automation_message(req, id, i18n_t(req, "inventory.csrf_refused"))
     }
     let on: bool = str_eq(str_trim(form_field(body, "state")), "on")
     if inventory_switch(int_to_str(id), on, "person") {
-        return item_automation_message(req, id, i18n_t(req, "inventory.switched"))
+        return inventory_automation_message(req, id, i18n_t(req, "inventory.switched"))
     }
-    return item_automation_message(req, id, i18n_t(req, "inventory.switch_failed"))
+    return inventory_automation_message(req, id, i18n_t(req, "inventory.switch_failed"))
 }

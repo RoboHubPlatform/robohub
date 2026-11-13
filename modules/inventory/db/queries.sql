@@ -28,6 +28,29 @@ FROM items i
 LEFT JOIN categories c ON c.id = i.category_id
 ORDER BY i.name;
 
+-- One item, by what names it: looked up, not found in a list of every item.
+-- name: get_item_by_handle
+SELECT i.id, i.name, COALESCE(c.name, '') AS category, i.category_id, i.unit,
+       i.quantity_milli, i.reorder_milli, COALESCE(i.location, '') AS location,
+       COALESCE(i.notes, '') AS notes, i.kind, i.handle, i.runtime_s, i.runtime_at,
+       i.portion_milli, COALESCE(c.capabilities, '') AS capabilities,
+       COALESCE(c.uses, '') AS uses
+FROM items i
+LEFT JOIN categories c ON c.id = i.category_id
+WHERE i.handle = :handle AND i.handle <> ''
+LIMIT 1;
+
+-- name: get_item_by_id
+SELECT i.id, i.name, COALESCE(c.name, '') AS category, i.category_id, i.unit,
+       i.quantity_milli, i.reorder_milli, COALESCE(i.location, '') AS location,
+       COALESCE(i.notes, '') AS notes, i.kind, i.handle, i.runtime_s, i.runtime_at,
+       i.portion_milli, COALESCE(c.capabilities, '') AS capabilities,
+       COALESCE(c.uses, '') AS uses
+FROM items i
+LEFT JOIN categories c ON c.id = i.category_id
+WHERE i.id = :id
+LIMIT 1;
+
 -- name: update_item_details
 UPDATE items
 SET name = :name, category_id = NULLIF(:category_id, ''), unit = :unit,
@@ -84,6 +107,11 @@ SELECT b.item_id, b.capability, b.source, b.access, b.bound_at, i.handle, i.name
 FROM item_bindings b
 JOIN items i ON i.id = b.item_id
 ORDER BY i.name, b.capability;
+
+-- The source one capability of one item is bound to.
+-- name: get_binding
+SELECT b.source FROM item_bindings b
+WHERE b.item_id = :item_id AND b.capability = :capability;
 
 -- name: bind_capability
 INSERT OR REPLACE INTO item_bindings (item_id, capability, source, access)

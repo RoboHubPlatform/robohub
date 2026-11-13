@@ -64,3 +64,7 @@ Trimming, URL escapes, form fields and decimals come from the toolchain (rho 0.7
 ## [0.3.0] - 2026-11-14
 
 The Devices page is the inventory's: `/devices`, one page for every application, where what is behind each piece of equipment is chosen — which item fills a role the rules name, and which gateway source each capability reads — and equipment is added to a section's categories. The aquarium and energy each had their own; what differs between them is asked of the application through `host_devices_*` functions, which an application that includes the inventory now defines (see Devices in the docs). An item is only added to a category its section offers.
+
+## [0.3.1] - 2026-11-14
+
+One item is looked up, not found in a list of every item: `inventory_resolve` — what every reading and switch of a rule goes through — reads the item by handle or id and its one binding, where it read up to 512 items and 512 bindings each time; `inventory_item_id`, `inventory_item_name`, `inventory_consume` and `inventory_runtime_seconds` likewise. Its route handlers, helpers and constants carry the module's prefix; unprefixed, they were in the namespace of every application that includes the module. (`items_add` is `inventory_items_add`, `unquote` is `inventory_unquote`, `ITEM_CAPACITY` is `INVENTORY_ITEM_CAPACITY`, and so on.)

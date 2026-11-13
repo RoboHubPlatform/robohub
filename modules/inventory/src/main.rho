@@ -40,17 +40,17 @@ extern fn rho_read_text(path: string) string
 
 route GET  "/expenses"                  => inventory_page
 route GET  "/api/expenses/count"         => inventory_count
-route GET  "/expenses/items/edit"       => item_edit_page
-route POST "/expenses/items/add"        => items_add
-route POST "/expenses/items/edit"       => items_edit_save
-route POST "/expenses/items/consume"    => items_consume
-route POST "/expenses/purchases/add"    => expenses_add
-route POST "/expenses/purchases/delete" => expenses_delete
-route POST "/expenses/categories/add"   => categories_add
-route GET  "/expenses/items/automation" => item_automation_page
-route POST "/expenses/items/bind"       => items_bind
-route POST "/expenses/items/switch"     => items_switch
+route GET  "/expenses/items/edit"       => inventory_edit_page
+route POST "/expenses/items/add"        => inventory_items_add
+route POST "/expenses/items/edit"       => inventory_items_edit_save
+route POST "/expenses/items/consume"    => inventory_items_consume
+route POST "/expenses/purchases/add"    => inventory_expenses_add
+route POST "/expenses/purchases/delete" => inventory_expenses_delete
+route POST "/expenses/categories/add"   => inventory_categories_add
+route GET  "/expenses/items/automation" => inventory_automation_page
+route POST "/expenses/items/bind"       => inventory_items_bind
+route POST "/expenses/items/switch"     => inventory_items_switch
 // The Devices page: what is behind each handle the application's rules name.
-route GET  "/devices"                   => devices_page
-route POST "/devices"                   => devices_save
-route POST "/devices/add"               => devices_add
+route GET  "/devices"                   => inventory_devices_page
+route POST "/devices"                   => inventory_devices_save
+route POST "/devices/add"               => inventory_devices_add

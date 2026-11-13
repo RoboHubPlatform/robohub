@@ -31,10 +31,10 @@ import std.web.template
 // A module's own files, embedded in the program that includes it.
 extern fn rho_asset(module: string, path: string) string
 
-const ITEM_CAPACITY: u32 = 512
-const EXPENSES_CAPACITY: u32 = 512
-const CATEGORY_CAPACITY: u32 = 64
-const LOW_STOCK_CAPACITY: u32 = 128
+const INVENTORY_ITEM_CAPACITY: u32 = 512
+const INVENTORY_EXPENSES_CAPACITY: u32 = 512
+const INVENTORY_CATEGORY_CAPACITY: u32 = 64
+const INVENTORY_LOW_STOCK_CAPACITY: u32 = 128
 
 /* -------------------------------------------------------------------------- */
 /*  Where the database and its schema are                                     */
@@ -98,21 +98,21 @@ fn inventory_host_config(key: string) string {
             i = end + 1
             continue
         }
-        if plugin_indent(line) == 0 && !str_eq(trimmed, "app_modules:") {
+        if inventory_indent(line) == 0 && !str_eq(trimmed, "app_modules:") {
             break
         }
         if str_index_of(trimmed, "- name:") == 0 {
-            let name: string = unquote(str_slice(trimmed, 7,
+            let name: string = inventory_unquote(str_slice(trimmed, 7,
                 u32(strlen(trimmed)) - 7))
             mine = str_eq(name, "inventory")
             in_config = false
         } else if mine && str_index_of(trimmed, "config:") == 0 {
             in_config = true
-            config_indent = plugin_indent(line)
-        } else if mine && in_config && plugin_indent(line) > config_indent {
+            config_indent = inventory_indent(line)
+        } else if mine && in_config && inventory_indent(line) > config_indent {
             let colon: i32 = str_index_of(trimmed, ":")
-            if colon > 0 && str_eq(unquote(str_slice(trimmed, 0, u32(colon))), key) {
-                return unquote(str_slice(trimmed, u32(colon) + 1,
+            if colon > 0 && str_eq(inventory_unquote(str_slice(trimmed, 0, u32(colon))), key) {
+                return inventory_unquote(str_slice(trimmed, u32(colon) + 1,
                     u32(strlen(trimmed)) - u32(colon) - 1))
             }
         }
@@ -137,7 +137,7 @@ fn inventory_setting(key: string, fallback: string) string {
     return fallback
 }
 
-fn unquote(text: string) string {
+fn inventory_unquote(text: string) string {
     let value: string = str_trim(text)
     if strlen(value) >= 2 {
         let first: string = str_slice(value, 0, 1)
@@ -150,7 +150,7 @@ fn unquote(text: string) string {
     return value
 }
 
-fn plugin_indent(line: string) u32 {
+fn inventory_indent(line: string) u32 {
     var count: u32 = 0
     while count < u32(strlen(line)) &&
         str_eq(str_slice(line, count, 1), " ") {
@@ -167,7 +167,7 @@ fn inventory_date() string {
 /*  Formatting and parsing                                                    */
 /* -------------------------------------------------------------------------- */
 
-fn ignore_result(value: Result[u32, SqlError]) void {
+fn inventory_ignore(value: Result[u32, SqlError]) void {
 }
 
 fn inventory_money(cents: i64) string {
@@ -468,8 +468,8 @@ fn inventory_handle_taken(db: SqlDb, handle: string, except: u32) bool {
         return false
     }
     let items: ListItemsRow[512]
-    let item_slice: Slice[ListItemsRow] = Slice[ListItemsRow]{ Ptr[ListItemsRow](&items[0]), ITEM_CAPACITY }
-    let listed: Result[u32, SqlError] = ListItems(db, item_slice, ITEM_CAPACITY)
+    let item_slice: Slice[ListItemsRow] = Slice[ListItemsRow]{ Ptr[ListItemsRow](&items[0]), INVENTORY_ITEM_CAPACITY }
+    let listed: Result[u32, SqlError] = ListItems(db, item_slice, INVENTORY_ITEM_CAPACITY)
     if !listed.is_ok {
         return false
     }
@@ -482,7 +482,7 @@ fn inventory_handle_taken(db: SqlDb, handle: string, except: u32) bool {
 }
 
 fn inventory_bindings(db: SqlDb, out: Slice[ListBindingsRow]) u32 {
-    let bound: Result[u32, SqlError] = ListBindings(db, out, BINDING_CAPACITY)
+    let bound: Result[u32, SqlError] = ListBindings(db, out, INVENTORY_BINDING_CAPACITY)
     if bound.is_ok {
         return bound.ok
     }
@@ -540,8 +540,8 @@ fn inventory_count(req: Request) Response {
     sql_apply(db, inventory_schema())
     let items: ListItemsRow[512]
     let item_slice: Slice[ListItemsRow] = Slice[ListItemsRow]{
-        Ptr[ListItemsRow](&items[0]), ITEM_CAPACITY }
-    let listed: Result[u32, SqlError] = ListItems(db, item_slice, ITEM_CAPACITY)
+        Ptr[ListItemsRow](&items[0]), INVENTORY_ITEM_CAPACITY }
+    let listed: Result[u32, SqlError] = ListItems(db, item_slice, INVENTORY_ITEM_CAPACITY)
     var n: u32 = 0
     if listed.is_ok { n = listed.ok }
     sql_close(db)
@@ -559,9 +559,9 @@ fn inventory_page_message(req: Request, message: string) Response {
 
     let categories: Categories[64]
     let category_slice: Slice[Categories] = Slice[Categories]{
-        Ptr[Categories](&categories[0]), CATEGORY_CAPACITY }
+        Ptr[Categories](&categories[0]), INVENTORY_CATEGORY_CAPACITY }
     let listed_categories: Result[u32, SqlError] = ListCategories(
-        db, category_slice, CATEGORY_CAPACITY)
+        db, category_slice, INVENTORY_CATEGORY_CAPACITY)
     var category_count: u32 = 0
     if listed_categories.is_ok {
         category_count = listed_categories.ok
@@ -569,8 +569,8 @@ fn inventory_page_message(req: Request, message: string) Response {
 
     let items: ListItemsRow[512]
     let item_slice: Slice[ListItemsRow] = Slice[ListItemsRow]{
-        Ptr[ListItemsRow](&items[0]), ITEM_CAPACITY }
-    let listed_items: Result[u32, SqlError] = ListItems(db, item_slice, ITEM_CAPACITY)
+        Ptr[ListItemsRow](&items[0]), INVENTORY_ITEM_CAPACITY }
+    let listed_items: Result[u32, SqlError] = ListItems(db, item_slice, INVENTORY_ITEM_CAPACITY)
     var item_count: u32 = 0
     if listed_items.is_ok {
         item_count = listed_items.ok
@@ -578,8 +578,8 @@ fn inventory_page_message(req: Request, message: string) Response {
 
     let low: LowStockItemsRow[128]
     let low_slice: Slice[LowStockItemsRow] = Slice[LowStockItemsRow]{
-        Ptr[LowStockItemsRow](&low[0]), LOW_STOCK_CAPACITY }
-    let listed_low: Result[u32, SqlError] = LowStockItems(db, low_slice, LOW_STOCK_CAPACITY)
+        Ptr[LowStockItemsRow](&low[0]), INVENTORY_LOW_STOCK_CAPACITY }
+    let listed_low: Result[u32, SqlError] = LowStockItems(db, low_slice, INVENTORY_LOW_STOCK_CAPACITY)
     var low_count: u32 = 0
     if listed_low.is_ok {
         low_count = listed_low.ok
@@ -587,9 +587,9 @@ fn inventory_page_message(req: Request, message: string) Response {
 
     let expenses: ListExpensesRow[512]
     let expense_slice: Slice[ListExpensesRow] = Slice[ListExpensesRow]{
-        Ptr[ListExpensesRow](&expenses[0]), EXPENSES_CAPACITY }
+        Ptr[ListExpensesRow](&expenses[0]), INVENTORY_EXPENSES_CAPACITY }
     let listed_expenses: Result[u32, SqlError] = ListExpenses(
-        db, expense_slice, EXPENSES_CAPACITY)
+        db, expense_slice, INVENTORY_EXPENSES_CAPACITY)
     var expense_count: u32 = 0
     if listed_expenses.is_ok {
         expense_count = listed_expenses.ok
@@ -598,7 +598,7 @@ fn inventory_page_message(req: Request, message: string) Response {
     let total: i64 = inventory_total(db)
     let bindings: ListBindingsRow[512]
     let binding_count: u32 = inventory_bindings(db, Slice[ListBindingsRow]{
-        Ptr[ListBindingsRow](&bindings[0]), BINDING_CAPACITY })
+        Ptr[ListBindingsRow](&bindings[0]), INVENTORY_BINDING_CAPACITY })
     sql_close(db)
 
     let toast_js: string = ""
@@ -705,7 +705,7 @@ fn inventory_keeper_link() string {
         "\">← Keeper</a>"
 }
 
-fn item_edit_page(req: Request) Response {
+fn inventory_edit_page(req: Request) Response {
     let id: u32 = int_from_str(request_query_param(req, "id"))
     let opened: Result[SqlDb, string] = sql_open(inventory_db_path())
     if !opened.is_ok {
@@ -715,17 +715,17 @@ fn item_edit_page(req: Request) Response {
     sql_apply(db, inventory_schema())
     let categories: Categories[64]
     let category_slice: Slice[Categories] = Slice[Categories]{
-        Ptr[Categories](&categories[0]), CATEGORY_CAPACITY }
+        Ptr[Categories](&categories[0]), INVENTORY_CATEGORY_CAPACITY }
     let listed_categories: Result[u32, SqlError] = ListCategories(
-        db, category_slice, CATEGORY_CAPACITY)
+        db, category_slice, INVENTORY_CATEGORY_CAPACITY)
     var category_count: u32 = 0
     if listed_categories.is_ok {
         category_count = listed_categories.ok
     }
     let items: ListItemsRow[512]
     let item_slice: Slice[ListItemsRow] = Slice[ListItemsRow]{
-        Ptr[ListItemsRow](&items[0]), ITEM_CAPACITY }
-    let listed_items: Result[u32, SqlError] = ListItems(db, item_slice, ITEM_CAPACITY)
+        Ptr[ListItemsRow](&items[0]), INVENTORY_ITEM_CAPACITY }
+    let listed_items: Result[u32, SqlError] = ListItems(db, item_slice, INVENTORY_ITEM_CAPACITY)
     var item_count: u32 = 0
     if listed_items.is_ok {
         item_count = listed_items.ok
@@ -765,7 +765,7 @@ fn item_edit_page(req: Request) Response {
 /*  Actions                                                                   */
 /* -------------------------------------------------------------------------- */
 
-fn items_add(req: Request) Response {
+fn inventory_items_add(req: Request) Response {
     let body: string = request_body(req)
     if !forms_csrf_ok(body) {
         return inventory_page_message(req, i18n_t(req, "inventory.csrf_refused"))
@@ -784,8 +784,8 @@ fn items_add(req: Request) Response {
     sql_apply(db, inventory_schema())
     let categories: Categories[64]
     let category_slice: Slice[Categories] = Slice[Categories]{
-        Ptr[Categories](&categories[0]), CATEGORY_CAPACITY }
-    let listed_categories: Result[u32, SqlError] = ListCategories(db, category_slice, CATEGORY_CAPACITY)
+        Ptr[Categories](&categories[0]), INVENTORY_CATEGORY_CAPACITY }
+    let listed_categories: Result[u32, SqlError] = ListCategories(db, category_slice, INVENTORY_CATEGORY_CAPACITY)
     var category_count: u32 = 0
     if listed_categories.is_ok {
         category_count = listed_categories.ok
@@ -817,7 +817,7 @@ fn items_add(req: Request) Response {
     return inventory_page_message(req, "Item added.")
 }
 
-fn items_edit_save(req: Request) Response {
+fn inventory_items_edit_save(req: Request) Response {
     let body: string = request_body(req)
     let id: u32 = int_from_str(str_trim(form_field(body, "id")))
     if id == 0 {
@@ -859,7 +859,7 @@ fn items_edit_save(req: Request) Response {
     return inventory_page_message(req, "Item saved.")
 }
 
-fn items_consume(req: Request) Response {
+fn inventory_items_consume(req: Request) Response {
     let body: string = request_body(req)
     if !forms_csrf_ok(body) {
         return inventory_page_message(req, i18n_t(req, "inventory.csrf_refused"))
@@ -878,7 +878,7 @@ fn items_consume(req: Request) Response {
     let delta: string = "-" + int_to_str(amount)
     let updated: Result[u32, SqlError] = UpdateItemStock(delta, i64(id), db)
     if updated.is_ok {
-        ignore_result(InsertMovement(int_to_str(id), "consume", delta, "0", "0",
+        inventory_ignore(InsertMovement(int_to_str(id), "consume", delta, "0", "0",
             str_trim(form_field(body, "source")), inventory_date(),
             str_trim(form_field(body, "comment")), db))
     }
@@ -891,7 +891,7 @@ fn items_consume(req: Request) Response {
     return inventory_page_message(req, "Stock removed.")
 }
 
-fn expenses_add(req: Request) Response {
+fn inventory_expenses_add(req: Request) Response {
     let body: string = request_body(req)
     if !forms_csrf_ok(body) {
         return inventory_page_message(req, i18n_t(req, "inventory.csrf_refused"))
@@ -921,8 +921,8 @@ fn expenses_add(req: Request) Response {
 
     let items: ListItemsRow[512]
     let item_slice: Slice[ListItemsRow] = Slice[ListItemsRow]{
-        Ptr[ListItemsRow](&items[0]), ITEM_CAPACITY }
-    let listed_items: Result[u32, SqlError] = ListItems(db, item_slice, ITEM_CAPACITY)
+        Ptr[ListItemsRow](&items[0]), INVENTORY_ITEM_CAPACITY }
+    let listed_items: Result[u32, SqlError] = ListItems(db, item_slice, INVENTORY_ITEM_CAPACITY)
     var item_count: u32 = 0
     if listed_items.is_ok {
         item_count = listed_items.ok
@@ -942,8 +942,8 @@ fn expenses_add(req: Request) Response {
         str_trim(form_field(body, "source")), purchased,
         str_trim(form_field(body, "comment")), db)
     if inserted.is_ok {
-        ignore_result(UpdateItemStock(int_to_str(qty), i64(item_id), db))
-        ignore_result(InsertMovement(int_to_str(item_id), "purchase",
+        inventory_ignore(UpdateItemStock(int_to_str(qty), i64(item_id), db))
+        inventory_ignore(InsertMovement(int_to_str(item_id), "purchase",
             int_to_str(qty), int_to_str(unit_price), inventory_i64(total),
             str_trim(form_field(body, "source")), purchased,
             str_trim(form_field(body, "comment")), db))
@@ -957,7 +957,7 @@ fn expenses_add(req: Request) Response {
     return inventory_page_message(req, "Purchase recorded and stock increased.")
 }
 
-fn expenses_delete(req: Request) Response {
+fn inventory_expenses_delete(req: Request) Response {
     let body: string = request_body(req)
     let id: u32 = int_from_str(str_trim(form_field(body, "id")))
     if id == 0 {
@@ -977,7 +977,7 @@ fn expenses_delete(req: Request) Response {
     return inventory_page_message(req, "Purchase removed. Stock was not adjusted.")
 }
 
-fn categories_add(req: Request) Response {
+fn inventory_categories_add(req: Request) Response {
     let body: string = request_body(req)
     if !forms_csrf_ok(body) {
         return inventory_page_message(req, i18n_t(req, "inventory.csrf_refused"))

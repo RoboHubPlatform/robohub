@@ -28,17 +28,17 @@ import std.web.template
 // A module's own files, embedded in the program that includes it.
 extern fn rho_asset(module: string, path: string) string
 
-const CHORE_CAPACITY: u32 = 256
+const SCHEDULER_CHORE_CAPACITY: u32 = 256
 
 fn scheduler_ignore_result(value: Result[u32, SqlError]) void {
 }
 
-fn ignore_string(value: string) void {
+fn scheduler_ignore_string(value: string) void {
 }
 
-fn ignore_response(value: Response) void {
+fn scheduler_ignore_response(value: Response) void {
 }
-const COMPLETION_CAPACITY: u32 = 64
+const SCHEDULER_COMPLETION_CAPACITY: u32 = 64
 
 fn scheduler_workspace() string {
     let workspace: string = getenv("ROBOHUB_APP_WORKSPACE")
@@ -272,17 +272,17 @@ fn scheduler_page_message(req: Request, message: string) Response {
     sql_apply(db, scheduler_schema())
     let chores: Chores[256]
     let chore_slice: Slice[Chores] = Slice[Chores]{
-        Ptr[Chores](&chores[0]), CHORE_CAPACITY }
-    let listed: Result[u32, SqlError] = ListChores(db, chore_slice, CHORE_CAPACITY)
+        Ptr[Chores](&chores[0]), SCHEDULER_CHORE_CAPACITY }
+    let listed: Result[u32, SqlError] = ListChores(db, chore_slice, SCHEDULER_CHORE_CAPACITY)
     var count: u32 = 0
     if listed.is_ok {
         count = listed.ok
     }
     let completions: ListCompletionsRow[64]
     let completion_slice: Slice[ListCompletionsRow] = Slice[ListCompletionsRow]{
-        Ptr[ListCompletionsRow](&completions[0]), COMPLETION_CAPACITY }
+        Ptr[ListCompletionsRow](&completions[0]), SCHEDULER_COMPLETION_CAPACITY }
     let listed_completions: Result[u32, SqlError] = ListCompletions(
-        db, completion_slice, COMPLETION_CAPACITY)
+        db, completion_slice, SCHEDULER_COMPLETION_CAPACITY)
     var completion_count: u32 = 0
     if listed_completions.is_ok {
         completion_count = listed_completions.ok
@@ -426,7 +426,7 @@ fn scheduler_add_chore(req: Request, body: string) string {
     return ""
 }
 
-fn chores_add(req: Request) Response {
+fn scheduler_chores_add(req: Request) Response {
     let body: string = request_body(req)
     if !forms_csrf_ok(body) {
         return scheduler_page_message(req, i18n_t(req, "scheduler.csrf_refused"))
@@ -440,11 +440,11 @@ fn chores_add(req: Request) Response {
     return scheduler_page_message(req, "Chore added.")
 }
 
-fn chores_complete(req: Request) Response {
-    return chores_complete_body(req, request_body(req))
+fn scheduler_chores_complete(req: Request) Response {
+    return scheduler_complete_body(req, request_body(req))
 }
 
-fn chores_complete_body(req: Request, body: string) Response {
+fn scheduler_complete_body(req: Request, body: string) Response {
     let id: u32 = int_from_str(str_trim(form_field(body, "id")))
     if id == 0 {
         return scheduler_page_message(req, "That chore was not found.")
@@ -467,8 +467,8 @@ fn scheduler_complete(id: u32, note: string) string {
     let db: SqlDb = opened.ok
     sql_apply(db, scheduler_schema())
     let chores: Chores[256]
-    let slice: Slice[Chores] = Slice[Chores]{ Ptr[Chores](&chores[0]), CHORE_CAPACITY }
-    let listed: Result[u32, SqlError] = ListChores(db, slice, CHORE_CAPACITY)
+    let slice: Slice[Chores] = Slice[Chores]{ Ptr[Chores](&chores[0]), SCHEDULER_CHORE_CAPACITY }
+    let listed: Result[u32, SqlError] = ListChores(db, slice, SCHEDULER_CHORE_CAPACITY)
     var count: u32 = 0
     if listed.is_ok {
         count = listed.ok
@@ -507,11 +507,11 @@ fn scheduler_complete(id: u32, note: string) string {
     return ""
 }
 
-fn chores_snooze(req: Request) Response {
-    return chores_snooze_body(req, request_body(req))
+fn scheduler_chores_snooze(req: Request) Response {
+    return scheduler_snooze_body(req, request_body(req))
 }
 
-fn chores_snooze_body(req: Request, body: string) Response {
+fn scheduler_snooze_body(req: Request, body: string) Response {
     let id: u32 = int_from_str(str_trim(form_field(body, "id")))
     var hours: u32 = int_from_str(str_trim(form_field(body, "hours")))
     if hours == 0 {
@@ -532,11 +532,11 @@ fn chores_snooze_body(req: Request, body: string) Response {
     return scheduler_page_message(req, "Chore snoozed.")
 }
 
-fn chores_usage(req: Request) Response {
-    return chores_usage_body(req, request_body(req))
+fn scheduler_chores_usage(req: Request) Response {
+    return scheduler_usage_body(req, request_body(req))
 }
 
-fn chores_usage_body(req: Request, body: string) Response {
+fn scheduler_usage_body(req: Request, body: string) Response {
     let id: u32 = int_from_str(str_trim(form_field(body, "id")))
     let hours: u32 = int_from_str(str_trim(form_field(body, "hours")))
     if id == 0 || hours == 0 {
@@ -580,8 +580,8 @@ fn scheduler_api_list(req: Request) Response {
     let db: SqlDb = opened.ok
     sql_apply(db, scheduler_schema())
     let chores: Chores[256]
-    let slice: Slice[Chores] = Slice[Chores]{ Ptr[Chores](&chores[0]), CHORE_CAPACITY }
-    let listed: Result[u32, SqlError] = ListChores(db, slice, CHORE_CAPACITY)
+    let slice: Slice[Chores] = Slice[Chores]{ Ptr[Chores](&chores[0]), SCHEDULER_CHORE_CAPACITY }
+    let listed: Result[u32, SqlError] = ListChores(db, slice, SCHEDULER_CHORE_CAPACITY)
     var count: u32 = 0
     if listed.is_ok {
         count = listed.ok
@@ -619,7 +619,7 @@ fn scheduler_api_complete(req: Request) Response {
     if strlen(id) == 0 {
         return json(status_bad_request(), "{\"ok\":false}")
     }
-    ignore_response(chores_complete_body(req, request_body(req) + "&id=" + id))
+    scheduler_ignore_response(scheduler_complete_body(req, request_body(req) + "&id=" + id))
     return json(status_ok(), "{\"ok\":true}")
 }
 
@@ -628,7 +628,7 @@ fn scheduler_api_snooze(req: Request) Response {
     if strlen(id) == 0 {
         return json(status_bad_request(), "{\"ok\":false}")
     }
-    ignore_response(chores_snooze_body(req, request_body(req) + "&id=" + id))
+    scheduler_ignore_response(scheduler_snooze_body(req, request_body(req) + "&id=" + id))
     return json(status_ok(), "{\"ok\":true}")
 }
 
@@ -637,7 +637,7 @@ fn scheduler_api_usage(req: Request) Response {
     if strlen(id) == 0 {
         return json(status_bad_request(), "{\"ok\":false}")
     }
-    ignore_response(chores_usage_body(req, request_body(req) + "&id=" + id))
+    scheduler_ignore_response(scheduler_usage_body(req, request_body(req) + "&id=" + id))
     return json(status_ok(), "{\"ok\":true}")
 }
 
@@ -658,8 +658,8 @@ fn scheduler_usage_tick() u32 {
     let db: SqlDb = opened.ok
     sql_apply(db, scheduler_schema())
     let chores: Chores[256]
-    let slice: Slice[Chores] = Slice[Chores]{ Ptr[Chores](&chores[0]), CHORE_CAPACITY }
-    let listed: Result[u32, SqlError] = ListChores(db, slice, CHORE_CAPACITY)
+    let slice: Slice[Chores] = Slice[Chores]{ Ptr[Chores](&chores[0]), SCHEDULER_CHORE_CAPACITY }
+    let listed: Result[u32, SqlError] = ListChores(db, slice, SCHEDULER_CHORE_CAPACITY)
     var added: u32 = 0
     if listed.is_ok {
         var i: u32 = 0
@@ -776,8 +776,8 @@ fn scheduler_complete_title(title: string, note: string) bool {
     let db: SqlDb = opened.ok
     sql_apply(db, scheduler_schema())
     let chores: Chores[256]
-    let slice: Slice[Chores] = Slice[Chores]{ Ptr[Chores](&chores[0]), CHORE_CAPACITY }
-    let listed: Result[u32, SqlError] = ListChores(db, slice, CHORE_CAPACITY)
+    let slice: Slice[Chores] = Slice[Chores]{ Ptr[Chores](&chores[0]), SCHEDULER_CHORE_CAPACITY }
+    let listed: Result[u32, SqlError] = ListChores(db, slice, SCHEDULER_CHORE_CAPACITY)
     var best: i64 = 0
     if listed.is_ok {
         var i: u32 = 0

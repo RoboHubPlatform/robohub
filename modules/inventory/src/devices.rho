@@ -260,11 +260,11 @@ fn inventory_add_card(req: Request, section: string, categories: string) string 
         "<div><button>" + i18n_t(req, "inventory.devices.add") + "</button></div></form></section>"
 }
 
-fn devices_page(req: Request) Response {
-    return devices_page_message(req, request_query_param(req, "msg"))
+fn inventory_devices_page(req: Request) Response {
+    return inventory_devices_message(req, request_query_param(req, "msg"))
 }
 
-fn devices_page_message(req: Request, message: string) Response {
+fn inventory_devices_message(req: Request, message: string) Response {
     let title: string = i18n_t(req, "inventory.devices.title")
     let opened: Result[SqlDb, string] = sql_open(inventory_db_path())
     if !opened.is_ok {
@@ -353,10 +353,10 @@ fn inventory_bind_all(id: u32, capabilities: string, body: string) string {
     return problem
 }
 
-fn devices_save(req: Request) Response {
+fn inventory_devices_save(req: Request) Response {
     let body: string = request_body(req)
     if !forms_csrf_ok(body) {
-        return devices_page_message(req, i18n_t(req, "form.expired"))
+        return inventory_devices_message(req, i18n_t(req, "form.expired"))
     }
     let handle: string = form_field(body, "role")
     if handle != "" {
@@ -365,18 +365,18 @@ fn devices_save(req: Request) Response {
     let id: u32 = int_from_str(form_field(body, "item"))
     let opened: Result[SqlDb, string] = sql_open(inventory_db_path())
     if id == 0 || !opened.is_ok {
-        return devices_page_message(req, i18n_t(req, "inventory.devices.no_item"))
+        return inventory_devices_message(req, i18n_t(req, "inventory.devices.no_item"))
     }
     let items: ListItemsRow[512]
     let item_slice: Slice[ListItemsRow] = Slice[ListItemsRow]{ Ptr[ListItemsRow](&items[0]), 512 }
     let listed: Result[u32, SqlError] = ListItems(opened.ok, item_slice, 512)
     sql_close(opened.ok)
     if !listed.is_ok {
-        return devices_page_message(req, i18n_t(req, "inventory.devices.no_item"))
+        return inventory_devices_message(req, i18n_t(req, "inventory.devices.no_item"))
     }
     let at: i32 = inventory_find_item(items, listed.ok, id)
     if at < 0 {
-        return devices_page_message(req, i18n_t(req, "inventory.devices.no_item"))
+        return inventory_devices_message(req, i18n_t(req, "inventory.devices.no_item"))
     }
     let row: u32 = u32(at)
     let item: ListItemsRow = items[row]
@@ -393,7 +393,7 @@ fn devices_save(req: Request) Response {
 fn inventory_role_save(req: Request, body: string, handle: string) Response {
     let role: string = inventory_role_line(req, form_field(body, "section"), handle)
     if role == "" {
-        return devices_page_message(req, i18n_t(req, "inventory.devices.unknown"))
+        return inventory_devices_message(req, i18n_t(req, "inventory.devices.unknown"))
     }
     let label: string = inventory_field(role, 1)
     var id: u32 = 0
@@ -413,7 +413,7 @@ fn inventory_role_save(req: Request, body: string, handle: string) Response {
         }
     }
     if id == 0 {
-        return devices_page_message(req, i18n_t(req, "inventory.devices.no_item"))
+        return inventory_devices_message(req, i18n_t(req, "inventory.devices.no_item"))
     }
     let problem: string = inventory_bind_all(id, inventory_field(role, 3), body)
     host_devices_changed(handle, label + " mapped")
@@ -440,20 +440,20 @@ fn inventory_add_named(name: string, category: string) u32 {
     return inventory_add_equipment(name, category, handle)
 }
 
-fn devices_add(req: Request) Response {
+fn inventory_devices_add(req: Request) Response {
     let body: string = request_body(req)
     if !forms_csrf_ok(body) {
-        return devices_page_message(req, i18n_t(req, "form.expired"))
+        return inventory_devices_message(req, i18n_t(req, "form.expired"))
     }
     let name: string = form_field(body, "name")
     let category: string = form_field(body, "category")
     // Only a category the section offers: the form is not the authority.
     if name == "" || !inventory_in_list(host_devices_categories(req, form_field(body, "section")), category) {
-        return devices_page_message(req, i18n_t(req, "inventory.devices.need"))
+        return inventory_devices_message(req, i18n_t(req, "inventory.devices.need"))
     }
     let id: u32 = inventory_add_named(name, category)
     if id == 0 {
-        return devices_page_message(req, i18n_t(req, "inventory.devices.taken"))
+        return inventory_devices_message(req, i18n_t(req, "inventory.devices.taken"))
     }
     host_devices_added(id, category)
     host_devices_changed(inventory_handle(name), name + " added to " + category)

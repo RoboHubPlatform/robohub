@@ -37,3 +37,7 @@ Trimming, URL escapes, form fields and decimals come from the toolchain (rho 0.7
 ## [0.1.6] - 2026-11-14
 
 The grammar has unit tests of its own (tests/rules_test.rho): tokens, numbers and durations, comparisons, and/or/not and brackets, modes, time windows, and a reading that is missing or not a number. `rules_seconds` moved beside the rest of the grammar in src/expr.rho; nothing it does changed.
+
+## [0.1.7] - 2026-11-14
+
+`MODES_CAPACITY` and `ignore_rules` are `RULES_MODES_CAPACITY` and `rules_ignore`. Both carry the module's prefix; unprefixed, they were in the namespace of every application that includes the module.

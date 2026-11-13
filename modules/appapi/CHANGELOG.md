@@ -20,3 +20,7 @@ A value's history returns the newest 5000 points of its window rather than the o
 ## [0.1.3] - 2026-11-14
 
 Trimming, URL escapes, form fields and decimals come from the toolchain (rho 0.7.0: `str_trim`, `str_url_encode`/`str_url_decode`, `form_field`, `milli_*`) rather than this module's own copy, the same on both backends. Needs rho 0.7.0. A value is read with a decimal comma as well as a dot.
+
+## [0.1.4] - 2026-11-14
+
+`appapi_value` — a rule's host value and every dashboard card that shows one — looks the value up by its id, where it listed every value. `ignore_appapi` is `appapi_ignore`.

@@ -30,7 +30,7 @@ import std.web.template
 extern fn rho_asset(module: string, path: string) string
 
 const WIDGET_CAPACITY: u32 = 128
-const VALUE_CAPACITY: u32 = 100
+const WIDGETS_VALUE_CAPACITY: u32 = 100
 
 fn widget_workspace() string {
     let workspace: string = getenv("ROBOHUB_APP_WORKSPACE")
@@ -266,9 +266,9 @@ fn widgets_migrate_sources() u32 {
 fn widget_latest_text(db: SqlDb, widget_id: u32) string {
     let values: WidgetValues[100]
     let slice: Slice[WidgetValues] = Slice[WidgetValues]{
-        Ptr[WidgetValues](&values[0]), VALUE_CAPACITY }
+        Ptr[WidgetValues](&values[0]), WIDGETS_VALUE_CAPACITY }
     let listed: Result[u32, SqlError] = ListWidgetValues(i64(widget_id), db, slice,
-        VALUE_CAPACITY)
+        WIDGETS_VALUE_CAPACITY)
     if listed.is_ok && listed.ok > 0 {
         return values[0].valueText
     }
@@ -306,7 +306,10 @@ fn widget_hook(source: string, state: string) string {
 fn widget_ignore_result(value: Result[u32, SqlError]) void {
 }
 
-fn ignore_u32_widgets(value: u32) void {
+fn widgets_ignore(value: Result[u32, SqlError]) void {
+}
+
+fn widgets_ignore_u32(value: u32) void {
 }
 
 fn widget_ignore_string(value: string) void {
@@ -772,7 +775,7 @@ fn widget_card(db: SqlDb, widget: Widgets, locale: string) string {
         if marker >= 0 {
             var rest: string = str_slice(history, u32(marker) + 10,
                 u32(strlen(history)) - u32(marker) - 10)
-            while rest != "" && count < VALUE_CAPACITY {
+            while rest != "" && count < WIDGETS_VALUE_CAPACITY {
                 let at: i32 = str_index_of(rest, "},{")
                 var object: string = rest
                 if at < 0 {
@@ -810,9 +813,9 @@ fn widget_card(db: SqlDb, widget: Widgets, locale: string) string {
         latest = gateway.source_latest(widget_gateway_id(widget))
     } else {
         let slice: Slice[WidgetValues] = Slice[WidgetValues]{
-            Ptr[WidgetValues](&values[0]), VALUE_CAPACITY }
+            Ptr[WidgetValues](&values[0]), WIDGETS_VALUE_CAPACITY }
         let listed: Result[u32, SqlError] = ListWidgetValues(i64(u32(widget.id)), db, slice,
-            VALUE_CAPACITY)
+            WIDGETS_VALUE_CAPACITY)
         if listed.is_ok {
             count = listed.ok
         }
@@ -985,7 +988,7 @@ fn widgets_live_changed() bool {
 
 fn widgets_refresh_all() u32 {
     // Older sources move to stable gateway ids.
-    ignore_u32_widgets(widgets_migrate_sources())
+    widgets_ignore_u32(widgets_migrate_sources())
     let opened: Result[SqlDb, string] = sql_open(widget_db_path())
     if !opened.is_ok {
         return 0
@@ -1293,7 +1296,7 @@ fn widgets_move(req: Request) Response {
     }
     var n: u32 = 0
     while n < count {
-        ignore_result(MoveWidget(i64(n), i64(u32(widgets[n].id)), db))
+        widgets_ignore(MoveWidget(i64(n), i64(u32(widgets[n].id)), db))
         widgets[n].position = i64(n)
         n = n + 1
     }
@@ -1308,8 +1311,8 @@ fn widgets_move(req: Request) Response {
     let bi: u32 = u32(target)
     let a_id: u32 = u32(widgets[ai].id)
     let b_id: u32 = u32(widgets[bi].id)
-    ignore_result(MoveWidget(i64(target), i64(a_id), db))
-    ignore_result(MoveWidget(i64(idx), i64(b_id), db))
+    widgets_ignore(MoveWidget(i64(target), i64(a_id), db))
+    widgets_ignore(MoveWidget(i64(idx), i64(b_id), db))
     sql_close(db)
     notification_push_level_locale(i18n_t(req, "toast.widget_moved"), "info", 5, i18n_locale(req))
     return widgets_move_response(req)
@@ -1362,7 +1365,7 @@ fn widgets_resize(req: Request) Response {
     }
     let db: SqlDb = opened.ok
     sql_apply(db, "")
-    ignore_result(ResizeWidget(size, i64(id), db))
+    widgets_ignore(ResizeWidget(size, i64(id), db))
     sql_close(db)
     notification_push_level_locale(i18n_t(req, "toast.widget_resized"), "info", 5, i18n_locale(req))
     if str_eq(header_str(req, "HX-Request"), "true") {
@@ -1388,7 +1391,7 @@ fn widgets_pin(req: Request) Response {
     if str_eq(pinned, "0") {
         pval = 0
     }
-    ignore_result(PinWidget(pval, i64(id), db))
+    widgets_ignore(PinWidget(pval, i64(id), db))
     sql_close(db)
     if str_eq(header_str(req, "HX-Request"), "true") {
         return html(status_ok(), widget_card_html(id, i18n_locale(req)))

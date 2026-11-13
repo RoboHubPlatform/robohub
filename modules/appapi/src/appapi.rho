@@ -55,7 +55,7 @@ fn appapi_now() u32 {
     return rho_now_s()
 }
 
-fn ignore_appapi(value: Result[u32, SqlError]) void {
+fn appapi_ignore(value: Result[u32, SqlError]) void {
 }
 
 /* -------------------------------------------------------------------------- */
@@ -131,7 +131,7 @@ fn appapi_store(id: string, value: string, unit: string, label: string, kind: st
     let saved: Result[u32, SqlError] = PutAppapiValue(id, value, unit, label, kind, int_to_str(now), db)
     let number: AppapiNumber = appapi_number(value)
     if number.ok {
-        ignore_appapi(AddAppapiPoint(id, int_to_str(now), milli_format(number.milli), db))
+        appapi_ignore(AddAppapiPoint(id, int_to_str(now), milli_format(number.milli), db))
     }
     sql_close(db)
     return saved.is_ok
@@ -151,21 +151,14 @@ fn appapi_value(id: string) string {
     if !opened.is_ok {
         return ""
     }
-    let values: AppapiValues[256]
-    let slice: Slice[AppapiValues] = Slice[AppapiValues]{ Ptr[AppapiValues](&values[0]), APPAPI_CAPACITY }
-    let listed: Result[u32, SqlError] = ListAppapiValues(opened.ok, slice, APPAPI_CAPACITY)
+    let rows: GetAppapiValueRow[1]
+    let slice: Slice[GetAppapiValueRow] = Slice[GetAppapiValueRow]{ Ptr[GetAppapiValueRow](&rows[0]), 1 }
+    let got: Result[u32, SqlError] = GetAppapiValue(id, opened.ok, slice, 1)
     sql_close(opened.ok)
-    if !listed.is_ok {
+    if !got.is_ok || got.ok == 0 {
         return ""
     }
-    var i: u32 = 0
-    while i < listed.ok {
-        if str_eq(values[i].id, id) {
-            return values[i].value
-        }
-        i = i + 1
-    }
-    return ""
+    return rows[0].value
 }
 
 /* -------------------------------------------------------------------------- */
@@ -297,7 +290,7 @@ fn appapi_tick() u32 {
     let slice: Slice[AppapiDerived] = Slice[AppapiDerived]{ Ptr[AppapiDerived](&derived[0]), APPAPI_CAPACITY }
     let listed: Result[u32, SqlError] = ListAppapiDerived(opened.ok, slice, APPAPI_CAPACITY)
     if now > APPAPI_KEEP {
-        ignore_appapi(PruneAppapiPoints(i64(now - APPAPI_KEEP), opened.ok))
+        appapi_ignore(PruneAppapiPoints(i64(now - APPAPI_KEEP), opened.ok))
     }
     sql_close(opened.ok)
     if !listed.is_ok {
@@ -381,7 +374,7 @@ fn appapi_presets(text: string) u32 {
                 function = "latest"
             }
             if source != "" {
-                ignore_appapi(PutAppapiDerived(key, source, function,
+                appapi_ignore(PutAppapiDerived(key, source, function,
                     int_to_str(appapi_seconds(appapi_unquote(yaml.value(path, base + "window")))),
                     appapi_unquote(yaml.value(path, base + "unit")),
                     appapi_unquote(yaml.value(path, base + "label")), opened.ok))

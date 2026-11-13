@@ -39,10 +39,10 @@ extern fn rho_exec_capture(program: string, arguments: string) string
 extern fn rho_read_text(path: string) string
 
 route GET  "/scheduler"                          => scheduler_page
-route POST "/scheduler/chores/add"               => chores_add
-route POST "/scheduler/chores/complete"          => chores_complete
-route POST "/scheduler/chores/snooze"            => chores_snooze
-route POST "/scheduler/chores/usage"             => chores_usage
+route POST "/scheduler/chores/add"               => scheduler_chores_add
+route POST "/scheduler/chores/complete"          => scheduler_chores_complete
+route POST "/scheduler/chores/snooze"            => scheduler_chores_snooze
+route POST "/scheduler/chores/usage"             => scheduler_chores_usage
 route GET  "/api/scheduler/chores"               => scheduler_api_list
 route POST "/api/scheduler/chores"               => scheduler_api_add
 route POST "/api/scheduler/chores/{id}/complete" => scheduler_api_complete

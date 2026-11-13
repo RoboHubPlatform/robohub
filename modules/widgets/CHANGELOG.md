@@ -121,3 +121,7 @@ A URL widget's answer is read as a value (`rho_exec_capture`) rather than from a
 ## [0.3.3] - 2026-11-14
 
 Trimming, URL escapes, form fields and decimals come from the toolchain (rho 0.7.0: `str_trim`, `str_url_encode`/`str_url_decode`, `form_field`, `milli_*`) rather than this module's own copy, the same on both backends. Needs rho 0.7.0. A reading with a decimal comma reads as its value.
+
+## [0.3.4] - 2026-11-14
+
+Widgets no longer call the inventory's `ignore_result`, which they reached only because an application included both: they have `widgets_ignore`. `VALUE_CAPACITY` is `WIDGETS_VALUE_CAPACITY`.

@@ -23,7 +23,7 @@ import std.web.template
 extern fn rho_asset(module: string, path: string) string
 
 const RULES_CAPACITY: u32 = 256
-const MODES_CAPACITY: u32 = 64
+const RULES_MODES_CAPACITY: u32 = 64
 
 /* -------------------------------------------------------------------------- */
 /*  Where it is                                                               */
@@ -243,8 +243,8 @@ fn rules_mode_start(name: string, actor: string) bool {
     }
     let db: SqlDb = opened.ok
     let modes: RuleModes[64]
-    let slice: Slice[RuleModes] = Slice[RuleModes]{ Ptr[RuleModes](&modes[0]), MODES_CAPACITY }
-    let listed: Result[u32, SqlError] = ListRuleModes(db, slice, MODES_CAPACITY)
+    let slice: Slice[RuleModes] = Slice[RuleModes]{ Ptr[RuleModes](&modes[0]), RULES_MODES_CAPACITY }
+    let listed: Result[u32, SqlError] = ListRuleModes(db, slice, RULES_MODES_CAPACITY)
     sql_close(db)
     var count: u32 = 0
     if listed.is_ok {
@@ -266,7 +266,7 @@ fn rules_mode_start(name: string, actor: string) bool {
     }
     let again: Result[SqlDb, string] = rules_open()
     if again.is_ok {
-        ignore_rules(SetActiveMode(mode.name, int_to_str(now), int_to_str(ends), actor, again.ok))
+        rules_ignore(SetActiveMode(mode.name, int_to_str(now), int_to_str(ends), actor, again.ok))
         sql_close(again.ok)
     }
     var title: string = mode.title
@@ -293,8 +293,8 @@ fn rules_mode_end(actor: string) void {
     }
     let db: SqlDb = opened.ok
     let modes: RuleModes[64]
-    let slice: Slice[RuleModes] = Slice[RuleModes]{ Ptr[RuleModes](&modes[0]), MODES_CAPACITY }
-    let listed: Result[u32, SqlError] = ListRuleModes(db, slice, MODES_CAPACITY)
+    let slice: Slice[RuleModes] = Slice[RuleModes]{ Ptr[RuleModes](&modes[0]), RULES_MODES_CAPACITY }
+    let listed: Result[u32, SqlError] = ListRuleModes(db, slice, RULES_MODES_CAPACITY)
     // Whoever clears the mode ends it: a tick and a person ending it at the same
     // moment run its end actions once, not twice.
     let cleared: Result[u32, SqlError] = ClearActiveMode(db)
@@ -348,7 +348,7 @@ fn rules_suspended(modes: RuleModes[64], count: u32, mode: string, rule: string)
 /*  The engine                                                                */
 /* -------------------------------------------------------------------------- */
 
-fn ignore_rules(value: Result[u32, SqlError]) void {
+fn rules_ignore(value: Result[u32, SqlError]) void {
 }
 
 // rules_tick evaluates every enabled rule once, and ends a mode whose time is
@@ -371,8 +371,8 @@ fn rules_tick() u32 {
     let rule_slice: Slice[Rules] = Slice[Rules]{ Ptr[Rules](&rules[0]), RULES_CAPACITY }
     let listed: Result[u32, SqlError] = ListRulesAll(db, rule_slice, RULES_CAPACITY)
     let modes: RuleModes[64]
-    let mode_slice: Slice[RuleModes] = Slice[RuleModes]{ Ptr[RuleModes](&modes[0]), MODES_CAPACITY }
-    let mode_list: Result[u32, SqlError] = ListRuleModes(db, mode_slice, MODES_CAPACITY)
+    let mode_slice: Slice[RuleModes] = Slice[RuleModes]{ Ptr[RuleModes](&modes[0]), RULES_MODES_CAPACITY }
+    let mode_list: Result[u32, SqlError] = ListRuleModes(db, mode_slice, RULES_MODES_CAPACITY)
     sql_close(db)
     if !listed.is_ok {
         return 0
@@ -479,7 +479,7 @@ fn rules_step(rule: Rules, mode: string, minutes: u32, now: u32) bool {
     if !str_eq(state, rule.state) || !str_eq(problem, rule.lastError) {
         let opened: Result[SqlDb, string] = rules_open()
         if opened.is_ok {
-            ignore_rules(SetRuleState(state, i64(since), i64(fired), problem, rule.id, opened.ok))
+            rules_ignore(SetRuleState(state, i64(since), i64(fired), problem, rule.id, opened.ok))
             sql_close(opened.ok)
         }
     }
@@ -532,8 +532,8 @@ fn rules_presets(text: string) u32 {
             let doing: string = rules_preset_value(path, base + "do")
             let otherwise: string = rules_preset_value(path, base + "else")
             if when != "" {
-                ignore_rules(SeedRule(name, when, clear, int_to_str(wait), int_to_str(cooldown), doing, otherwise, "preset", db))
-                ignore_rules(UpdatePresetRule(when, clear, i64(wait), i64(cooldown), doing, otherwise, name, db))
+                rules_ignore(SeedRule(name, when, clear, int_to_str(wait), int_to_str(cooldown), doing, otherwise, "preset", db))
+                rules_ignore(UpdatePresetRule(when, clear, i64(wait), i64(cooldown), doing, otherwise, name, db))
                 count = count + 1
             }
         }
@@ -558,8 +558,8 @@ fn rules_presets(text: string) u32 {
             let doing: string = rules_preset_value(path, base + "do")
             let ending: string = rules_preset_value(path, base + "end")
             let suspends: string = rules_preset_value(path, base + "suspends")
-            ignore_rules(SeedRuleMode(name, title, int_to_str(duration), doing, ending, suspends, db))
-            ignore_rules(UpdatePresetMode(title, i64(duration), doing, ending, suspends, name, db))
+            rules_ignore(SeedRuleMode(name, title, int_to_str(duration), doing, ending, suspends, db))
+            rules_ignore(UpdatePresetMode(title, i64(duration), doing, ending, suspends, name, db))
             count = count + 1
         }
     }
@@ -585,8 +585,8 @@ fn rules_page_message(req: Request, message: string) Response {
     let rule_slice: Slice[Rules] = Slice[Rules]{ Ptr[Rules](&rules[0]), RULES_CAPACITY }
     let listed: Result[u32, SqlError] = ListRulesAll(db, rule_slice, RULES_CAPACITY)
     let modes: RuleModes[64]
-    let mode_slice: Slice[RuleModes] = Slice[RuleModes]{ Ptr[RuleModes](&modes[0]), MODES_CAPACITY }
-    let mode_list: Result[u32, SqlError] = ListRuleModes(db, mode_slice, MODES_CAPACITY)
+    let mode_slice: Slice[RuleModes] = Slice[RuleModes]{ Ptr[RuleModes](&modes[0]), RULES_MODES_CAPACITY }
+    let mode_list: Result[u32, SqlError] = ListRuleModes(db, mode_slice, RULES_MODES_CAPACITY)
     sql_close(db)
     var count: u32 = 0
     if listed.is_ok {
@@ -723,7 +723,7 @@ fn rules_change(req: Request) Response {
         return rules_page_message(req, i18n_t(req, "rules.not_found"))
     }
     if str_eq(form_field(body, "delete"), "1") {
-        ignore_rules(DeletePersonRule(i64(id), opened.ok))
+        rules_ignore(DeletePersonRule(i64(id), opened.ok))
         sql_close(opened.ok)
         return rules_page_message(req, i18n_t(req, "rules.deleted"))
     }
@@ -731,7 +731,7 @@ fn rules_change(req: Request) Response {
     if str_eq(form_field(body, "enabled"), "1") {
         enabled = 0
     }
-    ignore_rules(SetRuleEnabled(enabled, i64(id), opened.ok))
+    rules_ignore(SetRuleEnabled(enabled, i64(id), opened.ok))
     sql_close(opened.ok)
     return rules_page_message(req, i18n_t(req, "rules.saved"))
 }
