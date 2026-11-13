@@ -59,8 +59,37 @@ fn widget_now() u32 {
     return 0
 }
 
-fn widget_arg_quote(value: string) string {
-    return "\"" + value + "\""
+// widget_url_ok is whether a URL a person gave a widget may be fetched: http or
+// https, one line, so it cannot become a second argument or another protocol.
+fn widget_url_ok(url: string) bool {
+    if !str_starts_with(url, "http://") && !str_starts_with(url, "https://") {
+        return false
+    }
+    return str_index_of(url, "\n") < 0 && str_index_of(url, "\r") < 0
+}
+
+// widget_method is the HTTP method a widget presses with: GET, POST or PUT.
+fn widget_method(method: string) string {
+    if str_eq(method, "POST") || str_eq(method, "PUT") {
+        return method
+    }
+    return "GET"
+}
+
+// widget_curl_args runs curl with one argument per line and no shell. The
+// gateway's token is sent only to the gateway itself: a URL a person typed into
+// a widget may be anywhere.
+fn widget_curl_args(method: string, url: string, timeout: string, report: string) u32 {
+    if !widget_url_ok(url) {
+        return 255
+    }
+    var args: string = "-fsS\n--proto\n=http,https\n-m\n" + timeout + "\n-X\n" + widget_method(method) + "\n"
+    let token: string = gateway.token()
+    let base: string = gateway.config("url")
+    if token != "" && base != "" && str_index_of(token, "\n") < 0 && str_starts_with(url, base + "/") {
+        args = args + "-H\nAuthorization: Bearer " + token + "\n"
+    }
+    return rho_exec_args("curl", args + url + "\n", report)
 }
 
 fn widget_report(name: string) string {
@@ -70,19 +99,10 @@ fn widget_report(name: string) string {
 }
 
 fn widget_curl(url: string, report: string) string {
-    let code: u32 = rho_exec("curl", "-fsS -m 3" + widget_auth_header() + " " + widget_arg_quote(url), report)
-    if code != 0 {
+    if widget_curl_args("GET", url, "3", report) != 0 {
         return ""
     }
     return rho_read_text(report)
-}
-
-fn widget_auth_header() string {
-    let token: string = gateway.token()
-    if token == "" {
-        return ""
-    }
-    return " -H " + widget_arg_quote("Authorization: Bearer " + token)
 }
 
 fn widget_parse_milli(text: string) i64 {
@@ -168,8 +188,7 @@ fn widget_switch(widget: Widgets, state: string) bool {
         hook = widget_hook(widget.source, state)
     }
     let report: string = widget_report("press-" + int_to_str(u32(widget.id)))
-    return rho_exec("curl", "-fsS -m 5 -X " + widget.method + widget_auth_header() + " " +
-        widget_arg_quote(hook), report) == 0
+    return widget_curl_args(widget.method, hook, "5", report) == 0
 }
 
 // widgets_migrate_sources rewrites what older widgets stored — a Mesh URL, or
@@ -344,7 +363,7 @@ fn widget_refresh(widget: Widgets) string {
         return ""
     }
     let report: string = widget_report("fetch-" + int_to_str(u32(widget.id)))
-    let code: u32 = rho_exec("curl", "-fsS -m 3" + widget_auth_header() + " " + widget_arg_quote(widget.source), report)
+    let code: u32 = widget_curl_args("GET", widget.source, "3", report)
     if code != 0 {
         return ""
     }

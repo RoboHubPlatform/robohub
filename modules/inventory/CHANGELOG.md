@@ -44,3 +44,7 @@ repository and covers the migration, handles and bindings. `inventory_assign_han
 application fill the roles its rules name (`heater`, `light`) from a page of its own.
 An item that is not bound is no longer warned about on every switch attempt; the
 rule that asked says so.
+
+## [0.2.1] - 2026-11-13
+
+The page's message (`?msg=`) is written into its toast as a JavaScript string, so a crafted link can no longer run script on the inventory page.

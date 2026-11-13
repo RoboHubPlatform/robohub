@@ -168,11 +168,22 @@ fn i18n_t(req: Request, key: string) string {
     return template_fill("{{t " + json_string(key) + "}}", i18n_vars(req))
 }
 
+// i18n_safe_next is where the language switch returns to: a path on this
+// origin and nothing else. A backslash is a slash to a browser (`/\evil.com` is
+// another host), and a line break would start another response header.
 fn i18n_safe_next(value: string) string {
     if value == "" { return "/" }
     if !i18n_starts(value, "/") { return "/" }
     if i18n_starts(value, "//") { return "/" }
     if str_index_of(value, "://") >= 0 { return "/" }
+    let forbidden: string = "\\\"'<> \r\n\t"
+    var i: u32 = 0
+    while i < u32(strlen(value)) {
+        if str_index_of(forbidden, str_slice(value, i, 1)) >= 0 {
+            return "/"
+        }
+        i = i + 1
+    }
     return value
 }
 

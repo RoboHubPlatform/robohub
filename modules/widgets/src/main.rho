@@ -19,6 +19,8 @@ import robohub.gateway
 
 // The runtime functions this module calls.
 extern fn rho_exec(program: string, arguments: string, output_path: string) u32
+// One argument per line and no shell: a URL is never re-split into options.
+extern fn rho_exec_args(program: string, arguments: string, output_path: string) u32
 extern fn rho_read_text(path: string) string
 extern fn rho_write_text(path: string, text: string) bool
 

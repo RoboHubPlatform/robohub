@@ -16,3 +16,7 @@ the host application log.
 ## [0.1.3] - 2026-11-12
 
 The module declares the runtime functions it calls, and reading the outcome of a command uses its own trim rather than the including application's.
+
+## [0.1.4] - 2026-11-13
+
+A notification's level is escaped where it becomes part of a class attribute.

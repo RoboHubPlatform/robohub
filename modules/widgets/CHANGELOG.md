@@ -109,3 +109,7 @@ Mesh URL, a positional id — move to stable ids by the legacy ids the gateway
 lists. Presses are written to the journal rather than to a table of the host's;
 the JSON API's press reads the toggle's own state, not the state of the widget at
 the same position.
+
+## [0.3.1] - 2026-11-13
+
+A widget's URL is passed to curl as one argument, with no shell and only over http or https, so a source can no longer carry options of its own (`-o`, `--data @file`). The gateway's token is sent only to the gateway's own URL, never to an address a person typed into a widget. The method is GET, POST or PUT.

@@ -13,3 +13,7 @@ a JSON API.
 A rule whose action could not be done stays where it was and tries again, rather
 than counting as fired; the problem is written to the journal once, not on every
 evaluation.
+
+## [0.1.1] - 2026-11-13
+
+An ordering comparison (`<`, `<=`, `>`, `>=`) of a reading that is not a number is a problem, as a missing reading already was, not a false answer: `not t > 30` no longer holds — and acts — when the sensor says "unavailable".

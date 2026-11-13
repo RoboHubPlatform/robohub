@@ -8,6 +8,7 @@ module robohub.alert_telegram
 extern fn rho_exec_args(program: string, arguments: string, output_path: string) u32
 extern fn rho_read_text(path: string) string
 extern fn rho_write_text(path: string, text: string) bool
+extern fn rho_write_secret(path: string, text: string) bool
 extern fn rho_append_text(path: string, text: string) bool
 extern fn rho_bind_config(provider: string, key: string) string
 
@@ -27,18 +28,46 @@ fn report(name: string) string {
     return state_dir() + "/" + name + ".log"
 }
 
+// telegram_word_ok is whether a token or chat id is what Telegram issues:
+// letters, digits, colon, dash and underscore — nothing that could end a line
+// of curl's configuration.
+fn telegram_word_ok(value: string) bool {
+    if value == "" {
+        return false
+    }
+    var i: u32 = 0
+    while i < u32(strlen(value)) {
+        if str_index_of("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789:_-", str_slice(value, i, 1)) < 0 {
+            return false
+        }
+        i = i + 1
+    }
+    return true
+}
+
+// send posts one alert. The text goes through a file, so a message of several
+// lines stays one message (curl's arguments are one per line), and the bot
+// token through a configuration file only this user can read, so it is never
+// on a command line. An HTTP error is a failure (-f).
 fn send(level: string, message: string, metadata: string) u32 {
     let token: string = rho_bind_config("robohub-provider-telegram", "bot_token")
     let chat: string = rho_bind_config("robohub-provider-telegram", "chat_id")
-    if token == "" || chat == "" {
+    if !telegram_word_ok(token) || !telegram_word_ok(chat) {
         return 0
     }
     var text: string = "[" + level + "] " + message
     if metadata != "" {
         text = text + "\n" + metadata
     }
-    let args: string = "-sS\n-X\nPOST\nhttps://api.telegram.org/bot" + token + "/sendMessage\n" +
-        "--data-urlencode\nchat_id=" + chat + "\n--data-urlencode\ntext=" + text + "\n"
+    let dir: string = state_dir()
+    let config: string = dir + "/telegram.curl"
+    let body: string = dir + "/telegram-text.txt"
+    if !rho_write_secret(config, "url = \"https://api.telegram.org/bot" + token + "/sendMessage\"\n") ||
+        !rho_write_text(body, text) {
+        return 0
+    }
+    let args: string = "-fsS\n-K\n" + config + "\n-X\nPOST\n" +
+        "--data-urlencode\nchat_id=" + chat + "\n--data-urlencode\ntext@" + body + "\n"
     if rho_exec_args("curl", args, report("telegram")) == 0 {
         return 1
     }

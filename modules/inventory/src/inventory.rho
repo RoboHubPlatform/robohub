@@ -603,8 +603,8 @@ fn inventory_page_message(req: Request, message: string) Response {
 
     let toast_js: string = ""
     if message != "" {
-        toast_js = "<script>document.addEventListener(\"DOMContentLoaded\",function(){if(window.rhoToast){window.rhoToast(\"" +
-            message + "\", \"info\");}});</script>"
+        toast_js = "<script>document.addEventListener(\"DOMContentLoaded\",function(){if(window.rhoToast){window.rhoToast(" +
+            json_string(message) + ", \"info\");}});</script>"
     }
     var add_fields: FormField[9]
     add_fields[0] = FormField{ "name", "text", i18n_t(req, "inventory.name"), "",

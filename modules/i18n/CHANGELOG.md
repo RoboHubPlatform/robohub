@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.4.1] - 2026-11-13
+
+The language switch returns only to a path on the same origin: a backslash (`/\\evil.example`, another host to a browser), a quote, an angle bracket, a space or a line break (another response header) sends it to `/` instead.
+
 ## [0.4.0] - 2026-11-13
 
 Whole labels. An application that writes its labels in English carries a catalog

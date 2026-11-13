@@ -351,6 +351,17 @@ fn rules_atom(c: RulesCursor) RulesTruth {
     if right == "" {
         return rules_fail(cur, "no reading for " + second)
     }
+    // An order needs two numbers. A reading such as "unavailable" is no answer
+    // either way: were it false, `not t > 30` would hold and the rule would act
+    // on a sensor that said nothing.
+    if !str_eq(operator, "==") && !str_eq(operator, "!=") {
+        if !rules_number(left).ok {
+            return rules_fail(cur, first + " is not a number: " + left)
+        }
+        if !rules_number(right).ok {
+            return rules_fail(cur, second + " is not a number: " + right)
+        }
+    }
     return RulesTruth{ cur, rules_compare(left, operator, right) }
 }
 
