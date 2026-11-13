@@ -39,3 +39,10 @@ them: the keeper registers its clients, and the stream reaches it either way.
 `configure_provider(name, key, value)` let a settings page list the bound
 providers, make one of them the one that answers (Mesh or the simulator), and
 change a provider's settings whether or not it is the one answering.
+
+## [1.2.0] - 2026-11-13
+
+`nodes()` is the project's tree — the gateway and every board, module and device
+under it, with their parents, what each is and its state — so an application can
+draw the mesh. The Mesh provider reads Mesh's `/nodes`; the simulator answers
+from its presets.

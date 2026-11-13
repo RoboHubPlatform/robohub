@@ -43,3 +43,8 @@ installation has one (`ROBOHUB_BUS_*`) — or from Mesh's HTTP stream otherwise.
 Both write the same lines, so the application reads one file either way. The
 data directory the answers are written to is made once, not by a `mkdir`
 child process on every request.
+
+## [0.5.0] - 2026-11-13
+
+Implements robohub-gateway 1.2.0's `nodes()`, from Mesh's
+`/mesh/api/projects/<project>/nodes` (Mesh 0.18).

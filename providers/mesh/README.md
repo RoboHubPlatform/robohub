@@ -8,6 +8,7 @@ Mesh. The provider owns the Mesh paths; the application calls the interface.
 | `projects()` | `GET /mesh/api/projects` |
 | `gateway()` | `GET /mesh/api/projects/{project}/gateway` |
 | `sources()` | `GET /mesh/api/projects/{project}/sources?base={url}` |
+| `nodes()` | `GET /mesh/api/projects/{project}/nodes` |
 | `device_states()` | nothing: a device's state is a source's value, read by `source_state` |
 | `source_state(source)` | the source's `/value` path |
 | `source_latest(source)` | the source's `/value` path, as a reading |

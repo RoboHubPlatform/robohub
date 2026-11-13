@@ -104,6 +104,13 @@ fn sources() string {
     return sources_to(provider())
 }
 
+// nodes is the project's tree: the gateway and every board, module and device
+// under it, each with its id, its parent's id, what it is and its state, as a
+// JSON array. An application draws the mesh from it.
+fn nodes() string {
+    return nodes_to(provider())
+}
+
 // device_states are id:state lines for switch synchronisation.
 fn device_states() string {
     return device_states_to(provider())

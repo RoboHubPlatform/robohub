@@ -232,6 +232,16 @@ fn sources() string {
         "/sources?base=" + mesh_urlencode(base), "mesh-sources")
 }
 
+// nodes is the project's tree, from Mesh.
+fn nodes() string {
+    let base: string = mesh_base()
+    let project: string = mesh_project()
+    if base == "" || project == "" {
+        return ""
+    }
+    return mesh_fetch(base + "/mesh/api/projects/" + project + "/nodes", "mesh-nodes")
+}
+
 // mesh_device_states used to ask the project's gateway directly, which
 // is a second way to a device beside Mesh, with no token and no scope. A device's
 // state is a source's value, which source_state reads through Mesh, so

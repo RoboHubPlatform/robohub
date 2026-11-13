@@ -455,6 +455,37 @@ fn sim_next(line: string, current: string, seconds: u32, minutes: u32) string {
         }
         return sim_i64(value + sim_noise(noise))
     }
+    if str_eq(model, "sum") {
+        // A balance: `of` adds and subtracts other sources — `a + b - c`, each a
+        // full id or a signal of the same device, the terms apart by spaces. A
+        // sign is one only where a term starts, so `sim-bms.power` is one name.
+        let terms: string = sim_param(params, "of")
+        var total: i64 = 0
+        var sign: i64 = 1
+        var word: string = ""
+        var i: u32 = 0
+        while i <= u32(strlen(terms)) {
+            var ch: string = " "
+            if i < u32(strlen(terms)) {
+                ch = str_slice(terms, i, 1)
+            }
+            if str_eq(ch, " ") {
+                if word != "" {
+                    total = total + sign * sim_parse_signed(sim_value(sim_ref(line, word)))
+                    word = ""
+                    sign = 1
+                }
+            } else if word == "" && str_eq(ch, "-") {
+                sign = 0 - sign
+            } else if word == "" && str_eq(ch, "+") {
+                sign = sign
+            } else {
+                word = word + ch
+            }
+            i = i + 1
+        }
+        return sim_i64(total + sim_noise(noise))
+    }
     if str_eq(model, "integrator") {
         // A battery's state of charge in percent, from a power source in watts
         // (positive charges) and its capacity in watt-hours.
@@ -503,6 +534,7 @@ fn presets(text: string) u32 {
         return 0
     }
     var out: string = ""
+    var boards: string = ""
     var count: u32 = 0
     var devices: string = yaml.keys(path, "devices")
     while devices != "" {
@@ -515,6 +547,9 @@ fn presets(text: string) u32 {
         if label == "" {
             label = device
         }
+        // The board a device hangs off in the tree nodes() draws; none is the
+        // gateway itself.
+        boards = boards + device + "|" + label + "|" + sim_unquote(yaml.value(path, "devices." + device + ".board")) + "\n"
         var signals: string = yaml.keys(path, "devices." + device + ".sources")
         while signals != "" {
             let signal: string = sim_next_line(signals)
@@ -544,6 +579,7 @@ fn presets(text: string) u32 {
         }
     }
     rho_write_text(sim_dir() + "/sources.txt", out)
+    rho_write_text(sim_dir() + "/devices.txt", boards)
     info("simulator", int_to_str(count) + " simulated sources from the presets")
     return count
 }
@@ -625,6 +661,56 @@ fn sim_prune(now: u32) void {
 /* -------------------------------------------------------------------------- */
 /*  The gateway interface                                                     */
 /* -------------------------------------------------------------------------- */
+
+fn sim_board_id(board: string) string {
+    var out: string = "board-"
+    var i: u32 = 0
+    while i < u32(strlen(board)) {
+        let ch: string = str_slice(board, i, 1)
+        if str_eq(ch, " ") {
+            out = out + "-"
+        } else {
+            out = out + ch
+        }
+        i = i + 1
+    }
+    return out
+}
+
+// nodes is the simulated tree: a gateway, the boards the presets name, and every
+// device under its board.
+fn nodes() string {
+    var out: string = "{\"id\":\"gateway\",\"name\":\"Simulator\",\"kind\":\"gateway\",\"parent\":\"\",\"board\":\"\",\"state\":\"online\"}"
+    let devices: string = rho_read_text(sim_dir() + "/devices.txt")
+    var seen: string = "\n"
+    var rest: string = devices
+    while rest != "" {
+        let line: string = sim_next_line(rest)
+        rest = sim_after_line(rest)
+        let board: string = sim_field(line, 2)
+        if board != "" && str_index_of(seen, "\n" + board + "\n") < 0 {
+            seen = seen + board + "\n"
+            out = out + ",{\"id\":" + json_string(sim_board_id(board)) + ",\"name\":" + json_string(board) +
+                ",\"kind\":\"compute\",\"parent\":\"gateway\",\"board\":\"simulated\",\"state\":\"online\"}"
+        }
+    }
+    rest = devices
+    while rest != "" {
+        let line: string = sim_next_line(rest)
+        rest = sim_after_line(rest)
+        let uid: string = sim_field(line, 0)
+        if uid == "" {
+            continue
+        }
+        var parent: string = "gateway"
+        if sim_field(line, 2) != "" {
+            parent = sim_board_id(sim_field(line, 2))
+        }
+        out = out + ",{\"id\":" + json_string(uid) + ",\"name\":" + json_string(sim_field(line, 1)) +
+            ",\"kind\":\"device\",\"parent\":" + json_string(parent) + ",\"device\":\"simulated\",\"transport\":\"sim\",\"state\":\"online\"}"
+    }
+    return "[" + out + "]"
+}
 
 fn projects() string {
     return "[{\"id\":\"sim\",\"name\":\"Simulator\"}]"

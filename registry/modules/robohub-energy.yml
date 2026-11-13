@@ -1,0 +1,10 @@
+# robohub-energy — application.
+#
+# What the orchestrator knows about this module. The module's own manifest is
+# the truth about what it is; this is the truth about where it is and what it
+# is for in the ecosystem.
+name: robohub-energy
+role: application
+path: ../robohub-energy
+git: https://github.com/RoboHubPlatform/robohub-energy
+summary: The power of a site - its generation, storage, grid and loads, read from Mesh, balanced, protected and priced.

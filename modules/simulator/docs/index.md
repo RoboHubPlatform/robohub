@@ -28,7 +28,8 @@ devices:
 
 (Written in block style in a real file; the YAML reader takes block maps.)
 
-A source's id is `<device>.<signal>` — `sim-probe.temperature` — the shape Mesh's
+A device may name its `board:`, which is the node it hangs off in the tree
+`nodes()` draws. A source's id is `<device>.<signal>` — `sim-probe.temperature` — the shape Mesh's
 stable ids have.
 
 ## Models
@@ -41,6 +42,7 @@ stable ids have.
 | `when` | `of`, `on`, `off`, `noise` | `on` while the source `of` names is on, `off` otherwise: a plug's watts |
 | `day` | `peak`, `from`, `to`, `noise` | a half sine from `from` to `to` (HH:MM), peaking halfway: the sun, a light's ramp |
 | `thermal` | `initial`, `ambient`, `heater`, `rate`, `cool`, `noise` | rises `rate` per hour while `heater` is on, otherwise drifts to `ambient` by `cool` of the difference per hour |
+| `sum` | `of` | `a + b - c`: adds and subtracts other sources, a balance |
 | `integrator` | `initial`, `of`, `capacity` | a battery's state of charge in percent, from a power source in watts and a capacity in watt-hours |
 
 `of` and `heater` name a signal of the same device (`switch`) or a full id.

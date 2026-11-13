@@ -78,8 +78,8 @@ run for a reason nobody can see, so a test is added only after it has passed.
 The keeper, which signs people in to every application, installs and supervises
 them, has its own repository (`robohub-keeper`, beside this one), and so does
 Mesh, which plans and runs gateway deployments (`robohub-mesh`), and the aquarium,
-the first modular monolith (`robohub-aquarium`); `applications/energy` is the
-power application for a location. The
+the first modular monolith (`robohub-aquarium`), and energy, the power
+application for a location (`robohub-energy`). The
 aquarium is one service on one port, and the inventory module is included into
 it and serves `/expenses`, the scheduler serves `/scheduler`, and the widgets
 module renders the dashboard cards, on the same router. Energy is the same shape:
@@ -210,7 +210,7 @@ badges and any other telemetry consumer see one truth.
 
 See [Mesh](../robohub-mesh/docs/index.md),
 [Aquarium](../robohub-aquarium/docs/index.md),
-[Energy](applications/energy/docs/index.md),
+[Energy](../robohub-energy/docs/index.md),
 [widgets](modules/widgets/docs/index.md),
 [robohub-provider-mesh](providers/mesh/README.md),
 [robohub-devices](https://github.com/RoboHubPlatform/robohub-devices) and
