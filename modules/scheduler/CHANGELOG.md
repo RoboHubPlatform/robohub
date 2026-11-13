@@ -52,3 +52,7 @@ Cron is read as cron: `*`, numbers, ranges, lists and steps in all five fields (
 ## [0.2.3] - 2026-11-14
 
 Trimming, URL escapes, form fields and decimals come from the toolchain (rho 0.7.0: `str_trim`, `str_url_encode`/`str_url_decode`, `form_field`, `milli_*`) rather than this module's own copy, the same on both backends. Needs rho 0.7.0. A quantity reads a decimal comma and a sign; a negative one is 0.
+
+## [0.2.4] - 2026-11-14
+
+Cron is read in src/cron.rho, apart from the chores, and has unit tests of its own (tests/scheduler_test.rho): fields, lists, ranges and steps, the next time in local time in any time zone, and expressions that name no time. Nothing it does changed.

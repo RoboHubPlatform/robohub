@@ -490,33 +490,6 @@ fn rules_step(rule: Rules, mode: string, minutes: u32, now: u32) bool {
 /*  Presets                                                                   */
 /* -------------------------------------------------------------------------- */
 
-// rules_seconds reads `60`, `60s`, `10m` or `2h` as seconds.
-fn rules_seconds(text: string) u32 {
-    let value: string = rules_lower(str_trim(text))
-    if value == "" {
-        return 0
-    }
-    // A number of seconds, minutes, hours or days, with a decimal part if it has
-    // one: `90s`, `10m`, `1.5h`, `1d`. Plain digits are seconds.
-    let last: string = str_slice(value, u32(strlen(value)) - 1, 1)
-    var unit: i64 = 0
-    if str_eq(last, "s") { unit = 1 }
-    if str_eq(last, "m") { unit = 60 }
-    if str_eq(last, "h") { unit = 3600 }
-    if str_eq(last, "d") { unit = 86400 }
-    var number: string = value
-    if unit > 0 {
-        number = str_slice(value, 0, u32(strlen(value)) - 1)
-    } else {
-        unit = 1
-    }
-    let parsed: RulesNumber = rules_number(number)
-    if !parsed.ok || parsed.milli < 0 {
-        return 0
-    }
-    return u32((parsed.milli * unit) / 1000)
-}
-
 fn rules_preset_value(path: string, key: string) string {
     return rules_unquote(yaml.value(path, key))
 }

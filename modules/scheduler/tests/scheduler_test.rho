@@ -1,6 +1,6 @@
 //
 // @file scheduler_test.rho
-// @brief The suite's entry point; the smoke test tests.yml declares does the checking.
+// @brief Cron expressions, checked: the fields, lists, ranges and steps, and the next time an expression names in local time.
 //
 // @module scheduler
 // @project robohub
@@ -12,6 +12,72 @@
 
 module scheduler.tests
 
+include "../src/cron.rho"
+
+// The next time is local wall-clock time, so the checks read it back through
+// the same offset the evaluator uses: they hold in any time zone.
+
+extern fn abort()
+extern fn rho_utc_offset_at(epoch: i64) i64
+
+fn check(condition: bool, what: string) void {
+    if !condition {
+        print("FAIL: " + what + "\n")
+        abort()
+    }
+}
+
+// 2026-11-15 12:07:30 UTC, a Sunday.
+const NOW: u32 = 1794744450
+
+fn local(epoch: u32) i64 {
+    return i64(epoch) + rho_utc_offset_at(i64(epoch))
+}
+
+test fn a_field_names_the_values_it_allows() void {
+    check(str_eq(scheduler_cron_set("*", 0, 5), "xxxxxx"), "every value")
+    check(str_eq(scheduler_cron_set("3", 0, 5), "...x.."), "one value")
+    check(str_eq(scheduler_cron_set("1-3", 0, 5), ".xxx.."), "a range")
+    check(str_eq(scheduler_cron_set("1,4", 0, 5), ".x..x."), "a list")
+    check(str_eq(scheduler_cron_set("*/2", 0, 5), "x.x.x."), "a step over everything")
+    check(str_eq(scheduler_cron_set("1-5/2", 0, 5), ".x.x.x"), "a step over a range")
+    check(str_eq(scheduler_cron_set("2/3", 0, 5), "..x..x"), "a step from a value")
+    check(scheduler_cron_set("6", 0, 5) == "", "a value out of range")
+    check(scheduler_cron_set("4-2", 0, 5) == "", "a range backwards")
+    check(scheduler_cron_set("*/0", 0, 5) == "", "a step of nothing")
+    check(scheduler_allows(".x", 1) && !scheduler_allows(".x", 0) && !scheduler_allows(".x", 9), "allows")
+    check(str_eq(scheduler_field("0 9 * * 1", 1), "9"), "the second field")
+    check(scheduler_field("0 9 * * 1", 5) == "", "past the last field")
+    print("[PASS] a_field_names_the_values_it_allows\n")
+}
+
+test fn the_next_time_is_in_local_time() void {
+    let quarter: u32 = scheduler_cron_next("*/15 * * * *", NOW)
+    check(quarter > NOW && quarter - NOW <= 900, "every quarter hour is within one")
+    check(local(quarter) % 900 == 0, "on a quarter hour")
+    let monday: u32 = scheduler_cron_next("0 9 * * 1", NOW)
+    check(monday > NOW && monday - NOW <= 7 * 86400 + 7200, "within a week")
+    check(local(monday) % 86400 == 9 * 3600, "at nine")
+    check((local(monday) / 86400 + 4) % 7 == 1, "on a Monday")
+    let sunday: u32 = scheduler_cron_next("30 6 * * 7", NOW)
+    check((local(sunday) / 86400 + 4) % 7 == 0, "day of week 7 is Sunday")
+    let first: u32 = scheduler_cron_next("0 0 1 * *", NOW)
+    check(local(first) % 86400 == 0, "at midnight")
+    check(first - NOW < 32 * 86400, "the first of next month")
+    print("[PASS] the_next_time_is_in_local_time\n")
+}
+
+test fn an_expression_that_cannot_be_read_names_no_time() void {
+    check(scheduler_cron_next("61 * * * *", NOW) == 0, "a minute out of range")
+    check(scheduler_cron_next("0 9 * * 1 extra", NOW) == 0, "six fields")
+    check(scheduler_cron_next("0 9 31 2 *", NOW) == 0, "a date that never comes")
+    check(scheduler_cron_next("soon", NOW) == 0, "not an expression")
+    print("[PASS] an_expression_that_cannot_be_read_names_no_time\n")
+}
+
 fn main() void {
-    print("scheduler smoke suite is declared in tests.yml\n")
+    a_field_names_the_values_it_allows()
+    the_next_time_is_in_local_time()
+    an_expression_that_cannot_be_read_names_no_time()
+    print("scheduler cron tests ok\n")
 }

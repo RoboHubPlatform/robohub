@@ -1,5 +1,8 @@
 name: rules
 suites:
+  - name: tests/rules_test.rho
+    kind: rho
+    tags: [unit, rho]
   - name: rules-smoke
     kind: command
     tags: [smoke]

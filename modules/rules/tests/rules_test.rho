@@ -1,6 +1,6 @@
 //
 // @file rules_test.rho
-// @brief The suite's entry point; the smoke test tests.yml declares does the checking.
+// @brief The rules grammar, checked: tokens, numbers, durations, comparisons, and/or/not, modes, time windows and missing readings.
 //
 // @module rules
 // @project rules
@@ -12,6 +12,128 @@
 
 module rules.tests
 
+include "../src/expr.rho"
+
+// The grammar's only ways out are the host's values and the inventory's
+// readings; these stand in for both, so every condition here is read against
+// readings that do not change.
+
+extern fn abort()
+
+fn rules_host_value(token: string) string {
+    if str_eq(token, "aquarium.nitrate") { return "30" }
+    if str_eq(token, "band.temperature.on") { return "24.5" }
+    return ""
+}
+
+fn inventory_read(handle: string, capability: string) string {
+    if str_eq(handle, "heater") && str_eq(capability, "temperature") { return "24.25" }
+    if str_eq(handle, "filter-main") && str_eq(capability, "switch") { return "on" }
+    if str_eq(handle, "filter-main") && str_eq(capability, "power") { return "6,5" }
+    if str_eq(handle, "probe") && str_eq(capability, "temperature") { return "unavailable" }
+    return ""
+}
+
+fn check(condition: bool, what: string) void {
+    if !condition {
+        print("FAIL: " + what + "\n")
+        abort()
+    }
+}
+
+fn holds(condition: string) bool {
+    let verdict: RulesVerdict = rules_evaluate(condition, "", 600)
+    return verdict.holds && verdict.problem == ""
+}
+
+fn problem(condition: string) string {
+    return rules_evaluate(condition, "", 600).problem
+}
+
+test fn conditions_are_cut_into_tokens() void {
+    check(rules_token_count(rules_tokens("heater.temperature<24.5")) == 3, "an operator without spaces")
+    check(str_eq(rules_token(rules_tokens("a >= 2"), 1), ">="), "a two-character operator")
+    check(str_eq(rules_token(rules_tokens("(a < 1)"), 3), "1"), "a closing bracket ends a word")
+    check(str_eq(rules_token(rules_tokens("x == \"two words\""), 2), "\"two words\""), "a quoted text is one token")
+    check(rules_token_count(rules_tokens("   ")) == 0, "nothing but space")
+    print("[PASS] conditions_are_cut_into_tokens\n")
+}
+
+test fn numbers_and_durations() void {
+    check(rules_number("24.5").milli == 24500, "a decimal")
+    check(rules_number("24,5").milli == 24500, "a decimal comma")
+    check(rules_number("-3").milli == -3000, "a negative number")
+    check(!rules_number("warm").ok, "a word is not a number")
+    check(!rules_number(".").ok, "a lone dot is not a number")
+    check(rules_seconds("90") == 90, "plain seconds")
+    check(rules_seconds("10m") == 600, "minutes")
+    check(rules_seconds("1.5h") == 5400, "decimal hours")
+    check(rules_seconds("1d") == 86400, "a day")
+    check(rules_seconds("soon") == 0, "not a duration")
+    check(rules_seconds("-5m") == 0, "a negative duration")
+    check(rules_minutes("20:30") == 1230, "a time of day")
+    check(rules_minutes("24:00") == 9999, "an hour past the day")
+    print("[PASS] numbers_and_durations\n")
+}
+
+test fn readings_are_compared_as_numbers() void {
+    check(holds("heater.temperature < 24.5"), "an item's reading below a literal")
+    check(holds("heater.temperature < band.temperature.on"), "a reading against a host value")
+    check(holds("heater.temperature == 24.250"), "24.25 and 24.250 are the same number")
+    check(holds("aquarium.nitrate >= 25"), "a host value")
+    check(holds("filter-main.switch == on"), "on is 1")
+    check(holds("filter-main.switch == true"), "true is on")
+    check(holds("filter-main.power > 6"), "a reading with a decimal comma")
+    check(!holds("heater.temperature > 30"), "a comparison that does not hold")
+    print("[PASS] readings_are_compared_as_numbers\n")
+}
+
+test fn and_or_not_and_brackets() void {
+    check(holds("heater.temperature < 30 and aquarium.nitrate > 10"), "and")
+    check(holds("heater.temperature > 30 or aquarium.nitrate > 10"), "or")
+    check(holds("not heater.temperature > 30"), "not")
+    check(holds("(heater.temperature > 30 or aquarium.nitrate > 10) and filter-main.switch == on"), "brackets")
+    check(!holds("heater.temperature > 30 or (aquarium.nitrate > 10 and filter-main.switch == off)"), "brackets that do not hold")
+    check(str_eq(problem("(heater.temperature < 30"), "a bracket is not closed"), "an unclosed bracket")
+    print("[PASS] and_or_not_and_brackets\n")
+}
+
+test fn a_missing_reading_is_no_answer() void {
+    check(str_eq(problem("nothing.here > 1"), "no reading for nothing.here"), "a reading that is not there")
+    check(!holds("not nothing.here > 1"), "not of a missing reading does not hold")
+    check(str_eq(problem("probe.temperature > 30"), "probe.temperature is not a number: unavailable"), "a reading that is not a number")
+    check(!holds("not probe.temperature > 30"), "not of a reading that is not a number does not hold")
+    // An answer already decided does not need the other side.
+    check(problem("heater.temperature > 30 and nothing.here > 1") == "", "false and missing is false")
+    check(holds("heater.temperature < 30 or nothing.here > 1"), "true or missing is true")
+    print("[PASS] a_missing_reading_is_no_answer\n")
+}
+
+test fn modes_and_time_windows() void {
+    check(rules_evaluate("mode == feeding", "feeding", 600).holds, "the mode in force")
+    check(rules_evaluate("mode != feeding", "", 600).holds, "no mode in force")
+    check(rules_evaluate("time between 09:00 and 11:00", "", 600).holds, "inside a window")
+    check(!rules_evaluate("time between 11:00 and 20:00", "", 600).holds, "outside a window")
+    check(rules_evaluate("time between 22:00 and 06:00", "", 30).holds, "a window across midnight")
+    check(!rules_evaluate("time between 22:00 and 06:00", "", 600).holds, "outside a window across midnight")
+    check(rules_evaluate("time between 9 and 11", "", 600).problem != "", "a window not written in HH:MM")
+    print("[PASS] modes_and_time_windows\n")
+}
+
+test fn a_form_is_checked_without_readings() void {
+    check(rules_check("heater.temperature < 24.5") == "", "a condition in the grammar")
+    check(rules_check("") != "", "an empty condition")
+    check(rules_check("a < 1)") != "", "a bracket closed that was not opened")
+    print("[PASS] a_form_is_checked_without_readings\n")
+}
+
 fn main() void {
-    print("rules smoke suite is declared in tests.yml\n")
+    conditions_are_cut_into_tokens()
+    numbers_and_durations()
+    readings_are_compared_as_numbers()
+    and_or_not_and_brackets()
+    a_missing_reading_is_no_answer()
+    modes_and_time_windows()
+    a_form_is_checked_without_readings()
+    print("rules grammar tests ok\n")
 }

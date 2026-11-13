@@ -33,3 +33,7 @@ A rule whose action failed keeps the failure until an action is done: while it w
 ## [0.1.5] - 2026-11-14
 
 Trimming, URL escapes, form fields and decimals come from the toolchain (rho 0.7.0: `str_trim`, `str_url_encode`/`str_url_decode`, `form_field`, `milli_*`) rather than this module's own copy, the same on both backends. Needs rho 0.7.0. A number in a condition may be written with a decimal comma; a lone `.` or `-` is no longer the number 0.
+
+## [0.1.6] - 2026-11-14
+
+The grammar has unit tests of its own (tests/rules_test.rho): tokens, numbers and durations, comparisons, and/or/not and brackets, modes, time windows, and a reading that is missing or not a number. `rules_seconds` moved beside the rest of the grammar in src/expr.rho; nothing it does changed.
