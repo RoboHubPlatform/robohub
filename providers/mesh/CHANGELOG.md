@@ -32,3 +32,14 @@ A provider of the gateway interface: it lists `robohub.gateway` under
 Mesh's address and the project from the application's binding (`url`,
 `project`). The `provider:` block, the configuration string each function took,
 and the contract helpers it borrowed are gone.
+
+## [0.4.0] - 2026-11-13
+
+Implements robohub-gateway 1.1.0. `action` posts to the source's action path
+with the project-scoped service token. A `transport` setting (`auto`, `bus`,
+`http`; `auto` by default) chooses how `follow` gets the live stream: over the
+broker, from Mesh's relayed `mesh/<project>/telemetry` topic, when the
+installation has one (`ROBOHUB_BUS_*`) — or from Mesh's HTTP stream otherwise.
+Both write the same lines, so the application reads one file either way. The
+data directory the answers are written to is made once, not by a `mkdir`
+child process on every request.

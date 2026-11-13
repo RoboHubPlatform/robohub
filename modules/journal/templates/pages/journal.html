@@ -1,0 +1,26 @@
+<style>
+  .journal-filter { display: flex; flex-wrap: wrap; gap: .6rem; align-items: end; margin: .8rem 0 1rem; }
+  .journal-filter label { display: grid; gap: .2rem; font-size: .78rem; color: var(--faint); }
+  .journal { width: 100%; border-collapse: collapse; }
+  .journal th, .journal td { text-align: left; padding: .45rem .55rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+  .journal time { font-family: var(--mono, monospace); font-size: .8rem; color: var(--faint); white-space: nowrap; }
+  .journal .lv { font-size: .64rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; padding: .1rem .4rem; border-radius: 5px; }
+  .journal .lv.info { color: var(--muted); border: 1px solid var(--line); }
+  .journal .lv.warning { color: var(--warn, #f0c56a); background: var(--warn-soft, rgba(240,197,106,.1)); }
+  .journal .lv.error { color: var(--stop, #f08a7e); background: var(--stop-soft, rgba(240,138,126,.1)); }
+  .journal form.inline { display: inline; margin: 0; }
+</style>
+<h1>{{t "journal.title"}}</h1>
+<p class="lede">{{t "journal.lede"}}</p>
+<form class="journal-filter" method="get" action="/journal">
+  <label>{{t "journal.level"}}<select name="level">{{{ level_options }}}</select></label>
+  <label>{{t "journal.kind"}}<input name="kind" value="{{ kind }}" placeholder="switch, rule, test"></label>
+  <label>{{t "journal.range"}}<select name="range">{{{ range_options }}}</select></label>
+  <button type="submit">{{t "journal.filter"}}</button>
+</form>
+<table class="journal">
+  <thead><tr><th>{{t "journal.time"}}</th><th>{{t "journal.level"}}</th><th>{{t "journal.kind"}}</th><th>{{t "journal.subject"}}</th><th>{{t "journal.message"}}</th><th></th></tr></thead>
+  <tbody>
+{{{ rows }}}
+  </tbody>
+</table>

@@ -2,18 +2,28 @@
 INSERT INTO categories (name) VALUES (:name);
 
 -- name: list_categories
-SELECT id, name FROM categories ORDER BY name;
+SELECT id, name, kind, capabilities, uses FROM categories ORDER BY name;
+
+-- name: seed_category
+INSERT OR IGNORE INTO categories (name, kind, capabilities, uses)
+VALUES (:name, :kind, :capabilities, :uses);
+
+-- name: update_category_preset
+UPDATE categories SET kind = :kind, capabilities = :capabilities, uses = :uses
+WHERE name = :name;
 
 -- name: insert_item
 INSERT INTO items (name, category_id, unit, quantity_milli, reorder_milli,
-                   location, notes)
+                   location, notes, kind, handle)
 VALUES (:name, NULLIF(:category_id, ''), :unit, :quantity_milli,
-        :reorder_milli, :location, :notes);
+        :reorder_milli, :location, :notes, :kind, :handle);
 
 -- name: list_items
 SELECT i.id, i.name, COALESCE(c.name, '') AS category, i.category_id, i.unit,
        i.quantity_milli, i.reorder_milli, COALESCE(i.location, '') AS location,
-       COALESCE(i.notes, '') AS notes
+       COALESCE(i.notes, '') AS notes, i.kind, i.handle, i.runtime_s, i.runtime_at,
+       i.portion_milli, COALESCE(c.capabilities, '') AS capabilities,
+       COALESCE(c.uses, '') AS uses
 FROM items i
 LEFT JOIN categories c ON c.id = i.category_id
 ORDER BY i.name;
@@ -21,8 +31,12 @@ ORDER BY i.name;
 -- name: update_item_details
 UPDATE items
 SET name = :name, category_id = NULLIF(:category_id, ''), unit = :unit,
-    reorder_milli = :reorder_milli, location = :location, notes = :notes
+    reorder_milli = :reorder_milli, location = :location, notes = :notes,
+    kind = :kind, handle = :handle, portion_milli = :portion_milli
 WHERE id = :id;
+
+-- name: set_item_runtime
+UPDATE items SET runtime_s = :runtime_s, runtime_at = :runtime_at WHERE id = :id;
 
 -- name: update_item_stock
 UPDATE items SET quantity_milli = quantity_milli + :delta WHERE id = :id;
@@ -64,3 +78,22 @@ SELECT i.id, i.name, i.quantity_milli, i.reorder_milli, i.unit,
 FROM items i
 WHERE i.reorder_milli > 0 AND i.quantity_milli <= i.reorder_milli
 ORDER BY i.quantity_milli;
+
+-- name: list_bindings
+SELECT b.item_id, b.capability, b.source, b.access, b.bound_at, i.handle, i.name
+FROM item_bindings b
+JOIN items i ON i.id = b.item_id
+ORDER BY i.name, b.capability;
+
+-- name: bind_capability
+INSERT OR REPLACE INTO item_bindings (item_id, capability, source, access)
+VALUES (:item_id, :capability, :source, :access);
+
+-- name: unbind_capability
+DELETE FROM item_bindings WHERE item_id = :item_id AND capability = :capability;
+
+-- name: set_item_handle
+UPDATE items SET handle = :handle WHERE id = :id;
+
+-- name: clear_item_handle
+UPDATE items SET handle = '' WHERE handle = :handle AND id <> :id;

@@ -404,33 +404,41 @@ fn forms_trim(text: string) string {
     return out
 }
 
-fn forms_now() u32 {
-    let report: string = forms_token_file() + ".now"
-    if rho_exec("date", "+%s", report) == 0 {
-        return int_from_str(forms_trim(rho_read_text(report)))
+// forms_token_ok is whether a stored token is one this module makes: 64 hex
+// characters from the runtime's random source. A token written by an older
+// release — the workspace path and a timestamp, which anyone could work out — is
+// not, and is replaced.
+fn forms_token_ok(token: string) bool {
+    if strlen(token) != 64 {
+        return false
     }
-    return 0
+    let hex: string = "0123456789abcdef"
+    var i: u32 = 0
+    while i < 64 {
+        if str_index_of(hex, str_slice(token, i, 1)) < 0 {
+            return false
+        }
+        i = i + 1
+    }
+    return true
 }
 
-// forms_token is the application's stored CSRF token, minted on first use. The
-// secret is taken from the host's environment so the token is not predictable
-// to a site that has never seen it; the token itself never leaves the server
-// except inside a form the app itself rendered.
+// forms_token is the application's CSRF token: 256 random bits, made on first
+// use and kept owner-only in the application's workspace, so a page and the
+// submit it sends back are checked against the same value and no site that has
+// not seen the page can produce it. "" when no random value can be had, which
+// refuses every submit rather than accepting a guessable one.
 fn forms_token() string {
     let path: string = forms_token_file()
-    let existing: string = rho_read_text(path)
-    if existing != "" {
+    let existing: string = forms_trim(rho_read_text(path))
+    if forms_token_ok(existing) {
         return existing
     }
-    let secret: string = getenv("RHO_APP_SECRET")
-    if secret == "" {
-        secret = getenv("ROBOHUB_SECRET")
+    let token: string = rho_random_hex(32)
+    if !forms_token_ok(token) {
+        return ""
     }
-    if secret == "" {
-        secret = forms_workspace()
-    }
-    let token: string = secret + ":" + int_to_str(forms_now())
-    rho_write_text(path, token)
+    rho_write_secret(path, token)
     return token
 }
 
@@ -444,7 +452,35 @@ fn forms_csrf_field() string {
 // the form with. A consumer calls it before acting on any POST; a mismatch is
 // a request a cross-site page forged, and it is refused.
 fn forms_csrf_ok(body: string) bool {
-    return str_eq(forms_parse(body, "csrf"), forms_token())
+    let expected: string = forms_token()
+    if expected == "" {
+        return false
+    }
+    return forms_same(forms_parse(body, "csrf"), expected)
+}
+
+// forms_same compares a submitted token with the expected one without stopping
+// at the first difference, so the time an answer takes says nothing about how
+// much of a guess was right.
+fn forms_same(given: string, expected: string) bool {
+    let lg: u32 = u32(strlen(given))
+    let le: u32 = u32(strlen(expected))
+    var differ: u32 = 0
+    if lg != le {
+        differ = 1
+    }
+    var i: u32 = 0
+    while i < le {
+        var c: string = ""
+        if i < lg {
+            c = str_slice(given, i, 1)
+        }
+        if !str_eq(c, str_slice(expected, i, 1)) {
+            differ = differ + 1
+        }
+        i = i + 1
+    }
+    return differ == 0
 }
 
 // forms_open renders a whole submit form for a schema: the `<form>` action, the

@@ -1,0 +1,395 @@
+//
+// @file journal.rho
+// @brief Writing what happened, reading it back, and the journal page.
+//
+// @module journal
+// @project journal
+// @author Aurel Miron
+// @date 2026-11-13
+//
+// SPDX-License-Identifier: MIT
+//
+
+module journal
+
+import rho.log
+import std.core.ptr
+import std.core.result
+import std.core.slice
+import std.sql
+import std.web.http
+import std.web.template
+
+extern fn rho_asset(module: string, path: string) string
+
+const JOURNAL_CAPACITY: u32 = 500
+
+/// How long an entry that needs nothing more is kept, in seconds (90 days).
+const JOURNAL_KEEP: u32 = 7776000
+
+/* -------------------------------------------------------------------------- */
+/*  Where it is                                                               */
+/* -------------------------------------------------------------------------- */
+
+fn journal_db_path() string {
+    let override: string = getenv("RHO_JOURNAL_DB")
+    if override != "" {
+        return override
+    }
+    // The records belong to the application that includes the module.
+    var workspace: string = getenv("ROBOHUB_APP_WORKSPACE")
+    if workspace == "" {
+        workspace = getenv("HOME") + "/.rho/modules/journal"
+    }
+    return workspace + "/data/app.db"
+}
+
+fn journal_schema() string {
+    return rho_asset("journal", "db/schema.sql")
+}
+
+fn journal_template(name: string) string {
+    return rho_asset("journal", "templates/" + name + ".html")
+}
+
+fn journal_now() u32 {
+    let report: string = journal_db_path() + ".now"
+    if rho_exec("date", "+%s", report) == 0 {
+        return int_from_str(journal_trim(rho_read_text(report)))
+    }
+    return 0
+}
+
+fn journal_trim(text: string) string {
+    var out: string = text
+    while strlen(out) > 0 && (str_eq(str_slice(out, 0, 1), " ") || str_eq(str_slice(out, 0, 1), "\n")) {
+        out = str_slice(out, 1, u32(strlen(out)) - 1)
+    }
+    while strlen(out) > 0 && (str_eq(str_slice(out, u32(strlen(out)) - 1, 1), " ") ||
+        str_eq(str_slice(out, u32(strlen(out)) - 1, 1), "\n")) {
+        out = str_slice(out, 0, u32(strlen(out)) - 1)
+    }
+    return out
+}
+
+// journal_level is a level as written, or info.
+fn journal_level(level: string) string {
+    if str_eq(level, "warning") || str_eq(level, "error") {
+        return level
+    }
+    return "info"
+}
+
+/* -------------------------------------------------------------------------- */
+/*  What applications and other modules call                                  */
+/* -------------------------------------------------------------------------- */
+
+// journal_write records one thing that happened and answers whether it was
+// kept. A warning or an error is also a notification, so a person sees it now
+// and can read it later.
+fn journal_write(level: string, kind: string, subject: string, actor: string, message: string) bool {
+    let written_level: string = journal_level(level)
+    let opened: Result[SqlDb, string] = sql_open(journal_db_path())
+    if !opened.is_ok {
+        warn("journal", "the journal could not be opened: " + opened.err)
+        return false
+    }
+    let db: SqlDb = opened.ok
+    sql_apply(db, journal_schema())
+    let saved: Result[u32, SqlError] = InsertJournalEntry(int_to_str(journal_now()), written_level,
+        kind, subject, actor, message, db)
+    sql_close(db)
+    if !saved.is_ok {
+        warn("journal", "an entry could not be written: " + saved.err.message)
+        return false
+    }
+    if !str_eq(written_level, "info") {
+        var shown: string = message
+        if subject != "" {
+            shown = subject + ": " + message
+        }
+        notification_push_level(shown, written_level, 10)
+    }
+    return true
+}
+
+fn journal_info(kind: string, subject: string, actor: string, message: string) bool {
+    return journal_write("info", kind, subject, actor, message)
+}
+
+fn journal_warning(kind: string, subject: string, actor: string, message: string) bool {
+    return journal_write("warning", kind, subject, actor, message)
+}
+
+fn journal_error(kind: string, subject: string, actor: string, message: string) bool {
+    return journal_write("error", kind, subject, actor, message)
+}
+
+// journal_open_count is how many warnings and errors have not been resolved:
+// what a badge shows.
+fn journal_open_count() u32 {
+    let opened: Result[SqlDb, string] = sql_open(journal_db_path())
+    if !opened.is_ok {
+        return 0
+    }
+    let db: SqlDb = opened.ok
+    sql_apply(db, journal_schema())
+    let rows: JournalEntries[500]
+    let slice: Slice[JournalEntries] = Slice[JournalEntries]{
+        Ptr[JournalEntries](&rows[0]), JOURNAL_CAPACITY }
+    let listed: Result[u32, SqlError] = ListOpenJournalEntries(db, slice, JOURNAL_CAPACITY)
+    sql_close(db)
+    if listed.is_ok {
+        return listed.ok
+    }
+    return 0
+}
+
+// journal_last_at is when the newest entry of a kind (and, when given, about a
+// subject) was written, in Unix seconds; 0 when there is none. "How long since
+// the last water change" is this.
+fn journal_last_at(kind: string, subject: string) u32 {
+    let opened: Result[SqlDb, string] = sql_open(journal_db_path())
+    if !opened.is_ok {
+        return 0
+    }
+    let db: SqlDb = opened.ok
+    sql_apply(db, journal_schema())
+    let rows: JournalEntries[1]
+    let slice: Slice[JournalEntries] = Slice[JournalEntries]{ Ptr[JournalEntries](&rows[0]), 1 }
+    let got: Result[u32, SqlError] = LastJournalEntry(kind, subject, db, slice, 1)
+    sql_close(db)
+    if got.is_ok && got.ok > 0 {
+        return u32(rows[0].at)
+    }
+    return 0
+}
+
+// journal_resolve closes an entry that needed attention.
+fn journal_resolve(id: u32) bool {
+    let opened: Result[SqlDb, string] = sql_open(journal_db_path())
+    if !opened.is_ok {
+        return false
+    }
+    let db: SqlDb = opened.ok
+    sql_apply(db, journal_schema())
+    let done: Result[u32, SqlError] = ResolveJournalEntry(i64(journal_now()), i64(id), db)
+    sql_close(db)
+    return done.is_ok && done.ok > 0
+}
+
+// journal_prune drops what is older than three months and needs nothing more.
+// A host calls it from its background work, now and then.
+fn journal_prune() u32 {
+    let now: u32 = journal_now()
+    if now <= JOURNAL_KEEP {
+        return 0
+    }
+    let opened: Result[SqlDb, string] = sql_open(journal_db_path())
+    if !opened.is_ok {
+        return 0
+    }
+    let db: SqlDb = opened.ok
+    sql_apply(db, journal_schema())
+    let dropped: Result[u32, SqlError] = PruneJournalEntries(i64(now - JOURNAL_KEEP), db)
+    sql_close(db)
+    if dropped.is_ok {
+        return dropped.ok
+    }
+    return 0
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Reading                                                                   */
+/* -------------------------------------------------------------------------- */
+
+// journal_since is the time a filter asks for: the last day, week or month.
+fn journal_since(period: string) u32 {
+    let now: u32 = journal_now()
+    var span: u32 = 604800
+    if str_eq(period, "day") {
+        span = 86400
+    } else if str_eq(period, "month") {
+        span = 2592000
+    } else if str_eq(period, "all") {
+        return 0
+    }
+    if now <= span {
+        return 0
+    }
+    return now - span
+}
+
+// journal_offset is the machine's distance from UTC in seconds, read once per
+// page: `+0200` is 7200. A time is shown as the machine's clock shows it.
+fn journal_offset() i64 {
+    let report: string = journal_db_path() + ".zone"
+    if rho_exec("date", "+%z", report) != 0 {
+        return 0
+    }
+    let zone: string = journal_trim(rho_read_text(report))
+    if strlen(zone) != 5 {
+        return 0
+    }
+    let hours: i64 = i64(int_from_str(str_slice(zone, 1, 2)))
+    let minutes: i64 = i64(int_from_str(str_slice(zone, 3, 2)))
+    let seconds: i64 = hours * 3600 + minutes * 60
+    if str_eq(str_slice(zone, 0, 1), "-") {
+        return 0 - seconds
+    }
+    return seconds
+}
+
+fn journal_two(value: i64) string {
+    if value < 10 {
+        return "0" + int_to_str(u32(value))
+    }
+    return int_to_str(u32(value))
+}
+
+// journal_time is a time as `2026-11-13 14:02`, from Unix seconds and the
+// offset, by the civil calendar's own arithmetic (days since 1970 to a date).
+fn journal_time(at: i64, offset: i64) string {
+    let local: i64 = at + offset
+    let days: i64 = local / 86400
+    let rest: i64 = local - days * 86400
+    let z: i64 = days + 719468
+    let era: i64 = z / 146097
+    let doe: i64 = z - era * 146097
+    let yoe: i64 = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365
+    let doy: i64 = doe - (365 * yoe + yoe / 4 - yoe / 100)
+    let mp: i64 = (5 * doy + 2) / 153
+    let day: i64 = doy - (153 * mp + 2) / 5 + 1
+    var month: i64 = mp + 3
+    if mp >= 10 {
+        month = mp - 9
+    }
+    var year: i64 = yoe + era * 400
+    if month <= 2 {
+        year = year + 1
+    }
+    return int_to_str(u32(year)) + "-" + journal_two(month) + "-" + journal_two(day) + " " +
+        journal_two(rest / 3600) + ":" + journal_two((rest - (rest / 3600) * 3600) / 60)
+}
+
+fn journal_json(row: JournalEntries) string {
+    return "{\"id\":" + int_to_str(u32(row.id)) +
+        ",\"at\":" + int_to_str(u32(row.at)) +
+        ",\"level\":" + json_string(row.level) +
+        ",\"kind\":" + json_string(row.kind) +
+        ",\"subject\":" + json_string(row.subject) +
+        ",\"actor\":" + json_string(row.actor) +
+        ",\"message\":" + json_string(row.message) +
+        ",\"resolved_at\":" + int_to_str(u32(row.resolvedAt)) + "}"
+}
+
+fn journal_api(req: Request) Response {
+    let opened: Result[SqlDb, string] = sql_open(journal_db_path())
+    if !opened.is_ok {
+        return json(status_internal(), "{\"error\":" + json_string(opened.err) + "}")
+    }
+    let db: SqlDb = opened.ok
+    sql_apply(db, journal_schema())
+    let rows: JournalEntries[500]
+    let slice: Slice[JournalEntries] = Slice[JournalEntries]{
+        Ptr[JournalEntries](&rows[0]), JOURNAL_CAPACITY }
+    let listed: Result[u32, SqlError] = ListJournalEntries(
+        int_to_str(int_from_str(request_query_param(req, "since"))),
+        request_query_param(req, "level"), request_query_param(req, "kind"),
+        db, slice, JOURNAL_CAPACITY)
+    sql_close(db)
+    if !listed.is_ok {
+        return json(status_internal(), "{\"error\":" + json_string(listed.err.message) + "}")
+    }
+    var out: string = ""
+    var i: u32 = 0
+    while i < listed.ok {
+        if out != "" {
+            out = out + ","
+        }
+        out = out + journal_json(rows[i])
+        i = i + 1
+    }
+    return json(status_ok(), "{\"entries\":[" + out + "]}")
+}
+
+fn journal_option(value: string, label: string, selected: string) string {
+    var out: string = "<option value=\"" + escape_html(value) + "\""
+    if str_eq(value, selected) {
+        out = out + " selected"
+    }
+    return out + ">" + escape_html(label) + "</option>"
+}
+
+fn journal_page(req: Request) Response {
+    let level: string = request_query_param(req, "level")
+    let kind: string = request_query_param(req, "kind")
+    var period: string = request_query_param(req, "range")
+    if period == "" {
+        period = "week"
+    }
+    let opened: Result[SqlDb, string] = sql_open(journal_db_path())
+    if !opened.is_ok {
+        return html(status_internal(), "<p>The journal could not be opened: " + escape_html(opened.err) + "</p>")
+    }
+    let db: SqlDb = opened.ok
+    sql_apply(db, journal_schema())
+    let rows: JournalEntries[500]
+    let slice: Slice[JournalEntries] = Slice[JournalEntries]{
+        Ptr[JournalEntries](&rows[0]), JOURNAL_CAPACITY }
+    let listed: Result[u32, SqlError] = ListJournalEntries(int_to_str(journal_since(period)), level, kind,
+        db, slice, JOURNAL_CAPACITY)
+    sql_close(db)
+    var count: u32 = 0
+    if listed.is_ok {
+        count = listed.ok
+    }
+    var body_rows: string = ""
+    let offset: i64 = journal_offset()
+    var i: u32 = 0
+    while i < count {
+        let row: JournalEntries = rows[i]
+        var action: string = ""
+        if !str_eq(row.level, "info") && row.resolvedAt == 0 {
+            action = "<form method=\"post\" action=\"/journal/resolve\" class=\"inline\">" +
+                "<input type=\"hidden\" name=\"id\" value=\"" + int_to_str(u32(row.id)) + "\">" +
+                "<button>" + escape_html(i18n_t(req, "journal.resolve")) + "</button></form>"
+        }
+        body_rows = body_rows + template_fill(journal_template("rows/entry"),
+            vars("time", journal_time(row.at, offset)) +
+            vars("level", row.level) +
+            vars("kind", row.kind) +
+            vars("subject", row.subject) +
+            vars("actor", row.actor) +
+            vars("message", row.message) +
+            vars("action", action)) + "\n"
+        i = i + 1
+    }
+    if body_rows == "" {
+        body_rows = "<tr><td colspan=\"6\">" + escape_html(i18n_t(req, "journal.empty")) + "</td></tr>"
+    }
+    let body: string = template_fill(journal_template("pages/journal"),
+        i18n_vars(req) +
+        vars("rows", body_rows) +
+        vars("count", int_to_str(count)) +
+        vars("level_options",
+            journal_option("", i18n_t(req, "journal.all_levels"), level) +
+            journal_option("info", "info", level) +
+            journal_option("warning", "warning", level) +
+            journal_option("error", "error", level)) +
+        vars("kind", kind) +
+        vars("range_options",
+            journal_option("day", i18n_t(req, "journal.day"), period) +
+            journal_option("week", i18n_t(req, "journal.week"), period) +
+            journal_option("month", i18n_t(req, "journal.month"), period) +
+            journal_option("all", i18n_t(req, "journal.all"), period)))
+    return host_shell(req, i18n_t(req, "journal.title"), body, "")
+}
+
+fn journal_resolve_form(req: Request) Response {
+    let id: u32 = int_from_str(journal_trim(form_value(request_body(req), "id")))
+    if id > 0 {
+        journal_resolve(id)
+    }
+    return journal_page(req)
+}

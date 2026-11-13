@@ -1,0 +1,10 @@
+# robohub-aquarium — application.
+#
+# What the orchestrator knows about this module. The module's own manifest is
+# the truth about what it is; this is the truth about where it is and what it
+# is for in the ecosystem.
+name: robohub-aquarium
+role: application
+path: ../robohub-aquarium
+git: https://github.com/RoboHubPlatform/robohub-aquarium
+summary: The aquarium controller - water chemistry, equipment, schedules and the inventory that keeps a tank running.

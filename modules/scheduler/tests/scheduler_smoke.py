@@ -23,8 +23,10 @@ from pathlib import Path
 HERE = Path(__file__).resolve()
 MODULE = HERE.parents[1]
 ROBOHUB = MODULE.parents[1]
-HOST = ROBOHUB / "applications" / "aquarium"
 PROJECTS = ROBOHUB.parent
+# The host the module is tested in: the aquarium, in its own repository beside
+# this one, or where ROBOHUB_AQUARIUM says.
+HOST = Path(os.environ.get("ROBOHUB_AQUARIUM", str(PROJECTS / "robohub-aquarium")))
 RHO = PROJECTS / "rho" / "bin" / "rho"
 
 # The bearer ticket every request carries: one the keeper would issue for the
@@ -87,7 +89,7 @@ def wait_for(base: str) -> None:
             with open_url(base + "/scheduler", timeout=1) as response:
                 if response.status == 200:
                     return
-        except (urllib.error.URLError, ConnectionError):
+        except (urllib.error.URLError, OSError):
             time.sleep(0.2)
     raise SystemExit(f"aquarium did not start at {base}")
 
@@ -138,7 +140,7 @@ def main() -> int:
         env["ROBOHUB_WORKSPACE"] = str(ROBOHUB)
         env["ROBOHUB_APP_WORKSPACE"] = workspace
         env["ROBOHUB_APP_MANIFEST"] = str(HOST / "module.yml")
-        env["RHO_HTTP_ADDR"] = f":{port}"
+        env["RHO_HTTP_ADDR"] = f"127.0.0.1:{port}"
         global TOKEN
         auth_home = env.get("HOME") if env.get("HOME", "").startswith(tempfile.gettempdir()) else tempfile.mkdtemp(prefix="aquarium-home-")
         env["HOME"] = auth_home
@@ -150,8 +152,8 @@ def main() -> int:
             wait_for(base)
             learn_csrf(base, "/scheduler")
             page = get(base, "/scheduler")
-            assert_contains(page, ["Maintenance schedule", "No chores scheduled",
-                                   "Add a chore"], "empty scheduler")
+            # The host may seed chores of its own; the test's are found by title.
+            assert_contains(page, ["Maintenance schedule", "Add a chore"], "the scheduler")
 
             assert post(base, "/api/scheduler/chores", {
                 "title": "Change filter sock",
@@ -160,15 +162,17 @@ def main() -> int:
                 "grace_hours": "12",
                 "priority": "high",
             })["ok"]
-            chores = json.loads(get(base, "/api/scheduler/chores"))
-            if len(chores) != 1 or chores[0]["status"] != "pending":
+            chores = {c["title"]: c for c in json.loads(get(base, "/api/scheduler/chores"))}
+            sock = chores.get("Change filter sock")
+            if not sock or sock["status"] != "pending":
                 raise AssertionError(f"unexpected chores: {chores}")
+            sock_id = sock["id"]
 
-            assert post(base, "/api/scheduler/chores/1/complete", {"note": "Cleaned"})["ok"]
+            assert post(base, f"/api/scheduler/chores/{sock_id}/complete", {"note": "Cleaned"})["ok"]
             completed = get(base, "/scheduler")
             assert_contains(completed, ["Cleaned", "Change filter sock"], "completion log")
 
-            assert post(base, "/api/scheduler/chores/1/snooze", {"hours": "24"})["ok"]
+            assert post(base, f"/api/scheduler/chores/{sock_id}/snooze", {"hours": "24"})["ok"]
 
             assert post(base, "/api/scheduler/chores", {
                 "title": "UV bulb",
@@ -176,7 +180,8 @@ def main() -> int:
                 "usage_hours": "4000",
                 "priority": "critical",
             })["ok"]
-            assert post(base, "/api/scheduler/chores/2/usage", {"hours": "4000"})["ok"]
+            uv_id = {c["title"]: c for c in json.loads(get(base, "/api/scheduler/chores"))}["UV bulb"]["id"]
+            assert post(base, f"/api/scheduler/chores/{uv_id}/usage", {"hours": "4000"})["ok"]
             chores = json.loads(get(base, "/api/scheduler/chores"))
             uv = [chore for chore in chores if chore["title"] == "UV bulb"][0]
             if uv["status"] != "due":
@@ -185,6 +190,33 @@ def main() -> int:
             db = Path(workspace) / "data" / "app.db"
             if not db.exists():
                 raise AssertionError("the scheduler records are not in the host's main database")
+
+            # A chore that uses an inventory item takes it off the shelf when it
+            # is done, and says so on its row.
+            import sqlite3
+            get(base, "/expenses")
+            with sqlite3.connect(db) as conn:
+                conn.execute("INSERT INTO items (name, unit, quantity_milli, kind, handle) VALUES ('Filter pads', 'pcs', 3000, 'part', 'filter-pads')")
+            assert post(base, "/api/scheduler/chores", {
+                "title": "Rinse filter",
+                "kind": "interval",
+                "interval_hours": "720",
+                "runtime_of": "Filter Main",
+                "consumes": "filter-pads",
+                "consumes_qty": "1",
+            })["ok"]
+            with sqlite3.connect(db) as conn:
+                chore_id, runtime_of, consumes, milli = conn.execute(
+                    "SELECT id, runtime_of, consumes, consumes_milli FROM chores WHERE title='Rinse filter'").fetchone()
+            if (runtime_of, consumes, milli) != ("filter-main", "filter-pads", 1000):
+                raise AssertionError(f"the chore's links: {runtime_of!r} {consumes!r} {milli}")
+            assert_contains(get(base, "/scheduler"), ["runtime of filter-main", "uses 1 × filter-pads"], "the chore's row")
+            assert post(base, f"/api/scheduler/chores/{chore_id}/complete", {"note": "Rinsed"})["ok"]
+            with sqlite3.connect(db) as conn:
+                left = conn.execute("SELECT quantity_milli FROM items WHERE handle='filter-pads'").fetchone()[0]
+                moved = conn.execute("SELECT kind, quantity_milli, source FROM stock_movements WHERE item_id = (SELECT id FROM items WHERE handle='filter-pads')").fetchall()
+            if left != 2000 or moved != [("consume", -1000, f"chore#{chore_id}")]:
+                raise AssertionError(f"completing the chore did not use a pad: {left} {moved}")
         finally:
             process.terminate()
             try:

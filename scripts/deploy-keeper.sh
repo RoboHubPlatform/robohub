@@ -1,84 +1,16 @@
 #!/usr/bin/env bash
-# deploy-keeper.sh  —  build robohub-keeper and install it as a user service
+# deploy-keeper.sh — the keeper lives in its own repository, robohub-keeper, and
+# deploys itself from there. This forwards to it, so a machine that runs this
+# script from habit still gets the keeper beside this orchestrator.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROBOHUB="$(dirname "$HERE")"
-KEEPER="$ROBOHUB/applications/keeper"
-KEEPER_PORT=$(python3 -c "import yaml,sys; print(yaml.safe_load(open('$KEEPER/module.yml'))['deploy']['port'])")
-SERVICE_NAME="robohub-keeper"
-SERVICE_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
-SERVICE_FILE="$SERVICE_DIR/$SERVICE_NAME.service"
-DEPLOY_LOG="$HOME/.rho/keeper/deploy.log"
-RHO="${RHO:-$HOME/.rho/bin/rho}"
-# The keeper runs `rho` to build applications and to mint sign-in tickets, and
-# `go` through it, so its service sees the toolchain where it is installed: a
-# user unit otherwise has systemd's PATH, which has neither.
-export PATH="$(dirname "$RHO"):$HOME/.local/bin:/usr/local/go/bin:$PATH"
-
-mkdir -p "$(dirname "$DEPLOY_LOG")"
-
-# If the service already exists and still describes this keeper, just report
-# and exit. A unit written before the keeper had a workspace of its own, or for a
-# checkout that has moved, is written again.
-if systemctl --user is-enabled "$SERVICE_NAME" >/dev/null 2>&1 &&
-   grep -q "ROBOHUB_APP_WORKSPACE" "$SERVICE_FILE" 2>/dev/null &&
-   grep -qx "ExecStart=$KEEPER/build/keeper" "$SERVICE_FILE" &&
-   grep -qx "Environment=ROBOHUB_ROOT=$ROBOHUB" "$SERVICE_FILE" &&
-   grep -qx "Environment=ROBOHUB_WORKSPACE=$(dirname "$ROBOHUB")" "$SERVICE_FILE" &&
-   grep -q "^Environment=PATH=$(dirname "$RHO"):" "$SERVICE_FILE"; then
-    echo "[$(date)] $SERVICE_NAME is already deployed."
-    echo "  Status: $(systemctl --user is-active "$SERVICE_NAME" 2>/dev/null || echo 'inactive')"
-    echo "  Use 'systemctl --user restart $SERVICE_NAME' to restart."
-    exit 0
+KEEPER="${ROBOHUB_KEEPER:-$(dirname "$ROBOHUB")/robohub-keeper}"
+if [ ! -x "$KEEPER/scripts/deploy-keeper.sh" ]; then
+    echo "deploy-keeper: the keeper is not at $KEEPER" >&2
+    echo "  git clone https://github.com/RoboHubPlatform/robohub-keeper \"$KEEPER\"" >&2
+    echo "  or set ROBOHUB_KEEPER to where it is." >&2
+    exit 1
 fi
-
-echo "[$(date)] Building keeper …" | tee -a "$DEPLOY_LOG"
-cd "$KEEPER"
-"$RHO" build . >> "$DEPLOY_LOG" 2>&1 || {
-    echo "BUILD FAILED"; exit 1
-}
-
-# The keeper's own workspace, as every application it starts has one: its
-# settings live there rather than in the store shared by anything started
-# without one. Settings written to that shared store before are carried over once.
-WORKSPACE="$HOME/.rho/keeper"
-mkdir -p "$WORKSPACE/data"
-if [ ! -f "$WORKSPACE/data/settings.conf" ] && [ -f "$HOME/.rho/robohub/data/settings.conf" ]; then
-    cp "$HOME/.rho/robohub/data/settings.conf" "$WORKSPACE/data/settings.conf"
-fi
-
-echo "[$(date)] Writing systemd unit …" | tee -a "$DEPLOY_LOG"
-mkdir -p "$SERVICE_DIR"
-cat > "$SERVICE_FILE" <<UNIT
-[Unit]
-Description=RoboHub Keeper – web dashboard and application manager
-After=network-online.target
-
-[Service]
-ExecStart=$KEEPER/build/keeper
-Restart=on-failure
-RestartSec=3
-WorkingDirectory=$ROBOHUB
-Environment=HOME=$HOME
-Environment=PATH=$PATH
-Environment=ROBOHUB_ROOT=$ROBOHUB
-Environment=ROBOHUB_WORKSPACE=$(dirname "$ROBOHUB")
-Environment=RHO_HTTP_ADDR=:$KEEPER_PORT
-Environment=ROBOHUB_APP_WORKSPACE=$WORKSPACE
-Environment=RHO_APP_WORKSPACE=$WORKSPACE
-
-[Install]
-WantedBy=default.target
-UNIT
-
-loginctl enable-linger "$(whoami)" 2>/dev/null || true
-systemctl --user daemon-reload
-# restart, not start: a keeper already running from the unit written before
-# picks the new one up.
-systemctl --user enable "$SERVICE_NAME" >> "$DEPLOY_LOG" 2>&1 &&
-systemctl --user restart "$SERVICE_NAME" >> "$DEPLOY_LOG" 2>&1 || {
-    echo "SERVICE START FAILED (user service may need user lingering)"; exit 1
-}
-
-echo "[$(date)] Keeper is running on http://127.0.0.1:$KEEPER_PORT" | tee -a "$DEPLOY_LOG"
+ROBOHUB_ROOT="$ROBOHUB" exec "$KEEPER/scripts/deploy-keeper.sh" "$@"

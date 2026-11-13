@@ -305,15 +305,33 @@ fn inventory_find_item(items: ListItemsRow[512], count: u32, id: u32) i32 {
     return -1
 }
 
-fn inventory_item_rows(items: ListItemsRow[512], count: u32) string {
+fn inventory_item_rows(req: Request, items: ListItemsRow[512], count: u32,
+    bindings: ListBindingsRow[512], binding_count: u32) string {
     var out: string = ""
     var i: u32 = 0
+    let automated: bool = inventory_automated()
     while i < count {
         let row: ListItemsRow = items[i]
         let id: string = int_to_str(u32(row.id))
         var low: string = ""
         if row.reorderMilli > 0 && row.quantityMilli <= row.reorderMilli {
             low = "<span class=\"badge low\">reorder</span>"
+        }
+        var kind_badge: string = ""
+        var automation_link: string = ""
+        if str_eq(row.kind, "equipment") {
+            kind_badge = "<span class=\"badge kind\">" + escape_html(i18n_t(req, "inventory.kind_equipment")) + "</span>"
+            if automated && row.capabilities != "" {
+                if inventory_connected(row, bindings, binding_count) {
+                    kind_badge = kind_badge + "<span class=\"badge on\">" + escape_html(i18n_t(req, "inventory.connected")) + "</span>"
+                } else {
+                    kind_badge = kind_badge + "<span class=\"badge off\">" + escape_html(i18n_t(req, "inventory.not_connected")) + "</span>"
+                }
+                automation_link = " · <a class=\"edit\" href=\"/expenses/items/automation?id=" + id + "\">" +
+                    escape_html(i18n_t(req, "inventory.automation")) + "</a>"
+            }
+        } else if str_eq(row.kind, "part") {
+            kind_badge = "<span class=\"badge kind\">" + escape_html(i18n_t(req, "inventory.kind_part")) + "</span>"
         }
         let html: string = template_fill(inventory_template("rows/item-row"),
             vars("id", id) +
@@ -324,6 +342,8 @@ fn inventory_item_rows(items: ListItemsRow[512], count: u32) string {
             vars("reorder", inventory_quantity(row.reorderMilli)) +
             vars("location", row.location) +
             vars("low", low) +
+            vars("kind_badge", kind_badge) +
+            vars("automation_link", automation_link) +
             vars("notes", row.notes))
         out = out + html + "\n"
         i = i + 1
@@ -376,6 +396,97 @@ fn inventory_expense_rows(rows: ListExpensesRow[512], count: u32) string {
         out = "<tr><td colspan=\"9\">No purchases recorded yet.</td></tr>"
     }
     return out
+}
+
+fn inventory_kind_choices(req: Request) string {
+    return "consumable|" + i18n_t(req, "inventory.kind_consumable") + ",part|" +
+        i18n_t(req, "inventory.kind_part") + ",equipment|" + i18n_t(req, "inventory.kind_equipment")
+}
+
+fn inventory_kind_options(req: Request, selected: string) string {
+    var out: string = ""
+    var rest: string = "consumable\npart\nequipment\n"
+    while rest != "" {
+        let at: i32 = str_index_of(rest, "\n")
+        let kind: string = str_slice(rest, 0, u32(at))
+        rest = str_slice(rest, u32(at) + 1, u32(strlen(rest)) - u32(at) - 1)
+        out = out + "<option value=\"" + kind + "\""
+        if str_eq(kind, selected) {
+            out = out + " selected"
+        }
+        out = out + ">" + escape_html(i18n_t(req, "inventory.kind_" + kind)) + "</option>"
+    }
+    return out
+}
+
+// inventory_kind is a kind as written, or the category's when none was chosen.
+fn inventory_kind(chosen: string, category_id: string, categories: Categories[64], count: u32) string {
+    let kind: string = trim(chosen)
+    if str_eq(kind, "consumable") || str_eq(kind, "part") || str_eq(kind, "equipment") {
+        return kind
+    }
+    var i: u32 = 0
+    while i < count {
+        if str_eq(int_to_str(u32(categories[i].id)), category_id) {
+            return categories[i].kind
+        }
+        i = i + 1
+    }
+    return "consumable"
+}
+
+// inventory_handle is a handle as an item is named by elsewhere: lower case,
+// letters, digits and dashes, a space or an underscore read as a dash.
+fn inventory_handle(text: string) string {
+    let lower: string = "abcdefghijklmnopqrstuvwxyz"
+    let upper: string = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    var out: string = ""
+    var i: u32 = 0
+    let value: string = trim(text)
+    while i < u32(strlen(value)) {
+        let ch: string = str_slice(value, i, 1)
+        let up: i32 = str_index_of(upper, ch)
+        if up >= 0 {
+            out = out + str_slice(lower, u32(up), 1)
+        } else if str_index_of(lower + "0123456789", ch) >= 0 {
+            out = out + ch
+        } else if (str_eq(ch, "-") || str_eq(ch, " ") || str_eq(ch, "_")) && out != "" &&
+            !inventory_ends_with(out, "-") {
+            out = out + "-"
+        }
+        i = i + 1
+    }
+    while inventory_ends_with(out, "-") {
+        out = str_slice(out, 0, u32(strlen(out)) - 1)
+    }
+    return out
+}
+
+// inventory_handle_taken says whether another item than `except` has a handle.
+fn inventory_handle_taken(db: SqlDb, handle: string, except: u32) bool {
+    if handle == "" {
+        return false
+    }
+    let items: ListItemsRow[512]
+    let item_slice: Slice[ListItemsRow] = Slice[ListItemsRow]{ Ptr[ListItemsRow](&items[0]), ITEM_CAPACITY }
+    let listed: Result[u32, SqlError] = ListItems(db, item_slice, ITEM_CAPACITY)
+    if !listed.is_ok {
+        return false
+    }
+    let at: i32 = inventory_find_handle(items, listed.ok, handle)
+    if at < 0 {
+        return false
+    }
+    let row: u32 = u32(at)
+    return u32(items[row].id) != except
+}
+
+fn inventory_bindings(db: SqlDb, out: Slice[ListBindingsRow]) u32 {
+    let bound: Result[u32, SqlError] = ListBindings(db, out, BINDING_CAPACITY)
+    if bound.is_ok {
+        return bound.ok
+    }
+    return 0
 }
 
 /* -------------------------------------------------------------------------- */
@@ -485,6 +596,9 @@ fn inventory_page_message(req: Request, message: string) Response {
     }
 
     let total: i64 = inventory_total(db)
+    let bindings: ListBindingsRow[512]
+    let binding_count: u32 = inventory_bindings(db, Slice[ListBindingsRow]{
+        Ptr[ListBindingsRow](&bindings[0]), BINDING_CAPACITY })
     sql_close(db)
 
     let toast_js: string = ""
@@ -492,7 +606,7 @@ fn inventory_page_message(req: Request, message: string) Response {
         toast_js = "<script>document.addEventListener(\"DOMContentLoaded\",function(){if(window.rhoToast){window.rhoToast(\"" +
             message + "\", \"info\");}});</script>"
     }
-    var add_fields: FormField[7]
+    var add_fields: FormField[9]
     add_fields[0] = FormField{ "name", "text", i18n_t(req, "inventory.name"), "",
         "", true, "", "", "", "", "" }
     add_fields[1] = FormField{ "category_id", "select", i18n_t(req, "inventory.category"), "",
@@ -508,7 +622,11 @@ fn inventory_page_message(req: Request, message: string) Response {
         "", false, "", "", "", "", "" }
     add_fields[6] = FormField{ "notes", "text", i18n_t(req, "inventory.notes"), "",
         "", false, "", "", "", "", "" }
-    let add_item_form: string = forms_open(add_fields, 7, "/expenses/items/add",
+    add_fields[7] = FormField{ "kind", "select", i18n_t(req, "inventory.kind"), "",
+        "", false, "", inventory_kind_choices(req), "", "", "" }
+    add_fields[8] = FormField{ "handle", "text", i18n_t(req, "inventory.handle"), "",
+        "filter-main", false, "", "", "", "", "" }
+    let add_item_form: string = forms_open(add_fields, 9, "/expenses/items/add",
         i18n_t(req, "inventory.add_item"), i18n_locale(req))
 
     var purchase_fields: FormField[7]
@@ -561,7 +679,7 @@ fn inventory_page_message(req: Request, message: string) Response {
         vars("currency", escape_html(inventory_setting("currency", "RON"))) +
         vars("category_options", inventory_categories(categories, category_count, "")) +
         vars("item_options", inventory_items(items, item_count, "")) +
-        vars("item_rows", inventory_item_rows(items, item_count)) +
+        vars("item_rows", inventory_item_rows(req, items, item_count, bindings, binding_count)) +
         vars("low_rows", inventory_low_rows(low, low_count)) +
         vars("expense_rows", inventory_expense_rows(expenses, expense_count)) +
         vars("category_rows", inventory_category_rows(categories, category_count)) +
@@ -619,6 +737,11 @@ fn item_edit_page(req: Request) Response {
     }
     let row_index: u32 = u32(at)
     let row: ListItemsRow = items[row_index]
+    var automation_tab: string = ""
+    if str_eq(row.kind, "equipment") && inventory_automated() {
+        automation_tab = "<a href=\"/expenses/items/automation?id=" + int_to_str(u32(row.id)) + "\">" +
+            escape_html(i18n_t(req, "inventory.automation")) + "</a>"
+    }
     let body: string = template_fill(inventory_template("pages/item-edit"),
         i18n_vars(req) +
         vars("inventory_style", inventory_template("parts/style")) +
@@ -630,7 +753,11 @@ fn item_edit_page(req: Request) Response {
         vars("quantity", inventory_quantity(row.quantityMilli)) +
         vars("reorder", inventory_quantity(row.reorderMilli)) +
         vars("location", row.location) +
-        vars("notes", row.notes))
+        vars("notes", row.notes) +
+        vars("kind_options", inventory_kind_options(req, row.kind)) +
+        vars("handle", row.handle) +
+        vars("portion", inventory_quantity(row.portionMilli)) +
+        vars("automation_tab", automation_tab))
     return host_shell(req, i18n_t(req, "inventory.edit_title"), body, "")
 }
 
@@ -655,19 +782,36 @@ fn items_add(req: Request) Response {
     }
     let db: SqlDb = opened.ok
     sql_apply(db, inventory_schema())
+    let categories: Categories[64]
+    let category_slice: Slice[Categories] = Slice[Categories]{
+        Ptr[Categories](&categories[0]), CATEGORY_CAPACITY }
+    let listed_categories: Result[u32, SqlError] = ListCategories(db, category_slice, CATEGORY_CAPACITY)
+    var category_count: u32 = 0
+    if listed_categories.is_ok {
+        category_count = listed_categories.ok
+    }
+    let category_id: string = trim(form_value(body, "category_id"))
+    let handle: string = inventory_handle(form_value(body, "handle"))
+    if inventory_handle_taken(db, handle, 0) {
+        sql_close(db)
+        return inventory_page_message(req, i18n_t(req, "inventory.handle_taken"))
+    }
     let added: Result[u32, SqlError] = InsertItem(
         name,
-        trim(form_value(body, "category_id")),
+        category_id,
         trim(form_value(body, "unit")),
         int_to_str(quantity),
         int_to_str(reorder),
         trim(form_value(body, "location")),
         trim(form_value(body, "notes")),
+        inventory_kind(form_value(body, "kind"), category_id, categories, category_count),
+        handle,
         db)
+    let failure: string = sql_last_message(db)
     sql_close(db)
     if !added.is_ok {
-        notification_push_level_locale(i18n_t(req, "toast.item_add_failed") + ": " + added.err.message, "error", 10, i18n_locale(req))
-        return inventory_page_message(req, "Item could not be added: " + added.err.message)
+        notification_push_level_locale(i18n_t(req, "toast.item_add_failed") + ": " + failure, "error", 10, i18n_locale(req))
+        return inventory_page_message(req, "Item could not be added: " + failure)
     }
     notification_push_level_locale(i18n_t(req, "toast.item_added"), "info", 10, i18n_locale(req))
     return inventory_page_message(req, "Item added.")
@@ -685,7 +829,17 @@ fn items_edit_save(req: Request) Response {
     }
     let db: SqlDb = opened.ok
     sql_apply(db, inventory_schema())
+    let handle: string = inventory_handle(form_value(body, "handle"))
+    if inventory_handle_taken(db, handle, id) {
+        sql_close(db)
+        return inventory_page_message(req, i18n_t(req, "inventory.handle_taken"))
+    }
     let reorder: u32 = inventory_parse_scaled(form_value(body, "reorder"), 1000)
+    let portion: u32 = inventory_parse_scaled(form_value(body, "portion"), 1000)
+    var kind: string = trim(form_value(body, "kind"))
+    if !str_eq(kind, "part") && !str_eq(kind, "equipment") {
+        kind = "consumable"
+    }
     let updated: Result[u32, SqlError] = UpdateItemDetails(
         trim(form_value(body, "name")),
         trim(form_value(body, "category_id")),
@@ -693,6 +847,9 @@ fn items_edit_save(req: Request) Response {
         i64(reorder),
         trim(form_value(body, "location")),
         trim(form_value(body, "notes")),
+        kind,
+        handle,
+        i64(portion),
         i64(id), db)
     sql_close(db)
     if !updated.is_ok {

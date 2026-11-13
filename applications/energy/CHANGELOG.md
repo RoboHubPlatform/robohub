@@ -74,3 +74,10 @@ are still active when one does not.
 ## [0.2.0] - 2026-11-12
 
 Energy reaches Mesh through the gateway interface, binding the Mesh provider with Mesh's address and the project in `module.yml`. The Settings page writes those into the binding's settings for the installation; the `mesh-gateway` plugin entry, the contract include and `gateway.conf` are gone.
+
+## [0.2.1] - 2026-11-13
+
+A generated read that finds nothing is now `Ok(0)` rather than an `Err` (rho-sql
+0.2), so the places that asked "is it there?" with `is_ok` alone — seeding the
+first source, battery, grid and loads, reading one row by id or by name, the
+configuration and a fault's state — also check that a row came back.

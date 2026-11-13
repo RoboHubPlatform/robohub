@@ -1,0 +1,12 @@
+module:
+  name: simulator-tests
+  id: robohub.app.simulator-tests
+  type: rho
+  version: 0.1.0
+
+main: simulator_test.rho
+
+build:
+  language: c
+  targets:
+    - c

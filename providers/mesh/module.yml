@@ -18,7 +18,7 @@ module:
   previous_ids:
     - robohub.providers.mesh
   type: provider
-  version: 0.3.0
+  version: 0.4.0
   description: Serves Mesh projects, sources, gateway state and telemetry to an application, as a provider of the gateway interface.
   maintainer: "Aurel Miron"
   license: "MIT"
@@ -29,6 +29,11 @@ main: src/provider.rho
 # It logs through the toolchain's logger.
 deps:
   rho-log: ">=0.1.2"
+
+# The broker transport follows Mesh's relayed feed through the RoboHub
+# platform's mqtt port, with the broker user the keeper gave the application.
+ports:
+  - mqtt
 
 # It implements the gateway interface: an application that binds it reaches
 # Mesh through it, with Mesh's address and the project from the binding.
@@ -42,6 +47,8 @@ provides:
     - sources
     - device_states
     - follow
+    - transport
+    - action
     - source_state
     - source_latest
     - source_history
@@ -53,6 +60,7 @@ provides:
     - url
     - project
     - token
+    - transport
 
 metadata:
   tags:

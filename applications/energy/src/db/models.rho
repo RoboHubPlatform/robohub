@@ -18,6 +18,162 @@ import std.core.result
 import std.core.slice
 import std.sql
 
+// A value the application offers. kind is derived (from its presets), published (computed by the application) or export (a reading it passes on). updated_at is Unix seconds.
+struct AppapiValues {
+    id: string
+    value: string
+    unit: string
+    label: string
+    kind: string
+    updatedAt: i64
+}
+
+struct ListAppapiPointsRow {
+    at: i64
+    value: f64
+}
+
+// How a value is derived, from the application's presets. source is what it is derived from (an inventory item's capability, `heater.temperature`, or a journal kind for `since`); fn is latest, avg, min, max, integral, since or export; window_s is the window avg/min/max/integral look over.
+struct AppapiDerived {
+    id: string
+    source: string
+    fnValue: string
+    windowS: i64
+    unit: string
+    label: string
+}
+
+// The categories an item or a purchase can belong to. An application seeds its own from its presets. kind is what an item in it is by default: consumable (used up: food, fertiliser), part (fitted and replaced: filter media) or equipment (installed, and possibly automated). capabilities are what an equipment item in it can be bound to — `switch, power?` — a trailing ? marks one that may stay unbound. uses names a category whose items it consumes (a feeder uses food).
+struct Categories {
+    id: i64
+    name: string
+    kind: string
+    capabilities: string
+    uses: string
+}
+
+struct ListItemsRow {
+    id: i64
+    name: string
+    category: string
+    categoryId: i64
+    unit: string
+    quantityMilli: i64
+    reorderMilli: i64
+    location: string
+    notes: string
+    kind: string
+    handle: string
+    runtimeS: i64
+    runtimeAt: i64
+    portionMilli: i64
+    capabilities: string
+    uses: string
+}
+
+struct ListExpensesRow {
+    id: i64
+    item: string
+    category: string
+    quantityMilli: i64
+    unitPriceCents: i64
+    totalCents: i64
+    source: string
+    purchasedAt: string
+    comment: string
+}
+
+struct TotalExpensesRow {
+    totalCents: i64
+}
+
+struct LowStockItemsRow {
+    id: i64
+    name: string
+    quantityMilli: i64
+    reorderMilli: i64
+    unit: string
+    location: string
+}
+
+struct ListBindingsRow {
+    itemId: i64
+    capability: string
+    source: string
+    access: string
+    boundAt: string
+    handle: string
+    name: string
+}
+
+// One thing that happened. at is Unix seconds. level is info, warning or error. kind is what sort of thing it was (switch, rule, mode, test, stock, system), subject what it was about (an item's handle, a rule's name), actor who or what did it (person:ana, rule:keep-temperature, device, system). An entry that needs attention stays open until resolved_at is set.
+struct JournalEntries {
+    id: i64
+    at: i64
+    level: string
+    kind: string
+    subject: string
+    actor: string
+    message: string
+    resolvedAt: i64
+}
+
+// A chore definition and its next due time. next_due_epoch is Unix seconds; zero means the schedule has no wall-clock due time (a usage chore).
+struct Chores {
+    id: i64
+    title: string
+    description: string
+    scheduleKind: string
+    scheduleValue: string
+    intervalHours: i64
+    usageIntervalHours: i64
+    usageAccumSeconds: i64
+    graceHours: i64
+    priority: string
+    enabled: i64
+    nextDueEpoch: i64
+    snoozedUntilEpoch: i64
+    lastCompletedEpoch: i64
+    createdAt: string
+    runtimeOf: string
+    runtimeSeen: i64
+    consumes: string
+    consumesMilli: i64
+}
+
+struct ListCompletionsRow {
+    id: i64
+    choreId: i64
+    title: string
+    completedEpoch: i64
+    note: string
+}
+
+// A dashboard widget. numeric shows the last value; chart shows the last `points` values as a sparkline; status shows a badge with an ok/warn/bad/info state; button calls its configured hook; toggle reflects and sets a switch.  `position`, `size`, `decimals` and `pinned` are part of the card layout. The canonical definition lives here; a host includes this file's tables in its own SQL port so the module and the host cannot describe two different widgets tables.
+struct Widgets {
+    id: i64
+    title: string
+    kind: string
+    sourceKind: string
+    source: string
+    method: string
+    unit: string
+    points: i64
+    position: i64
+    size: string
+    decimals: i64
+    pinned: i64
+    createdEpoch: i64
+}
+
+struct WidgetValues {
+    id: i64
+    widgetId: i64
+    valueText: string
+    valueMilli: i64
+    recordedEpoch: i64
+}
+
 // A generation line: a PV string, a microinverter or a wind turbine. The driver contract is the same for all three; `kind` says which curve and which electrical window applies.
 struct EnergySources {
     id: i64
@@ -144,99 +300,11 @@ struct EnergyEvents {
     createdEpoch: i64
 }
 
-// The categories an item or a purchase can belong to.
-struct Categories {
-    id: i64
-    name: string
-}
-
-struct ListItemsRow {
-    id: i64
-    name: string
-    category: string
-    categoryId: i64
-    unit: string
-    quantityMilli: i64
-    reorderMilli: i64
-    location: string
-    notes: string
-}
-
-struct ListExpensesRow {
-    id: i64
-    item: string
-    category: string
-    quantityMilli: i64
-    unitPriceCents: i64
-    totalCents: i64
-    source: string
-    purchasedAt: string
-    comment: string
-}
-
-struct TotalExpensesRow {
-    totalCents: i64
-}
-
-struct LowStockItemsRow {
-    id: i64
-    name: string
-    quantityMilli: i64
-    reorderMilli: i64
-    unit: string
-    location: string
-}
-
-// A chore definition and its next due time. next_due_epoch is Unix seconds; zero means the schedule has no wall-clock due time (a usage chore).
-struct Chores {
-    id: i64
-    title: string
-    description: string
-    scheduleKind: string
-    scheduleValue: string
-    intervalHours: i64
-    usageIntervalHours: i64
-    usageAccumSeconds: i64
-    graceHours: i64
-    priority: string
-    enabled: i64
-    nextDueEpoch: i64
-    snoozedUntilEpoch: i64
-    lastCompletedEpoch: i64
-    createdAt: string
-}
-
-struct ListCompletionsRow {
-    id: i64
-    choreId: i64
-    title: string
-    completedEpoch: i64
-    note: string
-}
-
-// A dashboard widget. numeric shows the last value; chart shows the last `points` values as a sparkline; status shows a badge with an ok/warn/bad/info state; button calls its configured hook; toggle reflects and sets a switch.  `position`, `size`, `decimals` and `pinned` are part of the card layout. The canonical definition lives here; a host includes this file's tables in its own SQL port so the module and the host cannot describe two different widgets tables.
-struct Widgets {
-    id: i64
-    title: string
-    kind: string
-    sourceKind: string
-    source: string
-    method: string
-    unit: string
-    points: i64
-    position: i64
-    size: string
-    decimals: i64
-    pinned: i64
-    createdEpoch: i64
-}
-
-struct WidgetValues {
-    id: i64
-    widgetId: i64
-    valueText: string
-    valueMilli: i64
-    recordedEpoch: i64
+// Each value's history, one row per change, kept for 30 days. at is Unix seconds; value is the number, when the value is one.
+struct AppapiHistory {
+    id: string
+    at: i64
+    value: f64
 }
 
 // What is on hand, how much of it, and when to reorder.
@@ -250,6 +318,20 @@ struct Items {
     location: string
     notes: string
     createdAt: string
+    kind: string
+    handle: string
+    runtimeS: i64
+    runtimeAt: i64
+    portionMilli: i64
+}
+
+// What an equipment item's capabilities are bound to: one gateway source each. access is control for a capability the item drives (a switch) and read for one it only reports (power, temperature). A source is controlled by one item at most, so two items cannot fight over one relay.
+struct ItemBindings {
+    itemId: i64
+    capability: string
+    source: string
+    access: string
+    boundAt: string
 }
 
 // One purchase line. Money is integer cents and quantity is thousandths, so a total never depends on the floating-point spelling of 12.34.

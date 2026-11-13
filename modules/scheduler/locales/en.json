@@ -27,5 +27,8 @@
   "scheduler.note": "Note",
   "toast.chore_failed": "Chore could not be saved",
   "toast.chore_added": "Chore added.",
-  "scheduler.csrf_refused": "Refused: the form token did not match."
+  "scheduler.csrf_refused": "Refused: the form token did not match.",
+  "scheduler.runtime_of": "Runtime of (item)",
+  "scheduler.consumes": "Uses (item)",
+  "scheduler.consumes_qty": "Quantity used"
 }

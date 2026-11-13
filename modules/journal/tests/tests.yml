@@ -1,0 +1,6 @@
+name: journal
+suites:
+  - name: journal-smoke
+    kind: command
+    tags: [smoke]
+    command: [python3, tests/journal_smoke.py]

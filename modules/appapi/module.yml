@@ -1,0 +1,52 @@
+#
+# appapi — what an application offers other applications and clients, as a small REST API.
+#
+# A module a host application includes. An application takes in readings from
+# its gateway, events and its own inputs, and passes on more than it received:
+# values it derives (an average, a total, the time since something happened),
+# values it computes itself, and the readings it chooses to export. This module
+# keeps them with their history and serves them read-only, in the same shape in
+# every application. It is not a gateway: it has no projects, devices or actions.
+#
+module:
+  name: appapi
+  id: robohub.module.appapi
+  type: module
+  title: Application API
+  category: integration
+  version: 0.1.0
+  description: >
+    The read-only REST API every RoboHub application offers in the same shape:
+    its values (derived from presets, computed by the application, or exported
+    readings) with their history, and its events from the journal, for other
+    applications, the keeper and external clients.
+  maintainer: "Aurel Miron"
+  license: "MIT"
+  created: "2026-11-13"
+
+main: src/main.rho
+
+sql:
+  schema: db/schema.sql
+  queries: db/queries.sql
+
+deps:
+  rho-log: ">=0.1.0"
+  robohub:
+    inventory: ">=0.2.0"
+    journal: ">=0.1.0"
+    # The gateway interface only, for the history a derived value is computed
+    # from; an application that binds none still serves what it publishes.
+    robohub-gateway: ">=1.1.0"
+
+docs:
+  title: Application API
+  section: modules
+  order: "17"
+  index: docs/index.md
+  sources:
+    - docs/index.md
+
+assets:
+  - db/schema.sql
+  - docs/index.md

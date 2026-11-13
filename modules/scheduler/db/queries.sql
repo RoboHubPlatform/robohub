@@ -11,7 +11,7 @@ SELECT id, title, COALESCE(description, '') AS description, schedule_kind,
        COALESCE(schedule_value, '') AS schedule_value, interval_hours,
        usage_interval_hours, usage_accum_seconds, grace_hours, priority,
        enabled, next_due_epoch, snoozed_until_epoch, last_completed_epoch,
-       created_at
+       created_at, runtime_of, runtime_seen, consumes, consumes_milli
 FROM chores
 ORDER BY enabled DESC, next_due_epoch, title;
 
@@ -42,3 +42,18 @@ FROM chore_completions c
 LEFT JOIN chores ch ON ch.id = c.chore_id
 ORDER BY c.completed_epoch DESC, c.id DESC
 LIMIT 50;
+
+-- name: set_chore_links
+UPDATE chores SET runtime_of = :runtime_of, consumes = :consumes, consumes_milli = :consumes_milli
+WHERE id = (SELECT MAX(id) FROM chores WHERE title = :title);
+
+-- name: set_chore_runtime_seen
+UPDATE chores SET runtime_seen = :runtime_seen WHERE id = :id;
+
+-- name: seed_chore
+INSERT INTO chores
+    (title, description, schedule_kind, schedule_value, interval_hours,
+     usage_interval_hours, grace_hours, priority, next_due_epoch, enabled)
+SELECT :title, :description, :schedule_kind, :schedule_value, :interval_hours,
+       :usage_interval_hours, :grace_hours, :priority, :next_due_epoch, 1
+WHERE NOT EXISTS (SELECT 1 FROM chores WHERE title = :title);

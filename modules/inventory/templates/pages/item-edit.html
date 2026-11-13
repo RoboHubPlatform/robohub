@@ -1,5 +1,9 @@
 {{{ inventory_style }}}
 <h1>{{t "inventory.edit_title"}}</h1>
+<nav class="item-tabs">
+  <a class="active" href="/expenses/items/edit?id={{ id }}">{{t "inventory.details"}}</a>
+  {{{ automation_tab }}}
+</nav>
 <form class="panel-form" method="post" action="/expenses/items/edit">
   <input type="hidden" name="id" value="{{ id }}">
   <div class="grid">
@@ -10,6 +14,9 @@
     <label>{{t "inventory.reorder_at"}}<input name="reorder" value="{{ reorder }}" inputmode="decimal"></label>
     <label>{{t "inventory.location"}}<input name="location" value="{{ location }}"></label>
     <label>{{t "inventory.notes"}}<input name="notes" value="{{ notes }}"></label>
+    <label>{{t "inventory.kind"}}<select name="kind">{{{ kind_options }}}</select></label>
+    <label>{{t "inventory.handle"}}<input name="handle" value="{{ handle }}" pattern="[a-z0-9][a-z0-9-]*" placeholder="filter-main"></label>
+    <label>{{t "inventory.portion"}}<input name="portion" value="{{ portion }}" inputmode="decimal"></label>
   </div>
   <div class="form-actions"><button type="submit">{{t "inventory.save_item"}}</button></div>
 </form>

@@ -21,7 +21,7 @@ module:
   previous_ids:
     - robohub.contract.gateway
   type: module
-  version: 1.0.0
+  version: 1.1.0
   description: >
     The gateway interface: an application asks for a mesh's projects, sources,
     readings and live stream, and the provider it binds answers.
@@ -35,6 +35,10 @@ provides:
   import: robohub.gateway
   exports:
     - provider
+    - providers
+    - choose
+    - provider_config
+    - configure_provider
     - config
     - configure
     - token
@@ -43,6 +47,8 @@ provides:
     - sources
     - device_states
     - follow
+    - transport
+    - action
     - source_state
     - source_latest
     - source_history
@@ -59,6 +65,8 @@ interface:
     sources: "() string"
     device_states: "() string"
     follow: "(path: string) bool"
+    transport: "() string"
+    action: "(source: string, state: string) bool"
     source_state: "(source: string) string"
     source_latest: "(source: string) string"
     source_history: "(source: string, from_ms: string, to_ms: string, step_ms: string) string"

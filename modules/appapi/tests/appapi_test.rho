@@ -1,0 +1,5 @@
+module appapi.tests
+
+fn main() void {
+    print("appapi smoke suite is declared in tests.yml\n")
+}

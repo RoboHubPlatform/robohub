@@ -238,6 +238,55 @@ fn scheduler_hours_text(seconds: i64) string {
     return int_to_str(u32(seconds / 3600)) + " h"
 }
 
+// scheduler_links_text is a chore's description and what it is tied to in the
+// inventory: whose runtime drives it, and what completing it uses.
+fn scheduler_links_text(chore: Chores) string {
+    var out: string = chore.description
+    if chore.runtimeOf != "" {
+        if out != "" {
+            out = out + " · "
+        }
+        out = out + "runtime of " + chore.runtimeOf
+    }
+    if chore.consumes != "" {
+        if out != "" {
+            out = out + " · "
+        }
+        out = out + "uses " + scheduler_quantity(chore.consumesMilli) + " × " + chore.consumes
+    }
+    return out
+}
+
+fn scheduler_quantity(milli: i64) string {
+    let whole: u32 = u32(milli / 1000)
+    let fraction: u32 = u32(milli - (milli / 1000) * 1000)
+    if fraction == 0 {
+        return int_to_str(whole)
+    }
+    var digits: string = int_to_str(fraction)
+    while strlen(digits) < 3 {
+        digits = "0" + digits
+    }
+    while str_eq(str_slice(digits, u32(strlen(digits)) - 1, 1), "0") {
+        digits = str_slice(digits, 0, u32(strlen(digits)) - 1)
+    }
+    return int_to_str(whole) + "." + digits
+}
+
+// scheduler_milli reads a quantity like 1 or 0.5 in thousandths.
+fn scheduler_milli(text: string) u32 {
+    let value: string = scheduler_trim(text)
+    let dot: i32 = str_index_of(value, ".")
+    if dot < 0 {
+        return int_from_str(value) * 1000
+    }
+    var fraction: string = str_slice(value, u32(dot) + 1, u32(strlen(value)) - u32(dot) - 1)
+    while strlen(fraction) < 3 {
+        fraction = fraction + "0"
+    }
+    return int_from_str(str_slice(value, 0, u32(dot))) * 1000 + int_from_str(str_slice(fraction, 0, 3))
+}
+
 fn scheduler_rows(chores: Chores[256], count: u32, now: u32) string {
     var out: string = ""
     var i: u32 = 0
@@ -248,7 +297,7 @@ fn scheduler_rows(chores: Chores[256], count: u32, now: u32) string {
         let html: string = template_fill(scheduler_template("rows/chore-row"),
             vars("id", id) +
             vars("title", chore.title) +
-            vars("description", chore.description) +
+            vars("description", scheduler_links_text(chore)) +
             vars("kind", chore.scheduleKind) +
             vars("due", scheduler_due_text(chore)) +
             vars("priority", chore.priority) +
@@ -323,7 +372,7 @@ fn scheduler_page_message(req: Request, message: string) Response {
         ",cron|" + i18n_t(req, "scheduler.cron") +
         ",one_time|" + i18n_t(req, "scheduler.one_time") +
         ",usage|" + i18n_t(req, "scheduler.after_use")
-    var add_fields: FormField[8]
+    var add_fields: FormField[11]
     add_fields[0] = FormField{ "title", "text", i18n_t(req, "scheduler.title_field"), "",
         "Change filter sock", true, "", "", "", "", "" }
     add_fields[1] = FormField{ "kind", "select", i18n_t(req, "scheduler.schedule"), "",
@@ -340,7 +389,13 @@ fn scheduler_page_message(req: Request, message: string) Response {
         "normal", false, "", "", scheduler_setting("priority", "normal"), "", "" }
     add_fields[7] = FormField{ "description", "text", i18n_t(req, "scheduler.description"), "",
         "", false, "", "", "", "", "" }
-    let add_form: string = forms_open(add_fields, 8, "/scheduler/chores/add",
+    add_fields[8] = FormField{ "runtime_of", "text", i18n_t(req, "scheduler.runtime_of"), "",
+        "filter-main", false, "", "", "", "", "" }
+    add_fields[9] = FormField{ "consumes", "text", i18n_t(req, "scheduler.consumes"), "",
+        "filter-media", false, "", "", "", "", "" }
+    add_fields[10] = FormField{ "consumes_qty", "text", i18n_t(req, "scheduler.consumes_qty"), "",
+        "1", false, "", "", "", "", "decimal" }
+    let add_form: string = forms_open(add_fields, 11, "/scheduler/chores/add",
         i18n_t(req, "scheduler.add_chore"), i18n_locale(req))
     let body: string = template_fill(scheduler_template("pages/scheduler"),
         i18n_vars(req) +
@@ -425,6 +480,15 @@ fn chores_add(req: Request) Response {
         int_to_str(next),
         "1",
         db)
+    let runtime_of: string = inventory_handle(scheduler_form_value(body, "runtime_of"))
+    let consumes: string = inventory_handle(scheduler_form_value(body, "consumes"))
+    if added.is_ok && (runtime_of != "" || consumes != "") {
+        var quantity: u32 = scheduler_milli(scheduler_form_value(body, "consumes_qty"))
+        if consumes != "" && quantity == 0 {
+            quantity = 1000
+        }
+        scheduler_ignore_result(SetChoreLinks(runtime_of, consumes, i64(quantity), title, db))
+    }
     sql_close(db)
     if !added.is_ok {
         notification_push_level_locale(i18n_t(req, "toast.chore_failed") + ": " + added.err.message, "error", 10, i18n_locale(req))
@@ -444,9 +508,20 @@ fn chores_complete_body(req: Request, body: string) Response {
     if id == 0 {
         return scheduler_page_message(req, "That chore was not found.")
     }
+    let problem: string = scheduler_complete(id, scheduler_trim(scheduler_form_value(body, "note")))
+    if problem != "" {
+        return scheduler_page_message(req, problem)
+    }
+    return scheduler_page_message(req, "Chore completed.")
+}
+
+// scheduler_complete completes one chore: its next due time moves on, its usage
+// starts again, the completion is kept with its note, and what it uses is taken
+// off the inventory. It answers "" when done, what went wrong otherwise.
+fn scheduler_complete(id: u32, note: string) string {
     let opened: Result[SqlDb, string] = sql_open(scheduler_db_path())
     if !opened.is_ok {
-        return scheduler_page_message(req, "The database could not be opened: " + opened.err)
+        return "The database could not be opened: " + opened.err
     }
     let db: SqlDb = opened.ok
     sql_apply(db, scheduler_schema())
@@ -460,7 +535,7 @@ fn chores_complete_body(req: Request, body: string) Response {
     let at: i32 = scheduler_find(chores, count, id)
     if at < 0 {
         sql_close(db)
-        return scheduler_page_message(req, "That chore was not found.")
+        return "That chore was not found."
     }
     let index: u32 = u32(at)
     let chore: Chores = chores[index]
@@ -474,15 +549,21 @@ fn chores_complete_body(req: Request, body: string) Response {
     let updated: Result[u32, SqlError] = CompleteChore(i64(next), i64(now), i64(0),
         i64(id), db)
     if updated.is_ok {
-        scheduler_ignore_result(InsertCompletion(int_to_str(id), int_to_str(now),
-            scheduler_trim(scheduler_form_value(body, "note")), db))
+        scheduler_ignore_result(InsertCompletion(int_to_str(id), int_to_str(now), note, db))
     }
     sql_close(db)
     if !updated.is_ok {
-        return scheduler_page_message(req, "The chore could not be completed: " + updated.err.message)
+        return "The chore could not be completed: " + updated.err.message
+    }
+    // A chore that uses something takes it off the inventory as it is done.
+    if chore.consumes != "" && chore.consumesMilli > 0 {
+        if !inventory_consume(chore.consumes, u32(chore.consumesMilli), "chore: " + chore.title,
+            "chore#" + int_to_str(id)) {
+            warn("scheduler", chore.title + ": " + chore.consumes + " could not be taken off the inventory")
+        }
     }
     info("scheduler", "chore completed")
-    return scheduler_page_message(req, "Chore completed.")
+    return ""
 }
 
 fn chores_snooze(req: Request) Response {
@@ -612,4 +693,158 @@ fn scheduler_api_usage(req: Request) Response {
     }
     ignore_response(chores_usage_body(req, request_body(req) + "&id=" + id))
     return json(status_ok(), "{\"ok\":true}")
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Runtime and presets                                                       */
+/* -------------------------------------------------------------------------- */
+
+// scheduler_usage_tick adds to every usage chore tied to an inventory item the
+// runtime the item has gained since it was last looked at: a filter's hours on
+// become its maintenance chore's hours. Runtime from before a chore was tied to
+// the item is not counted. A host calls it from its background work, after the
+// inventory has counted runtime.
+fn scheduler_usage_tick() u32 {
+    let opened: Result[SqlDb, string] = sql_open(scheduler_db_path())
+    if !opened.is_ok {
+        return 0
+    }
+    let db: SqlDb = opened.ok
+    sql_apply(db, scheduler_schema())
+    let chores: Chores[256]
+    let slice: Slice[Chores] = Slice[Chores]{ Ptr[Chores](&chores[0]), CHORE_CAPACITY }
+    let listed: Result[u32, SqlError] = ListChores(db, slice, CHORE_CAPACITY)
+    var added: u32 = 0
+    if listed.is_ok {
+        var i: u32 = 0
+        while i < listed.ok {
+            let chore: Chores = chores[i]
+            if chore.runtimeOf != "" {
+                let seconds: u32 = inventory_runtime_seconds(chore.runtimeOf)
+                let seen: u32 = u32(chore.runtimeSeen)
+                if seen > 0 && seconds > seen {
+                    scheduler_ignore_result(AddUsage(int_to_str(seconds - seen), chore.id, db))
+                    added = added + 1
+                }
+                if seconds != seen {
+                    scheduler_ignore_result(SetChoreRuntimeSeen(i64(seconds), chore.id, db))
+                }
+            }
+            i = i + 1
+        }
+    }
+    sql_close(db)
+    return added
+}
+
+// scheduler_presets seeds the application's chores from the text of its
+// presets/schedule.yml: under `chores:`, each by a name, with its `title`,
+// `kind` (interval, cron, date, usage), `value`, `interval_hours`,
+// `usage_hours`, `grace_hours`, `priority`, `runtime_of`, `consumes` and
+// `consumes_qty`. A chore is added once, by its title; after that it is the
+// person's. It answers how many chores the presets named.
+fn scheduler_presets(text: string) u32 {
+    if scheduler_trim(text) == "" {
+        return 0
+    }
+    let path: string = scheduler_db_path() + ".presets.yml"
+    if !rho_write_text(path, text) {
+        return 0
+    }
+    let opened: Result[SqlDb, string] = sql_open(scheduler_db_path())
+    if !opened.is_ok {
+        return 0
+    }
+    let db: SqlDb = opened.ok
+    sql_apply(db, scheduler_schema())
+    let now: u32 = scheduler_now()
+    var count: u32 = 0
+    var rest: string = yaml.keys(path, "chores")
+    while rest != "" {
+        let at: i32 = str_index_of(rest, "\n")
+        var key: string = rest
+        if at < 0 {
+            rest = ""
+        } else {
+            key = str_slice(rest, 0, u32(at))
+            rest = str_slice(rest, u32(at) + 1, u32(strlen(rest)) - u32(at) - 1)
+        }
+        if key == "" {
+            continue
+        }
+        let base: string = "chores." + key + "."
+        var title: string = scheduler_unquote(yaml.value(path, base + "title"))
+        if title == "" {
+            title = key
+        }
+        var kind: string = scheduler_unquote(yaml.value(path, base + "kind"))
+        if kind == "" {
+            kind = "interval"
+        }
+        let value: string = scheduler_unquote(yaml.value(path, base + "value"))
+        let interval_hours: u32 = int_from_str(scheduler_unquote(yaml.value(path, base + "interval_hours")))
+        var priority: string = scheduler_unquote(yaml.value(path, base + "priority"))
+        if priority == "" {
+            priority = "normal"
+        }
+        let seeded: Result[u32, SqlError] = SeedChore(title,
+            scheduler_unquote(yaml.value(path, base + "description")), kind, value,
+            int_to_str(interval_hours),
+            scheduler_unquote(yaml.value(path, base + "usage_hours")),
+            scheduler_unquote(yaml.value(path, base + "grace_hours")), priority,
+            int_to_str(scheduler_next_due(kind, value, interval_hours, now)), db)
+        if seeded.is_ok && seeded.ok > 0 {
+            let consumes: string = scheduler_unquote(yaml.value(path, base + "consumes"))
+            var quantity: u32 = scheduler_milli(scheduler_unquote(yaml.value(path, base + "consumes_qty")))
+            if consumes != "" && quantity == 0 {
+                quantity = 1000
+            }
+            scheduler_ignore_result(SetChoreLinks(scheduler_unquote(yaml.value(path, base + "runtime_of")),
+                consumes, i64(quantity), title, db))
+        }
+        count = count + 1
+    }
+    sql_close(db)
+    return count
+}
+
+fn scheduler_unquote(text: string) string {
+    let value: string = scheduler_trim(text)
+    let n: u32 = u32(strlen(value))
+    if n >= 2 && (str_eq(str_slice(value, 0, 1), "\"") || str_eq(str_slice(value, 0, 1), "'")) {
+        return str_slice(value, 1, n - 2)
+    }
+    return value
+}
+
+// scheduler_complete_title completes the newest enabled chore with a title, as
+// a person completing it would (its next due time moves on, its usage starts
+// again, what it uses is taken off the inventory), and answers whether there was
+// one. An application calls it when what it records is the chore itself: a water
+// change logged is the water-change chore done.
+fn scheduler_complete_title(title: string, note: string) bool {
+    let opened: Result[SqlDb, string] = sql_open(scheduler_db_path())
+    if !opened.is_ok {
+        return false
+    }
+    let db: SqlDb = opened.ok
+    sql_apply(db, scheduler_schema())
+    let chores: Chores[256]
+    let slice: Slice[Chores] = Slice[Chores]{ Ptr[Chores](&chores[0]), CHORE_CAPACITY }
+    let listed: Result[u32, SqlError] = ListChores(db, slice, CHORE_CAPACITY)
+    var best: i64 = 0
+    if listed.is_ok {
+        var i: u32 = 0
+        while i < listed.ok {
+            if chores[i].enabled != 0 && str_eq(chores[i].title, title) && chores[i].id > best {
+                best = chores[i].id
+            }
+            i = i + 1
+        }
+    }
+    sql_close(db)
+    if best == 0 {
+        return false
+    }
+    return scheduler_complete(u32(best), note) == ""
 }

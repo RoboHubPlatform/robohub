@@ -90,3 +90,22 @@ The module declares the runtime functions it calls rather than relying on the in
 ## [0.2.5] - 2026-11-12
 
 Sources, readings, history and the live stream come from the gateway interface the host binds (`gateway.sources()`, `gateway.source_latest(...)` ...); the module declares `robohub-gateway` and imports it rather than calling the functions of a contract its host included.
+
+## [0.2.6] - 2026-11-13
+
+The module declares its tables and statements in its own `sql:` block, and
+rho-sql 0.2 generates them into each application that depends on it, so an
+application no longer repeats them. The smoke test runs in the aquarium's own
+repository.
+
+## [0.3.0] - 2026-11-13
+
+A widget reads a gateway source by its stable id, an inventory item's capability
+by handle (`heater.temperature`, through the source the item is bound to), or one
+of the application's own values (appapi); plain URLs remain for what is not a
+gateway. A toggle on a gateway source or an item switches through the gateway or
+inventory, not with a request carrying a token. Sources older widgets stored — a
+Mesh URL, a positional id — move to stable ids by the legacy ids the gateway
+lists. Presses are written to the journal rather than to a table of the host's;
+the JSON API's press reads the toggle's own state, not the state of the widget at
+the same position.

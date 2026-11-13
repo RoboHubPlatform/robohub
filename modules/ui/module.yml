@@ -1,0 +1,38 @@
+#
+# ui — the RoboHub look, shared by every RoboHub application.
+#
+# The colours, type and components as one stylesheet with a dark and a light
+# theme from the same tokens, the top bar every application draws (brand, app
+# switcher, the person and their theme), and the few lines of script every page
+# needs. An application includes it and serves the same look as the others.
+#
+module:
+  name: ui
+  id: robohub.module.ui
+  type: module
+  title: RoboHub UI
+  category: ui
+  version: 0.1.2
+  description: >
+    The RoboHub look: design tokens for a dark and a light theme, the shared
+    components and the top bar with the app switcher, for every RoboHub
+    application.
+  maintainer: "Aurel Miron"
+  author: "Aurel Miron"
+  license: "MIT"
+  created: "2026-11-13"
+
+main: src/main.rho
+
+docs:
+  title: RoboHub UI
+  section: modules
+  order: "36"
+  index: docs/index.md
+  sources:
+    - docs/index.md
+
+# Read at run time by name (rho_asset), embedded into every application that
+# includes the module.
+assets:
+  - static

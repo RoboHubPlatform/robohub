@@ -24,6 +24,37 @@ the grace it is **overdue**. Completing it records the note and computes the
 next due time immediately. Snoozing moves the visible due time without changing
 the schedule.
 
+## Tied to the inventory
+
+A chore can name inventory items by handle. `runtime_of: filter-main` makes a
+usage chore count the item's switch runtime instead of hours typed in: a host
+calls `scheduler_usage_tick()` after the inventory has counted runtime, and only
+runtime gained since the chore was tied to the item counts. `consumes:
+filter-pads` with `consumes_qty: 1` takes that much off the shelf each time the
+chore is done, recorded as a stock movement for the chore (`chore#<id>`).
+
+## Presets
+
+`scheduler_presets(text)` seeds an application's chores from its
+`presets/schedule.yml`:
+
+```yaml
+chores:
+  water-change:
+    title: Water change 30 %
+    kind: interval
+    interval_hours: 168
+  rinse-filter:
+    title: Rinse filter media
+    kind: usage
+    usage_hours: 720
+    runtime_of: filter-main
+    consumes: filter-pads
+    consumes_qty: 1
+```
+
+A chore is added once, by its title; after that it is the person's.
+
 ## API
 
 | Method | Path | Meaning |

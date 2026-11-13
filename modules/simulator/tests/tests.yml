@@ -1,0 +1,6 @@
+name: simulator
+suites:
+  - name: simulator-smoke
+    kind: command
+    tags: [smoke]
+    command: [python3, tests/simulator_smoke.py]

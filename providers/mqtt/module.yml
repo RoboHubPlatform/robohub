@@ -1,0 +1,48 @@
+#
+# robohub-provider-mqtt — the MQTT broker transport.
+#
+# A provider of the bus interface (robohub-bus). An application declares it and
+# binds it; with no settings it uses the broker the keeper gave the application:
+#
+#   bind:
+#     robohub.bus:
+#       providers: [robohub-provider-mqtt]
+#       config:
+#         robohub-provider-mqtt:
+#           broker: 127.0.0.1:1884        # else ROBOHUB_BUS_URL
+#           user: mesh                    # else ROBOHUB_BUS_USER
+#           password_file: ...            # else ROBOHUB_BUS_PASSWORD_FILE
+#
+module:
+  name: robohub-provider-mqtt
+  id: robohub.provider.mqtt
+  type: provider
+  version: 0.2.0
+  description: Publishes to and follows an MQTT broker, as a provider of the bus interface.
+  maintainer: "Aurel Miron"
+  author: "Aurel Miron"
+  license: "MIT"
+  created: "2026-11-13"
+
+main: src/provider.rho
+
+# The MQTT client is the RoboHub platform's mqtt port: a program that binds this
+# provider gets it.
+ports:
+  - mqtt
+
+implements: [robohub.bus]
+
+provides:
+  import: robohub.bus_mqtt
+  exports: [publish, follow, follow_lines, relay, latest, topics]
+  settings:
+    - broker
+    - user
+    - password_file
+
+metadata:
+  tags:
+    - provider
+    - bus
+    - mqtt

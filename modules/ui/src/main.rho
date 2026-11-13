@@ -1,0 +1,27 @@
+//
+// @file main.rho
+// @brief The RoboHub look: the stylesheet, the script and the theme, served to a host application.
+//
+// @module ui
+// @project ui
+// @author Aurel Miron
+// @date 2026-11-13
+//
+// SPDX-License-Identifier: MIT
+//
+
+module ui
+
+// ui — the RoboHub look, included by a host application.
+//
+// The module serves its stylesheet and script under /ui/, remembers the theme a
+// person chose in a cookie every application on the host reads, and draws the
+// top bar. Everything else about a page is the application's own.
+
+include "ui.rho"
+
+import std.web.http
+
+route GET "/ui/robohub.css" => ui_stylesheet
+route GET "/ui/robohub.js"  => ui_script
+route GET "/ui/theme"       => ui_theme_set

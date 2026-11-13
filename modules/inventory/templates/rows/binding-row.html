@@ -1,0 +1,15 @@
+<tr>
+  <td><b>{{ capability }}</b> <span class="muted">{{ need }}</span></td>
+  <td>
+    <form method="post" action="/expenses/items/bind" class="inline">
+      {{{ csrf }}}
+      <input type="hidden" name="id" value="{{ id }}">
+      <input type="hidden" name="capability" value="{{ capability }}">
+      <select name="source" onchange="this.form.submit()">{{{ options }}}</select>
+      <noscript><button type="submit">{{t "inventory.bind"}}</button></noscript>
+    </form>
+  </td>
+  <td>{{ access }}</td>
+  <td class="num">{{ now }}</td>
+  <td>{{{ control }}}</td>
+</tr>

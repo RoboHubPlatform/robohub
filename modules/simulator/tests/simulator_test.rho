@@ -1,0 +1,5 @@
+module simulator.tests
+
+fn main() void {
+    print("simulator smoke suite is declared in tests.yml\n")
+}

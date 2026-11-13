@@ -1,0 +1,10 @@
+# robohub-keeper — application.
+#
+# What the orchestrator knows about this module. The module's own manifest is
+# the truth about what it is; this is the truth about where it is and what it
+# is for in the ecosystem.
+name: robohub-keeper
+role: application
+path: ../robohub-keeper
+git: https://github.com/RoboHubPlatform/robohub-keeper
+summary: Signs people in to every RoboHub application, installs and supervises them, and says what the machine still needs.

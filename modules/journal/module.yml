@@ -1,0 +1,56 @@
+#
+# journal — what happened in an installation, in one table.
+#
+# A module a host application includes. Everything an application, a rule, a
+# person or a device does that is worth reading later is one entry: when, how
+# serious, what kind of thing, about what, by whom, and what was said. Warnings
+# and errors also become notifications. The host owns the port, the database and
+# the workspace; the journal owns its table.
+#
+module:
+  name: journal
+  id: robohub.module.journal
+  type: module
+  title: Journal
+  category: operations
+  version: 0.1.0
+  description: >
+    What happened, in one table every RoboHub application shares the shape of:
+    the time, the level, the kind of thing, its subject, who or what did it and
+    what was said; a page to read and filter it, a JSON API, and warnings and
+    errors passed on as notifications.
+  maintainer: "Aurel Miron"
+  license: "MIT"
+  created: "2026-11-13"
+
+main: src/main.rho
+
+# The module's table and statements, generated into every application that
+# depends on it (rho-sql 0.2).
+sql:
+  schema: db/schema.sql
+  queries: db/queries.sql
+
+deps:
+  rho-log: ">=0.1.0"
+  robohub:
+    notifications: ">=0.1.0"
+
+docs:
+  title: Journal
+  section: modules
+  order: "15"
+  index: docs/index.md
+  sources:
+    - docs/index.md
+
+assets:
+  - templates
+  - db/schema.sql
+  - docs/index.md
+
+locales:
+  - locale: en
+    file: locales/en.json
+  - locale: ro
+    file: locales/ro.json

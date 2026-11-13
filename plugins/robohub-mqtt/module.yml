@@ -1,0 +1,62 @@
+#
+# robohub-mqtt — MQTT for RoboHub: a Mosquitto broker the keeper runs and looks
+# after, and the bus applications reach it through.
+#
+# An integration plugin: it brings a service (Mosquitto), the program it needs
+# from the machine, the configuration the keeper writes for it, and what it
+# provides to applications (the bus interface, through robohub-provider-mqtt).
+# The keeper runs it as a user service of its own, on its own port, beside any
+# Mosquitto the system already has; every application that binds the bus is a
+# broker user the keeper makes, allowed the topics its manifest's `bus:` block
+# names, and every device is a broker user an admin adds.
+#
+module:
+  name: robohub-mqtt
+  id: robohub.plugin.mqtt
+  type: plugin
+  kind: integration
+  title: MQTT (Mosquitto)
+  version: 0.1.0
+  description: >
+    Runs a Mosquitto broker for the machine's applications and devices, with a
+    broker user and topic rules for each, and gives applications the bus.
+  maintainer: "Aurel Miron"
+  author: "Aurel Miron"
+  license: "MIT"
+  created: "2026-11-13"
+
+main: README.md
+
+# What the keeper runs, and how it knows it runs.
+integration:
+  service:
+    name: mqtt
+    command: mosquitto
+    args: ["-c", "{config}"]
+    port: "1884"
+    probe: tcp
+    config: templates/mosquitto.conf
+  provides: robohub.bus
+  provider: robohub-provider-mqtt
+
+system_deps:
+  executables:
+    - name: mosquitto
+      description: the broker itself
+      install:
+        apt: mosquitto
+        brew: mosquitto
+        dnf: mosquitto
+    - name: mosquitto_passwd
+      description: hashes the broker users' passwords
+      install:
+        apt: mosquitto
+        brew: mosquitto
+        dnf: mosquitto
+
+docs:
+  title: robohub-mqtt
+  section: plugins
+  index: README.md
+  sources:
+    - README.md

@@ -24,4 +24,17 @@
   .row-actions a.edit { font-size: .75rem; }
   .badge.low { display: inline-block; margin-left: .35rem; padding: .04rem .4rem; border-radius: 999px; background: rgba(240,160,106,.18); color: var(--warn, #f0a06a); font-size: .62rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
   .num { text-align: right; white-space: nowrap; }
+  .badge.kind, .badge.on, .badge.off { display: inline-block; margin-left: .35rem; padding: .04rem .4rem; border-radius: 999px; font-size: .62rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+  .badge.kind { background: var(--wash, rgba(244,239,228,.06)); color: var(--muted); border: 1px solid var(--line); }
+  .badge.on { background: var(--teal-soft, rgba(121,199,189,.12)); color: var(--teal, #79c7bd); }
+  .badge.off { background: var(--stop-soft, rgba(240,138,126,.12)); color: var(--stop, #f08a7e); }
+  .item-tabs { display: flex; gap: .4rem; margin: .6rem 0 1rem; border-bottom: 1px solid var(--line); }
+  .item-tabs a { padding: .45rem .8rem; color: var(--muted); border-bottom: 2px solid transparent; }
+  .item-tabs a.active { color: var(--gold); border-color: var(--gold); }
+  .bindings { width: 100%; border-collapse: collapse; }
+  .bindings th, .bindings td { text-align: left; padding: .5rem .55rem; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  .bindings select { min-width: 16rem; }
+  form.inline { display: inline; margin: 0; }
+  .notice:empty { display: none; }
+  .hint, .muted { color: var(--faint); font-size: .82rem; }
 </style>

@@ -1,0 +1,12 @@
+module:
+  name: appapi-tests
+  id: robohub.app.appapi-tests
+  type: rho
+  version: 0.1.0
+
+main: appapi_test.rho
+
+build:
+  language: c
+  targets:
+    - c

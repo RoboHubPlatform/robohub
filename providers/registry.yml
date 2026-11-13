@@ -32,3 +32,8 @@ providers:
     implements: gateway
     transport: mesh
     enabled: true
+  - name: robohub-provider-mqtt
+    path: mqtt
+    implements: robohub.bus
+    transport: mqtt
+    enabled: true

@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.4.0] - 2026-11-13
+
+Whole labels. An application that writes its labels in English carries a catalog
+per language (`phrases.<locale>.txt`, English and the translation separated by a
+tab), and `i18n_phrases(req, html, folder)` turns a page into the request's
+language: a label is replaced only where it is a whole text between tags, a
+placeholder or a title, a translation is never translated again, and what a page
+receives later is translated in the browser from the same catalog. It was Mesh's;
+every application has it now.
+
 ## [0.1.0] - 2026-11-08
 
 First release. Adds locale negotiation from a cookie or `Accept-Language`, the

@@ -23,8 +23,10 @@ from pathlib import Path
 HERE = Path(__file__).resolve()
 MODULE = HERE.parents[1]
 ROBOHUB = MODULE.parents[1]
-HOST = ROBOHUB / "applications" / "aquarium"
 PROJECTS = ROBOHUB.parent
+# The host the module is tested in: the aquarium, in its own repository beside
+# this one, or where ROBOHUB_AQUARIUM says.
+HOST = Path(os.environ.get("ROBOHUB_AQUARIUM", str(PROJECTS / "robohub-aquarium")))
 RHO = PROJECTS / "rho" / "bin" / "rho"
 
 # The bearer ticket every request carries: one the keeper would issue for the
@@ -87,7 +89,7 @@ def wait_for(base: str, timeout: float = 20.0) -> None:
             with open_url(base + "/", timeout=1) as response:
                 if response.status == 200:
                     return
-        except (urllib.error.URLError, ConnectionError):
+        except (urllib.error.URLError, OSError):
             time.sleep(0.2)
     raise SystemExit(f"the aquarium host did not start at {base}")
 
@@ -127,6 +129,15 @@ def build() -> Path:
     return binary
 
 
+OLD_SCHEMA = """
+CREATE TABLE categories (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE);
+CREATE TABLE items (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL,
+    category_id INTEGER REFERENCES categories(id), unit TEXT NOT NULL DEFAULT 'unit',
+    quantity_milli INTEGER NOT NULL DEFAULT 0, reorder_milli INTEGER NOT NULL DEFAULT 0,
+    location TEXT, notes TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now')));
+"""
+
+
 def main() -> int:
     binary = build()
     port = free_port()
@@ -140,11 +151,17 @@ def main() -> int:
         env["ROBOHUB_WORKSPACE"] = str(ROBOHUB)
         env["ROBOHUB_APP_WORKSPACE"] = workspace
         env["ROBOHUB_APP_MANIFEST"] = str(HOST / "module.yml")
-        env["RHO_HTTP_ADDR"] = f":{port}"
+        env["RHO_HTTP_ADDR"] = f"127.0.0.1:{port}"
         global TOKEN
         auth_home = env.get("HOME") if env.get("HOME", "").startswith(tempfile.gettempdir()) else tempfile.mkdtemp(prefix="aquarium-home-")
         env["HOME"] = auth_home
         TOKEN = mint_token(auth_home, "aquarium")
+        # A database an older inventory made: the new columns come from the
+        # module's ALTER statements, and its rows survive.
+        import sqlite3
+        os.makedirs(os.path.join(workspace, "data"), exist_ok=True)
+        with sqlite3.connect(os.path.join(workspace, "data", "app.db")) as conn:
+            conn.executescript(OLD_SCHEMA)
         process = subprocess.Popen([str(binary)], cwd=HOST, env=env,
                                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                                    text=True)
@@ -162,9 +179,17 @@ def main() -> int:
 
             assert_contains(post(base, "/expenses/categories/add", {"category": "Consumables"}),
                             ["Category added"], "category")
+            import sqlite3
+            db_path = Path(workspace) / "data" / "app.db"
+
+            def category_id(name: str) -> str:
+                with sqlite3.connect(db_path) as conn:
+                    return str(conn.execute("SELECT id FROM categories WHERE name = ?", (name,)).fetchone()[0])
+
+            consumables = category_id("Consumables")
             assert_contains(post(base, "/expenses/items/add", {
                 "name": "Salt mix",
-                "category_id": "1",
+                "category_id": consumables,
                 "unit": "kg",
                 "quantity": "5",
                 "reorder": "1",
@@ -175,7 +200,7 @@ def main() -> int:
                 "item_id": "1",
                 "quantity": "2.5",
                 "unit_price": "12.34",
-                "category_id": "1",
+                "category_id": consumables,
                 "source": "Shop",
                 "purchased_at": "2026-11-02",
                 "comment": "Restock",
@@ -202,6 +227,47 @@ def main() -> int:
             assert_contains(post(base, "/expenses/purchases/delete", {"id": "1"}),
                             ["Purchase removed"], "delete purchase")
             assert "0.00" in get(base, "/expenses")
+
+            # Equipment: an item of kind equipment, named by a handle written
+            # loosely and kept clean, whose category has capabilities.
+            post(base, "/expenses/categories/add", {"category": "Filters"})
+            filters = category_id("Filters")
+            with sqlite3.connect(db) as conn:
+                conn.execute("UPDATE categories SET kind='equipment', capabilities='switch, power?' WHERE name='Filters'")
+            assert_contains(post(base, "/expenses/items/add", {
+                "name": "Eheim 2217", "category_id": filters, "unit": "unit", "quantity": "1",
+                "kind": "", "handle": "Filter Main",
+            }), ["Item added"], "equipment item")
+            assert_contains(post(base, "/expenses/items/add", {
+                "name": "Light", "category_id": filters, "handle": "light",
+            }), ["Item added"], "second equipment item")
+            refused = post(base, "/expenses/items/add", {"name": "Twin", "category_id": filters, "handle": "light"})
+            assert_contains(refused, ["Another item already has that handle"], "a handle taken twice")
+            with sqlite3.connect(db) as conn:
+                kind, handle = conn.execute("SELECT kind, handle FROM items WHERE name='Eheim 2217'").fetchone()
+            if (kind, handle) != ("equipment", "filter-main"):
+                raise AssertionError(f"the item is {kind!r} {handle!r}, want equipment filter-main")
+            page = get(base, "/expenses")
+            assert_contains(page, ["Equipment", "not connected", "/expenses/items/automation?id=2"],
+                            "an unconnected equipment row")
+
+            automation = get(base, "/expenses/items/automation?id=2")
+            assert_contains(automation, ["Eheim 2217", "filter-main", "switch", "power", "optional"],
+                            "the automation tab")
+            assert_contains(post(base, "/expenses/items/bind", {
+                "id": "2", "capability": "switch", "source": "plug-a1.switch"}),
+                ["Capability bound"], "a switch bound")
+            taken = post(base, "/expenses/items/bind", {
+                "id": "3", "capability": "switch", "source": "plug-a1.switch"})
+            assert_contains(taken, ["already controlled by", "Eheim 2217"], "one relay, two items")
+            post(base, "/expenses/items/bind", {"id": "2", "capability": "power", "source": "plug-a1.power"})
+            with sqlite3.connect(db) as conn:
+                rows = conn.execute("SELECT capability, source, access FROM item_bindings ORDER BY capability").fetchall()
+            if rows != [("power", "plug-a1.power", "read"), ("switch", "plug-a1.switch", "control")]:
+                raise AssertionError(f"bindings {rows}")
+            assert_contains(get(base, "/expenses"), ["connected"], "a connected equipment row")
+            assert_contains(post(base, "/expenses/items/bind", {"id": "2", "capability": "power", "source": ""}),
+                            ["Capability unbound"], "an optional capability unbound")
         finally:
             process.terminate()
             try:

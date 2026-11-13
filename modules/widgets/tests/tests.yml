@@ -4,3 +4,7 @@ suites:
     kind: command
     tags: [smoke]
     command: [python3, tests/widgets_smoke.py]
+  - name: widgets-gateway-smoke
+    kind: command
+    tags: [smoke]
+    command: [python3, tests/widgets_gateway_smoke.py]

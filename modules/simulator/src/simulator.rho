@@ -1,0 +1,803 @@
+//
+// @file simulator.rho
+// @brief Simulated devices from an application's presets, served through the gateway interface.
+//
+// @module robohub.simulator
+// @project simulator
+// @author Aurel Miron
+// @date 2026-11-13
+//
+// SPDX-License-Identifier: MIT
+//
+
+module robohub.simulator
+
+import rho.log
+
+// The simulator is a gateway provider, so the application imports it rather
+// than including it, and it keeps its own small state in files under the
+// application's workspace — the sources the presets describe, their values,
+// each source's history and the files its live feed is followed into — rather
+// than in tables the application's generated code owns.
+//
+// A value is kept in thousandths (an integer), so 24.5 °C is 24500, and a switch
+// as on or off. Every tick writes each source's value to its history and a line
+// to every followed feed, in Mesh's own stream format: what reads the feed
+// cannot tell it from a mesh.
+
+extern fn rho_exec(program: string, arguments: string, output_path: string) u32
+extern fn rho_read_text(path: string) string
+extern fn rho_write_text(path: string, text: string) bool
+extern fn rho_append_text(path: string, text: string) bool
+extern fn rho_path_exists(path: string) bool
+extern fn rho_random_hex(bytes: u32) string
+extern fn rho_lock(name: string) void
+extern fn rho_unlock(name: string) void
+
+/// How long a source's history is kept, in seconds (7 days).
+const SIM_KEEP: u32 = 604800
+
+/* -------------------------------------------------------------------------- */
+/*  Files                                                                     */
+/* -------------------------------------------------------------------------- */
+
+fn sim_dir() string {
+    var workspace: string = getenv("ROBOHUB_APP_WORKSPACE")
+    if workspace == "" {
+        workspace = getenv("RHO_APP_WORKSPACE")
+    }
+    if workspace == "" {
+        workspace = getenv("HOME") + "/.rho/modules/simulator"
+    }
+    let dir: string = workspace + "/data/simulator"
+    if !rho_path_exists(dir + "/history") {
+        rho_exec("mkdir", "-p " + dir + "/history", "/dev/null")
+    }
+    return dir
+}
+
+fn sim_now() u32 {
+    let report: string = sim_dir() + "/now.txt"
+    if rho_exec("date", "+%s", report) == 0 {
+        return int_from_str(sim_trim(rho_read_text(report)))
+    }
+    return 0
+}
+
+fn sim_minutes() u32 {
+    let report: string = sim_dir() + "/clock.txt"
+    if rho_exec("date", "+%H:%M", report) == 0 {
+        let text: string = sim_trim(rho_read_text(report))
+        if strlen(text) == 5 {
+            return int_from_str(str_slice(text, 0, 2)) * 60 + int_from_str(str_slice(text, 3, 2))
+        }
+    }
+    return 0
+}
+
+fn sim_trim(text: string) string {
+    var out: string = text
+    while strlen(out) > 0 && (str_eq(str_slice(out, 0, 1), " ") || str_eq(str_slice(out, 0, 1), "\n")) {
+        out = str_slice(out, 1, u32(strlen(out)) - 1)
+    }
+    while strlen(out) > 0 && (str_eq(str_slice(out, u32(strlen(out)) - 1, 1), " ") ||
+        str_eq(str_slice(out, u32(strlen(out)) - 1, 1), "\n")) {
+        out = str_slice(out, 0, u32(strlen(out)) - 1)
+    }
+    return out
+}
+
+fn sim_unquote(text: string) string {
+    let value: string = sim_trim(text)
+    let n: u32 = u32(strlen(value))
+    if n >= 2 && (str_eq(str_slice(value, 0, 1), "\"") || str_eq(str_slice(value, 0, 1), "'")) {
+        return str_slice(value, 1, n - 2)
+    }
+    return value
+}
+
+// sim_field is the field at an index of a `|`-separated line.
+fn sim_field(line: string, index: u32) string {
+    var rest: string = line
+    var i: u32 = 0
+    while true {
+        let at: i32 = str_index_of(rest, "|")
+        if i == index {
+            if at < 0 {
+                return rest
+            }
+            return str_slice(rest, 0, u32(at))
+        }
+        if at < 0 {
+            return ""
+        }
+        rest = str_slice(rest, u32(at) + 1, u32(strlen(rest)) - u32(at) - 1)
+        i = i + 1
+    }
+    return ""
+}
+
+// sim_param is one `key=value` of a source's `;`-separated parameters.
+fn sim_param(params: string, key: string) string {
+    var rest: string = params
+    while rest != "" {
+        let at: i32 = str_index_of(rest, ";")
+        var one: string = rest
+        if at < 0 {
+            rest = ""
+        } else {
+            one = str_slice(rest, 0, u32(at))
+            rest = str_slice(rest, u32(at) + 1, u32(strlen(rest)) - u32(at) - 1)
+        }
+        let eq: i32 = str_index_of(one, "=")
+        if eq > 0 && str_eq(str_slice(one, 0, u32(eq)), key) {
+            return str_slice(one, u32(eq) + 1, u32(strlen(one)) - u32(eq) - 1)
+        }
+    }
+    return ""
+}
+
+// sim_lines calls nothing; it is the lines of a file, without the empty ones.
+fn sim_next_line(rest: string) string {
+    let at: i32 = str_index_of(rest, "\n")
+    if at < 0 {
+        return rest
+    }
+    return str_slice(rest, 0, u32(at))
+}
+
+fn sim_after_line(rest: string) string {
+    let at: i32 = str_index_of(rest, "\n")
+    if at < 0 {
+        return ""
+    }
+    return str_slice(rest, u32(at) + 1, u32(strlen(rest)) - u32(at) - 1)
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Numbers                                                                   */
+/* -------------------------------------------------------------------------- */
+
+// sim_milli reads a decimal (or on/off) in thousandths.
+fn sim_milli(text: string) i64 {
+    var value: string = sim_trim(text)
+    if str_eq(value, "on") || str_eq(value, "true") {
+        return 1000
+    }
+    if str_eq(value, "off") || str_eq(value, "false") || value == "" {
+        return 0
+    }
+    var negative: bool = false
+    if str_eq(str_slice(value, 0, 1), "-") {
+        negative = true
+        value = str_slice(value, 1, u32(strlen(value)) - 1)
+    }
+    var whole: i64 = 0
+    var fraction: i64 = 0
+    var digits: u32 = 0
+    var dot: bool = false
+    var i: u32 = 0
+    while i < u32(strlen(value)) {
+        let ch: string = str_slice(value, i, 1)
+        let digit: i32 = str_index_of("0123456789", ch)
+        if str_eq(ch, ".") {
+            dot = true
+        } else if digit >= 0 {
+            if dot {
+                if digits < 3 {
+                    fraction = fraction * 10 + i64(digit)
+                    digits = digits + 1
+                }
+            } else {
+                whole = whole * 10 + i64(digit)
+            }
+        }
+        i = i + 1
+    }
+    while digits < 3 {
+        fraction = fraction * 10
+        digits = digits + 1
+    }
+    var milli: i64 = whole * 1000 + fraction
+    if negative {
+        milli = 0 - milli
+    }
+    return milli
+}
+
+fn sim_i64(value: i64) string {
+    if value == 0 {
+        return "0"
+    }
+    var rest: i64 = value
+    var sign: string = ""
+    if rest < 0 {
+        sign = "-"
+        rest = 0 - rest
+    }
+    var out: string = ""
+    while rest > 0 {
+        out = str_slice("0123456789", u32(rest - (rest / 10) * 10), 1) + out
+        rest = rest / 10
+    }
+    return sign + out
+}
+
+fn sim_decimal(milli: i64) string {
+    var value: i64 = milli
+    var sign: string = ""
+    if value < 0 {
+        sign = "-"
+        value = 0 - value
+    }
+    let whole: i64 = value / 1000
+    let fraction: i64 = value - whole * 1000
+    var out: string = sign + sim_i64(whole)
+    if fraction > 0 {
+        var digits: string = sim_i64(fraction)
+        while strlen(digits) < 3 {
+            digits = "0" + digits
+        }
+        while str_eq(str_slice(digits, u32(strlen(digits)) - 1, 1), "0") {
+            digits = str_slice(digits, 0, u32(strlen(digits)) - 1)
+        }
+        out = out + "." + digits
+    }
+    return out
+}
+
+fn sim_parse_i64(text: string) i64 {
+    var out: i64 = 0
+    var i: u32 = 0
+    while i < u32(strlen(text)) {
+        let digit: i32 = str_index_of("0123456789", str_slice(text, i, 1))
+        if digit < 0 {
+            return out
+        }
+        out = out * 10 + i64(digit)
+        i = i + 1
+    }
+    return out
+}
+
+// sim_noise is a random amount within ± spread (thousandths).
+fn sim_noise(spread: i64) i64 {
+    if spread <= 0 {
+        return 0
+    }
+    let hex: string = rho_random_hex(2)
+    var n: i64 = 0
+    var i: u32 = 0
+    while i < u32(strlen(hex)) {
+        n = n * 16 + i64(str_index_of("0123456789abcdef", str_slice(hex, i, 1)))
+        i = i + 1
+    }
+    return (n * 2 * spread) / 65535 - spread
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Sources and their values                                                  */
+/* -------------------------------------------------------------------------- */
+
+// A source is a line of sources.txt:
+//   id|device|signal|label|unit|direction|model|key=value;…
+fn sim_sources_text() string {
+    return rho_read_text(sim_dir() + "/sources.txt")
+}
+
+fn sim_source_line(id: string) string {
+    var rest: string = sim_sources_text()
+    while rest != "" {
+        let line: string = sim_next_line(rest)
+        rest = sim_after_line(rest)
+        if str_eq(sim_field(line, 0), id) {
+            return line
+        }
+    }
+    return ""
+}
+
+// sim_value is a source's value as it was last kept: thousandths, or on/off.
+fn sim_value(id: string) string {
+    var rest: string = rho_read_text(sim_dir() + "/values.txt")
+    while rest != "" {
+        let line: string = sim_next_line(rest)
+        rest = sim_after_line(rest)
+        let eq: i32 = str_index_of(line, "=")
+        if eq > 0 && str_eq(str_slice(line, 0, u32(eq)), id) {
+            return str_slice(line, u32(eq) + 1, u32(strlen(line)) - u32(eq) - 1)
+        }
+    }
+    return ""
+}
+
+fn sim_set_values(text: string) void {
+    rho_write_text(sim_dir() + "/values.txt", text)
+}
+
+// sim_shown is a kept value as a reading: on/off as they are, thousandths as a
+// decimal.
+fn sim_shown(value: string) string {
+    if str_eq(value, "on") || str_eq(value, "off") || value == "" {
+        return value
+    }
+    return sim_decimal(sim_parse_signed(value))
+}
+
+fn sim_parse_signed(text: string) i64 {
+    if strlen(text) > 0 && str_eq(str_slice(text, 0, 1), "-") {
+        return 0 - sim_parse_i64(str_slice(text, 1, u32(strlen(text)) - 1))
+    }
+    return sim_parse_i64(text)
+}
+
+fn sim_history_file(id: string) string {
+    var safe: string = ""
+    var i: u32 = 0
+    while i < u32(strlen(id)) {
+        let ch: string = str_slice(id, i, 1)
+        if str_eq(ch, "/") || str_eq(ch, " ") {
+            safe = safe + "_"
+        } else {
+            safe = safe + ch
+        }
+        i = i + 1
+    }
+    return sim_dir() + "/history/" + safe + ".txt"
+}
+
+// sim_record writes a value to a source's history and to every followed feed.
+fn sim_record(line: string, value: string, now: u32) void {
+    let id: string = sim_field(line, 0)
+    var milli: i64 = 0
+    if str_eq(value, "on") {
+        milli = 1000
+    } else if !str_eq(value, "off") {
+        milli = sim_parse_signed(value)
+    }
+    rho_append_text(sim_history_file(id), int_to_str(now) + " " + sim_decimal(milli) + "\n")
+    let data: string = "{\"area\":0,\"field\":" + json_string(sim_field(line, 2)) +
+        ",\"node\":0,\"project\":\"sim\",\"received_ms\":" + int_to_str(now) + "000" +
+        ",\"source\":" + json_string(sim_field(line, 1)) + ",\"status\":0,\"value\":" +
+        json_string(sim_decimal(milli)) + "}"
+    let event: string = "{\"data\":" + json_string(data) + ",\"event\":\"telemetry\"}\n"
+    var follows: string = rho_read_text(sim_dir() + "/follow.txt")
+    while follows != "" {
+        let path: string = sim_next_line(follows)
+        follows = sim_after_line(follows)
+        if path != "" {
+            rho_append_text(path, event)
+        }
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Models                                                                    */
+/* -------------------------------------------------------------------------- */
+
+// sim_ref is another source a model names: a full id, or a signal of the same
+// device.
+fn sim_ref(line: string, name: string) string {
+    if str_index_of(name, ".") >= 0 {
+        return name
+    }
+    return sim_field(line, 1) + "." + name
+}
+
+fn sim_is_on(value: string) bool {
+    return str_eq(value, "on") || (value != "off" && value != "" && sim_parse_signed(value) > 0)
+}
+
+// sim_next is a source's next value after `seconds`, by its model.
+fn sim_next(line: string, current: string, seconds: u32, minutes: u32) string {
+    let model: string = sim_field(line, 6)
+    let params: string = sim_field(line, 7)
+    let noise: i64 = sim_milli(sim_param(params, "noise"))
+    if str_eq(model, "state") {
+        if current == "" {
+            let initial: string = sim_param(params, "initial")
+            if str_eq(initial, "on") || str_eq(initial, "off") {
+                return initial
+            }
+            return sim_i64(sim_milli(initial))
+        }
+        return current
+    }
+    if str_eq(model, "constant") {
+        return sim_i64(sim_milli(sim_param(params, "value")) + sim_noise(noise))
+    }
+    if str_eq(model, "noise") {
+        return sim_i64(sim_milli(sim_param(params, "base")) + sim_noise(noise))
+    }
+    if str_eq(model, "when") {
+        let of: string = sim_value(sim_ref(line, sim_param(params, "of")))
+        if sim_is_on(of) {
+            return sim_i64(sim_milli(sim_param(params, "on")) + sim_noise(noise))
+        }
+        return sim_i64(sim_milli(sim_param(params, "off")))
+    }
+    if str_eq(model, "day") {
+        // A half sine between from and to, peaking halfway, zero outside:
+        // the sun on a panel, a light's ramp.
+        let from: u32 = sim_clock(sim_param(params, "from"))
+        let to: u32 = sim_clock(sim_param(params, "to"))
+        let peak: i64 = sim_milli(sim_param(params, "peak"))
+        if to <= from || minutes < from || minutes >= to {
+            return "0"
+        }
+        // 4x(1-x) is a curve that is 0 at both ends and 1 in the middle.
+        let span: i64 = i64(to - from)
+        let x: i64 = (i64(minutes - from) * 1000) / span
+        let shape: i64 = (4 * x * (1000 - x)) / 1000
+        var value: i64 = (peak * shape) / 1000 + sim_noise(noise)
+        if value < 0 {
+            value = 0
+        }
+        return sim_i64(value)
+    }
+    if str_eq(model, "thermal") {
+        var value: i64 = sim_milli(sim_param(params, "initial"))
+        if current != "" {
+            value = sim_parse_signed(current)
+        }
+        let ambient: i64 = sim_milli(sim_param(params, "ambient"))
+        let heater: string = sim_param(params, "heater")
+        let rate: i64 = sim_milli(sim_param(params, "rate"))
+        var cool: i64 = sim_milli(sim_param(params, "cool"))
+        if cool == 0 {
+            cool = 100
+        }
+        if heater != "" && sim_is_on(sim_value(sim_ref(line, heater))) {
+            value = value + (rate * i64(seconds)) / 3600
+        } else {
+            // Towards the room by a share of the difference each hour.
+            value = value + ((ambient - value) * cool / 1000) * i64(seconds) / 3600
+        }
+        return sim_i64(value + sim_noise(noise))
+    }
+    if str_eq(model, "integrator") {
+        // A battery's state of charge in percent, from a power source in watts
+        // (positive charges) and its capacity in watt-hours.
+        var value: i64 = sim_milli(sim_param(params, "initial"))
+        if current != "" {
+            value = sim_parse_signed(current)
+        }
+        let power: i64 = sim_parse_signed(sim_value(sim_ref(line, sim_param(params, "of"))))
+        let capacity: i64 = sim_milli(sim_param(params, "capacity"))
+        if capacity > 0 {
+            // milliwatts x seconds over milliwatt-hours, in thousandths of a percent
+            value = value + (power * i64(seconds) * 100000) / (capacity * 3600)
+        }
+        if value < 0 {
+            value = 0
+        }
+        if value > 100000 {
+            value = 100000
+        }
+        return sim_i64(value)
+    }
+    return current
+}
+
+fn sim_clock(text: string) u32 {
+    let value: string = sim_trim(text)
+    if strlen(value) != 5 {
+        return 0
+    }
+    return int_from_str(str_slice(value, 0, 2)) * 60 + int_from_str(str_slice(value, 3, 2))
+}
+
+/* -------------------------------------------------------------------------- */
+/*  What the application calls                                                */
+/* -------------------------------------------------------------------------- */
+
+// presets reads the application's presets/sim.yml — under `devices:`, each
+// device with a `label` and its `sources:`, each source with a `model` and the
+// model's settings — and keeps the sources. It answers how many.
+fn presets(text: string) u32 {
+    if sim_trim(text) == "" {
+        return 0
+    }
+    let path: string = sim_dir() + "/sim.yml"
+    if !rho_write_text(path, text) {
+        return 0
+    }
+    var out: string = ""
+    var count: u32 = 0
+    var devices: string = yaml.keys(path, "devices")
+    while devices != "" {
+        let device: string = sim_next_line(devices)
+        devices = sim_after_line(devices)
+        if device == "" {
+            continue
+        }
+        var label: string = sim_unquote(yaml.value(path, "devices." + device + ".label"))
+        if label == "" {
+            label = device
+        }
+        var signals: string = yaml.keys(path, "devices." + device + ".sources")
+        while signals != "" {
+            let signal: string = sim_next_line(signals)
+            signals = sim_after_line(signals)
+            if signal == "" {
+                continue
+            }
+            let base: string = "devices." + device + ".sources." + signal + "."
+            let model: string = sim_unquote(yaml.value(path, base + "model"))
+            var params: string = ""
+            var keys: string = "initial\nvalue\nbase\nnoise\nof\non\noff\npeak\nfrom\nto\nambient\nheater\nrate\ncool\ncapacity\n"
+            while keys != "" {
+                let key: string = sim_next_line(keys)
+                keys = sim_after_line(keys)
+                let value: string = sim_unquote(yaml.value(path, base + key))
+                if value != "" {
+                    params = params + key + "=" + value + ";"
+                }
+            }
+            var direction: string = "input"
+            if str_eq(model, "state") {
+                direction = "output"
+            }
+            out = out + device + "." + signal + "|" + device + "|" + signal + "|" + label + "|" +
+                sim_unquote(yaml.value(path, base + "unit")) + "|" + direction + "|" + model + "|" + params + "\n"
+            count = count + 1
+        }
+    }
+    rho_write_text(sim_dir() + "/sources.txt", out)
+    info("simulator", int_to_str(count) + " simulated sources from the presets")
+    return count
+}
+
+// tick moves every simulated source on by its model, keeps its value, writes
+// its history and feeds the followers. The application calls it from its
+// background work, every few seconds; a source moves at most once a second.
+fn tick() u32 {
+    rho_lock("simulator")
+    let now: u32 = sim_now()
+    let last: u32 = int_from_str(sim_trim(rho_read_text(sim_dir() + "/last.txt")))
+    var seconds: u32 = 0
+    if last > 0 && now > last {
+        seconds = now - last
+    }
+    if last > 0 && seconds == 0 {
+        rho_unlock("simulator")
+        return 0
+    }
+    let minutes: u32 = sim_minutes()
+    var values: string = ""
+    var count: u32 = 0
+    var rest: string = sim_sources_text()
+    while rest != "" {
+        let line: string = sim_next_line(rest)
+        rest = sim_after_line(rest)
+        if line == "" {
+            continue
+        }
+        let id: string = sim_field(line, 0)
+        let next: string = sim_next(line, sim_value(id), seconds, minutes)
+        values = values + id + "=" + next + "\n"
+        count = count + 1
+    }
+    sim_set_values(values)
+    var again: string = sim_sources_text()
+    while again != "" {
+        let line: string = sim_next_line(again)
+        again = sim_after_line(again)
+        if line != "" {
+            sim_record(line, sim_value(sim_field(line, 0)), now)
+        }
+    }
+    rho_write_text(sim_dir() + "/last.txt", int_to_str(now))
+    if now % 3600 < seconds {
+        sim_prune(now)
+    }
+    rho_unlock("simulator")
+    return count
+}
+
+// sim_prune drops history older than a week.
+fn sim_prune(now: u32) void {
+    if now <= SIM_KEEP {
+        return
+    }
+    let cutoff: u32 = now - SIM_KEEP
+    var rest: string = sim_sources_text()
+    while rest != "" {
+        let line: string = sim_next_line(rest)
+        rest = sim_after_line(rest)
+        if line == "" {
+            continue
+        }
+        let file: string = sim_history_file(sim_field(line, 0))
+        var kept: string = ""
+        var points: string = rho_read_text(file)
+        while points != "" {
+            let point: string = sim_next_line(points)
+            points = sim_after_line(points)
+            if point != "" && int_from_str(sim_field(point + " ", 0)) >= cutoff {
+                kept = kept + point + "\n"
+            }
+        }
+        rho_write_text(file, kept)
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+/*  The gateway interface                                                     */
+/* -------------------------------------------------------------------------- */
+
+fn projects() string {
+    return "[{\"id\":\"sim\",\"name\":\"Simulator\"}]"
+}
+
+fn gateway() string {
+    return ""
+}
+
+fn device_states() string {
+    return ""
+}
+
+// sources are the simulated sources, in the shape Mesh lists its own.
+fn sources() string {
+    var out: string = ""
+    var rest: string = sim_sources_text()
+    while rest != "" {
+        let line: string = sim_next_line(rest)
+        rest = sim_after_line(rest)
+        if line == "" {
+            continue
+        }
+        var kinds: string = "numeric chart table"
+        if str_eq(sim_field(line, 5), "output") {
+            kinds = "toggle button"
+        }
+        if out != "" {
+            out = out + ","
+        }
+        out = out + "{\"id\":" + json_string(sim_field(line, 0)) +
+            ",\"name\":" + json_string(sim_field(line, 3) + " · " + sim_field(line, 2)) +
+            ",\"owner\":" + json_string(sim_field(line, 3)) +
+            ",\"project\":\"sim\",\"instance\":" + json_string(sim_field(line, 1)) +
+            ",\"kind\":\"device\",\"signal\":" + json_string(sim_field(line, 2)) +
+            ",\"label\":" + json_string(sim_field(line, 2)) +
+            ",\"direction\":" + json_string(sim_field(line, 5)) +
+            ",\"unit\":" + json_string(sim_field(line, 4)) +
+            ",\"kinds\":" + json_string(kinds) + "}"
+    }
+    return "[" + out + "]"
+}
+
+// follow feeds a file with every tick's values, in Mesh's stream format.
+fn follow(path: string) bool {
+    if path == "" {
+        return false
+    }
+    let file: string = sim_dir() + "/follow.txt"
+    let known: string = rho_read_text(file)
+    if str_index_of("\n" + known, "\n" + path + "\n") < 0 {
+        rho_append_text(file, path + "\n")
+    }
+    return true
+}
+
+fn transport() string {
+    return "sim"
+}
+
+// action switches a simulated switch on or off, at once.
+fn action(source: string, state: string) bool {
+    let line: string = sim_source_line(source)
+    if line == "" || !str_eq(sim_field(line, 6), "state") || (!str_eq(state, "on") && !str_eq(state, "off")) {
+        return false
+    }
+    rho_lock("simulator")
+    var values: string = ""
+    var found: bool = false
+    var rest: string = rho_read_text(sim_dir() + "/values.txt")
+    while rest != "" {
+        let one: string = sim_next_line(rest)
+        rest = sim_after_line(rest)
+        if one == "" {
+            continue
+        }
+        let eq: i32 = str_index_of(one, "=")
+        if eq > 0 && str_eq(str_slice(one, 0, u32(eq)), source) {
+            values = values + source + "=" + state + "\n"
+            found = true
+        } else {
+            values = values + one + "\n"
+        }
+    }
+    if !found {
+        values = values + source + "=" + state + "\n"
+    }
+    sim_set_values(values)
+    sim_record(line, state, sim_now())
+    rho_unlock("simulator")
+    info("simulator", source + " switched " + state)
+    return true
+}
+
+fn source_state(source: string) string {
+    let value: string = sim_value(source)
+    if str_eq(value, "on") || str_eq(value, "off") {
+        return value
+    }
+    return ""
+}
+
+fn source_latest(source: string) string {
+    return sim_shown(sim_value(source))
+}
+
+// source_history is a source's history between two times (Unix milliseconds),
+// raw or averaged into steps, in the gateway's shape.
+fn source_history(source: string, from_ms: string, to_ms: string, step_ms: string) string {
+    let from: i64 = sim_parse_i64(from_ms) / 1000
+    var to: i64 = sim_parse_i64(to_ms) / 1000
+    if to == 0 {
+        to = i64(sim_now())
+    }
+    let bucket_s: i64 = sim_parse_i64(step_ms) / 1000
+    var out: string = ""
+    var bucket: i64 = -1
+    var sum: i64 = 0
+    var count: i64 = 0
+    var rest: string = rho_read_text(sim_history_file(source))
+    while rest != "" {
+        let point: string = sim_next_line(rest)
+        rest = sim_after_line(rest)
+        let space: i32 = str_index_of(point, " ")
+        if space <= 0 {
+            continue
+        }
+        let t: i64 = sim_parse_i64(str_slice(point, 0, u32(space)))
+        let v: i64 = sim_milli(str_slice(point, u32(space) + 1, u32(strlen(point)) - u32(space) - 1))
+        if t < from || t > to {
+            continue
+        }
+        if bucket_s <= 0 {
+            if out != "" {
+                out = out + ","
+            }
+            out = out + "{\"t\":" + sim_i64(t * 1000) + ",\"v\":" + sim_decimal(v) + "}"
+        } else {
+            let this: i64 = (t / bucket_s) * bucket_s
+            if this != bucket && count > 0 {
+                if out != "" {
+                    out = out + ","
+                }
+                out = out + "{\"t\":" + sim_i64(bucket * 1000) + ",\"v\":" + sim_decimal(sum / count) + "}"
+                sum = 0
+                count = 0
+            }
+            bucket = this
+            sum = sum + v
+            count = count + 1
+        }
+    }
+    if bucket_s > 0 && count > 0 {
+        if out != "" {
+            out = out + ","
+        }
+        out = out + "{\"t\":" + sim_i64(bucket * 1000) + ",\"v\":" + sim_decimal(sum / count) + "}"
+    }
+    return "{\"ok\":true,\"points\":[" + out + "]}"
+}
+
+fn register_client(app_name: string, instance_id: string, callback_url: string, topics: string) string {
+    return ""
+}
+
+fn client_heartbeat(client_id: string) string {
+    return ""
+}
+
+fn publish(project: string, topic: string, payload: string) string {
+    return ""
+}
+
+fn telemetry_status() string {
+    return "{\"ok\":true,\"provider\":\"simulator\"}"
+}

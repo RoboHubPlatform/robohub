@@ -13,7 +13,7 @@ module:
   type: module
   title: Scheduler
   category: maintenance
-  version: 0.1.4
+  version: 0.2.0
   description: >
     A chore scheduler for maintenance tasks: interval, cron, one-time and
     usage-based schedules, due and overdue states, completion notes and
@@ -24,6 +24,13 @@ module:
 
 main: src/main.rho
 
+# The module's tables and statements, its own: rho-sql (0.2) generates them into
+# every application that depends on the module, so an application never repeats
+# them.
+sql:
+  schema: db/schema.sql
+  queries: db/queries.sql
+
 
 deps:
   rho-log: ">=0.1.0"
@@ -31,6 +38,7 @@ deps:
     settings: ">=0.1.0"
     notifications: ">=0.1.0"
     forms: ">=0.1.0"
+    inventory: ">=0.2.0"
 
 docs:
   title: Scheduler

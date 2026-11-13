@@ -126,9 +126,141 @@ fn widget_epoch_seconds(text: string) u32 {
     return int_from_str(str_slice(value, 0, u32(strlen(value)) - 3))
 }
 
+// widget_mesh_source says whether a widget reads through the gateway: a gateway
+// source (by its stable id), or an inventory item's capability, which inventory
+// resolves to the source it is bound to.
 fn widget_mesh_source(widget: Widgets) bool {
-    return str_eq(widget.sourceKind, "mesh") ||
+    return str_eq(widget.sourceKind, "mesh") || str_eq(widget.sourceKind, "item") ||
         str_index_of(widget.source, "/mesh/api/") >= 0
+}
+
+// widget_gateway_id is the gateway source a widget reads: its own source, or for
+// an item (`heater.temperature`) the source the item's capability is bound to.
+fn widget_gateway_id(widget: Widgets) string {
+    if str_eq(widget.sourceKind, "item") {
+        let dot: i32 = str_index_of(widget.source, ".")
+        if dot <= 0 {
+            return ""
+        }
+        return inventory_resolve(str_slice(widget.source, 0, u32(dot)),
+            str_slice(widget.source, u32(dot) + 1, u32(strlen(widget.source)) - u32(dot) - 1))
+    }
+    return widget.source
+}
+
+// widget_switch switches what a toggle stands for, and answers whether it did:
+// an item through inventory, a gateway source through the gateway, anything
+// else through its hook, as before.
+fn widget_switch(widget: Widgets, state: string) bool {
+    if str_eq(widget.sourceKind, "item") {
+        let dot: i32 = str_index_of(widget.source, ".")
+        var handle: string = widget.source
+        if dot > 0 {
+            handle = str_slice(widget.source, 0, u32(dot))
+        }
+        return inventory_switch(handle, str_eq(state, "on"), "person:widget")
+    }
+    if str_eq(widget.sourceKind, "mesh") && str_index_of(widget.source, "/") < 0 {
+        return gateway.action(widget.source, state)
+    }
+    var hook: string = widget.source
+    if str_eq(widget.kind, "toggle") {
+        hook = widget_hook(widget.source, state)
+    }
+    let report: string = widget_report("press-" + int_to_str(u32(widget.id)))
+    return rho_exec("curl", "-fsS -m 5 -X " + widget.method + widget_auth_header() + " " +
+        widget_arg_quote(hook), report) == 0
+}
+
+// widgets_migrate_sources rewrites what older widgets stored — a Mesh URL, or
+// the positional id Mesh used to give a source (`device.3.switch`) — as the
+// source's stable id (`<node id>.switch`), from the legacy ids the gateway
+// lists. It answers how many widgets it rewrote.
+fn widgets_migrate_sources() u32 {
+    let opened: Result[SqlDb, string] = sql_open(widget_db_path())
+    if !opened.is_ok {
+        return 0
+    }
+    let db: SqlDb = opened.ok
+    sql_apply(db, "")
+    let widgets: Widgets[128]
+    let slice: Slice[Widgets] = Slice[Widgets]{ Ptr[Widgets](&widgets[0]), WIDGET_CAPACITY }
+    let listed: Result[u32, SqlError] = ListWidgets(db, slice, WIDGET_CAPACITY)
+    // The gateway is asked only when some widget still has an older source, and
+    // not again within a minute when what it listed did not have it.
+    var pending: bool = false
+    if listed.is_ok {
+        var j: u32 = 0
+        while j < listed.ok {
+            if str_index_of(widgets[j].source, "/sources/") >= 0 ||
+                (str_eq(widgets[j].sourceKind, "mesh") && (str_starts_with(widgets[j].source, "device.") ||
+                str_starts_with(widgets[j].source, "module."))) {
+                pending = true
+            }
+            j = j + 1
+        }
+    }
+    let stamp: string = widget_state_dir() + "/migrate.wait"
+    let now: u32 = widget_now()
+    if !pending || now < int_from_str(widget_trim(rho_read_text(stamp))) {
+        sql_close(db)
+        return 0
+    }
+    let listed_sources: string = gateway.sources()
+    var moved: u32 = 0
+    if listed.is_ok && listed_sources != "" {
+        var i: u32 = 0
+        while i < listed.ok {
+            let widget: Widgets = widgets[i]
+            var legacy: string = ""
+            let marker: i32 = str_index_of(widget.source, "/sources/")
+            if marker >= 0 {
+                let tail: string = str_slice(widget.source, u32(marker) + 9,
+                    u32(strlen(widget.source)) - u32(marker) - 9)
+                let slash: i32 = str_index_of(tail, "/")
+                legacy = tail
+                if slash >= 0 {
+                    legacy = str_slice(tail, 0, u32(slash))
+                }
+            } else if str_eq(widget.sourceKind, "mesh") && (str_starts_with(widget.source, "device.") ||
+                str_starts_with(widget.source, "module.")) {
+                legacy = widget.source
+            }
+            if legacy != "" {
+                var stable: string = ""
+                let by_legacy: i32 = str_index_of(listed_sources, "\"legacy_id\":" + json_string(legacy))
+                if by_legacy >= 0 {
+                    // The entry's id is before its legacy_id, in the same object.
+                    let before: string = str_slice(listed_sources, 0, u32(by_legacy))
+                    var open: i32 = -1
+                    var k: u32 = 0
+                    while k < u32(strlen(before)) {
+                        if str_eq(str_slice(before, k, 7), "{\"id\":\"") {
+                            open = i32(k)
+                        }
+                        k = k + 1
+                    }
+                    if open >= 0 {
+                        stable = widget_json_string_field(str_slice(before, u32(open), u32(strlen(before)) - u32(open)), "id")
+                    }
+                } else if str_index_of(listed_sources, "\"id\":" + json_string(legacy)) >= 0 {
+                    stable = legacy
+                }
+                if stable != "" && (!str_eq(stable, widget.source) || !str_eq(widget.sourceKind, "mesh")) {
+                    widget_ignore_result(UpdateWidgetSourceOnly("mesh", stable, widget.id, db))
+                    moved = moved + 1
+                }
+            }
+            i = i + 1
+        }
+    }
+    sql_close(db)
+    if moved > 0 {
+        info("widgets", int_to_str(moved) + " widget sources moved to stable gateway ids")
+    } else {
+        rho_write_text(stamp, int_to_str(now + 60))
+    }
+    return moved
 }
 
 fn widget_latest_text(db: SqlDb, widget_id: u32) string {
@@ -174,12 +306,37 @@ fn widget_hook(source: string, state: string) string {
 fn widget_ignore_result(value: Result[u32, SqlError]) void {
 }
 
+fn ignore_u32_widgets(value: u32) void {
+}
+
 fn widget_ignore_string(value: string) void {
 }
 
 fn widget_refresh(widget: Widgets) string {
-    if str_eq(widget.sourceKind, "mesh") {
-        return gateway.source_latest(widget.source)
+    if widget_mesh_source(widget) {
+        return gateway.source_latest(widget_gateway_id(widget))
+    }
+    if str_eq(widget.sourceKind, "value") {
+        // One of the application's own values (appapi): kept like a URL's, so
+        // a chart has its history.
+        let text: string = appapi_value(widget.source)
+        if text == "" {
+            return ""
+        }
+        let opened: Result[SqlDb, string] = sql_open(widget_db_path())
+        if !opened.is_ok {
+            return ""
+        }
+        let db: SqlDb = opened.ok
+        sql_apply(db, "")
+        if str_eq(widget_latest_text(db, u32(widget.id)), text) {
+            sql_close(db)
+            return ""
+        }
+        widget_ignore_result(InsertWidgetValue(int_to_str(u32(widget.id)), text,
+            int_to_str(u32(widget_parse_milli(text))), int_to_str(widget_now()), db))
+        sql_close(db)
+        return text
     }
     if str_eq(widget.kind, "button") || str_eq(widget.kind, "toggle") ||
         !str_eq(widget.sourceKind, "url") ||
@@ -502,7 +659,7 @@ fn widget_kind_options(selected: string) string {
 
 fn widget_source_kind_options(selected: string) string {
     var out: string = ""
-    let kinds: string = "manual|Manual\nurl|URL / hook\nmesh|Mesh telemetry"
+    let kinds: string = "manual|Manual\nurl|URL / hook\nmesh|Gateway source\nitem|Inventory item (handle.capability)\nvalue|Application value"
     var rest: string = kinds
     while rest != "" {
         let at: i32 = str_index_of(rest, "\n")
@@ -619,7 +776,7 @@ fn widget_card(db: SqlDb, widget: Widgets, locale: string) string {
         // A chart shows at most widget.points buckets; reading a day of history
         // to keep 24 of them makes the page slow. Request only the recent window
         // that fills the chart, plus a little headroom.
-        let history: string = gateway.source_history(widget.source, "2h", "", "60000")
+        let history: string = gateway.source_history(widget_gateway_id(widget), "2h", "", "60000")
         let marker: i32 = str_index_of(history, "\"points\":[")
         if marker >= 0 {
             var rest: string = str_slice(history, u32(marker) + 10,
@@ -654,12 +811,12 @@ fn widget_card(db: SqlDb, widget: Widgets, locale: string) string {
             values[count - 1 - i] = held
             i = i + 1
         }
-        latest = gateway.source_latest(widget.source)
+        latest = gateway.source_latest(widget_gateway_id(widget))
         if latest == "" && count > 0 {
             latest = values[0].valueText
         }
     } else if mesh_source {
-        latest = gateway.source_latest(widget.source)
+        latest = gateway.source_latest(widget_gateway_id(widget))
     } else {
         let slice: Slice[WidgetValues] = Slice[WidgetValues]{
             Ptr[WidgetValues](&values[0]), VALUE_CAPACITY }
@@ -836,6 +993,8 @@ fn widgets_live_changed() bool {
 }
 
 fn widgets_refresh_all() u32 {
+    // Older sources move to stable gateway ids.
+    ignore_u32_widgets(widgets_migrate_sources())
     let opened: Result[SqlDb, string] = sql_open(widget_db_path())
     if !opened.is_ok {
         return 0
@@ -1296,7 +1455,6 @@ fn widgets_press(req: Request) Response {
     }
     let found_index: u32 = u32(found)
     let widget: Widgets = widgets[found_index]
-    var hook: string = widget.source
     var new_state: string = ""
     if str_eq(widget.kind, "toggle") {
         var state: string = widget_toggle_state(db, id)
@@ -1305,12 +1463,11 @@ fn widgets_press(req: Request) Response {
         } else {
             new_state = "on"
         }
-        hook = widget_hook(widget.source, new_state)
     }
-    let method: string = widget.method
-    let report: string = widget_report("press-" + int_to_str(id))
-    let code: u32 = rho_exec("curl",
-        "-fsS -m 5 -X " + method + widget_auth_header() + " " + widget_arg_quote(hook), report)
+    var code: u32 = 0
+    if !widget_switch(widget, new_state) {
+        code = 1
+    }
     if str_eq(widget.kind, "toggle") && code == 0 {
         widget_ignore_result(InsertWidgetValue(int_to_str(id), new_state,
             "0", int_to_str(widget_now()), db))
@@ -1322,8 +1479,7 @@ fn widgets_press(req: Request) Response {
     if code != 0 {
         event_message = event_message + " (hook failed)"
     }
-    widget_ignore_result(InsertEvent("INFO", "widget", event_message,
-        int_to_str(widget_now()), db))
+    journal_info("widget", widget.title, "person", event_message)
     let card: string = widget_card(db, widget, i18n_locale(req))
     sql_close(db)
     if str_eq(header_str(req, "HX-Request"), "true") {
@@ -1467,7 +1623,20 @@ fn widget_device_states() string {
 // widget_gateway_state reads the state behind a source URL. The provider knows
 // how its own URL answers; the widget only passes the source it stored.
 fn widget_gateway_state(widget: Widgets) string {
-    return gateway.source_state(widget.source)
+    let id: string = widget_gateway_id(widget)
+    let state: string = gateway.source_state(id)
+    if state != "" || !widget_mesh_source(widget) {
+        return state
+    }
+    // A stable id reads its value; a switch's value is on, off, 1 or 0.
+    let value: string = gateway.source_latest(id)
+    if str_eq(value, "on") || str_eq(value, "1") {
+        return "on"
+    }
+    if str_eq(value, "off") || str_eq(value, "0") {
+        return "off"
+    }
+    return ""
 }
 
 fn widgets_sync_state() u32 {
@@ -1615,7 +1784,7 @@ fn widgets_card_endpoint(req: Request) Response {
 fn widget_json(db: SqlDb, widget: Widgets) string {
     var latest: string = widget_latest_text(db, u32(widget.id))
     if widget_mesh_source(widget) {
-        latest = gateway.source_latest(widget.source)
+        latest = gateway.source_latest(widget_gateway_id(widget))
     }
     return "{\"id\":" + int_to_str(u32(widget.id)) +
         ",\"title\":" + json_string(widget.title) +
@@ -1701,27 +1870,25 @@ fn widgets_api_press(req: Request) Response {
     }
     let found_id: u32 = u32(found)
     let widget: Widgets = widgets[found_id]
-    var hook: string = widget.source
     var new_state: string = ""
     if str_eq(widget.kind, "toggle") {
-        var state: string = widget_toggle_state(db, u32(found_id))
+        var state: string = widget_toggle_state(db, u32(widget.id))
         if str_eq(state, "on") {
             new_state = "off"
         } else {
             new_state = "on"
         }
-        hook = widget_hook(widget.source, new_state)
     }
-    let report: string = widget_report("api-press-" + id)
-    let code: u32 = rho_exec("curl",
-        "-fsS -m 5 -X " + widget.method + widget_auth_header() + " " + widget_arg_quote(hook), report)
+    var code: u32 = 0
+    if !widget_switch(widget, new_state) {
+        code = 1
+    }
     if str_eq(widget.kind, "toggle") && code == 0 {
         widget_ignore_result(InsertWidgetValue(id, new_state, "0",
             int_to_str(widget_now()), db))
-        widget_event(found_id, new_state)
+        widget_event(u32(widget.id), new_state)
     }
-    widget_ignore_result(InsertEvent("INFO", "widget",
-        "Button " + widget.title + " pressed", int_to_str(widget_now()), db))
+    journal_info("widget", widget.title, "person", "Button " + widget.title + " pressed")
     sql_close(db)
     var ok: string = "true"
     if code != 0 {

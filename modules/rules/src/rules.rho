@@ -1,0 +1,790 @@
+//
+// @file rules.rho
+// @brief The rule engine: actions, the state machine, modes, presets, the page and the API.
+//
+// @module rules
+// @project rules
+// @author Aurel Miron
+// @date 2026-11-13
+//
+// SPDX-License-Identifier: MIT
+//
+
+module rules
+
+import rho.log
+import std.core.ptr
+import std.core.result
+import std.core.slice
+import std.sql
+import std.web.http
+import std.web.template
+
+extern fn rho_asset(module: string, path: string) string
+
+const RULES_CAPACITY: u32 = 256
+const MODES_CAPACITY: u32 = 64
+
+/* -------------------------------------------------------------------------- */
+/*  Where it is                                                               */
+/* -------------------------------------------------------------------------- */
+
+fn rules_db_path() string {
+    let override: string = getenv("RHO_RULES_DB")
+    if override != "" {
+        return override
+    }
+    var workspace: string = getenv("ROBOHUB_APP_WORKSPACE")
+    if workspace == "" {
+        workspace = getenv("HOME") + "/.rho/modules/rules"
+    }
+    return workspace + "/data/app.db"
+}
+
+fn rules_schema() string {
+    return rho_asset("rules", "db/schema.sql")
+}
+
+fn rules_template(name: string) string {
+    return rho_asset("rules", "templates/" + name + ".html")
+}
+
+fn rules_now() u32 {
+    let report: string = rules_db_path() + ".now"
+    if rho_exec("date", "+%s", report) == 0 {
+        return int_from_str(rules_trim(rho_read_text(report)))
+    }
+    return 0
+}
+
+// rules_clock is the machine's time of day in minutes since midnight.
+fn rules_clock() u32 {
+    let report: string = rules_db_path() + ".clock"
+    if rho_exec("date", "+%H:%M", report) == 0 {
+        let minutes: u32 = rules_minutes(rules_trim(rho_read_text(report)))
+        if minutes != 9999 {
+            return minutes
+        }
+    }
+    return 0
+}
+
+fn rules_open() Result[SqlDb, string] {
+    let opened: Result[SqlDb, string] = sql_open(rules_db_path())
+    if opened.is_ok {
+        sql_apply(opened.ok, rules_schema())
+    }
+    return opened
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Actions                                                                   */
+/* -------------------------------------------------------------------------- */
+
+// rules_word is the first word of a text and the rest, split on the first space.
+fn rules_first_word(text: string) string {
+    let at: i32 = str_index_of(text, " ")
+    if at < 0 {
+        return text
+    }
+    return str_slice(text, 0, u32(at))
+}
+
+fn rules_after_word(text: string) string {
+    let at: i32 = str_index_of(text, " ")
+    if at < 0 {
+        return ""
+    }
+    return rules_trim(str_slice(text, u32(at) + 1, u32(strlen(text)) - u32(at) - 1))
+}
+
+fn rules_unquote(text: string) string {
+    let value: string = rules_trim(text)
+    let n: u32 = u32(strlen(value))
+    if n >= 2 && str_eq(str_slice(value, 0, 1), "\"") && str_eq(str_slice(value, n - 1, 1), "\"") {
+        return str_slice(value, 1, n - 2)
+    }
+    return value
+}
+
+// rules_action runs one action and answers "" when it was done, what went wrong
+// otherwise:
+//
+//   switch heater on | switch filter-main off     an inventory item, through the gateway
+//   use feeder                                    one use of an item (a feeder's portion)
+//   alert warning "the filter draws no power"     the journal, and the alert channels bound
+//   journal info "lights on"                      the journal only
+//   mode feeding | mode end                       start a mode, or end the one in force
+fn rules_action(action: string, actor: string, subject: string) string {
+    let verb: string = rules_lower(rules_first_word(action))
+    let rest: string = rules_after_word(action)
+    if str_eq(verb, "switch") {
+        let handle: string = rules_first_word(rest)
+        let state: string = rules_lower(rules_after_word(rest))
+        if handle == "" || (!str_eq(state, "on") && !str_eq(state, "off")) {
+            return "a switch is written `switch <handle> on|off`"
+        }
+        if !inventory_switch(handle, str_eq(state, "on"), actor) {
+            return handle + " could not be switched " + state
+        }
+        return ""
+    }
+    if str_eq(verb, "use") {
+        if !inventory_use(rules_trim(rest), actor) {
+            return rest + " could not be used"
+        }
+        return ""
+    }
+    if str_eq(verb, "alert") || str_eq(verb, "journal") {
+        let level: string = rules_lower(rules_first_word(rest))
+        let message: string = rules_unquote(rules_after_word(rest))
+        if message == "" {
+            return "an " + verb + " is written `" + verb + " <level> \"message\"`"
+        }
+        journal_write(level, "rule", subject, actor, message)
+        if str_eq(verb, "alert") {
+            alert.raise(level, subject + ": " + message, "{\"rule\":" + json_string(subject) + "}")
+        }
+        return ""
+    }
+    if str_eq(verb, "mode") {
+        let name: string = rules_trim(rest)
+        if str_eq(rules_lower(name), "end") {
+            rules_mode_end(actor)
+            return ""
+        }
+        if !rules_mode_start(name, actor) {
+            return "there is no mode " + name
+        }
+        return ""
+    }
+    return "unknown action `" + action + "`"
+}
+
+// rules_run runs a list of actions, separated by `;`, and answers the first
+// problem, or "".
+fn rules_run(actions: string, actor: string, subject: string) string {
+    var problem: string = ""
+    var rest: string = actions
+    while rest != "" {
+        let at: i32 = str_index_of(rest, ";")
+        var one: string = rest
+        if at < 0 {
+            rest = ""
+        } else {
+            one = str_slice(rest, 0, u32(at))
+            rest = str_slice(rest, u32(at) + 1, u32(strlen(rest)) - u32(at) - 1)
+        }
+        let action: string = rules_trim(one)
+        if action != "" {
+            let failed: string = rules_action(action, actor, subject)
+            if failed != "" && problem == "" {
+                problem = failed
+            }
+        }
+    }
+    return problem
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Modes                                                                     */
+/* -------------------------------------------------------------------------- */
+
+// rules_mode is the mode in force, or "".
+fn rules_mode() string {
+    let opened: Result[SqlDb, string] = rules_open()
+    if !opened.is_ok {
+        return ""
+    }
+    let db: SqlDb = opened.ok
+    let rows: RuleModeActive[1]
+    let slice: Slice[RuleModeActive] = Slice[RuleModeActive]{ Ptr[RuleModeActive](&rows[0]), 1 }
+    let got: Result[u32, SqlError] = GetActiveMode(db, slice, 1)
+    sql_close(db)
+    if got.is_ok && got.ok > 0 {
+        return rows[0].name
+    }
+    return ""
+}
+
+// rules_mode_ends is when the mode in force ends, in Unix seconds; 0 when it
+// lasts until someone ends it, or when there is none.
+fn rules_mode_ends() u32 {
+    let opened: Result[SqlDb, string] = rules_open()
+    if !opened.is_ok {
+        return 0
+    }
+    let db: SqlDb = opened.ok
+    let rows: RuleModeActive[1]
+    let slice: Slice[RuleModeActive] = Slice[RuleModeActive]{ Ptr[RuleModeActive](&rows[0]), 1 }
+    let got: Result[u32, SqlError] = GetActiveMode(db, slice, 1)
+    sql_close(db)
+    if got.is_ok && got.ok > 0 {
+        return u32(rows[0].endsAt)
+    }
+    return 0
+}
+
+fn rules_find_mode(modes: RuleModes[64], count: u32, name: string) i32 {
+    var i: u32 = 0
+    while i < count {
+        if str_eq(rules_lower(modes[i].name), rules_lower(name)) {
+            return i32(i)
+        }
+        i = i + 1
+    }
+    return -1
+}
+
+// rules_mode_start puts a mode in force: the one in force first ends, then this
+// one's actions run and its end is set. It answers whether there is such a mode.
+fn rules_mode_start(name: string, actor: string) bool {
+    let opened: Result[SqlDb, string] = rules_open()
+    if !opened.is_ok {
+        return false
+    }
+    let db: SqlDb = opened.ok
+    let modes: RuleModes[64]
+    let slice: Slice[RuleModes] = Slice[RuleModes]{ Ptr[RuleModes](&modes[0]), MODES_CAPACITY }
+    let listed: Result[u32, SqlError] = ListRuleModes(db, slice, MODES_CAPACITY)
+    sql_close(db)
+    var count: u32 = 0
+    if listed.is_ok {
+        count = listed.ok
+    }
+    let at: i32 = rules_find_mode(modes, count, name)
+    if at < 0 {
+        return false
+    }
+    if rules_mode() != "" {
+        rules_mode_end(actor)
+    }
+    let index: u32 = u32(at)
+    let mode: RuleModes = modes[index]
+    let now: u32 = rules_now()
+    var ends: u32 = 0
+    if mode.durationS > 0 {
+        ends = now + u32(mode.durationS)
+    }
+    let again: Result[SqlDb, string] = rules_open()
+    if again.is_ok {
+        ignore_rules(SetActiveMode(mode.name, int_to_str(now), int_to_str(ends), actor, again.ok))
+        sql_close(again.ok)
+    }
+    var title: string = mode.title
+    if title == "" {
+        title = mode.name
+    }
+    journal_info("mode", mode.name, actor, title + " started")
+    let problem: string = rules_run(mode.doActions, "mode:" + mode.name, mode.name)
+    if problem != "" {
+        journal_warning("mode", mode.name, actor, problem)
+    }
+    return true
+}
+
+// rules_mode_end ends the mode in force, running its end actions.
+fn rules_mode_end(actor: string) void {
+    let name: string = rules_mode()
+    if name == "" {
+        return
+    }
+    let opened: Result[SqlDb, string] = rules_open()
+    if !opened.is_ok {
+        return
+    }
+    let db: SqlDb = opened.ok
+    let modes: RuleModes[64]
+    let slice: Slice[RuleModes] = Slice[RuleModes]{ Ptr[RuleModes](&modes[0]), MODES_CAPACITY }
+    let listed: Result[u32, SqlError] = ListRuleModes(db, slice, MODES_CAPACITY)
+    ignore_rules(ClearActiveMode(db))
+    sql_close(db)
+    var count: u32 = 0
+    if listed.is_ok {
+        count = listed.ok
+    }
+    journal_info("mode", name, actor, name + " ended")
+    let at: i32 = rules_find_mode(modes, count, name)
+    if at >= 0 {
+        let index: u32 = u32(at)
+        let problem: string = rules_run(modes[index].endActions, "mode:" + name, name)
+        if problem != "" {
+            journal_warning("mode", name, actor, problem)
+        }
+    }
+}
+
+// rules_suspended says whether the mode in force suspends a rule.
+fn rules_suspended(modes: RuleModes[64], count: u32, mode: string, rule: string) bool {
+    if mode == "" {
+        return false
+    }
+    let at: i32 = rules_find_mode(modes, count, mode)
+    if at < 0 {
+        return false
+    }
+    let index: u32 = u32(at)
+    var rest: string = modes[index].suspends
+    while rest != "" {
+        let comma: i32 = str_index_of(rest, ",")
+        var one: string = rest
+        if comma < 0 {
+            rest = ""
+        } else {
+            one = str_slice(rest, 0, u32(comma))
+            rest = str_slice(rest, u32(comma) + 1, u32(strlen(rest)) - u32(comma) - 1)
+        }
+        if str_eq(rules_lower(rules_trim(one)), rules_lower(rule)) {
+            return true
+        }
+    }
+    return false
+}
+
+/* -------------------------------------------------------------------------- */
+/*  The engine                                                                */
+/* -------------------------------------------------------------------------- */
+
+fn ignore_rules(value: Result[u32, SqlError]) void {
+}
+
+// rules_tick evaluates every enabled rule once, and ends a mode whose time is
+// up. A host calls it from its background work — every few seconds, and when a
+// reading arrives. It answers how many rules fired or cleared.
+fn rules_tick() u32 {
+    let now: u32 = rules_now()
+    let ends: u32 = rules_mode_ends()
+    if ends > 0 && now >= ends {
+        rules_mode_end("system")
+    }
+    let mode: string = rules_mode()
+    let minutes: u32 = rules_clock()
+    let opened: Result[SqlDb, string] = rules_open()
+    if !opened.is_ok {
+        return 0
+    }
+    let db: SqlDb = opened.ok
+    let rules: Rules[256]
+    let rule_slice: Slice[Rules] = Slice[Rules]{ Ptr[Rules](&rules[0]), RULES_CAPACITY }
+    let listed: Result[u32, SqlError] = ListRulesAll(db, rule_slice, RULES_CAPACITY)
+    let modes: RuleModes[64]
+    let mode_slice: Slice[RuleModes] = Slice[RuleModes]{ Ptr[RuleModes](&modes[0]), MODES_CAPACITY }
+    let mode_list: Result[u32, SqlError] = ListRuleModes(db, mode_slice, MODES_CAPACITY)
+    sql_close(db)
+    if !listed.is_ok {
+        return 0
+    }
+    var mode_count: u32 = 0
+    if mode_list.is_ok {
+        mode_count = mode_list.ok
+    }
+    var changed: u32 = 0
+    var i: u32 = 0
+    while i < listed.ok {
+        let rule: Rules = rules[i]
+        if rule.enabled != 0 && !rules_suspended(modes, mode_count, mode, rule.name) {
+            if rules_step(rule, mode, minutes, now) {
+                changed = changed + 1
+            }
+        }
+        i = i + 1
+    }
+    return changed
+}
+
+// rules_step moves one rule through its states and answers whether it fired or
+// cleared:
+//
+//   idle    -> pending  the condition holds and the rule waits `for` seconds
+//   idle    -> active   it holds and there is no wait (and the cooldown is over)
+//   pending -> active   it held for the whole wait
+//   pending -> idle     it stopped holding first
+//   active  -> idle     the clear condition holds, or (with none) the condition
+//                       stopped holding; the else actions run
+fn rules_step(rule: Rules, mode: string, minutes: u32, now: u32) bool {
+    let verdict: RulesVerdict = rules_evaluate(rule.whenExpr, mode, minutes)
+    var state: string = rule.state
+    var since: u32 = u32(rule.stateSince)
+    var fired: u32 = u32(rule.lastFired)
+    var problem: string = verdict.problem
+    var moved: bool = false
+    let actor: string = "rule:" + rule.name
+    if str_eq(state, "active") {
+        var clears: bool = !verdict.holds && verdict.problem == ""
+        if rule.clearExpr != "" {
+            let clear: RulesVerdict = rules_evaluate(rule.clearExpr, mode, minutes)
+            clears = clear.holds
+            if clear.problem != "" {
+                problem = clear.problem
+            }
+        }
+        if clears {
+            let failed: string = rules_run(rule.elseActions, actor, rule.name)
+            if failed == "" {
+                state = "idle"
+                since = now
+                moved = true
+            } else {
+                problem = failed
+                if !str_eq(failed, rule.lastError) {
+                    journal_warning("rule", rule.name, actor, failed)
+                }
+            }
+        }
+    } else if verdict.holds && rule.lastError != "" && now < since + 60 {
+        // An action that failed is tried again after a minute, not every tick.
+    } else if verdict.holds {
+        let cooled: bool = rule.cooldownS == 0 || fired == 0 || now >= fired + u32(rule.cooldownS)
+        if str_eq(state, "idle") && rule.forS > 0 {
+            state = "pending"
+            since = now
+        } else if cooled && (str_eq(state, "idle") || now >= since + u32(rule.forS)) {
+            let failed: string = rules_run(rule.doActions, actor, rule.name)
+            if failed == "" {
+                state = "active"
+                since = now
+                fired = now
+                moved = true
+                journal_info("rule", rule.name, actor, "fired: " + rule.whenExpr)
+            } else {
+                // An action that could not be done — an item not yet bound, a
+                // device not answering — leaves the rule where it was, to try
+                // again in a minute; the problem is written to the journal once.
+                problem = failed
+                since = now
+                if !str_eq(failed, rule.lastError) {
+                    journal_warning("rule", rule.name, actor, failed)
+                }
+            }
+        }
+    } else if str_eq(state, "pending") {
+        state = "idle"
+        since = now
+    }
+    if !str_eq(state, rule.state) || !str_eq(problem, rule.lastError) {
+        let opened: Result[SqlDb, string] = rules_open()
+        if opened.is_ok {
+            ignore_rules(SetRuleState(state, i64(since), i64(fired), problem, rule.id, opened.ok))
+            sql_close(opened.ok)
+        }
+    }
+    return moved
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Presets                                                                   */
+/* -------------------------------------------------------------------------- */
+
+// rules_seconds reads `60`, `60s`, `10m` or `2h` as seconds.
+fn rules_seconds(text: string) u32 {
+    let value: string = rules_lower(rules_trim(text))
+    if value == "" {
+        return 0
+    }
+    let last: string = str_slice(value, u32(strlen(value)) - 1, 1)
+    let number: string = str_slice(value, 0, u32(strlen(value)) - 1)
+    if str_eq(last, "s") {
+        return int_from_str(number)
+    }
+    if str_eq(last, "m") {
+        return int_from_str(number) * 60
+    }
+    if str_eq(last, "h") {
+        return int_from_str(number) * 3600
+    }
+    return int_from_str(value)
+}
+
+fn rules_preset_value(path: string, key: string) string {
+    return rules_unquote(yaml.value(path, key))
+}
+
+// rules_presets seeds the application's rules and modes from the text of its
+// presets/rules.yml: `rules:` and `modes:`, each entry under a name. A preset
+// rule or mode is added when missing and kept as the presets say; one a person
+// added is never touched; whether a rule is enabled stays the person's choice.
+// It answers how many rules and modes the presets named.
+fn rules_presets(text: string) u32 {
+    if rules_trim(text) == "" {
+        return 0
+    }
+    let path: string = rules_db_path() + ".presets.yml"
+    if !rho_write_text(path, text) {
+        return 0
+    }
+    let opened: Result[SqlDb, string] = rules_open()
+    if !opened.is_ok {
+        return 0
+    }
+    let db: SqlDb = opened.ok
+    var count: u32 = 0
+    var rest: string = yaml.keys(path, "rules")
+    while rest != "" {
+        let at: i32 = str_index_of(rest, "\n")
+        var name: string = rest
+        if at < 0 {
+            rest = ""
+        } else {
+            name = str_slice(rest, 0, u32(at))
+            rest = str_slice(rest, u32(at) + 1, u32(strlen(rest)) - u32(at) - 1)
+        }
+        if name != "" {
+            let base: string = "rules." + name + "."
+            let when: string = rules_preset_value(path, base + "when")
+            let clear: string = rules_preset_value(path, base + "clear")
+            let wait: u32 = rules_seconds(rules_preset_value(path, base + "for"))
+            let cooldown: u32 = rules_seconds(rules_preset_value(path, base + "cooldown"))
+            let doing: string = rules_preset_value(path, base + "do")
+            let otherwise: string = rules_preset_value(path, base + "else")
+            if when != "" {
+                ignore_rules(SeedRule(name, when, clear, int_to_str(wait), int_to_str(cooldown), doing, otherwise, "preset", db))
+                ignore_rules(UpdatePresetRule(when, clear, i64(wait), i64(cooldown), doing, otherwise, name, db))
+                count = count + 1
+            }
+        }
+    }
+    var modes: string = yaml.keys(path, "modes")
+    while modes != "" {
+        let at: i32 = str_index_of(modes, "\n")
+        var name: string = modes
+        if at < 0 {
+            modes = ""
+        } else {
+            name = str_slice(modes, 0, u32(at))
+            modes = str_slice(modes, u32(at) + 1, u32(strlen(modes)) - u32(at) - 1)
+        }
+        if name != "" {
+            let base: string = "modes." + name + "."
+            var title: string = rules_preset_value(path, base + "title")
+            if title == "" {
+                title = name
+            }
+            let duration: u32 = rules_seconds(rules_preset_value(path, base + "for"))
+            let doing: string = rules_preset_value(path, base + "do")
+            let ending: string = rules_preset_value(path, base + "end")
+            let suspends: string = rules_preset_value(path, base + "suspends")
+            ignore_rules(SeedRuleMode(name, title, int_to_str(duration), doing, ending, suspends, db))
+            ignore_rules(UpdatePresetMode(title, i64(duration), doing, ending, suspends, name, db))
+            count = count + 1
+        }
+    }
+    sql_close(db)
+    return count
+}
+
+/* -------------------------------------------------------------------------- */
+/*  The page and the API                                                      */
+/* -------------------------------------------------------------------------- */
+
+fn rules_page(req: Request) Response {
+    return rules_page_message(req, request_query_param(req, "msg"))
+}
+
+fn rules_page_message(req: Request, message: string) Response {
+    let opened: Result[SqlDb, string] = rules_open()
+    if !opened.is_ok {
+        return html(status_internal(), "<p>The rules could not be opened: " + escape_html(opened.err) + "</p>")
+    }
+    let db: SqlDb = opened.ok
+    let rules: Rules[256]
+    let rule_slice: Slice[Rules] = Slice[Rules]{ Ptr[Rules](&rules[0]), RULES_CAPACITY }
+    let listed: Result[u32, SqlError] = ListRulesAll(db, rule_slice, RULES_CAPACITY)
+    let modes: RuleModes[64]
+    let mode_slice: Slice[RuleModes] = Slice[RuleModes]{ Ptr[RuleModes](&modes[0]), MODES_CAPACITY }
+    let mode_list: Result[u32, SqlError] = ListRuleModes(db, mode_slice, MODES_CAPACITY)
+    sql_close(db)
+    var count: u32 = 0
+    if listed.is_ok {
+        count = listed.ok
+    }
+    var mode_count: u32 = 0
+    if mode_list.is_ok {
+        mode_count = mode_list.ok
+    }
+    let active: string = rules_mode()
+    var rows: string = ""
+    var i: u32 = 0
+    while i < count {
+        let rule: Rules = rules[i]
+        var toggle: string = i18n_t(req, "rules.disable")
+        var enabled: string = "1"
+        if rule.enabled == 0 {
+            toggle = i18n_t(req, "rules.enable")
+            enabled = "0"
+        }
+        var remove: string = ""
+        if str_eq(rule.origin, "person") {
+            remove = "<button name=\"delete\" value=\"1\">" + escape_html(i18n_t(req, "rules.delete")) + "</button>"
+        }
+        var state: string = rule.state
+        if rule.enabled == 0 {
+            state = "off"
+        } else if rules_suspended(modes, mode_count, active, rule.name) {
+            state = "suspended"
+        }
+        rows = rows + template_fill(rules_template("rows/rule"),
+            vars("id", int_to_str(u32(rule.id))) +
+            vars("name", rule.name) +
+            vars("origin", rule.origin) +
+            vars("when", rule.whenExpr) +
+            vars("clear", rule.clearExpr) +
+            vars("do", rule.doActions) +
+            vars("else", rule.elseActions) +
+            vars("state", state) +
+            vars("enabled", enabled) +
+            vars("problem", rule.lastError) +
+            vars("toggle", toggle) +
+            vars("remove", remove) +
+            vars("csrf", forms_csrf_field())) + "\n"
+        i = i + 1
+    }
+    if rows == "" {
+        rows = "<tr><td colspan=\"5\">" + escape_html(i18n_t(req, "rules.none")) + "</td></tr>"
+    }
+    var mode_rows: string = ""
+    var m: u32 = 0
+    while m < mode_count {
+        let mode: RuleModes = modes[m]
+        var title: string = mode.title
+        if title == "" {
+            title = mode.name
+        }
+        var button: string = "<button name=\"mode\" value=\"" + escape_html(mode.name) + "\">" +
+            escape_html(i18n_t(req, "rules.start")) + "</button>"
+        if str_eq(rules_lower(mode.name), rules_lower(active)) {
+            button = "<button name=\"end\" value=\"1\">" + escape_html(i18n_t(req, "rules.end")) + "</button>"
+        }
+        var duration: string = i18n_t(req, "rules.until_ended")
+        if mode.durationS > 0 {
+            duration = int_to_str(u32(mode.durationS) / 60) + " min"
+        }
+        mode_rows = mode_rows + "<tr><td><b>" + escape_html(title) + "</b></td><td>" + escape_html(duration) +
+            "</td><td><code>" + escape_html(mode.doActions) + "</code></td><td>" + escape_html(mode.suspends) +
+            "</td><td><form method=\"post\" action=\"/rules/mode\" class=\"inline\">" + forms_csrf_field() +
+            button + "</form></td></tr>\n"
+        m = m + 1
+    }
+    if mode_rows == "" {
+        mode_rows = "<tr><td colspan=\"5\">" + escape_html(i18n_t(req, "rules.no_modes")) + "</td></tr>"
+    }
+    var toast_js: string = ""
+    if message != "" {
+        toast_js = "<script>document.addEventListener(\"DOMContentLoaded\",function(){if(window.rhoToast){window.rhoToast(" +
+            json_string(message) + ", \"info\");}});</script>"
+    }
+    var active_title: string = i18n_t(req, "rules.no_mode")
+    if active != "" {
+        active_title = active
+    }
+    let body: string = template_fill(rules_template("pages/rules"),
+        i18n_vars(req) +
+        vars("rows", rows) +
+        vars("mode_rows", mode_rows) +
+        vars("active", active_title) +
+        vars("csrf", forms_csrf_field()))
+    return host_shell(req, i18n_t(req, "rules.title"), body, toast_js)
+}
+
+fn rules_add(req: Request) Response {
+    let body: string = request_body(req)
+    if !forms_csrf_ok(body) {
+        return rules_page_message(req, i18n_t(req, "rules.csrf_refused"))
+    }
+    let name: string = inventory_handle(form_value(body, "name"))
+    let when: string = rules_trim(form_value(body, "when"))
+    if name == "" || when == "" {
+        return rules_page_message(req, i18n_t(req, "rules.need_name_when"))
+    }
+    let problem: string = rules_check(when)
+    if problem != "" {
+        return rules_page_message(req, problem)
+    }
+    let opened: Result[SqlDb, string] = rules_open()
+    if !opened.is_ok {
+        return rules_page_message(req, opened.err)
+    }
+    let added: Result[u32, SqlError] = SeedRule(name, when, rules_trim(form_value(body, "clear")),
+        int_to_str(rules_seconds(form_value(body, "for"))), int_to_str(rules_seconds(form_value(body, "cooldown"))),
+        rules_trim(form_value(body, "do")), rules_trim(form_value(body, "else")), "person", opened.ok)
+    sql_close(opened.ok)
+    if !added.is_ok {
+        return rules_page_message(req, added.err.message)
+    }
+    if added.ok == 0 {
+        return rules_page_message(req, i18n_t(req, "rules.name_taken"))
+    }
+    journal_info("rule", name, "person", "rule added: " + when)
+    return rules_page_message(req, i18n_t(req, "rules.added"))
+}
+
+fn rules_change(req: Request) Response {
+    let body: string = request_body(req)
+    if !forms_csrf_ok(body) {
+        return rules_page_message(req, i18n_t(req, "rules.csrf_refused"))
+    }
+    let id: u32 = int_from_str(rules_trim(form_value(body, "id")))
+    let opened: Result[SqlDb, string] = rules_open()
+    if !opened.is_ok || id == 0 {
+        return rules_page_message(req, i18n_t(req, "rules.not_found"))
+    }
+    if str_eq(form_value(body, "delete"), "1") {
+        ignore_rules(DeletePersonRule(i64(id), opened.ok))
+        sql_close(opened.ok)
+        return rules_page_message(req, i18n_t(req, "rules.deleted"))
+    }
+    var enabled: i64 = 1
+    if str_eq(form_value(body, "enabled"), "1") {
+        enabled = 0
+    }
+    ignore_rules(SetRuleEnabled(enabled, i64(id), opened.ok))
+    sql_close(opened.ok)
+    return rules_page_message(req, i18n_t(req, "rules.saved"))
+}
+
+fn rules_mode_form(req: Request) Response {
+    let body: string = request_body(req)
+    if !forms_csrf_ok(body) {
+        return rules_page_message(req, i18n_t(req, "rules.csrf_refused"))
+    }
+    if str_eq(form_value(body, "end"), "1") {
+        rules_mode_end("person")
+        return rules_page_message(req, i18n_t(req, "rules.mode_ended"))
+    }
+    if !rules_mode_start(rules_trim(form_value(body, "mode")), "person") {
+        return rules_page_message(req, i18n_t(req, "rules.not_found"))
+    }
+    return rules_page_message(req, i18n_t(req, "rules.mode_started"))
+}
+
+// rules_api is every rule's state and the mode in force, as JSON.
+fn rules_api(req: Request) Response {
+    let opened: Result[SqlDb, string] = rules_open()
+    if !opened.is_ok {
+        return json(status_internal(), "{\"error\":" + json_string(opened.err) + "}")
+    }
+    let rules: Rules[256]
+    let rule_slice: Slice[Rules] = Slice[Rules]{ Ptr[Rules](&rules[0]), RULES_CAPACITY }
+    let listed: Result[u32, SqlError] = ListRulesAll(opened.ok, rule_slice, RULES_CAPACITY)
+    sql_close(opened.ok)
+    if !listed.is_ok {
+        return json(status_internal(), "{\"error\":" + json_string(listed.err.message) + "}")
+    }
+    var out: string = ""
+    var i: u32 = 0
+    while i < listed.ok {
+        let rule: Rules = rules[i]
+        if out != "" {
+            out = out + ","
+        }
+        out = out + "{\"name\":" + json_string(rule.name) +
+            ",\"enabled\":" + int_to_str(u32(rule.enabled)) +
+            ",\"when\":" + json_string(rule.whenExpr) +
+            ",\"state\":" + json_string(rule.state) +
+            ",\"last_fired\":" + int_to_str(u32(rule.lastFired)) +
+            ",\"problem\":" + json_string(rule.lastError) +
+            ",\"origin\":" + json_string(rule.origin) + "}"
+        i = i + 1
+    }
+    return json(status_ok(), "{\"mode\":" + json_string(rules_mode()) +
+        ",\"mode_ends\":" + int_to_str(rules_mode_ends()) + ",\"rules\":[" + out + "]}")
+}

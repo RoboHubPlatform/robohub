@@ -434,10 +434,16 @@ fn keeper_command() void {
     if port == "" {
         port = "8080"
     }
-    let keeper: string = "applications/keeper/build/keeper"
+    // The keeper has a repository of its own, robohub-keeper: where
+    // ROBOHUB_KEEPER says, or beside this orchestrator in the workspace.
+    var checkout: string = getenv("ROBOHUB_KEEPER")
+    if checkout == "" {
+        checkout = "../robohub-keeper"
+    }
+    let keeper: string = checkout + "/build/keeper"
     if !rho_path_exists(keeper) {
-        print("robohub keeper: the keeper is not built\n")
-        print("robohub keeper: rho build applications/keeper\n")
+        print("robohub keeper: the keeper is not built at " + checkout + "\n")
+        print("robohub keeper: rho build " + checkout + "\n")
         return
     }
     print("robohub keeper: starting on port " + port + "\n")

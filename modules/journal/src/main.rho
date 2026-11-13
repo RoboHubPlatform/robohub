@@ -1,0 +1,31 @@
+//
+// @file main.rho
+// @brief The journal module: its routes, registered on the host application's router.
+//
+// @module journal
+// @project journal
+// @author Aurel Miron
+// @date 2026-11-13
+//
+// SPDX-License-Identifier: MIT
+//
+
+module journal
+
+// It is included by a host application. The host owns the HTTP port and the
+// router; this file registers the module's routes under /journal and
+// /api/journal. Its records live in the host application's database.
+
+include "journal.rho"
+include "notifications"
+
+import std.sql
+import std.web.http
+import std.web.template
+
+extern fn rho_exec(program: string, arguments: string, output_path: string) u32
+extern fn rho_read_text(path: string) string
+
+route GET  "/journal"              => journal_page
+route POST "/journal/resolve"      => journal_resolve_form
+route GET  "/api/journal"          => journal_api

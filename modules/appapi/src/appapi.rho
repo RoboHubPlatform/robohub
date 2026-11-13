@@ -1,0 +1,579 @@
+//
+// @file appapi.rho
+// @brief An application's values — derived, published, exported — with their history, served read-only.
+//
+// @module appapi
+// @project appapi
+// @author Aurel Miron
+// @date 2026-11-13
+//
+// SPDX-License-Identifier: MIT
+//
+
+module appapi
+
+import rho.log
+import std.core.ptr
+import std.core.result
+import std.core.slice
+import std.sql
+import std.web.http
+
+extern fn rho_asset(module: string, path: string) string
+
+const APPAPI_CAPACITY: u32 = 256
+const APPAPI_POINTS: u32 = 5000
+
+/// How long a value's history is kept, in seconds (30 days).
+const APPAPI_KEEP: u32 = 2592000
+
+/* -------------------------------------------------------------------------- */
+/*  Where it is                                                               */
+/* -------------------------------------------------------------------------- */
+
+fn appapi_db_path() string {
+    let override: string = getenv("RHO_APPAPI_DB")
+    if override != "" {
+        return override
+    }
+    var workspace: string = getenv("ROBOHUB_APP_WORKSPACE")
+    if workspace == "" {
+        workspace = getenv("HOME") + "/.rho/modules/appapi"
+    }
+    return workspace + "/data/app.db"
+}
+
+fn appapi_open() Result[SqlDb, string] {
+    let opened: Result[SqlDb, string] = sql_open(appapi_db_path())
+    if opened.is_ok {
+        sql_apply(opened.ok, rho_asset("appapi", "db/schema.sql"))
+    }
+    return opened
+}
+
+fn appapi_now() u32 {
+    let report: string = appapi_db_path() + ".now"
+    if rho_exec("date", "+%s", report) == 0 {
+        return int_from_str(appapi_trim(rho_read_text(report)))
+    }
+    return 0
+}
+
+fn appapi_trim(text: string) string {
+    var out: string = text
+    while strlen(out) > 0 && (str_eq(str_slice(out, 0, 1), " ") || str_eq(str_slice(out, 0, 1), "\n")) {
+        out = str_slice(out, 1, u32(strlen(out)) - 1)
+    }
+    while strlen(out) > 0 && (str_eq(str_slice(out, u32(strlen(out)) - 1, 1), " ") ||
+        str_eq(str_slice(out, u32(strlen(out)) - 1, 1), "\n")) {
+        out = str_slice(out, 0, u32(strlen(out)) - 1)
+    }
+    return out
+}
+
+fn ignore_appapi(value: Result[u32, SqlError]) void {
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Numbers                                                                   */
+/* -------------------------------------------------------------------------- */
+
+struct AppapiNumber {
+    ok: bool
+    milli: i64
+}
+
+// appapi_number reads a decimal (or a JSON number like 1.5e2 is not one: the
+// readings are plain decimals) in thousandths; on/true are 1, off/false 0.
+fn appapi_number(text: string) AppapiNumber {
+    var value: string = appapi_trim(text)
+    if str_eq(value, "on") || str_eq(value, "true") {
+        return AppapiNumber{ true, 1000 }
+    }
+    if str_eq(value, "off") || str_eq(value, "false") {
+        return AppapiNumber{ true, 0 }
+    }
+    var negative: bool = false
+    if strlen(value) > 0 && str_eq(str_slice(value, 0, 1), "-") {
+        negative = true
+        value = str_slice(value, 1, u32(strlen(value)) - 1)
+    }
+    if value == "" {
+        return AppapiNumber{ false, 0 }
+    }
+    var whole: i64 = 0
+    var fraction: i64 = 0
+    var digits: u32 = 0
+    var dot: bool = false
+    var i: u32 = 0
+    while i < u32(strlen(value)) {
+        let ch: string = str_slice(value, i, 1)
+        let digit: i32 = str_index_of("0123456789", ch)
+        if str_eq(ch, ".") && !dot {
+            dot = true
+        } else if digit < 0 {
+            return AppapiNumber{ false, 0 }
+        } else if dot {
+            if digits < 3 {
+                fraction = fraction * 10 + i64(digit)
+                digits = digits + 1
+            }
+        } else {
+            whole = whole * 10 + i64(digit)
+        }
+        i = i + 1
+    }
+    while digits < 3 {
+        fraction = fraction * 10
+        digits = digits + 1
+    }
+    var milli: i64 = whole * 1000 + fraction
+    if negative {
+        milli = 0 - milli
+    }
+    return AppapiNumber{ true, milli }
+}
+
+// appapi_decimal writes thousandths as a decimal with no trailing zeros.
+fn appapi_decimal(milli: i64) string {
+    var value: i64 = milli
+    var sign: string = ""
+    if value < 0 {
+        sign = "-"
+        value = 0 - value
+    }
+    let whole: i64 = value / 1000
+    let fraction: i64 = value - whole * 1000
+    var out: string = sign + appapi_i64(whole)
+    if fraction > 0 {
+        var digits: string = appapi_i64(fraction)
+        while strlen(digits) < 3 {
+            digits = "0" + digits
+        }
+        while str_eq(str_slice(digits, u32(strlen(digits)) - 1, 1), "0") {
+            digits = str_slice(digits, 0, u32(strlen(digits)) - 1)
+        }
+        out = out + "." + digits
+    }
+    return out
+}
+
+// appapi_i64 writes a whole number that may not fit 32 bits.
+fn appapi_i64(value: i64) string {
+    if value == 0 {
+        return "0"
+    }
+    var rest: i64 = value
+    var sign: string = ""
+    if rest < 0 {
+        sign = "-"
+        rest = 0 - rest
+    }
+    var out: string = ""
+    while rest > 0 {
+        let digit: i64 = rest - (rest / 10) * 10
+        out = str_slice("0123456789", u32(digit), 1) + out
+        rest = rest / 10
+    }
+    return sign + out
+}
+
+fn appapi_parse_i64(text: string) i64 {
+    var out: i64 = 0
+    var i: u32 = 0
+    while i < u32(strlen(text)) {
+        let digit: i32 = str_index_of("0123456789", str_slice(text, i, 1))
+        if digit < 0 {
+            return out
+        }
+        out = out * 10 + i64(digit)
+        i = i + 1
+    }
+    return out
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Storing                                                                   */
+/* -------------------------------------------------------------------------- */
+
+fn appapi_store(id: string, value: string, unit: string, label: string, kind: string) bool {
+    if id == "" || value == "" {
+        return false
+    }
+    let opened: Result[SqlDb, string] = appapi_open()
+    if !opened.is_ok {
+        return false
+    }
+    let db: SqlDb = opened.ok
+    let now: u32 = appapi_now()
+    let saved: Result[u32, SqlError] = PutAppapiValue(id, value, unit, label, kind, int_to_str(now), db)
+    let number: AppapiNumber = appapi_number(value)
+    if number.ok {
+        ignore_appapi(AddAppapiPoint(id, int_to_str(now), appapi_decimal(number.milli), db))
+    }
+    sql_close(db)
+    return saved.is_ok
+}
+
+// appapi_publish offers a value the application computes itself — energy's
+// site balance, a tank's stocking level — under an id other applications read
+// it by. Its history is kept.
+fn appapi_publish(id: string, value: string, unit: string, label: string) bool {
+    return appapi_store(id, value, unit, label, "published")
+}
+
+// appapi_value is a value's newest text, or "": what a rule asks for when it
+// names a derived value (`aquarium.days_since_water_change`).
+fn appapi_value(id: string) string {
+    let opened: Result[SqlDb, string] = appapi_open()
+    if !opened.is_ok {
+        return ""
+    }
+    let values: AppapiValues[256]
+    let slice: Slice[AppapiValues] = Slice[AppapiValues]{ Ptr[AppapiValues](&values[0]), APPAPI_CAPACITY }
+    let listed: Result[u32, SqlError] = ListAppapiValues(opened.ok, slice, APPAPI_CAPACITY)
+    sql_close(opened.ok)
+    if !listed.is_ok {
+        return ""
+    }
+    var i: u32 = 0
+    while i < listed.ok {
+        if str_eq(values[i].id, id) {
+            return values[i].value
+        }
+        i = i + 1
+    }
+    return ""
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Deriving                                                                  */
+/* -------------------------------------------------------------------------- */
+
+/// What a series of readings comes to over a window.
+struct AppapiSummary {
+    count: u32
+    sum: i64
+    low: i64
+    high: i64
+    integral: i64
+    last: i64
+}
+
+// appapi_summary reads a gateway series — `{"points":[{"t":ms,"v":value},…]}` —
+// into its count, sum, lowest, highest and last value, and its integral over
+// time in value-hours (watts become watt-hours), all in thousandths.
+fn appapi_summary(series: string) AppapiSummary {
+    var out: AppapiSummary = AppapiSummary{ 0, 0, 0, 0, 0, 0 }
+    var rest: string = series
+    var previous_t: i64 = 0
+    var previous_v: i64 = 0
+    while rest != "" {
+        let at: i32 = str_index_of(rest, "\"t\":")
+        if at < 0 {
+            rest = ""
+        } else {
+            rest = str_slice(rest, u32(at) + 4, u32(strlen(rest)) - u32(at) - 4)
+            let t: i64 = appapi_parse_i64(rest)
+            let v_at: i32 = str_index_of(rest, "\"v\":")
+            if v_at < 0 {
+                rest = ""
+            } else {
+                rest = str_slice(rest, u32(v_at) + 4, u32(strlen(rest)) - u32(v_at) - 4)
+                var end: u32 = 0
+                while end < u32(strlen(rest)) && !str_eq(str_slice(rest, end, 1), ",") &&
+                    !str_eq(str_slice(rest, end, 1), "}") {
+                    end = end + 1
+                }
+                let number: AppapiNumber = appapi_number(str_slice(rest, 0, end))
+                if number.ok {
+                    if out.count == 0 || number.milli < out.low {
+                        out.low = number.milli
+                    }
+                    if out.count == 0 || number.milli > out.high {
+                        out.high = number.milli
+                    }
+                    if out.count > 0 && t > previous_t {
+                        out.integral = out.integral + previous_v * (t - previous_t) / 3600000
+                    }
+                    out.sum = out.sum + number.milli
+                    out.count = out.count + 1
+                    out.last = number.milli
+                    previous_t = t
+                    previous_v = number.milli
+                }
+            }
+        }
+    }
+    return out
+}
+
+// appapi_derive computes one derived value now, or "" when it cannot be read.
+fn appapi_derive(source: string, function: string, window: u32, now: u32) string {
+    if str_eq(function, "since") {
+        let dot: i32 = str_index_of(source, ".")
+        var kind: string = source
+        var subject: string = ""
+        if dot > 0 {
+            kind = str_slice(source, 0, u32(dot))
+            subject = str_slice(source, u32(dot) + 1, u32(strlen(source)) - u32(dot) - 1)
+        }
+        let last: u32 = journal_last_at(kind, subject)
+        if last == 0 || last > now {
+            return ""
+        }
+        // In days, to a thousandth.
+        return appapi_decimal(i64(now - last) * 1000 / 86400)
+    }
+    let dot: i32 = str_index_of(source, ".")
+    if dot <= 0 {
+        return ""
+    }
+    let handle: string = str_slice(source, 0, u32(dot))
+    let capability: string = str_slice(source, u32(dot) + 1, u32(strlen(source)) - u32(dot) - 1)
+    if str_eq(function, "latest") || str_eq(function, "export") || window == 0 {
+        return inventory_read(handle, capability)
+    }
+    let bound: string = inventory_resolve(handle, capability)
+    if bound == "" {
+        return ""
+    }
+    let series: string = gateway.source_history(bound, int_to_str(now - window) + "000",
+        int_to_str(now) + "000", "")
+    let summary: AppapiSummary = appapi_summary(series)
+    if summary.count == 0 {
+        return ""
+    }
+    if str_eq(function, "avg") {
+        return appapi_decimal(summary.sum / i64(summary.count))
+    }
+    if str_eq(function, "min") {
+        return appapi_decimal(summary.low)
+    }
+    if str_eq(function, "max") {
+        return appapi_decimal(summary.high)
+    }
+    if str_eq(function, "integral") {
+        return appapi_decimal(summary.integral)
+    }
+    return ""
+}
+
+// appapi_tick computes every derived and exported value and keeps it, and
+// drops history older than 30 days. A host calls it from its background work,
+// about once a minute. It answers how many values it kept.
+fn appapi_tick() u32 {
+    let now: u32 = appapi_now()
+    if now == 0 {
+        return 0
+    }
+    let opened: Result[SqlDb, string] = appapi_open()
+    if !opened.is_ok {
+        return 0
+    }
+    let derived: AppapiDerived[256]
+    let slice: Slice[AppapiDerived] = Slice[AppapiDerived]{ Ptr[AppapiDerived](&derived[0]), APPAPI_CAPACITY }
+    let listed: Result[u32, SqlError] = ListAppapiDerived(opened.ok, slice, APPAPI_CAPACITY)
+    if now > APPAPI_KEEP {
+        ignore_appapi(PruneAppapiPoints(i64(now - APPAPI_KEEP), opened.ok))
+    }
+    sql_close(opened.ok)
+    if !listed.is_ok {
+        return 0
+    }
+    var kept: u32 = 0
+    var i: u32 = 0
+    while i < listed.ok {
+        let one: AppapiDerived = derived[i]
+        let value: string = appapi_derive(one.source, one.fnValue, u32(one.windowS), now)
+        var kind: string = "derived"
+        if str_eq(one.fnValue, "export") {
+            kind = "export"
+        }
+        if value != "" && appapi_store(one.id, value, one.unit, one.label, kind) {
+            kept = kept + 1
+        }
+        i = i + 1
+    }
+    return kept
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Presets                                                                   */
+/* -------------------------------------------------------------------------- */
+
+fn appapi_unquote(text: string) string {
+    let value: string = appapi_trim(text)
+    let n: u32 = u32(strlen(value))
+    if n >= 2 && (str_eq(str_slice(value, 0, 1), "\"") || str_eq(str_slice(value, 0, 1), "'")) {
+        return str_slice(value, 1, n - 2)
+    }
+    return value
+}
+
+fn appapi_seconds(text: string) u32 {
+    let value: string = appapi_trim(text)
+    if value == "" {
+        return 0
+    }
+    let last: string = str_slice(value, u32(strlen(value)) - 1, 1)
+    let number: u32 = int_from_str(str_slice(value, 0, u32(strlen(value)) - 1))
+    if str_eq(last, "s") { return number }
+    if str_eq(last, "m") { return number * 60 }
+    if str_eq(last, "h") { return number * 3600 }
+    if str_eq(last, "d") { return number * 86400 }
+    return int_from_str(value)
+}
+
+// appapi_presets reads the application's presets/api.yml: under `values:`, each
+// value it derives, by id, with its `from`, `fn` (latest, avg, min, max,
+// integral, since, export), `window`, `unit` and `label`. It answers how many.
+fn appapi_presets(text: string) u32 {
+    if appapi_trim(text) == "" {
+        return 0
+    }
+    let path: string = appapi_db_path() + ".presets.yml"
+    if !rho_write_text(path, text) {
+        return 0
+    }
+    let opened: Result[SqlDb, string] = appapi_open()
+    if !opened.is_ok {
+        return 0
+    }
+    var count: u32 = 0
+    var rest: string = yaml.keys(path, "values")
+    while rest != "" {
+        let at: i32 = str_index_of(rest, "\n")
+        var key: string = rest
+        if at < 0 {
+            rest = ""
+        } else {
+            key = str_slice(rest, 0, u32(at))
+            rest = str_slice(rest, u32(at) + 1, u32(strlen(rest)) - u32(at) - 1)
+        }
+        if key != "" {
+            let base: string = "values." + key + "."
+            let source: string = appapi_unquote(yaml.value(path, base + "from"))
+            var function: string = appapi_unquote(yaml.value(path, base + "fn"))
+            if function == "" {
+                function = "latest"
+            }
+            if source != "" {
+                ignore_appapi(PutAppapiDerived(key, source, function,
+                    int_to_str(appapi_seconds(appapi_unquote(yaml.value(path, base + "window")))),
+                    appapi_unquote(yaml.value(path, base + "unit")),
+                    appapi_unquote(yaml.value(path, base + "label")), opened.ok))
+                count = count + 1
+            }
+        }
+    }
+    sql_close(opened.ok)
+    return count
+}
+
+/* -------------------------------------------------------------------------- */
+/*  The API                                                                   */
+/* -------------------------------------------------------------------------- */
+
+fn appapi_value_json(value: AppapiValues) string {
+    return "{\"id\":" + json_string(value.id) +
+        ",\"value\":" + json_string(value.value) +
+        ",\"unit\":" + json_string(value.unit) +
+        ",\"label\":" + json_string(value.label) +
+        ",\"kind\":" + json_string(value.kind) +
+        ",\"updated_at\":" + int_to_str(u32(value.updatedAt)) + "}"
+}
+
+fn appapi_values_api(req: Request) Response {
+    let opened: Result[SqlDb, string] = appapi_open()
+    if !opened.is_ok {
+        return json(status_internal(), "{\"error\":" + json_string(opened.err) + "}")
+    }
+    let values: AppapiValues[256]
+    let slice: Slice[AppapiValues] = Slice[AppapiValues]{ Ptr[AppapiValues](&values[0]), APPAPI_CAPACITY }
+    let listed: Result[u32, SqlError] = ListAppapiValues(opened.ok, slice, APPAPI_CAPACITY)
+    sql_close(opened.ok)
+    if !listed.is_ok {
+        return json(status_internal(), "{\"error\":" + json_string(listed.err.message) + "}")
+    }
+    var out: string = ""
+    var i: u32 = 0
+    while i < listed.ok {
+        if out != "" {
+            out = out + ","
+        }
+        out = out + appapi_value_json(values[i])
+        i = i + 1
+    }
+    return json(status_ok(), "{\"application\":" + json_string(getenv("RHO_APP_NAME")) + ",\"values\":[" + out + "]}")
+}
+
+fn appapi_value_api(req: Request) Response {
+    let id: string = param(req, "id")
+    let opened: Result[SqlDb, string] = appapi_open()
+    if !opened.is_ok {
+        return json(status_internal(), "{\"error\":" + json_string(opened.err) + "}")
+    }
+    let values: AppapiValues[256]
+    let slice: Slice[AppapiValues] = Slice[AppapiValues]{ Ptr[AppapiValues](&values[0]), APPAPI_CAPACITY }
+    let listed: Result[u32, SqlError] = ListAppapiValues(opened.ok, slice, APPAPI_CAPACITY)
+    sql_close(opened.ok)
+    if listed.is_ok {
+        var i: u32 = 0
+        while i < listed.ok {
+            if str_eq(values[i].id, id) {
+                return json(status_ok(), appapi_value_json(values[i]))
+            }
+            i = i + 1
+        }
+    }
+    return json(status_not_found(), "{\"error\":\"no such value\"}")
+}
+
+// appapi_history_api is a value's history, in the gateway's own shape:
+// `{"ok":true,"points":[{"t":ms,"v":value}]}`; from and to are Unix
+// milliseconds, the last day by default.
+fn appapi_history_api(req: Request) Response {
+    let id: string = param(req, "id")
+    let now: u32 = appapi_now()
+    var until: u32 = now
+    var since: u32 = 0
+    if now > 86400 {
+        since = now - 86400
+    }
+    let from: string = request_query_param(req, "from")
+    let to: string = request_query_param(req, "to")
+    if strlen(from) > 3 {
+        since = u32(appapi_parse_i64(from) / 1000)
+    }
+    if strlen(to) > 3 {
+        until = u32(appapi_parse_i64(to) / 1000)
+    }
+    let opened: Result[SqlDb, string] = appapi_open()
+    if !opened.is_ok {
+        return json(status_internal(), "{\"ok\":false,\"error\":" + json_string(opened.err) + "}")
+    }
+    let points: ListAppapiPointsRow[5000]
+    let slice: Slice[ListAppapiPointsRow] = Slice[ListAppapiPointsRow]{ Ptr[ListAppapiPointsRow](&points[0]), APPAPI_POINTS }
+    let listed: Result[u32, SqlError] = ListAppapiPoints(id, int_to_str(since), int_to_str(until), opened.ok, slice, APPAPI_POINTS)
+    sql_close(opened.ok)
+    if !listed.is_ok {
+        return json(status_internal(), "{\"ok\":false,\"error\":" + json_string(listed.err.message) + "}")
+    }
+    var out: string = ""
+    var i: u32 = 0
+    while i < listed.ok {
+        if out != "" {
+            out = out + ","
+        }
+        out = out + "{\"t\":" + int_to_str(u32(points[i].at)) + "000,\"v\":" + appapi_decimal(i64(points[i].value * 1000.0)) + "}"
+        i = i + 1
+    }
+    return json(status_ok(), "{\"ok\":true,\"points\":[" + out + "]}")
+}
+
+// appapi_events_api is the application's journal, read-only: what the journal
+// module serves, under the API's path.
+fn appapi_events_api(req: Request) Response {
+    return journal_api(req)
+}

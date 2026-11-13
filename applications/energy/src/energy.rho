@@ -568,7 +568,7 @@ fn energy_config_get(db: SqlDb) EnergyConfig {
     var rows: EnergyConfig[1]
     var slice: Slice[EnergyConfig] = Slice[EnergyConfig]{ Ptr[EnergyConfig](&rows[0]), 1 }
     var got: Result[u32, SqlError] = GetConfig(db, slice, 1)
-    if got.is_ok {
+    if got.is_ok && got.ok > 0 {
         return rows[0]
     }
     return energy_empty_config()
@@ -1101,7 +1101,7 @@ fn energy_fault_active(db: SqlDb, code: string) bool {
     var rows: EnergyFaultState[1]
     var slice: Slice[EnergyFaultState] = Slice[EnergyFaultState]{ Ptr[EnergyFaultState](&rows[0]), 1 }
     var got: Result[u32, SqlError] = GetFaultState(code, db, slice, 1)
-    if got.is_ok {
+    if got.is_ok && got.ok > 0 {
         return rows[0].active != 0
     }
     return false
@@ -1317,7 +1317,7 @@ fn init() void {
     var sources: EnergySources[1]
     var source_slice: Slice[EnergySources] = Slice[EnergySources]{ Ptr[EnergySources](&sources[0]), 1 }
     var source_rows: Result[u32, SqlError] = ListSources(db, source_slice, 1)
-    if !source_rows.is_ok {
+    if !source_rows.is_ok || source_rows.ok == 0 {
         energy_ignore_result(InsertSource("South roof — string A", "solar_pv", "dc-bus-1", "192.168.10.21", "", "4200", "Modbus/SunSpec", db))
         energy_ignore_result(InsertSource("West roof — microinverters", "solar_microinverter", "ac-bus-1", "192.168.10.22", "", "2400", "OpenDTU/HTTP", db))
         energy_ignore_result(InsertSource("Ridge turbine", "wind", "dc-bus-2", "192.168.10.23", "", "1500", "Modbus/RS-485", db))
@@ -1326,12 +1326,12 @@ fn init() void {
     var batteries: EnergyBatteries[1]
     var battery_slice: Slice[EnergyBatteries] = Slice[EnergyBatteries]{ Ptr[EnergyBatteries](&batteries[0]), 1 }
     var battery_rows: Result[u32, SqlError] = ListBatteries(db, battery_slice, 1)
-    if !battery_rows.is_ok {
+    if !battery_rows.is_ok || battery_rows.ok == 0 {
         energy_ignore_result(InsertBattery("Main LiFePO4 bank", "LiFePO4", "10240", "L51", "192.168.10.30", "", db))
         var seeded: EnergyBatteries[1]
         var seeded_slice: Slice[EnergyBatteries] = Slice[EnergyBatteries]{ Ptr[EnergyBatteries](&seeded[0]), 1 }
         var seeded_found: Result[u32, SqlError] = FindBatteryByName("Main LiFePO4 bank", db, seeded_slice, 1)
-        if seeded_found.is_ok {
+        if seeded_found.is_ok && seeded_found.ok > 0 {
             energy_ignore_result(UpdateBatteryReading(55000, 100000, 51200, 0, 24000, 3250, 3400, "online", i64(now), seeded[0].id, db))
         }
         energy_ignore_result(InsertEvent("INFO", "site", "Battery bank registered with the L51 CAN profile", rho_int_to_str(now), db))
@@ -1339,12 +1339,12 @@ fn init() void {
     var grids: EnergyGrids[1]
     var grid_slice: Slice[EnergyGrids] = Slice[EnergyGrids]{ Ptr[EnergyGrids](&grids[0]), 1 }
     var grid_rows: Result[u32, SqlError] = ListGrids(db, grid_slice, 1)
-    if !grid_rows.is_ok {
+    if !grid_rows.is_ok || grid_rows.ok == 0 {
         energy_ignore_result(InsertGrid("Utility feed", "Local utility", "", "1", "12000", "0", "1", db))
         var seeded_grid: EnergyGrids[1]
         var seeded_grid_slice: Slice[EnergyGrids] = Slice[EnergyGrids]{ Ptr[EnergyGrids](&seeded_grid[0]), 1 }
         var seeded_grid_found: Result[u32, SqlError] = FindGridByName("Utility feed", db, seeded_grid_slice, 1)
-        if seeded_grid_found.is_ok {
+        if seeded_grid_found.is_ok && seeded_grid_found.ok > 0 {
             energy_ignore_result(UpdateGridReading(230000, 50000, 0, 0, 1, "online", i64(now), seeded_grid[0].id, db))
         }
         energy_ignore_result(InsertEvent("INFO", "site", "Utility feed registered with zero export", rho_int_to_str(now), db))
@@ -1352,7 +1352,7 @@ fn init() void {
     var loads: EnergyLoads[1]
     var load_slice: Slice[EnergyLoads] = Slice[EnergyLoads]{ Ptr[EnergyLoads](&loads[0]), 1 }
     var load_rows: Result[u32, SqlError] = ListLoads(db, load_slice, 1)
-    if !load_rows.is_ok {
+    if !load_rows.is_ok || load_rows.ok == 0 {
         energy_ignore_result(InsertLoad("House critical circuits", "site", "1", "900", "1", db))
         energy_ignore_result(InsertLoad("Heat pump", "house", "2", "1800", "0", db))
         energy_ignore_result(InsertLoad("Water heater", "house", "3", "1200", "0", db))
@@ -1485,7 +1485,7 @@ fn energy_sources_reading(req: Request) Response {
         var rows: EnergySources[1]
         var slice: Slice[EnergySources] = Slice[EnergySources]{ Ptr[EnergySources](&rows[0]), 1 }
         var got: Result[u32, SqlError] = GetSource(id, db, slice, 1)
-        if got.is_ok {
+        if got.is_ok && got.ok > 0 {
             var power_text: string = energy_form_field(body, "power_w")
             var voltage_text: string = energy_form_field(body, "voltage_v")
             var current_text: string = energy_form_field(body, "current_a")
@@ -1633,7 +1633,7 @@ fn energy_storage_reading(req: Request) Response {
         var rows: EnergyBatteries[1]
         var slice: Slice[EnergyBatteries] = Slice[EnergyBatteries]{ Ptr[EnergyBatteries](&rows[0]), 1 }
         var got: Result[u32, SqlError] = GetBattery(id, db, slice, 1)
-        if got.is_ok {
+        if got.is_ok && got.ok > 0 {
             var soc: i64 = energy_parse_milli(energy_form_field(body, "soc_pct"))
             var soh_text: string = energy_form_field(body, "soh_pct")
             var soh: i64 = rows[0].sohMilli
@@ -1795,7 +1795,7 @@ fn energy_grid_reading(req: Request) Response {
         var rows: EnergyGrids[1]
         var slice: Slice[EnergyGrids] = Slice[EnergyGrids]{ Ptr[EnergyGrids](&rows[0]), 1 }
         var got: Result[u32, SqlError] = GetGrid(id, db, slice, 1)
-        if got.is_ok {
+        if got.is_ok && got.ok > 0 {
             var voltage_text: string = energy_form_field(body, "voltage_v")
             var voltage: i64 = rows[0].voltageMv
             if voltage_text != "" {
@@ -1956,7 +1956,7 @@ fn energy_loads_toggle(req: Request) Response {
         var rows: EnergyLoads[1]
         var slice: Slice[EnergyLoads] = Slice[EnergyLoads]{ Ptr[EnergyLoads](&rows[0]), 1 }
         var got: Result[u32, SqlError] = GetLoad(id, db, slice, 1)
-        if got.is_ok {
+        if got.is_ok && got.ok > 0 {
             var state: string = rows[0].state
             var state_field: string = energy_form_field(body, "state")
             if state_field != "" {
@@ -2656,7 +2656,7 @@ fn energy_seed_widgets(db: SqlDb, now: u32) {
     var existing_slice: Slice[Widgets] = Slice[Widgets]{
         Ptr[Widgets](&existing[0]), 1 }
     var listed: Result[u32, SqlError] = ListWidgets(db, existing_slice, 1)
-    if listed.is_ok {
+    if listed.is_ok && listed.ok > 0 {
         return
     }
     var created: string = rho_int_to_str(now)
@@ -3136,7 +3136,7 @@ fn energy_api_source_ingest(db: SqlDb, body: string, now: u32) i64 {
     var rows: EnergySources[1]
     var slice: Slice[EnergySources] = Slice[EnergySources]{ Ptr[EnergySources](&rows[0]), 1 }
     var found: Result[u32, SqlError] = FindSourceByName(name, db, slice, 1)
-    if found.is_ok {
+    if found.is_ok && found.ok > 0 {
         source_id = rows[0].id
     } else {
         var kind: string = energy_trim(energy_form_field(body, "kind"))
@@ -3145,7 +3145,7 @@ fn energy_api_source_ingest(db: SqlDb, body: string, now: u32) i64 {
         }
         energy_ignore_result(InsertSource(name, kind, energy_trim(energy_form_field(body, "bus")), energy_trim(energy_form_field(body, "address")), energy_trim(energy_form_field(body, "mesh_source")), energy_i64_to_str(energy_parse_milli(energy_form_field(body, "rated_kw"))), energy_trim(energy_form_field(body, "protocol")), db))
         var again: Result[u32, SqlError] = FindSourceByName(name, db, slice, 1)
-        if again.is_ok {
+        if again.is_ok && again.ok > 0 {
             source_id = rows[0].id
         }
     }
@@ -3155,7 +3155,7 @@ fn energy_api_source_ingest(db: SqlDb, body: string, now: u32) i64 {
     var current_rows: EnergySources[1]
     var current_slice: Slice[EnergySources] = Slice[EnergySources]{ Ptr[EnergySources](&current_rows[0]), 1 }
     var got: Result[u32, SqlError] = GetSource(source_id, db, current_slice, 1)
-    if !got.is_ok {
+    if !got.is_ok || got.ok == 0 {
         return 0
     }
     var power_text: string = energy_form_field(body, "power_w")
@@ -3199,12 +3199,12 @@ fn energy_api_battery_ingest(db: SqlDb, body: string, now: u32) i64 {
     var rows: EnergyBatteries[1]
     var slice: Slice[EnergyBatteries] = Slice[EnergyBatteries]{ Ptr[EnergyBatteries](&rows[0]), 1 }
     var found: Result[u32, SqlError] = FindBatteryByName(name, db, slice, 1)
-    if found.is_ok {
+    if found.is_ok && found.ok > 0 {
         battery_id = rows[0].id
     } else {
         energy_ignore_result(InsertBattery(name, "LiFePO4", energy_i64_to_str(energy_parse_milli(energy_form_field(body, "capacity_kwh"))), "L51", energy_trim(energy_form_field(body, "bms_host")), energy_trim(energy_form_field(body, "mesh_source")), db))
         var again: Result[u32, SqlError] = FindBatteryByName(name, db, slice, 1)
-        if again.is_ok {
+        if again.is_ok && again.ok > 0 {
             battery_id = rows[0].id
         }
     }
@@ -3214,7 +3214,7 @@ fn energy_api_battery_ingest(db: SqlDb, body: string, now: u32) i64 {
     var current_rows: EnergyBatteries[1]
     var current_slice: Slice[EnergyBatteries] = Slice[EnergyBatteries]{ Ptr[EnergyBatteries](&current_rows[0]), 1 }
     var got: Result[u32, SqlError] = GetBattery(battery_id, db, current_slice, 1)
-    if !got.is_ok {
+    if !got.is_ok || got.ok == 0 {
         return 0
     }
     var soc_text: string = energy_form_field(body, "soc_pct")
@@ -3275,12 +3275,12 @@ fn energy_api_grid_ingest(db: SqlDb, body: string, now: u32) i64 {
     var rows: EnergyGrids[1]
     var slice: Slice[EnergyGrids] = Slice[EnergyGrids]{ Ptr[EnergyGrids](&rows[0]), 1 }
     var found: Result[u32, SqlError] = FindGridByName(name, db, slice, 1)
-    if found.is_ok {
+    if found.is_ok && found.ok > 0 {
         grid_id = rows[0].id
     } else {
         energy_ignore_result(InsertGrid(name, energy_trim(energy_form_field(body, "utility")), energy_trim(energy_form_field(body, "mesh_source")), "1", "0", "0", "1", db))
         var again: Result[u32, SqlError] = FindGridByName(name, db, slice, 1)
-        if again.is_ok {
+        if again.is_ok && again.ok > 0 {
             grid_id = rows[0].id
         }
     }
@@ -3290,7 +3290,7 @@ fn energy_api_grid_ingest(db: SqlDb, body: string, now: u32) i64 {
     var current_rows: EnergyGrids[1]
     var current_slice: Slice[EnergyGrids] = Slice[EnergyGrids]{ Ptr[EnergyGrids](&current_rows[0]), 1 }
     var got: Result[u32, SqlError] = GetGrid(grid_id, db, current_slice, 1)
-    if !got.is_ok {
+    if !got.is_ok || got.ok == 0 {
         return 0
     }
     var voltage_text: string = energy_form_field(body, "voltage_v")
@@ -3340,12 +3340,12 @@ fn energy_api_load_ingest(db: SqlDb, body: string, now: u32) i64 {
     var rows: EnergyLoads[1]
     var slice: Slice[EnergyLoads] = Slice[EnergyLoads]{ Ptr[EnergyLoads](&rows[0]), 1 }
     var found: Result[u32, SqlError] = FindLoadByName(name, db, slice, 1)
-    if found.is_ok {
+    if found.is_ok && found.ok > 0 {
         load_id = rows[0].id
     } else {
         energy_ignore_result(InsertLoad(name, energy_trim(energy_form_field(body, "zone")), energy_trim(energy_form_field(body, "priority")), energy_i64_to_str(energy_parse_watts(energy_form_field(body, "power_w"))), energy_trim(energy_form_field(body, "critical")), db))
         var again: Result[u32, SqlError] = FindLoadByName(name, db, slice, 1)
-        if again.is_ok {
+        if again.is_ok && again.ok > 0 {
             load_id = rows[0].id
         }
     }
@@ -3355,7 +3355,7 @@ fn energy_api_load_ingest(db: SqlDb, body: string, now: u32) i64 {
     var current_rows: EnergyLoads[1]
     var current_slice: Slice[EnergyLoads] = Slice[EnergyLoads]{ Ptr[EnergyLoads](&current_rows[0]), 1 }
     var got: Result[u32, SqlError] = GetLoad(load_id, db, current_slice, 1)
-    if !got.is_ok {
+    if !got.is_ok || got.ok == 0 {
         return 0
     }
     var power: i64 = energy_parse_watts(energy_form_field(body, "power_w"))

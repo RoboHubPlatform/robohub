@@ -1,0 +1,263 @@
+//
+// @file ui.rho
+// @brief The top bar, the app switcher, the person's menu and the theme, for every RoboHub page.
+//
+// @module ui
+// @project ui
+// @author Aurel Miron
+// @date 2026-11-13
+//
+// SPDX-License-Identifier: MIT
+//
+
+module ui
+
+import std.web.http
+
+// A module's own files, embedded in the program that includes it.
+extern fn rho_asset(module: string, path: string) string
+
+/// The version the asset URLs carry, so a browser fetches a new stylesheet when
+/// the module changes rather than keeping the one it cached.
+const UI_VERSION: string = "0.1.2"
+
+/// The cookie the theme is kept in. A cookie belongs to a host, not a port, so
+/// one choice reaches every application on the machine.
+const UI_THEME_COOKIE: string = "rh_theme"
+
+fn ui_stylesheet(req: Request) Response {
+    return Response{ 200, rho_asset("ui", "static/robohub.css"), "text/css; charset=utf-8",
+        "Cache-Control: public, max-age=300" }
+}
+
+fn ui_script(req: Request) Response {
+    return Response{ 200, rho_asset("ui", "static/robohub.js"), "text/javascript; charset=utf-8",
+        "Cache-Control: public, max-age=300" }
+}
+
+// ui_head is what a page's <head> carries for the look: the stylesheet and the
+// script.
+fn ui_head() string {
+    return "<link rel=\"stylesheet\" href=\"/ui/robohub.css?v=" + UI_VERSION + "\">" +
+        "<script src=\"/ui/robohub.js?v=" + UI_VERSION + "\" defer></script>"
+}
+
+// ui_theme is the theme a person chose — dark, light or system — for the
+// data-theme attribute of the page's <html>. Dark is what nobody chose.
+fn ui_theme(req: Request) string {
+    if !has_header(req, "Cookie") {
+        return "dark"
+    }
+    let cookie: string = header_str(req, "Cookie")
+    let needle: string = UI_THEME_COOKIE + "="
+    let at: i32 = str_index_of(cookie, needle)
+    if at < 0 {
+        return "dark"
+    }
+    let rest: string = str_slice(cookie, u32(at) + u32(strlen(needle)), u32(strlen(cookie)) - u32(at) - u32(strlen(needle)))
+    if str_starts_with(rest, "light") {
+        return "light"
+    }
+    if str_starts_with(rest, "system") {
+        return "system"
+    }
+    return "dark"
+}
+
+// ui_local_path is whether a value is a path on this host, so a redirect to it
+// cannot send a person somewhere else.
+fn ui_local_path(path: string) bool {
+    if !str_starts_with(path, "/") || str_starts_with(path, "//") {
+        return false
+    }
+    let forbidden: string = "\\\"'<> \r\n"
+    var i: u32 = 0
+    while i < u32(strlen(path)) {
+        if str_index_of(forbidden, str_slice(path, i, 1)) >= 0 {
+            return false
+        }
+        i = i + 1
+    }
+    return true
+}
+
+// ui_theme_set keeps a person's theme and returns to the page they were on.
+fn ui_theme_set(req: Request) Response {
+    var theme: string = query_str(req, "set")
+    if !str_eq(theme, "light") && !str_eq(theme, "system") {
+        theme = "dark"
+    }
+    var back: string = query_str(req, "back")
+    if !ui_local_path(back) {
+        back = "/"
+    }
+    return Response{ 302, "", "text/plain; charset=utf-8",
+        "Location: " + back + "\nSet-Cookie: " + UI_THEME_COOKIE + "=" + theme +
+        "; Path=/; Max-Age=31536000; SameSite=Lax" }
+}
+
+// ui_upper is a letter as a capital, for the initials on the person's badge.
+fn ui_upper(text: string) string {
+    let lower: string = "abcdefghijklmnopqrstuvwxyz"
+    let upper: string = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    let at: i32 = str_index_of(lower, text)
+    if strlen(text) != 1 || at < 0 {
+        return text
+    }
+    return str_slice(upper, u32(at), 1)
+}
+
+fn ui_escape(text: string) string {
+    return escape_html(text)
+}
+
+// ui_tone is a state word as a dot's tone: ok, warn, bad, off.
+fn ui_tone(state: string) string {
+    if str_eq(state, "running") || str_eq(state, "keeper") || str_eq(state, "ok") {
+        return "ok"
+    }
+    if str_eq(state, "failed") || str_eq(state, "bad") {
+        return "bad"
+    }
+    if str_eq(state, "starting") || str_eq(state, "busy") || str_eq(state, "warn") || str_eq(state, "not-built") {
+        return "warn"
+    }
+    return "off"
+}
+
+// ui_field is one `|`-separated field of a line.
+fn ui_field(line: string, index: u32) string {
+    var rest: string = line
+    var i: u32 = 0
+    while i < index {
+        let at: i32 = str_index_of(rest, "|")
+        if at < 0 {
+            return ""
+        }
+        rest = str_slice(rest, u32(at) + 1, u32(strlen(rest)) - u32(at) - 1)
+        i = i + 1
+    }
+    let end: i32 = str_index_of(rest, "|")
+    if end < 0 {
+        return rest
+    }
+    return str_slice(rest, 0, u32(end))
+}
+
+// ui_switcher is the app switcher. `apps` is one application per line:
+//   name|title|port|route|state
+// a port of "" is this application (opened at `route` on this host), and the one
+// named `current` is marked as the one the person is in.
+fn ui_switcher(current: string, apps: string) string {
+    var title: string = "RoboHub"
+    var items: string = ""
+    var rest: string = apps
+    while rest != "" {
+        let at: i32 = str_index_of(rest, "\n")
+        var line: string = rest
+        if at < 0 { rest = "" } else { line = str_slice(rest, 0, u32(at)); rest = str_slice(rest, u32(at) + 1, u32(strlen(rest)) - u32(at) - 1) }
+        let name: string = ui_field(line, 0)
+        if name == "" {
+            continue
+        }
+        let label: string = ui_field(line, 1)
+        let port: string = ui_field(line, 2)
+        let at_path: string = ui_field(line, 3)
+        let state: string = ui_field(line, 4)
+        var cls: string = ""
+        if str_eq(name, current) {
+            title = label
+            cls = " on"
+        }
+        var link: string = "<a class=\"" + str_slice(cls, 1, u32(strlen(cls))) + "\" href=\"" + ui_escape(at_path) + "\">"
+        if port != "" {
+            link = "<a class=\"app-open" + cls + "\" href=\"#\" data-app-port=\"" + ui_escape(port) +
+                "\" data-app-route=\"" + ui_escape(at_path) + "\">"
+        }
+        items = items + link + "<span><span class=\"rh-dot " + ui_tone(state) + "\"></span> " + ui_escape(label) +
+            "</span><small>" + ui_escape(state) + "</small></a>"
+    }
+    return "<details class=\"rh-menu rh-switch\"><summary><span class=\"rh-dot\"></span>" + ui_escape(title) +
+        " <small>▾</small></summary><div class=\"rh-pop\"><h6>Applications</h6>" + items + "</div></details>"
+}
+
+// ui_person is the menu of the person signed in: their name, the theme (when
+// the application has a light look; `themes`), the links an application adds
+// (`links`, HTML), and `signout` (HTML) last.
+fn ui_person(req: Request, who: string, role: string, links: string, signout: string, themes: bool) string {
+    let theme: string = ui_theme(req)
+    var back: string = request_path(req)
+    if !ui_local_path(back) {
+        back = "/"
+    }
+    var initials: string = str_slice(who, 0, 1)
+    if strlen(who) == 0 {
+        initials = "?"
+    }
+    var seg: string = ""
+    var choice: string = ""
+    var i: u32 = 0
+    while i < 3 {
+        if i == 0 { choice = "dark" } else if i == 1 { choice = "light" } else { choice = "system" }
+        var on: string = ""
+        if str_eq(theme, choice) {
+            on = " class=\"on\""
+        }
+        seg = seg + "<a" + on + " href=\"/ui/theme?set=" + choice + "&back=" + ui_escape(back) + "\">" + choice + "</a>"
+        i = i + 1
+    }
+    var out: string = "<details class=\"rh-menu rh-person\"><summary><span class=\"rh-av\">" + ui_escape(ui_upper(initials)) +
+        "</span><span class=\"rh-who\">" + ui_escape(who)
+    if role != "" {
+        out = out + " · " + ui_escape(role)
+    }
+    out = out + "</span></summary><div class=\"rh-pop right\">"
+    if themes {
+        out = out + "<h6>Theme</h6><div class=\"rh-seg\">" + seg + "</div>"
+    }
+    return out + links + signout + "</div></details>"
+}
+
+// ui_topbar is the bar at the top of every RoboHub page: the brand, the app
+// switcher, what the application adds in the middle (`middle`, HTML), and the
+// person's menu (`person`, from ui_person).
+fn ui_topbar(current: string, apps: string, middle: string, person: string) string {
+    return "<header class=\"rh-top\"><a class=\"rh-brand\" href=\"/\">Robo<em>Hub</em></a>" +
+        ui_switcher(current, apps) + middle + "<span class=\"rh-spacer\"></span>" + person + "</header>"
+}
+
+// ui_language is the language as a choice in the person's menu, posted to the
+// i18n module's switch (/i18n/locale), which returns to `next`.
+fn ui_language(locale: string, next: string) string {
+    var en: string = ""
+    var ro: string = ""
+    if str_eq(locale, "ro") { ro = " class=\"on\"" } else { en = " class=\"on\"" }
+    var back: string = next
+    if !ui_local_path(back) {
+        back = "/"
+    }
+    return "<h6>Language</h6><form class=\"rh-seg\" method=\"post\" action=\"/i18n/locale\"><input type=\"hidden\" name=\"next\" value=\"" +
+        ui_escape(back) + "\"><button" + en + " type=\"submit\" name=\"locale\" value=\"en\">English</button>" +
+        "<button" + ro + " type=\"submit\" name=\"locale\" value=\"ro\">Română</button></form>"
+}
+
+// ui_switcher_remote is the switcher of an application that is not the keeper:
+// it names the application, and the page fills the list from the keeper's
+// /api/v1/switcher, on the keeper's port of the host the page was reached on.
+// Until it answers, the list holds the way back to the keeper.
+fn ui_switcher_remote(current: string, title: string, keeper_port: string) string {
+    var keeper: string = ""
+    if keeper_port != "" {
+        keeper = "<a class=\"app-open\" href=\"#\" data-app-port=\"" + ui_escape(keeper_port) +
+            "\" data-app-route=\"/\"><span><span class=\"rh-dot ok\"></span> Keeper</span><small>keeper</small></a>"
+    }
+    return "<details class=\"rh-menu rh-switch\" data-keeper-port=\"" + ui_escape(keeper_port) + "\" data-current=\"" +
+        ui_escape(current) + "\"><summary><span class=\"rh-dot\"></span>" + ui_escape(title) +
+        " <small>▾</small></summary><div class=\"rh-pop\"><h6>Applications</h6><div class=\"rh-apps\">" + keeper + "</div></div></details>"
+}
+
+// ui_topbar_remote is the top bar of an application that is not the keeper.
+fn ui_topbar_remote(current: string, title: string, keeper_port: string, middle: string, person: string) string {
+    return "<header class=\"rh-top\"><a class=\"rh-brand\" href=\"/\">Robo<em>Hub</em></a>" +
+        ui_switcher_remote(current, title, keeper_port) + middle + "<span class=\"rh-spacer\"></span>" + person + "</header>"
+}

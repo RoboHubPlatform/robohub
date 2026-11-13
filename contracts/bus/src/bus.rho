@@ -1,0 +1,78 @@
+//
+// @file bus.rho
+// @brief The message bus interface: publish, follow, and the newest message of a topic, through the bound broker.
+//
+// @module robohub.bus
+// @project robohub-bus
+// @author Aurel Miron
+// @date 2026-11-13
+//
+// SPDX-License-Identifier: MIT
+//
+
+module robohub.bus
+
+// The bus interface.
+//
+// An application publishes, follows and reads; the provider it binds answers. A
+// bus is one broker, so the first enabled provider bound is the one used. The
+// calls to it — the *_to functions, bound_providers and bind_config — are
+// generated from the application's binding.
+
+// provider is the bound bus that answers: the first enabled one.
+fn provider() string {
+    var rest: string = bound_providers()
+    while rest != "" {
+        let at: i32 = str_index_of(rest, "\n")
+        let name: string = str_slice(rest, 0, u32(at))
+        rest = str_slice(rest, u32(at) + 1, strlen(rest) - u32(at) - 1)
+        if bind_config(name, "enabled") != "false" {
+            return name
+        }
+    }
+    return ""
+}
+
+// config is one of the bus provider's settings.
+fn config(key: string) string {
+    let name: string = provider()
+    if name == "" {
+        return ""
+    }
+    return bind_config(name, key)
+}
+
+// publish sends a message to a topic; retain keeps it as the topic's last word
+// for whoever subscribes later. It answers whether the broker took it.
+fn publish(topic: string, payload: string, retain: bool) bool {
+    return publish_to(provider(), topic, payload, retain)
+}
+
+// follow follows a topic filter (`shelly/+/status/#`) in the background; every
+// message becomes its topic's newest, and a JSON line in events_path when set.
+fn follow(filter: string, events_path: string) bool {
+    return follow_to(provider(), filter, events_path)
+}
+
+// follow_lines follows a topic filter and appends every payload to lines_path
+// as it came, one per line: the other end of relay.
+fn follow_lines(filter: string, lines_path: string) bool {
+    return follow_lines_to(provider(), filter, lines_path)
+}
+
+// relay publishes every line appended to lines_path to topic, from now on, in
+// the background: a file of lines carried across the broker unchanged.
+fn relay(lines_path: string, topic: string) bool {
+    return relay_to(provider(), lines_path, topic)
+}
+
+// latest is the newest message heard on a topic, or "".
+fn latest(topic: string) string {
+    return latest_to(provider(), topic)
+}
+
+// topics are the topics heard under a prefix, newest first: topic, seconds since,
+// payload, tab-separated, one per line.
+fn topics(prefix: string) string {
+    return topics_to(provider(), prefix)
+}

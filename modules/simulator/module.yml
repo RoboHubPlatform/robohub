@@ -1,0 +1,63 @@
+#
+# simulator — devices that are not there, behaving as presets say, behind the gateway interface.
+#
+# A module that implements robohub.gateway itself. An application binds it beside
+# the Mesh provider; Settings → Gateway chooses which one answers, and nothing
+# above the gateway — inventory, rules, widgets, the application — can tell
+# which. What the simulated devices are and how they behave is the application's
+# presets/sim.yml; the models are this module's.
+#
+module:
+  name: simulator
+  id: robohub.module.simulator
+  type: module
+  title: Simulator
+  category: integration
+  version: 0.1.0
+  description: >
+    Simulated devices behind the gateway interface, from an application's
+    presets: switches that answer actions, plugs that draw power while on,
+    daily curves, noise, a tank warming while its heater is on, a battery
+    charging from a source. One simulator for every RoboHub application.
+  maintainer: "Aurel Miron"
+  license: "MIT"
+  created: "2026-11-13"
+
+main: src/simulator.rho
+
+implements: [robohub.gateway]
+
+provides:
+  import: robohub.simulator
+  exports:
+    - projects
+    - gateway
+    - sources
+    - device_states
+    - follow
+    - transport
+    - action
+    - source_state
+    - source_latest
+    - source_history
+    - register_client
+    - client_heartbeat
+    - publish
+    - telemetry_status
+    - presets
+    - tick
+  settings: []
+
+deps:
+  rho-log: ">=0.1.0"
+
+docs:
+  title: Simulator
+  section: modules
+  order: "18"
+  index: docs/index.md
+  sources:
+    - docs/index.md
+
+assets:
+  - docs/index.md

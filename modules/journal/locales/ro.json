@@ -1,0 +1,18 @@
+{
+  "journal.title": "Jurnal",
+  "journal.lede": "Ce s-a întâmplat: comutări, reguli, moduri, valori în afara limitelor, stocuri pe terminate. Avertismentele și erorile rămân deschise până le rezolvă cineva.",
+  "journal.level": "Nivel",
+  "journal.kind": "Tip",
+  "journal.range": "Perioadă",
+  "journal.filter": "Filtrează",
+  "journal.time": "Ora",
+  "journal.subject": "Despre",
+  "journal.message": "Ce s-a întâmplat",
+  "journal.resolve": "Rezolvă",
+  "journal.empty": "Nimic înregistrat în această perioadă.",
+  "journal.all_levels": "Toate nivelurile",
+  "journal.day": "Ultima zi",
+  "journal.week": "Ultima săptămână",
+  "journal.month": "Ultima lună",
+  "journal.all": "Tot"
+}

@@ -19,6 +19,8 @@ include "db/queries.rho"
 include "inventory"
 include "scheduler"
 include "widgets"
+include "journal"
+include "appapi"
 include "logging"
 include "energy.rho"
 import rho.log

@@ -1,0 +1,18 @@
+{
+  "journal.title": "Journal",
+  "journal.lede": "What happened: switches, rules, modes, readings out of range, stock running low. Warnings and errors stay open until someone resolves them.",
+  "journal.level": "Level",
+  "journal.kind": "Kind",
+  "journal.range": "Period",
+  "journal.filter": "Filter",
+  "journal.time": "Time",
+  "journal.subject": "About",
+  "journal.message": "What happened",
+  "journal.resolve": "Resolve",
+  "journal.empty": "Nothing recorded in this period.",
+  "journal.all_levels": "All levels",
+  "journal.day": "Last day",
+  "journal.week": "Last week",
+  "journal.month": "Last month",
+  "journal.all": "Everything"
+}

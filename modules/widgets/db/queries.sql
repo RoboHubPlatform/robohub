@@ -35,3 +35,6 @@ ORDER BY recorded_epoch DESC, id DESC LIMIT 100;
 SELECT id, widget_id, value_text, value_milli, recorded_epoch
 FROM widget_values WHERE widget_id = :widget_id
 ORDER BY recorded_epoch DESC, id DESC LIMIT 1;
+
+-- name: update_widget_source_only
+UPDATE widgets SET source_kind = :source_kind, source = :source WHERE id = :id;

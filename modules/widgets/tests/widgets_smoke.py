@@ -18,8 +18,10 @@ from pathlib import Path
 HERE = Path(__file__).resolve()
 MODULE = HERE.parents[1]
 ROBOHUB = MODULE.parents[1]
-HOST = ROBOHUB / "applications" / "aquarium"
 PROJECTS = ROBOHUB.parent
+# The host the module is tested in: the aquarium, in its own repository beside
+# this one, or where ROBOHUB_AQUARIUM says.
+HOST = Path(os.environ.get("ROBOHUB_AQUARIUM", str(PROJECTS / "robohub-aquarium")))
 RHO = PROJECTS / "rho" / "bin" / "rho"
 
 # The bearer ticket every request carries: one the keeper would issue for the
@@ -82,7 +84,7 @@ def wait_for(base: str) -> None:
             with open_url(base + "/widgets", timeout=1) as response:
                 if response.status == 200:
                     return
-        except (urllib.error.URLError, ConnectionError):
+        except (urllib.error.URLError, OSError):
             time.sleep(0.2)
     raise SystemExit(f"aquarium did not start at {base}")
 
@@ -137,7 +139,7 @@ def main() -> int:
         env["ROBOHUB_WORKSPACE"] = str(ROBOHUB)
         env["ROBOHUB_APP_WORKSPACE"] = workspace
         env["ROBOHUB_APP_MANIFEST"] = str(HOST / "module.yml")
-        env["RHO_HTTP_ADDR"] = f":{port}"
+        env["RHO_HTTP_ADDR"] = f"127.0.0.1:{port}"
         global TOKEN
         auth_home = env.get("HOME") if env.get("HOME", "").startswith(tempfile.gettempdir()) else tempfile.mkdtemp(prefix="aquarium-home-")
         env["HOME"] = auth_home
@@ -160,7 +162,7 @@ def main() -> int:
             widgets = json.loads(get(base, "/api/widgets"))
             if widgets[0]["latest"] != "25.4":
                 raise AssertionError(f"unexpected widgets: {widgets}")
-            assert_contains(get(base, "/"), ["Water temperature", "25.4"],
+            assert_contains(get(base, "/widgets/cards"), ["Water temperature", "25.4"],
                             "dashboard number")
 
             post_form(base, "/widgets/add", {
@@ -172,14 +174,14 @@ def main() -> int:
             toggle = [w for w in widgets if w["title"] == "Return pump"][0]
             if toggle["latest"] != "on":
                 raise AssertionError(f"toggle should be on: {toggle}")
-            assert_contains(get(base, "/"), ["Return pump", "On"], "dashboard switch")
+            assert_contains(get(base, "/widgets/cards"), ["Return pump", "On"], "dashboard switch")
 
             post_form(base, "/widgets/add", {
                 "title": "pH", "kind": "chart", "source_kind": "manual", "unit": "pH",
             })
             for value in ["8.1", "8.2", "8.0"]:
                 post_form(base, "/widgets/value", {"id": "3", "value": value})
-            assert "<svg class=\"spark\"" in get(base, "/"), "chart sparkline"
+            assert "<svg class=\"spark\"" in get(base, "/widgets/cards"), "chart sparkline"
 
             db = Path(workspace) / "data" / "app.db"
             if not db.exists():

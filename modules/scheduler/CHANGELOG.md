@@ -23,3 +23,20 @@ Pages render content through the host shell, so the host application owns the he
 ## [0.1.4] - 2026-11-12
 
 The module declares the runtime functions it calls rather than relying on helpers the including application defines. Its smoke test signs in with a keeper ticket and sends the form token the module checks.
+
+## [0.1.5] - 2026-11-13
+
+The module declares its tables and statements in its own `sql:` block, and
+rho-sql 0.2 generates them into each application that depends on it, so an
+application no longer repeats them. The smoke test runs in the aquarium's own
+repository.
+
+## [0.2.0] - 2026-11-13
+
+A chore can be tied to the inventory: `runtime_of` names an item whose switch
+runtime (counted by inventory 0.2) drives a usage chore through
+`scheduler_usage_tick()`, and `consumes` names an item and a quantity that
+completing the chore takes off the shelf, recorded as a stock movement for that
+chore. An application seeds its chores from its presets (`scheduler_presets`);
+a seeded chore is added once and is the person's after that. `scheduler_complete_title(title, note)` completes a chore by its title, for an
+application whose own record is the chore (a water change logged).

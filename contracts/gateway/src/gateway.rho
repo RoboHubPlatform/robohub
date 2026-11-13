@@ -21,6 +21,53 @@ fn provider() string {
     return ""
 }
 
+// providers are the gateway providers the application binds, one per line,
+// enabled or not: what a settings page offers to choose from.
+fn providers() string {
+    return bound_providers()
+}
+
+// choose makes one bound provider the one that answers, by enabling it and
+// disabling the others, on the running installation. It answers whether the
+// application binds such a provider.
+fn choose(name: string) bool {
+    var known: bool = false
+    var rest: string = bound_providers()
+    while rest != "" {
+        let at: i32 = str_index_of(rest, "\n")
+        let one: string = str_slice(rest, 0, u32(at))
+        rest = str_slice(rest, u32(at) + 1, strlen(rest) - u32(at) - 1)
+        if str_eq(one, name) {
+            known = true
+        }
+    }
+    if !known {
+        return false
+    }
+    var all: string = bound_providers()
+    while all != "" {
+        let at: i32 = str_index_of(all, "\n")
+        let one: string = str_slice(all, 0, u32(at))
+        all = str_slice(all, u32(at) + 1, strlen(all) - u32(at) - 1)
+        if str_eq(one, name) {
+            bind_config_set(one, "enabled", "true")
+        } else {
+            bind_config_set(one, "enabled", "false")
+        }
+    }
+    return true
+}
+
+// provider_config is one setting of a bound provider, whether or not it is the
+// one answering, and configure_provider changes it.
+fn provider_config(name: string, key: string) string {
+    return bind_config(name, key)
+}
+
+fn configure_provider(name: string, key: string, value: string) bool {
+    return bind_config_set(name, key, value)
+}
+
 // config is one of the gateway's settings — its `url`, its `project` — and
 // configure changes it on the running installation.
 fn config(key: string) string {
@@ -65,6 +112,17 @@ fn device_states() string {
 // follow follows the project's live stream into path, when the gateway has one.
 fn follow(path: string) bool {
     return follow_to(provider(), path)
+}
+
+// transport is how follow gets the live stream: `bus`, `http` or `none`.
+fn transport() string {
+    return transport_to(provider())
+}
+
+// action switches an output source `on` or `off`, and answers whether the
+// gateway did it. The source is named the way sources() names it.
+fn action(source: string, state: string) bool {
+    return action_to(provider(), source, state)
 }
 
 // source_state is the state behind one source URL.

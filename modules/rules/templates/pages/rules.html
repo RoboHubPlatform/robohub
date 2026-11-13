@@ -1,0 +1,43 @@
+<style>
+  .rules { width: 100%; border-collapse: collapse; margin-bottom: 1.4rem; }
+  .rules th, .rules td { text-align: left; padding: .45rem .55rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+  .rules code { font-size: .8rem; }
+  .rules .st { font-size: .64rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; padding: .1rem .4rem; border-radius: 5px; border: 1px solid var(--line); color: var(--muted); }
+  .rules .st.active { color: var(--teal, #79c7bd); border-color: var(--teal, #79c7bd); }
+  .rules .st.pending { color: var(--warn, #f0c56a); border-color: var(--warn, #f0c56a); }
+  .rules .st.suspended, .rules .st.off { opacity: .6; }
+  .rules .problem { color: var(--warn, #f0c56a); font-size: .78rem; }
+  .rules form.inline { display: inline; margin: 0; }
+  .rule-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: .6rem; margin: .6rem 0 1.4rem; }
+  .rule-form label { display: grid; gap: .2rem; font-size: .78rem; color: var(--faint); }
+  .mode-now { display: inline-block; padding: .2rem .6rem; border-radius: 999px; border: 1px solid var(--gold); color: var(--gold); font-size: .8rem; }
+</style>
+<h1>{{t "rules.title"}}</h1>
+<p class="lede">{{t "rules.lede"}}</p>
+<h2>{{t "rules.modes"}} <span class="mode-now">{{ active }}</span></h2>
+<table class="rules">
+  <thead><tr><th>{{t "rules.mode"}}</th><th>{{t "rules.duration"}}</th><th>{{t "rules.does"}}</th><th>{{t "rules.suspends"}}</th><th></th></tr></thead>
+  <tbody>
+{{{ mode_rows }}}
+  </tbody>
+</table>
+<h2>{{t "rules.rules"}}</h2>
+<table class="rules">
+  <thead><tr><th>{{t "rules.rule"}}</th><th>{{t "rules.when"}}</th><th>{{t "rules.does"}}</th><th>{{t "rules.state"}}</th><th></th></tr></thead>
+  <tbody>
+{{{ rows }}}
+  </tbody>
+</table>
+<h2>{{t "rules.add"}}</h2>
+<form class="rule-form" method="post" action="/rules/add">
+  {{{ csrf }}}
+  <label>{{t "rules.name"}}<input name="name" required placeholder="keep-temperature"></label>
+  <label>{{t "rules.when"}}<input name="when" required placeholder="heater.temperature &lt; 24.5"></label>
+  <label>{{t "rules.clear"}}<input name="clear" placeholder="heater.temperature &gt; 25.5"></label>
+  <label>{{t "rules.for"}}<input name="for" placeholder="60s"></label>
+  <label>{{t "rules.cooldown"}}<input name="cooldown" placeholder="10m"></label>
+  <label>{{t "rules.do"}}<input name="do" placeholder="switch heater on"></label>
+  <label>{{t "rules.else"}}<input name="else" placeholder="switch heater off"></label>
+  <div><button type="submit">{{t "rules.add"}}</button></div>
+</form>
+<p class="hint">{{t "rules.grammar"}}</p>

@@ -22,6 +22,8 @@ extern fn rho_sse_follow(url: string, audience: string, scopes: string, path: st
 extern fn rho_bind_config(provider: string, key: string) string
 extern fn rho_exec(program: string, arguments: string, output_path: string) u32
 extern fn rho_read_text(path: string) string
+extern fn rho_path_exists(path: string) bool
+extern fn mqtt_follow_lines(broker: string, user: string, password_file: string, filter: string, lines_path: string) bool
 
 // mesh_setting is one of this provider's settings, from the application's
 // binding: `url`, Mesh's address, and `project`, the project it serves.
@@ -41,7 +43,9 @@ fn mesh_report(name: string) string {
     } else {
         dir = dir + "/data"
     }
-    rho_exec("mkdir", "-p " + dir, dir + "/mkdir.txt")
+    if !rho_path_exists(dir) {
+        rho_exec("mkdir", "-p " + dir, "/dev/null")
+    }
     return dir + "/" + name + ".log"
 }
 
@@ -97,17 +101,59 @@ fn mesh_json_string_field(text: string, key: string) string {
 }
 
 
-// mesh_follow follows the project's live telemetry stream into a local
-// file, with the application's service token, reconnecting for as long as the
-// application runs. A page never connects to Mesh itself.
+// follow follows the project's live telemetry stream into a local file, for as
+// long as the application runs, by the transport the binding chose. Over the
+// broker it is Mesh's relayed `mesh/<project>/telemetry` topic, as the broker
+// user the keeper made for the application; over HTTP it is Mesh's stream, with
+// the application's service token. Both write the same lines. A page never
+// connects to Mesh itself.
 fn follow(path: string) bool {
     let base: string = mesh_base()
     let project: string = mesh_project()
-    if base == "" || project == "" {
+    if project == "" {
+        return false
+    }
+    let how: string = transport()
+    if str_eq(how, "bus") {
+        return mqtt_follow_lines(getenv("ROBOHUB_BUS_URL"), getenv("ROBOHUB_BUS_USER"),
+            getenv("ROBOHUB_BUS_PASSWORD_FILE"), "mesh/" + project + "/telemetry", path)
+    }
+    if base == "" {
         return false
     }
     return rho_sse_follow(base + "/mesh/api/projects/" + project + "/telemetry/stream",
         "mesh", mesh_scope(), path)
+}
+
+// mesh_bus_available says whether the installation gave the application a
+// broker: the keeper does when robohub-mqtt runs and the application binds the
+// bus. Without one the bus transport does not exist.
+fn mesh_bus_available() bool {
+    return getenv("ROBOHUB_BUS_URL") != "" && getenv("ROBOHUB_BUS_USER") != ""
+}
+
+// transport is how follow gets the live stream: `bus` or `http`, or `none` when
+// there is no project. The `transport` setting is `auto` (bus when there is a
+// broker, http otherwise), `bus` (bus, or nothing: a choice of the broker that
+// is not there is not quietly replaced) or `http`.
+fn transport() string {
+    if mesh_project() == "" {
+        return "none"
+    }
+    var wanted: string = mesh_trim(mesh_setting("transport"))
+    if wanted == "" {
+        wanted = "auto"
+    }
+    if str_eq(wanted, "http") {
+        return "http"
+    }
+    if mesh_bus_available() {
+        return "bus"
+    }
+    if str_eq(wanted, "bus") {
+        return "none"
+    }
+    return "http"
 }
 
 fn mesh_base() string {
@@ -296,6 +342,30 @@ fn mesh_post(path: string, body: string, name: string) string {
         return ""
     }
     return rho_read_text(report)
+}
+
+// action switches an output source on or off. The source is named the way
+// sources() names it, or by a URL a caller stored; the provider owns the path.
+fn action(source: string, state: string) bool {
+    let base: string = mesh_base()
+    let project: string = mesh_project()
+    let id: string = mesh_source_id(source)
+    if base == "" || project == "" || id == "" {
+        return false
+    }
+    var desired: string = state
+    if !str_eq(desired, "on") && !str_eq(desired, "off") {
+        return false
+    }
+    let report: string = mesh_report("mesh-action")
+    let status: u32 = rho_http_request("POST", base + "/mesh/api/projects/" + project +
+        "/sources/" + mesh_urlencode(id) + "/action?state=" + desired, "", "", "mesh",
+        mesh_scope(), report)
+    if status != 200 {
+        warn("gateway.mesh", "action " + desired + " on " + id + " failed (" + int_to_str(status) + ")")
+        return false
+    }
+    return true
 }
 
 fn register_client(app_name: string,

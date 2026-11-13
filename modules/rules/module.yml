@@ -1,0 +1,64 @@
+#
+# rules — when something holds, do something; and modes that change that for a while.
+#
+# A module a host application includes. The engine, its tables, its page and its
+# evaluation are shared; the rules themselves are the application's: seeded from
+# its presets/rules.yml, changed by its people, kept in its database and seen by
+# no other application. A condition reads inventory items by handle
+# (`heater.temperature`) and whatever the host answers for its own values; an
+# action switches an item, raises an alert, writes to the journal or sets a mode.
+#
+module:
+  name: rules
+  id: robohub.module.rules
+  type: module
+  title: Rules & modes
+  category: automation
+  version: 0.1.0
+  description: >
+    The automation engine every RoboHub application shares: rules in a small
+    fixed grammar (comparisons, and/or/not, durations, time windows, modes),
+    actions on inventory items, alerts, the journal and modes, a state machine
+    with a pending window, a clear condition and a cooldown, and modes that run
+    actions, suspend rules and end by themselves.
+  maintainer: "Aurel Miron"
+  license: "MIT"
+  created: "2026-11-13"
+
+main: src/main.rho
+
+# The module's tables and statements, generated into every application that
+# depends on it (rho-sql 0.2).
+sql:
+  schema: db/schema.sql
+  queries: db/queries.sql
+
+deps:
+  rho-log: ">=0.1.0"
+  robohub:
+    inventory: ">=0.2.0"
+    journal: ">=0.1.0"
+    notifications: ">=0.1.0"
+    forms: ">=0.1.0"
+    # The alert interface only: an application that binds alert channels gets
+    # a rule's alerts on them; one that binds none gets them in the journal.
+    robohub-alert: ">=1.1.0"
+
+docs:
+  title: Rules & modes
+  section: modules
+  order: "16"
+  index: docs/index.md
+  sources:
+    - docs/index.md
+
+assets:
+  - templates
+  - db/schema.sql
+  - docs/index.md
+
+locales:
+  - locale: en
+    file: locales/en.json
+  - locale: ro
+    file: locales/ro.json

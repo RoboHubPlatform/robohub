@@ -23,3 +23,24 @@ Pages render content through the host shell, so the host application owns the he
 ## [0.1.4] - 2026-11-12
 
 The module declares the runtime functions it calls and discards results by calling directly, rather than relying on helpers the including application defines. Its smoke test signs in with a keeper ticket and sends the form token the module checks.
+
+## [0.2.0] - 2026-11-13
+
+Inventory is where every item of an installation lives, equipment included.
+An item has a kind (consumable, part, equipment) and a handle that the rest of an
+application names it by. Categories carry a kind, the capabilities an equipment
+item in them can be bound to (`switch, power?`) and the category they use, and an
+application seeds them from its presets (`inventory_presets`). An equipment item's
+Automation tab binds each capability to a gateway source; a source is controlled
+by one item at most. `inventory_resolve`, `inventory_read`, `inventory_switch`,
+`inventory_consume`, `inventory_use` and `inventory_runtime_tick` are what
+applications and other modules call. The gateway is the interface only: an
+application that binds none has the inventory it had.
+
+The module's tables and statements are its own, declared in its `sql:` block and
+generated into each application by rho-sql 0.2; older databases get the new
+columns from `ALTER TABLE` statements. The smoke test runs in the aquarium's own
+repository and covers the migration, handles and bindings. `inventory_assign_handle`, `inventory_add_equipment` and `inventory_bind` let an
+application fill the roles its rules name (`heater`, `light`) from a page of its own.
+An item that is not bound is no longer warned about on every switch attempt; the
+rule that asked says so.

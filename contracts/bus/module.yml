@@ -1,0 +1,58 @@
+#
+# robohub-bus — the message bus interface.
+#
+# How an application reaches devices and other applications that speak through
+# a broker: publish a message to a topic, follow a topic filter, and read what was
+# last said on a topic. The broker is a provider (robohub-provider-mqtt); an
+# application declares the one it uses and binds it:
+#
+#   bind:
+#     robohub.bus:
+#       providers: [robohub-provider-mqtt]
+#
+# With no settings, the provider uses the broker the keeper gave the application
+# (ROBOHUB_BUS_URL, ROBOHUB_BUS_USER, ROBOHUB_BUS_PASSWORD_FILE).
+#
+module:
+  name: robohub-bus
+  id: robohub.interface.bus
+  type: module
+  version: 0.2.0
+  description: >
+    The message bus interface: an application publishes to a topic, follows a
+    topic filter and reads the newest message of a topic, through the broker
+    provider it binds.
+  maintainer: "Aurel Miron"
+  author: "Aurel Miron"
+  license: "MIT"
+  created: "2026-11-13"
+
+main: src/bus.rho
+
+provides:
+  import: robohub.bus
+  exports:
+    - provider
+    - config
+    - publish
+    - follow
+    - follow_lines
+    - relay
+    - latest
+    - topics
+
+# What every bus provider implements, with these signatures.
+interface:
+  functions:
+    publish: "(topic: string, payload: string, retain: bool) bool"
+    follow: "(filter: string, events_path: string) bool"
+    follow_lines: "(filter: string, lines_path: string) bool"
+    relay: "(lines_path: string, topic: string) bool"
+    latest: "(topic: string) string"
+    topics: "(prefix: string) string"
+
+metadata:
+  tags:
+    - interface
+    - bus
+    - mqtt

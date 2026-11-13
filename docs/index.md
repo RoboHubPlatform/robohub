@@ -377,7 +377,7 @@ connections between them, and the firmware on their boards. A project is a
 folder under `~/.rho/mesh/projects` (or `ROBOHUB_MESH_PROJECTS`); the dashboard
 at `/mesh` lists them with their gateway status, and opening one shows the plan
 wizard. The full guide is
-[the keeper's Mesh guide](https://github.com/RoboHubPlatform/robohub/blob/main/applications/keeper/docs/mesh.md).
+[Mesh's own guide](https://github.com/RoboHubPlatform/robohub-mesh/blob/main/docs/index.md).
 
 
 ## Authentication

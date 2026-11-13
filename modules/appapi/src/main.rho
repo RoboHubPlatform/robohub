@@ -1,0 +1,31 @@
+//
+// @file main.rho
+// @brief The application API module: its routes, registered on the host application's router.
+//
+// @module appapi
+// @project appapi
+// @author Aurel Miron
+// @date 2026-11-13
+//
+// SPDX-License-Identifier: MIT
+//
+
+module appapi
+
+// Included by a host application, after inventory and journal. The routes are
+// read-only, so a token with only the application's `:read` grant reaches them.
+
+include "appapi.rho"
+
+import std.sql
+import std.web.http
+import robohub.gateway
+
+extern fn rho_exec(program: string, arguments: string, output_path: string) u32
+extern fn rho_read_text(path: string) string
+extern fn rho_write_text(path: string, text: string) bool
+
+route GET "/api/v1/values"              => appapi_values_api
+route GET "/api/v1/values/{id}"         => appapi_value_api
+route GET "/api/v1/values/{id}/history" => appapi_history_api
+route GET "/api/v1/events"              => appapi_events_api

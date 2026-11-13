@@ -1,0 +1,877 @@
+//
+// @file automation.rho
+// @brief An item's capabilities bound to gateway sources, and what follows: reading, switching, runtime, use.
+//
+// @module inventory
+// @project inventory
+// @author Aurel Miron
+// @date 2026-11-13
+//
+// SPDX-License-Identifier: MIT
+//
+
+module inventory
+
+// Everything in an installation is an inventory item: the food, the filter media,
+// and the filter. What makes the filter more than a line in a list is that it is
+// on a smart plug, and the light on a relay channel. That connection is kept here,
+// as a binding from one of the item's capabilities (`switch`, `power`) to a source
+// of the gateway the application binds; every other part of the application
+// names the item by its handle — `filter-main.switch` — and never the plug, so a
+// plug replaced is one binding changed.
+//
+// The gateway is an interface (robohub.gateway). An application that binds none
+// still has an inventory: provider() is empty, there is no Automation tab, and
+// every call here answers nothing.
+
+/// The window a first runtime count reaches back over, in seconds.
+const INVENTORY_RUNTIME_FIRST: u32 = 604800
+
+/// How often an item's runtime is counted again, in seconds.
+const INVENTORY_RUNTIME_EVERY: u32 = 3600
+
+const BINDING_CAPACITY: u32 = 512
+
+/* -------------------------------------------------------------------------- */
+/*  Capabilities                                                              */
+/* -------------------------------------------------------------------------- */
+
+// inventory_capability_list is a category's capabilities, one per line, each
+// with its trailing ? kept: `switch\npower?\n`.
+fn inventory_capability_list(text: string) string {
+    var out: string = ""
+    var rest: string = text
+    while rest != "" {
+        let at: i32 = str_index_of(rest, ",")
+        var item: string = rest
+        if at < 0 {
+            rest = ""
+        } else {
+            item = str_slice(rest, 0, u32(at))
+            rest = str_slice(rest, u32(at) + 1, u32(strlen(rest)) - u32(at) - 1)
+        }
+        let name: string = trim(item)
+        if name != "" {
+            out = out + name + "\n"
+        }
+    }
+    return out
+}
+
+fn inventory_ends_with(text: string, suffix: string) bool {
+    let n: u32 = u32(strlen(text))
+    let m: u32 = u32(strlen(suffix))
+    return n >= m && str_eq(str_slice(text, n - m, m), suffix)
+}
+
+// inventory_capability_name is a capability without its optional mark.
+fn inventory_capability_name(capability: string) string {
+    let name: string = trim(capability)
+    if inventory_ends_with(name, "?") {
+        return str_slice(name, 0, u32(strlen(name)) - 1)
+    }
+    return name
+}
+
+fn inventory_capability_optional(capability: string) bool {
+    return inventory_ends_with(trim(capability), "?")
+}
+
+// inventory_capability_access is what an item does with a capability: it drives
+// a switch or a button, and reads everything else.
+fn inventory_capability_access(capability: string) string {
+    let name: string = inventory_capability_name(capability)
+    if str_eq(name, "switch") || str_eq(name, "press") {
+        return "control"
+    }
+    return "read"
+}
+
+/* -------------------------------------------------------------------------- */
+/*  The database                                                              */
+/* -------------------------------------------------------------------------- */
+
+fn inventory_now() u32 {
+    let report: string = inventory_db_path() + ".now"
+    if rho_exec("date", "+%s", report) == 0 {
+        return int_from_str(trim(rho_read_text(report)))
+    }
+    return 0
+}
+
+// inventory_find_handle is the row of the item with this handle, or -1.
+fn inventory_find_handle(items: ListItemsRow[512], count: u32, handle: string) i32 {
+    if handle == "" {
+        return -1
+    }
+    var i: u32 = 0
+    while i < count {
+        if str_eq(items[i].handle, handle) {
+            return i32(i)
+        }
+        i = i + 1
+    }
+    return -1
+}
+
+// inventory_find_ref is the row an item is named by: its handle, or its id.
+fn inventory_find_ref(items: ListItemsRow[512], count: u32, ref: string) i32 {
+    let by_handle: i32 = inventory_find_handle(items, count, ref)
+    if by_handle >= 0 {
+        return by_handle
+    }
+    let id: u32 = int_from_str(ref)
+    if id == 0 {
+        return -1
+    }
+    return inventory_find_item(items, count, id)
+}
+
+// inventory_binding_source is the source one item's capability is bound to.
+fn inventory_binding_source(bindings: ListBindingsRow[512], count: u32, item_id: i64, capability: string) string {
+    var i: u32 = 0
+    while i < count {
+        if bindings[i].itemId == item_id && str_eq(bindings[i].capability, capability) {
+            return bindings[i].source
+        }
+        i = i + 1
+    }
+    return ""
+}
+
+// inventory_controller is the item that already controls a source, other than
+// the one asking, by name; "" when none does.
+fn inventory_controller(bindings: ListBindingsRow[512], count: u32, source: string, except: i64) string {
+    var i: u32 = 0
+    while i < count {
+        if str_eq(bindings[i].source, source) && str_eq(bindings[i].access, "control") &&
+            bindings[i].itemId != except {
+            return bindings[i].name
+        }
+        i = i + 1
+    }
+    return ""
+}
+
+/* -------------------------------------------------------------------------- */
+/*  What other modules and the application call                               */
+/* -------------------------------------------------------------------------- */
+
+// inventory_automated says whether the application binds a gateway, which is
+// whether an item can be connected to anything.
+fn inventory_automated() bool {
+    return gateway.provider() != ""
+}
+
+// inventory_resolve is the gateway source an item's capability is bound to, the
+// item named by its handle (or its id); "" when it is not bound.
+fn inventory_resolve(ref: string, capability: string) string {
+    let opened: Result[SqlDb, string] = sql_open(inventory_db_path())
+    if !opened.is_ok {
+        return ""
+    }
+    let db: SqlDb = opened.ok
+    sql_apply(db, inventory_schema())
+    let items: ListItemsRow[512]
+    let item_slice: Slice[ListItemsRow] = Slice[ListItemsRow]{ Ptr[ListItemsRow](&items[0]), ITEM_CAPACITY }
+    let listed: Result[u32, SqlError] = ListItems(db, item_slice, ITEM_CAPACITY)
+    let bindings: ListBindingsRow[512]
+    let binding_slice: Slice[ListBindingsRow] = Slice[ListBindingsRow]{ Ptr[ListBindingsRow](&bindings[0]), BINDING_CAPACITY }
+    let bound: Result[u32, SqlError] = ListBindings(db, binding_slice, BINDING_CAPACITY)
+    sql_close(db)
+    if !listed.is_ok || !bound.is_ok {
+        return ""
+    }
+    let at: i32 = inventory_find_ref(items, listed.ok, ref)
+    if at < 0 {
+        return ""
+    }
+    let row: u32 = u32(at)
+    return inventory_binding_source(bindings, bound.ok, items[row].id,
+        inventory_capability_name(capability))
+}
+
+// inventory_read is the newest reading of an item's capability, through the
+// gateway: `inventory_read("heater", "temperature")`.
+fn inventory_read(ref: string, capability: string) string {
+    let source: string = inventory_resolve(ref, capability)
+    if source == "" {
+        return ""
+    }
+    return gateway.source_latest(source)
+}
+
+// inventory_switch turns an item's switch on or off through the gateway, and
+// logs who asked: a person, a rule, a mode.
+fn inventory_switch(ref: string, on: bool, actor: string) bool {
+    let source: string = inventory_resolve(ref, "switch")
+    if source == "" {
+        // Not bound yet: whoever asked says so where it matters (a rule shows
+        // it on its page and writes it to the journal once).
+        return false
+    }
+    var state: string = "off"
+    if on {
+        state = "on"
+    }
+    let done: bool = gateway.action(source, state)
+    if done {
+        info("inventory", ref + " switched " + state + " by " + actor)
+    } else {
+        warn("inventory", ref + " could not be switched " + state + " (" + actor + ")")
+    }
+    return done
+}
+
+// inventory_consume takes stock off an item — a dose, a test, a filter pad —
+// and records why and for what (`dose#42`). Quantity is in thousandths.
+fn inventory_consume(ref: string, quantity_milli: u32, reason: string, for_ref: string) bool {
+    if quantity_milli == 0 {
+        return false
+    }
+    let opened: Result[SqlDb, string] = sql_open(inventory_db_path())
+    if !opened.is_ok {
+        return false
+    }
+    let db: SqlDb = opened.ok
+    sql_apply(db, inventory_schema())
+    let items: ListItemsRow[512]
+    let item_slice: Slice[ListItemsRow] = Slice[ListItemsRow]{ Ptr[ListItemsRow](&items[0]), ITEM_CAPACITY }
+    let listed: Result[u32, SqlError] = ListItems(db, item_slice, ITEM_CAPACITY)
+    var count: u32 = 0
+    if listed.is_ok {
+        count = listed.ok
+    }
+    let at: i32 = inventory_find_ref(items, count, ref)
+    if at < 0 {
+        sql_close(db)
+        return false
+    }
+    let row: u32 = u32(at)
+    let id: i64 = items[row].id
+    let delta: string = "-" + int_to_str(quantity_milli)
+    let updated: Result[u32, SqlError] = UpdateItemStock(delta, id, db)
+    if updated.is_ok {
+        ignore_result(InsertMovement(int_to_str(u32(id)), "consume", delta, "0", "0",
+            for_ref, inventory_date(), reason, db))
+    }
+    sql_close(db)
+    return updated.is_ok
+}
+
+// inventory_use is one use of an item that uses another category — a feeder's
+// press — which takes its portion from the first item in that category with any
+// stock left.
+fn inventory_use(ref: string, actor: string) bool {
+    let opened: Result[SqlDb, string] = sql_open(inventory_db_path())
+    if !opened.is_ok {
+        return false
+    }
+    let db: SqlDb = opened.ok
+    sql_apply(db, inventory_schema())
+    let items: ListItemsRow[512]
+    let item_slice: Slice[ListItemsRow] = Slice[ListItemsRow]{ Ptr[ListItemsRow](&items[0]), ITEM_CAPACITY }
+    let listed: Result[u32, SqlError] = ListItems(db, item_slice, ITEM_CAPACITY)
+    sql_close(db)
+    if !listed.is_ok {
+        return false
+    }
+    let at: i32 = inventory_find_ref(items, listed.ok, ref)
+    if at < 0 {
+        return false
+    }
+    let row: u32 = u32(at)
+    let uses: string = items[row].uses
+    let portion: u32 = u32(items[row].portionMilli)
+    if uses == "" || portion == 0 {
+        return false
+    }
+    var i: u32 = 0
+    while i < listed.ok {
+        if str_eq(items[i].category, uses) && items[i].quantityMilli > 0 {
+            return inventory_consume(int_to_str(u32(items[i].id)), portion, "used by " + items[row].name,
+                actor)
+        }
+        i = i + 1
+    }
+    return false
+}
+
+// inventory_choices is the items of a category (by name, or any when empty) and
+// kind (or any when empty), as `ref|name` choices for a form, separated by
+// commas: an item's handle when it has one, its id otherwise. Test kits for a
+// water test, consumables for a dose.
+fn inventory_choices(category: string, kind: string) string {
+    let opened: Result[SqlDb, string] = sql_open(inventory_db_path())
+    if !opened.is_ok {
+        return ""
+    }
+    let db: SqlDb = opened.ok
+    sql_apply(db, inventory_schema())
+    let items: ListItemsRow[512]
+    let item_slice: Slice[ListItemsRow] = Slice[ListItemsRow]{ Ptr[ListItemsRow](&items[0]), ITEM_CAPACITY }
+    let listed: Result[u32, SqlError] = ListItems(db, item_slice, ITEM_CAPACITY)
+    sql_close(db)
+    var out: string = ""
+    if listed.is_ok {
+        var i: u32 = 0
+        while i < listed.ok {
+            let row: ListItemsRow = items[i]
+            if (category == "" || str_eq(row.category, category)) && (kind == "" || str_eq(row.kind, kind)) {
+                var ref: string = row.handle
+                if ref == "" {
+                    ref = int_to_str(u32(row.id))
+                }
+                if out != "" {
+                    out = out + ","
+                }
+                out = out + ref + "|" + row.name + " · " + inventory_quantity(row.quantityMilli) + " " + row.unit
+            }
+            i = i + 1
+        }
+    }
+    return out
+}
+
+// inventory_item_name is an item's name and unit by handle or id, `name|unit`.
+fn inventory_item_name(ref: string) string {
+    let opened: Result[SqlDb, string] = sql_open(inventory_db_path())
+    if !opened.is_ok {
+        return ""
+    }
+    let db: SqlDb = opened.ok
+    sql_apply(db, inventory_schema())
+    let items: ListItemsRow[512]
+    let item_slice: Slice[ListItemsRow] = Slice[ListItemsRow]{ Ptr[ListItemsRow](&items[0]), ITEM_CAPACITY }
+    let listed: Result[u32, SqlError] = ListItems(db, item_slice, ITEM_CAPACITY)
+    sql_close(db)
+    if !listed.is_ok {
+        return ""
+    }
+    let at: i32 = inventory_find_ref(items, listed.ok, ref)
+    if at < 0 {
+        return ""
+    }
+    let row: u32 = u32(at)
+    return items[row].name + "|" + items[row].unit
+}
+
+// inventory_assign_handle gives an item a handle, taking it from any other item
+// that had it: a role (`heater`) is filled by one item at a time. It answers
+// whether the item exists.
+fn inventory_assign_handle(id: u32, handle: string) bool {
+    let clean: string = inventory_handle(handle)
+    if id == 0 || clean == "" {
+        return false
+    }
+    let opened: Result[SqlDb, string] = sql_open(inventory_db_path())
+    if !opened.is_ok {
+        return false
+    }
+    let db: SqlDb = opened.ok
+    sql_apply(db, inventory_schema())
+    ignore_result(ClearItemHandle(clean, int_to_str(id), db))
+    let done: Result[u32, SqlError] = SetItemHandle(clean, i64(id), db)
+    sql_close(db)
+    return done.is_ok && done.ok > 0
+}
+
+// inventory_add_equipment adds an equipment item to a category (by name) with a
+// handle, and answers its id, or 0.
+fn inventory_add_equipment(name: string, category: string, handle: string) u32 {
+    let opened: Result[SqlDb, string] = sql_open(inventory_db_path())
+    if !opened.is_ok {
+        return 0
+    }
+    let db: SqlDb = opened.ok
+    sql_apply(db, inventory_schema())
+    let categories: Categories[64]
+    let category_slice: Slice[Categories] = Slice[Categories]{ Ptr[Categories](&categories[0]), CATEGORY_CAPACITY }
+    let listed: Result[u32, SqlError] = ListCategories(db, category_slice, CATEGORY_CAPACITY)
+    var category_id: string = ""
+    if listed.is_ok {
+        var i: u32 = 0
+        while i < listed.ok {
+            if str_eq(categories[i].name, category) {
+                category_id = int_to_str(u32(categories[i].id))
+            }
+            i = i + 1
+        }
+    }
+    let clean: string = inventory_handle(handle)
+    if inventory_handle_taken(db, clean, 0) {
+        sql_close(db)
+        return 0
+    }
+    let added: Result[u32, SqlError] = InsertItem(name, category_id, "unit", "1000", "0", "", "", "equipment", clean, db)
+    sql_close(db)
+    if !added.is_ok || added.ok == 0 {
+        return 0
+    }
+    let found: string = inventory_item_name(clean)
+    if found == "" {
+        return 0
+    }
+    return inventory_item_id(clean)
+}
+
+// inventory_item_id is an item's id by handle, or 0.
+fn inventory_item_id(ref: string) u32 {
+    let opened: Result[SqlDb, string] = sql_open(inventory_db_path())
+    if !opened.is_ok {
+        return 0
+    }
+    let db: SqlDb = opened.ok
+    sql_apply(db, inventory_schema())
+    let items: ListItemsRow[512]
+    let item_slice: Slice[ListItemsRow] = Slice[ListItemsRow]{ Ptr[ListItemsRow](&items[0]), ITEM_CAPACITY }
+    let listed: Result[u32, SqlError] = ListItems(db, item_slice, ITEM_CAPACITY)
+    sql_close(db)
+    if !listed.is_ok {
+        return 0
+    }
+    let at: i32 = inventory_find_ref(items, listed.ok, ref)
+    if at < 0 {
+        return 0
+    }
+    let row: u32 = u32(at)
+    return u32(items[row].id)
+}
+
+// inventory_bind binds (or, with no source, unbinds) one capability of an item,
+// refusing a source another item already controls. It answers "" when done,
+// what went wrong otherwise.
+fn inventory_bind(id: u32, capability: string, source: string) string {
+    let opened: Result[SqlDb, string] = sql_open(inventory_db_path())
+    if !opened.is_ok {
+        return opened.err
+    }
+    let db: SqlDb = opened.ok
+    sql_apply(db, inventory_schema())
+    let name: string = inventory_capability_name(capability)
+    if source == "" {
+        ignore_result(UnbindCapability(i64(id), name, db))
+        sql_close(db)
+        return ""
+    }
+    let access: string = inventory_capability_access(capability)
+    let bindings: ListBindingsRow[512]
+    let binding_slice: Slice[ListBindingsRow] = Slice[ListBindingsRow]{ Ptr[ListBindingsRow](&bindings[0]), BINDING_CAPACITY }
+    let bound: Result[u32, SqlError] = ListBindings(db, binding_slice, BINDING_CAPACITY)
+    if bound.is_ok && str_eq(access, "control") {
+        let holder: string = inventory_controller(bindings, bound.ok, source, i64(id))
+        if holder != "" {
+            sql_close(db)
+            return source + " is already controlled by " + holder
+        }
+    }
+    let saved: Result[u32, SqlError] = BindCapability(int_to_str(id), name, source, access, db)
+    sql_close(db)
+    if !saved.is_ok {
+        return saved.err.message
+    }
+    info("inventory", "item " + int_to_str(id) + " " + name + " bound to " + source)
+    return ""
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Presets                                                                   */
+/* -------------------------------------------------------------------------- */
+
+// inventory_presets seeds the application's categories from its presets: the
+// text of its presets/inventory.yml, which names each category under
+// `categories:` with its name, kind, capabilities and the category it uses.
+// A category is added when it is missing; what a preset says about it is kept
+// current, because the application, not the person, decides what a filter is.
+// It answers how many categories the presets named.
+fn inventory_presets(text: string) u32 {
+    if trim(text) == "" {
+        return 0
+    }
+    // The YAML reader reads a file, so the text is put beside the database.
+    let path: string = inventory_db_path() + ".presets.yml"
+    if !rho_write_text(path, text) {
+        return 0
+    }
+    let opened: Result[SqlDb, string] = sql_open(inventory_db_path())
+    if !opened.is_ok {
+        return 0
+    }
+    let db: SqlDb = opened.ok
+    sql_apply(db, inventory_schema())
+    var count: u32 = 0
+    var rest: string = yaml.keys(path, "categories")
+    while rest != "" {
+        let at: i32 = str_index_of(rest, "\n")
+        var key: string = rest
+        if at < 0 {
+            rest = ""
+        } else {
+            key = str_slice(rest, 0, u32(at))
+            rest = str_slice(rest, u32(at) + 1, u32(strlen(rest)) - u32(at) - 1)
+        }
+        if key == "" {
+            continue
+        }
+        var name: string = unquote(yaml.value(path, "categories." + key + ".name"))
+        if name == "" {
+            name = key
+        }
+        var kind: string = unquote(yaml.value(path, "categories." + key + ".kind"))
+        if kind != "part" && kind != "equipment" {
+            kind = "consumable"
+        }
+        let capabilities: string = unquote(yaml.value(path, "categories." + key + ".capabilities"))
+        let uses: string = unquote(yaml.value(path, "categories." + key + ".uses"))
+        ignore_result(SeedCategory(name, kind, capabilities, uses, db))
+        ignore_result(UpdateCategoryPreset(kind, capabilities, uses, name, db))
+        count = count + 1
+    }
+    sql_close(db)
+    return count
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Runtime                                                                   */
+/* -------------------------------------------------------------------------- */
+
+// inventory_on_seconds is how long a switch was on over a series of one-minute
+// buckets: each bucket's average is the share of that minute it was on, and a
+// minute with no reading counts as off.
+fn inventory_on_seconds(series: string) u32 {
+    var total_milli: u32 = 0
+    var rest: string = series
+    while rest != "" {
+        let at: i32 = str_index_of(rest, "\"v\":")
+        if at < 0 {
+            rest = ""
+        } else {
+            let start: u32 = u32(at) + 4
+            rest = str_slice(rest, start, u32(strlen(rest)) - start)
+            var end: u32 = 0
+            while end < u32(strlen(rest)) {
+                let ch: string = str_slice(rest, end, 1)
+                if str_eq(ch, ",") || str_eq(ch, "}") {
+                    break
+                }
+                end = end + 1
+            }
+            var share: u32 = inventory_parse_scaled(str_slice(rest, 0, end), 1000)
+            if share > 1000 {
+                share = 1000
+            }
+            total_milli = total_milli + share * 60
+        }
+    }
+    return total_milli / 1000
+}
+
+// inventory_runtime_tick counts, for every item with a switch bound, the time
+// its switch was on since it was last counted, from the gateway's history. An
+// application calls it from its background work; an item is counted once an
+// hour, and first over the past week.
+fn inventory_runtime_tick() u32 {
+    if !inventory_automated() {
+        return 0
+    }
+    let now: u32 = inventory_now()
+    if now == 0 {
+        return 0
+    }
+    let opened: Result[SqlDb, string] = sql_open(inventory_db_path())
+    if !opened.is_ok {
+        return 0
+    }
+    let db: SqlDb = opened.ok
+    sql_apply(db, inventory_schema())
+    let items: ListItemsRow[512]
+    let item_slice: Slice[ListItemsRow] = Slice[ListItemsRow]{ Ptr[ListItemsRow](&items[0]), ITEM_CAPACITY }
+    let listed: Result[u32, SqlError] = ListItems(db, item_slice, ITEM_CAPACITY)
+    let bindings: ListBindingsRow[512]
+    let binding_slice: Slice[ListBindingsRow] = Slice[ListBindingsRow]{ Ptr[ListBindingsRow](&bindings[0]), BINDING_CAPACITY }
+    let bound: Result[u32, SqlError] = ListBindings(db, binding_slice, BINDING_CAPACITY)
+    if !listed.is_ok || !bound.is_ok {
+        sql_close(db)
+        return 0
+    }
+    var counted: u32 = 0
+    var i: u32 = 0
+    while i < listed.ok {
+        let source: string = inventory_binding_source(bindings, bound.ok, items[i].id, "switch")
+        var since: u32 = u32(items[i].runtimeAt)
+        if since == 0 {
+            since = now - INVENTORY_RUNTIME_FIRST
+        }
+        if source != "" && now >= since + INVENTORY_RUNTIME_EVERY {
+            let series: string = gateway.source_history(source, int_to_str(since) + "000",
+                int_to_str(now) + "000", "60000")
+            if str_index_of(series, "\"ok\":true") >= 0 {
+                let added: u32 = inventory_on_seconds(series)
+                ignore_result(SetItemRuntime(i64(u32(items[i].runtimeS) + added), i64(now), items[i].id, db))
+                counted = counted + 1
+            }
+        }
+        i = i + 1
+    }
+    sql_close(db)
+    return counted
+}
+
+// inventory_runtime_hours is an item's runtime in whole hours, by handle or id.
+fn inventory_runtime_hours(ref: string) u32 {
+    return inventory_runtime_seconds(ref) / 3600
+}
+
+// inventory_runtime_seconds is an item's runtime counted so far, in seconds:
+// what a usage-driven chore adds up.
+fn inventory_runtime_seconds(ref: string) u32 {
+    let opened: Result[SqlDb, string] = sql_open(inventory_db_path())
+    if !opened.is_ok {
+        return 0
+    }
+    let db: SqlDb = opened.ok
+    sql_apply(db, inventory_schema())
+    let items: ListItemsRow[512]
+    let item_slice: Slice[ListItemsRow] = Slice[ListItemsRow]{ Ptr[ListItemsRow](&items[0]), ITEM_CAPACITY }
+    let listed: Result[u32, SqlError] = ListItems(db, item_slice, ITEM_CAPACITY)
+    sql_close(db)
+    if !listed.is_ok {
+        return 0
+    }
+    let at: i32 = inventory_find_ref(items, listed.ok, ref)
+    if at < 0 {
+        return 0
+    }
+    let row: u32 = u32(at)
+    return u32(items[row].runtimeS)
+}
+
+/* -------------------------------------------------------------------------- */
+/*  The Automation tab                                                        */
+/* -------------------------------------------------------------------------- */
+
+// inventory_source_options are the gateway's sources a capability can be bound
+// to: the ones reporting that signal (a switch for `switch`, watts for `power`),
+// as <option>s, the bound one selected and one another item controls left out.
+fn inventory_source_options(capability: string, selected: string, bindings: ListBindingsRow[512],
+    binding_count: u32, item_id: i64) string {
+    let name: string = inventory_capability_name(capability)
+    var out: string = "<option value=\"\">—</option>"
+    var rest: string = gateway.sources()
+    while rest != "" {
+        let at: i32 = str_index_of(rest, "{\"id\":")
+        if at < 0 {
+            break
+        }
+        let start: u32 = u32(at)
+        rest = str_slice(rest, start + 6, u32(strlen(rest)) - start - 6)
+        let close: i32 = str_index_of(rest, "}")
+        var entry: string = rest
+        if close >= 0 {
+            entry = str_slice(rest, 0, u32(close))
+        }
+        let id: string = inventory_json_field("{\"id\":" + entry, "id")
+        let signal: string = inventory_json_field(entry, "signal")
+        let label: string = inventory_json_field(entry, "name")
+        if id == "" || !str_eq(signal, name) {
+            continue
+        }
+        let holder: string = inventory_controller(bindings, binding_count, id, item_id)
+        if str_eq(inventory_capability_access(capability), "control") && holder != "" &&
+            !str_eq(id, selected) {
+            continue
+        }
+        out = out + "<option value=\"" + escape_html(id) + "\""
+        if str_eq(id, selected) {
+            out = out + " selected"
+        }
+        out = out + ">" + escape_html(label + " · " + id) + "</option>"
+    }
+    return out
+}
+
+// inventory_json_field is one string field of a flat JSON object.
+fn inventory_json_field(text: string, key: string) string {
+    let at: i32 = str_index_of(text, "\"" + key + "\":\"")
+    if at < 0 {
+        return ""
+    }
+    let start: u32 = u32(at) + u32(strlen(key)) + 4
+    let rest: string = str_slice(text, start, u32(strlen(text)) - start)
+    let end: i32 = str_index_of(rest, "\"")
+    if end < 0 {
+        return ""
+    }
+    return str_slice(rest, 0, u32(end))
+}
+
+// inventory_connected says whether every required capability of an item is
+// bound, which is what "connected" means on its row.
+fn inventory_connected(row: ListItemsRow, bindings: ListBindingsRow[512], count: u32) bool {
+    var rest: string = inventory_capability_list(row.capabilities)
+    if rest == "" {
+        return false
+    }
+    while rest != "" {
+        let at: i32 = str_index_of(rest, "\n")
+        let capability: string = str_slice(rest, 0, u32(at))
+        rest = str_slice(rest, u32(at) + 1, u32(strlen(rest)) - u32(at) - 1)
+        if !inventory_capability_optional(capability) &&
+            inventory_binding_source(bindings, count, row.id, inventory_capability_name(capability)) == "" {
+            return false
+        }
+    }
+    return true
+}
+
+fn item_automation_page(req: Request) Response {
+    return item_automation_message(req, int_from_str(request_query_param(req, "id")),
+        request_query_param(req, "msg"))
+}
+
+fn item_automation_message(req: Request, id: u32, message: string) Response {
+    let opened: Result[SqlDb, string] = sql_open(inventory_db_path())
+    if !opened.is_ok {
+        return inventory_page_message(req, "The database could not be opened: " + opened.err)
+    }
+    let db: SqlDb = opened.ok
+    sql_apply(db, inventory_schema())
+    let items: ListItemsRow[512]
+    let item_slice: Slice[ListItemsRow] = Slice[ListItemsRow]{ Ptr[ListItemsRow](&items[0]), ITEM_CAPACITY }
+    let listed: Result[u32, SqlError] = ListItems(db, item_slice, ITEM_CAPACITY)
+    let bindings: ListBindingsRow[512]
+    let binding_slice: Slice[ListBindingsRow] = Slice[ListBindingsRow]{ Ptr[ListBindingsRow](&bindings[0]), BINDING_CAPACITY }
+    let bound: Result[u32, SqlError] = ListBindings(db, binding_slice, BINDING_CAPACITY)
+    sql_close(db)
+    var count: u32 = 0
+    if listed.is_ok {
+        count = listed.ok
+    }
+    var binding_count: u32 = 0
+    if bound.is_ok {
+        binding_count = bound.ok
+    }
+    let at: i32 = inventory_find_item(items, count, id)
+    if at < 0 {
+        return inventory_page_message(req, i18n_t(req, "inventory.not_found"))
+    }
+    let row_index: u32 = u32(at)
+    let row: ListItemsRow = items[row_index]
+    var rows: string = ""
+    var rest: string = inventory_capability_list(row.capabilities)
+    let automated: bool = inventory_automated()
+    while rest != "" && automated {
+        let nl: i32 = str_index_of(rest, "\n")
+        let capability: string = str_slice(rest, 0, u32(nl))
+        rest = str_slice(rest, u32(nl) + 1, u32(strlen(rest)) - u32(nl) - 1)
+        let name: string = inventory_capability_name(capability)
+        let source: string = inventory_binding_source(bindings, binding_count, row.id, name)
+        var now: string = "—"
+        if source != "" {
+            let value: string = gateway.source_latest(source)
+            if value != "" {
+                now = value
+            }
+        }
+        var need: string = i18n_t(req, "inventory.required")
+        if inventory_capability_optional(capability) {
+            need = i18n_t(req, "inventory.optional")
+        }
+        var control: string = ""
+        if source != "" && str_eq(name, "switch") {
+            control = "<form method=\"post\" action=\"/expenses/items/switch\" class=\"inline\">" +
+                forms_csrf_field() +
+                "<input type=\"hidden\" name=\"id\" value=\"" + int_to_str(id) + "\">" +
+                "<button name=\"state\" value=\"on\">" + i18n_t(req, "inventory.on") + "</button> " +
+                "<button name=\"state\" value=\"off\">" + i18n_t(req, "inventory.off") + "</button></form>"
+        }
+        rows = rows + template_fill(inventory_template("rows/binding-row"),
+            i18n_vars(req) +
+            vars("id", int_to_str(id)) +
+            vars("capability", name) +
+            vars("need", need) +
+            vars("access", inventory_capability_access(capability)) +
+            vars("options", inventory_source_options(capability, source, bindings, binding_count, row.id)) +
+            vars("now", now) +
+            vars("control", control) +
+            vars("csrf", forms_csrf_field())) + "\n"
+    }
+    var notice: string = ""
+    if !automated {
+        notice = i18n_t(req, "inventory.no_gateway")
+    } else if row.capabilities == "" {
+        notice = i18n_t(req, "inventory.no_capabilities")
+    }
+    var toast_js: string = ""
+    if message != "" {
+        toast_js = "<script>document.addEventListener(\"DOMContentLoaded\",function(){if(window.rhoToast){window.rhoToast(" +
+            json_string(message) + ", \"info\");}});</script>"
+    }
+    let body: string = template_fill(inventory_template("pages/item-automation"),
+        i18n_vars(req) +
+        vars("inventory_style", inventory_template("parts/style")) +
+        vars("id", int_to_str(id)) +
+        vars("name", row.name) +
+        vars("category", row.category) +
+        vars("kind", row.kind) +
+        vars("handle", row.handle) +
+        vars("runtime", int_to_str(u32(row.runtimeS) / 3600)) +
+        vars("rows", rows) +
+        vars("notice", notice))
+    return host_shell(req, row.name, body, toast_js)
+}
+
+fn items_bind(req: Request) Response {
+    let body: string = request_body(req)
+    let id: u32 = int_from_str(trim(form_value(body, "id")))
+    if !forms_csrf_ok(body) {
+        return item_automation_message(req, id, i18n_t(req, "inventory.csrf_refused"))
+    }
+    let capability: string = trim(form_value(body, "capability"))
+    let source: string = trim(form_value(body, "source"))
+    if id == 0 || capability == "" {
+        return inventory_page_message(req, i18n_t(req, "inventory.not_found"))
+    }
+    let opened: Result[SqlDb, string] = sql_open(inventory_db_path())
+    if !opened.is_ok {
+        return item_automation_message(req, id, "The database could not be opened: " + opened.err)
+    }
+    let db: SqlDb = opened.ok
+    sql_apply(db, inventory_schema())
+    if source == "" {
+        ignore_result(UnbindCapability(i64(id), capability, db))
+        sql_close(db)
+        return item_automation_message(req, id, i18n_t(req, "inventory.unbound"))
+    }
+    let access: string = inventory_capability_access(capability)
+    let bindings: ListBindingsRow[512]
+    let binding_slice: Slice[ListBindingsRow] = Slice[ListBindingsRow]{ Ptr[ListBindingsRow](&bindings[0]), BINDING_CAPACITY }
+    let bound: Result[u32, SqlError] = ListBindings(db, binding_slice, BINDING_CAPACITY)
+    if bound.is_ok && str_eq(access, "control") {
+        let holder: string = inventory_controller(bindings, bound.ok, source, i64(id))
+        if holder != "" {
+            sql_close(db)
+            return item_automation_message(req, id, i18n_t(req, "inventory.source_taken") + " " + holder)
+        }
+    }
+    let saved: Result[u32, SqlError] = BindCapability(int_to_str(id), capability, source, access, db)
+    sql_close(db)
+    if !saved.is_ok {
+        return item_automation_message(req, id, saved.err.message)
+    }
+    info("inventory", "item " + int_to_str(id) + " " + capability + " bound to " + source)
+    return item_automation_message(req, id, i18n_t(req, "inventory.bound"))
+}
+
+fn items_switch(req: Request) Response {
+    let body: string = request_body(req)
+    let id: u32 = int_from_str(trim(form_value(body, "id")))
+    if !forms_csrf_ok(body) {
+        return item_automation_message(req, id, i18n_t(req, "inventory.csrf_refused"))
+    }
+    let on: bool = str_eq(trim(form_value(body, "state")), "on")
+    if inventory_switch(int_to_str(id), on, "person") {
+        return item_automation_message(req, id, i18n_t(req, "inventory.switched"))
+    }
+    return item_automation_message(req, id, i18n_t(req, "inventory.switch_failed"))
+}

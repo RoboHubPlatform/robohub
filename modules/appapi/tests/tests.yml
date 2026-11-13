@@ -1,0 +1,6 @@
+name: appapi
+suites:
+  - name: appapi-smoke
+    kind: command
+    tags: [smoke]
+    command: [python3, tests/appapi_smoke.py]

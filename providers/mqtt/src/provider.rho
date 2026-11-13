@@ -1,0 +1,74 @@
+//
+// @file provider.rho
+// @brief The MQTT provider of the bus interface: the broker the keeper gave the application, through the mqtt port.
+//
+// @module robohub.bus_mqtt
+// @project robohub-provider-mqtt
+// @author Aurel Miron
+// @date 2026-11-13
+//
+// SPDX-License-Identifier: MIT
+//
+
+module robohub.bus_mqtt
+
+// The MQTT bus provider.
+//
+// The broker, the broker user and the file its password is in come from the
+// application's binding when it names them, and otherwise from what the keeper
+// started the application with: the keeper runs the broker (robohub-mqtt) and
+// makes a broker user for every application that binds the bus. The password is
+// read from its file by the port and never passes through a setting.
+
+extern fn rho_bind_config(provider: string, key: string) string
+extern fn mqtt_publish(broker: string, user: string, password_file: string, topic: string, payload: string, qos: u32, retain: bool) bool
+extern fn mqtt_follow(broker: string, user: string, password_file: string, filter: string, events_path: string) bool
+extern fn mqtt_follow_lines(broker: string, user: string, password_file: string, filter: string, lines_path: string) bool
+extern fn mqtt_relay(broker: string, user: string, password_file: string, lines_path: string, topic: string) bool
+extern fn mqtt_latest(topic: string) string
+extern fn mqtt_topics(prefix: string) string
+
+// mqtt_setting is a setting from the binding, or the keeper's word for it.
+fn mqtt_setting(key: string, env: string) string {
+    let bound: string = rho_bind_config("robohub-provider-mqtt", key)
+    if bound != "" {
+        return bound
+    }
+    return getenv(env)
+}
+
+fn mqtt_broker() string {
+    return mqtt_setting("broker", "ROBOHUB_BUS_URL")
+}
+
+fn mqtt_user() string {
+    return mqtt_setting("user", "ROBOHUB_BUS_USER")
+}
+
+fn mqtt_password_file() string {
+    return mqtt_setting("password_file", "ROBOHUB_BUS_PASSWORD_FILE")
+}
+
+fn publish(topic: string, payload: string, retain: bool) bool {
+    return mqtt_publish(mqtt_broker(), mqtt_user(), mqtt_password_file(), topic, payload, 1, retain)
+}
+
+fn follow(filter: string, events_path: string) bool {
+    return mqtt_follow(mqtt_broker(), mqtt_user(), mqtt_password_file(), filter, events_path)
+}
+
+fn follow_lines(filter: string, lines_path: string) bool {
+    return mqtt_follow_lines(mqtt_broker(), mqtt_user(), mqtt_password_file(), filter, lines_path)
+}
+
+fn relay(lines_path: string, topic: string) bool {
+    return mqtt_relay(mqtt_broker(), mqtt_user(), mqtt_password_file(), lines_path, topic)
+}
+
+fn latest(topic: string) string {
+    return mqtt_latest(topic)
+}
+
+fn topics(prefix: string) string {
+    return mqtt_topics(prefix)
+}

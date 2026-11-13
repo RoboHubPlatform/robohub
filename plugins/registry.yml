@@ -7,3 +7,6 @@ plugins:
   - name: robohub-auth
     path: robohub-auth
     enabled: true
+  - name: robohub-mqtt
+    path: robohub-mqtt
+    enabled: true

@@ -1,0 +1,12 @@
+module:
+  name: rules-tests
+  id: robohub.app.rules-tests
+  type: rho
+  version: 0.1.0
+
+main: rules_test.rho
+
+build:
+  language: c
+  targets:
+    - c

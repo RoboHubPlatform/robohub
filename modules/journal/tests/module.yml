@@ -1,0 +1,12 @@
+module:
+  name: journal-tests
+  id: robohub.app.journal-tests
+  type: rho
+  version: 0.1.0
+
+main: journal_test.rho
+
+build:
+  language: c
+  targets:
+    - c

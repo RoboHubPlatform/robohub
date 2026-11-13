@@ -1,0 +1,6 @@
+name: rules
+suites:
+  - name: rules-smoke
+    kind: command
+    tags: [smoke]
+    command: [python3, tests/rules_smoke.py]

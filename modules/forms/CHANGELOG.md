@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.2] - 2026-11-13
+
+The CSRF token is 256 random bits from the runtime, kept owner-only in the
+application's workspace; a token an older release wrote — the workspace path and a
+timestamp, which anyone could work out — is replaced the first time it is read. A
+submit is compared with it without stopping at the first difference, and when no
+random value can be had every submit is refused rather than a guessable token used.
+
 ## [0.1.1] - 2026-11-08
 
 Form fields support mobile input modes, `forms_open` takes the active locale and

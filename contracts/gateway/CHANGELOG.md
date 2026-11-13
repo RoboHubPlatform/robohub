@@ -24,3 +24,18 @@ answers. `gateway.config` and `gateway.configure` read and change the
 provider's settings on a running installation. The `plugins:` block and the
 `gateway.conf` file are no longer read, and the `mesh-gateway` plugin is
 removed.
+
+## [1.1.0] - 2026-11-13
+
+`action(source, state)` switches an output source through the provider, so an
+application never stores or calls an action URL. `transport()` says how the
+provider delivers the live stream `follow` writes: `bus` when the installation
+has a broker and the provider is set to use it, `http` for the provider's own
+stream, `none` when it is not configured. `register_client` and
+`client_heartbeat` stay for this release, but an application no longer needs
+them: the keeper registers its clients, and the stream reaches it either way.
+
+`providers()`, `choose(name)`, `provider_config(name, key)` and
+`configure_provider(name, key, value)` let a settings page list the bound
+providers, make one of them the one that answers (Mesh or the simulator), and
+change a provider's settings whether or not it is the one answering.

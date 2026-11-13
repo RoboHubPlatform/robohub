@@ -1,0 +1,16 @@
+{{{ inventory_style }}}
+<h1>{{ name }}</h1>
+<p class="lede">{{ category }} · {{ kind }} · <code>{{ handle }}</code> · {{t "inventory.runtime"}} {{ runtime }} h</p>
+<nav class="item-tabs">
+  <a href="/expenses/items/edit?id={{ id }}">{{t "inventory.details"}}</a>
+  <a class="active" href="/expenses/items/automation?id={{ id }}">{{t "inventory.automation"}}</a>
+</nav>
+<p class="notice">{{ notice }}</p>
+<table class="bindings">
+  <thead><tr><th>{{t "inventory.capability"}}</th><th>{{t "inventory.gateway_source"}}</th><th>{{t "inventory.access"}}</th><th>{{t "inventory.now"}}</th><th></th></tr></thead>
+  <tbody>
+{{{ rows }}}
+  </tbody>
+</table>
+<p class="hint">{{t "inventory.binding_hint"}}</p>
+<p><a href="/expenses">← {{t "inventory.title"}}</a></p>

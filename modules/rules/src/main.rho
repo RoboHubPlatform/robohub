@@ -1,0 +1,35 @@
+//
+// @file main.rho
+// @brief The rules module: its routes, registered on the host application's router.
+//
+// @module rules
+// @project rules
+// @author Aurel Miron
+// @date 2026-11-13
+//
+// SPDX-License-Identifier: MIT
+//
+
+module rules
+
+// Included by a host application, after inventory and journal, which it calls.
+// The host defines `rules_host_value(ref: string) string`: its own values a
+// condition may name (`aquarium.nitrate`), "" for any it does not know.
+
+include "expr.rho"
+include "rules.rho"
+
+import std.sql
+import std.web.http
+import std.web.template
+import robohub.alert
+
+extern fn rho_exec(program: string, arguments: string, output_path: string) u32
+extern fn rho_read_text(path: string) string
+extern fn rho_write_text(path: string, text: string) bool
+
+route GET  "/rules"        => rules_page
+route POST "/rules/add"    => rules_add
+route POST "/rules/change" => rules_change
+route POST "/rules/mode"   => rules_mode_form
+route GET  "/api/rules"    => rules_api
