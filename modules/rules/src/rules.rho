@@ -117,8 +117,13 @@ fn rules_action(action: string, actor: string, subject: string) string {
         if handle == "" || (!str_eq(state, "on") && !str_eq(state, "off")) {
             return "a switch is written `switch <handle> on|off`"
         }
+        // An item whose switch is bound to nothing is said as such: it is a
+        // mapping to make, not a device that failed.
+        if inventory_resolve(handle, "switch") == "" {
+            return handle + " has no switch bound to a device"
+        }
         if !inventory_switch(handle, str_eq(state, "on"), actor) {
-            return handle + " could not be switched " + state
+            return handle + " could not be switched " + state + ": its device did not take it"
         }
         return ""
     }
@@ -430,7 +435,9 @@ fn rules_step(rule: Rules, mode: string, minutes: u32, now: u32) bool {
             }
         }
     } else if verdict.holds && rule.lastError != "" && now < since + 60 {
-        // An action that failed is tried again after a minute, not every tick.
+        // An action that failed is tried again after a minute, not every tick;
+        // until then the failure stands.
+        problem = rule.lastError
     } else if verdict.holds {
         let cooled: bool = rule.cooldownS == 0 || fired == 0 || now >= fired + u32(rule.cooldownS)
         if str_eq(state, "idle") && rule.forS > 0 {
@@ -458,6 +465,16 @@ fn rules_step(rule: Rules, mode: string, minutes: u32, now: u32) bool {
     } else if str_eq(state, "pending") {
         state = "idle"
         since = now
+    }
+    // A rule waiting to retry an action that failed keeps that failure while
+    // its condition merely stops holding: a reading hovering at the threshold
+    // must not clear it, or each time the condition holds again the action is
+    // tried at once and the failure written again — every few seconds. It is
+    // cleared by an action that is done, or replaced by a problem the condition
+    // has; a reading that was missing is not kept once there is one.
+    if str_eq(state, "idle") && !verdict.holds && verdict.problem == "" && rule.lastError != "" &&
+        !str_starts_with(rule.lastError, "no reading for ") && str_index_of(rule.lastError, " is not a number") < 0 {
+        problem = rule.lastError
     }
     if !str_eq(state, rule.state) || !str_eq(problem, rule.lastError) {
         let opened: Result[SqlDb, string] = rules_open()

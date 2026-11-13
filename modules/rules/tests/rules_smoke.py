@@ -214,6 +214,28 @@ def main() -> int:
             if json.loads(get(base, "/api/rules"))["mode"] != "":
                 raise AssertionError("the mode is still in force")
 
+            # A rule whose action cannot be done, with a condition that comes and
+            # goes (a reading hovering at its threshold): the failure is said
+            # once, kept while the condition is away, and tried again in a minute.
+            post(base, "/rules/add", {"name": "flicker", "when": "mode == smoke-mode", "do": "switch nothing-bound on"})
+            def flicker_row(label):
+                if os.environ.get("RULES_DEBUG"):
+                    with sqlite3.connect(db) as conn:
+                        print(label, int(time.time()), conn.execute("SELECT state, state_since, last_error FROM rules WHERE name='flicker'").fetchone(), file=sys.stderr)
+            for _ in range(3):
+                post(base, "/rules/mode", {"mode": "smoke-mode"})
+                time.sleep(6)
+                flicker_row("in mode")
+                post(base, "/rules/mode", {"end": "1"})
+                time.sleep(6)
+                flicker_row("out of mode")
+            flicker = {r["name"]: r for r in json.loads(get(base, "/api/rules"))["rules"]}["flicker"]
+            if "has no switch bound" not in flicker["problem"]:
+                raise AssertionError(f"the failure was not kept while the condition was away: {flicker}")
+            said = [e for e in json.loads(get(base, "/api/journal?kind=rule"))["entries"] if e["subject"] == "flicker" and e["level"] == "warning"]
+            if len(said) != 1:
+                raise AssertionError(f"a failure that kept coming back was written {len(said)} times: {said}")
+
             # Disabled, then deleted.
             with sqlite3.connect(db) as conn:
                 rid = str(conn.execute("SELECT id FROM rules WHERE name='always'").fetchone()[0])

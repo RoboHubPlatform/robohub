@@ -25,3 +25,7 @@ The clock is read from the process (`rho_now_s`, rho 0.6.0) instead of from `dat
 ## [0.1.3] - 2026-11-13
 
 Durations read decimals and days: `1.5h` is 5400 seconds and `1d` 86400, where both were 0 and a rule's `for` or `cooldown` silently vanished. A mode is ended once: whoever clears it runs its end actions, so a tick and a person ending it together do not run them twice.
+
+## [0.1.4] - 2026-11-13
+
+A rule whose action failed keeps the failure until an action is done: while it waits out its minute, and while its condition comes and goes — a reading hovering at the threshold. The failure was cleared each time, so the action was tried at once whenever the condition held again and the failure written to the journal every few seconds. An item with no switch bound says so (`heater has no switch bound to a device`) rather than reading as a device that failed.
