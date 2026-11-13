@@ -10,30 +10,8 @@ const LOG_WARN: u32 = 3
 const LOG_ERROR: u32 = 4
 const LOG_FATAL: u32 = 5
 
-fn log_trim(text: string) string {
-    var out: string = text
-    while strlen(out) > 0 &&
-        (str_eq(str_slice(out, 0, 1), " ") ||
-         str_eq(str_slice(out, 0, 1), "\n") ||
-         str_eq(str_slice(out, 0, 1), "\r") ||
-         str_eq(str_slice(out, 0, 1), "\t")) {
-        out = str_slice(out, 1, u32(strlen(out)) - 1)
-    }
-    while strlen(out) > 0 {
-        let at: u32 = u32(strlen(out)) - 1
-        let last: string = str_slice(out, at, 1)
-        if str_eq(last, " ") || str_eq(last, "\n") ||
-            str_eq(last, "\r") || str_eq(last, "\t") {
-            out = str_slice(out, 0, at)
-        } else {
-            break
-        }
-    }
-    return out
-}
-
 fn log_level_index(name: string) u32 {
-    let value: string = log_trim(name)
+    let value: string = str_trim(name)
     if str_eq(value, "trace") { return LOG_TRACE }
     if str_eq(value, "debug") { return LOG_DEBUG }
     if str_eq(value, "warn") || str_eq(value, "warning") { return LOG_WARN }
@@ -74,7 +52,7 @@ fn log_setting(key: string, fallback: string) string {
 }
 
 fn log_parse_u32(text: string, fallback: u32) u32 {
-    let value: string = log_trim(text)
+    let value: string = str_trim(text)
     if value == "" {
         return fallback
     }
@@ -103,7 +81,7 @@ fn log_file_in_settings_file(path: string, app: string) string {
                 u32(strlen(rest)) - u32(at) - 1)
         }
         if str_index_of(line, "log.file=") == 0 {
-            let value: string = log_trim(str_slice(line, 9,
+            let value: string = str_trim(str_slice(line, 9,
                 u32(strlen(line)) - 9))
             if value != "" {
                 return value
@@ -184,17 +162,17 @@ fn log_settings_save(app: string, body: string) bool {
     if !forms_validate(fields, 6) {
         return false
     }
-    let level: string = log_trim(forms_parse(body, "level"))
+    let level: string = str_trim(forms_parse(body, "level"))
     if str_eq(level, "trace") || str_eq(level, "debug") ||
         str_eq(level, "info") || str_eq(level, "warn") ||
         str_eq(level, "error") || str_eq(level, "fatal") {
         settings_set("log.level", level)
     }
-    let format: string = log_trim(forms_parse(body, "format"))
+    let format: string = str_trim(forms_parse(body, "format"))
     if str_eq(format, "text") || str_eq(format, "json") {
         settings_set("log.format", format)
     }
-    var file: string = log_trim(forms_parse(body, "file"))
+    var file: string = str_trim(forms_parse(body, "file"))
     if file == "" {
         file = log_default_file(app)
     }
@@ -203,7 +181,7 @@ fn log_settings_save(app: string, body: string) bool {
         forms_parse(body, "max_bytes"), 5242880)))
     settings_set("log.keep", int_to_str(log_parse_u32(
         forms_parse(body, "keep"), 5)))
-    var stderr: string = log_trim(forms_parse(body, "stderr"))
+    var stderr: string = str_trim(forms_parse(body, "stderr"))
     if stderr == "" {
         stderr = "1"
     }

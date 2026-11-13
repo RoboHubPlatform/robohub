@@ -118,22 +118,20 @@ fn notification_template(name: string) string {
     return rho_asset("notifications", "templates/" + name + ".html")
 }
 
-
 fn notification_embed() string {
     return notification_template("embed")
 }
 
-
 fn notifications_push(req: Request) Response {
     let body: string = request_body(req)
-    let message: string = notification_form_value(body, "message")
+    let message: string = form_field(body, "message")
     if message == "" {
         return json(400, "{\"ok\":false,\"error\":\"message is required\"}")
     }
-    let level: string = notification_form_value(body, "level")
+    let level: string = form_field(body, "level")
     let lvl: string = level
     if lvl == "" { lvl = NOTIFICATION_INFO }
-    let timeout_str: string = notification_form_value(body, "timeout")
+    let timeout_str: string = form_field(body, "timeout")
     let timeout: u32 = 0
     if timeout_str != "" { timeout = int_from_str(timeout_str) }
     let code: u32 = notification_push_level(message, lvl, timeout)
@@ -197,7 +195,7 @@ fn notifications_list(req: Request) Response {
 
 fn notifications_dismiss(req: Request) Response {
     let body: string = request_body(req)
-    let id_str: string = notification_form_value(body, "id")
+    let id_str: string = form_field(body, "id")
     if id_str == "" {
         return json(400, "{\"ok\":false,\"error\":\"id is required\"}")
     }

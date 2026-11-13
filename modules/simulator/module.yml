@@ -13,7 +13,7 @@ module:
   type: module
   title: Simulator
   category: integration
-  version: 0.2.1
+  version: 0.2.2
   description: >
     Simulated devices behind the gateway interface, from an application's
     presets: switches that answer actions, plugs that draw power while on,

@@ -28,7 +28,6 @@ fn ignore_response(value: Response) void {
 }
 const COMPLETION_CAPACITY: u32 = 64
 
-
 fn scheduler_workspace() string {
     let workspace: string = getenv("ROBOHUB_APP_WORKSPACE")
     if workspace == "" {
@@ -63,7 +62,7 @@ fn scheduler_date(epoch: u32) string {
     if epoch == 0 {
         return ""
     }
-    return scheduler_trim(rho_exec_capture("date", "-d\n@" + int_to_str(epoch) + "\n+%Y-%m-%d %H:%M\n"))
+    return str_trim(rho_exec_capture("date", "-d\n@" + int_to_str(epoch) + "\n+%Y-%m-%d %H:%M\n"))
 }
 
 fn scheduler_epoch(text: string) u32 {
@@ -71,7 +70,7 @@ fn scheduler_epoch(text: string) u32 {
     if str_index_of(text, "\n") >= 0 || str_starts_with(text, "-") {
         return 0
     }
-    return int_from_str(scheduler_trim(rho_exec_capture("date", "-d\n" + text + "\n+%s\n")))
+    return int_from_str(str_trim(rho_exec_capture("date", "-d\n" + text + "\n+%s\n")))
 }
 
 fn scheduler_field(expression: string, wanted: u32) string {
@@ -344,16 +343,11 @@ fn scheduler_quantity(milli: i64) string {
 
 // scheduler_milli reads a quantity like 1 or 0.5 in thousandths.
 fn scheduler_milli(text: string) u32 {
-    let value: string = scheduler_trim(text)
-    let dot: i32 = str_index_of(value, ".")
-    if dot < 0 {
-        return int_from_str(value) * 1000
+    let milli: i64 = milli_parse(text)
+    if milli < 0 {
+        return 0
     }
-    var fraction: string = str_slice(value, u32(dot) + 1, u32(strlen(value)) - u32(dot) - 1)
-    while strlen(fraction) < 3 {
-        fraction = fraction + "0"
-    }
-    return int_from_str(str_slice(value, 0, u32(dot))) * 1000 + int_from_str(str_slice(fraction, 0, 3))
+    return u32(milli)
 }
 
 fn scheduler_rows(chores: Chores[256], count: u32, now: u32) string {
@@ -515,16 +509,16 @@ fn scheduler_setting(key: string, fallback: string) string {
 // was kept, what is wrong otherwise. The page and the API both add through it,
 // so each says what happened.
 fn scheduler_add_chore(req: Request, body: string) string {
-    let title: string = scheduler_trim(scheduler_form_value(body, "title"))
+    let title: string = str_trim(form_field(body, "title"))
     if strlen(title) == 0 {
         return "A chore needs a title."
     }
-    let kind: string = scheduler_form_value(body, "kind")
-    let value: string = scheduler_trim(scheduler_form_value(body, "value"))
-    let interval_hours: u32 = int_from_str(scheduler_trim(scheduler_form_value(body, "interval_hours")))
-    let usage_hours: u32 = int_from_str(scheduler_trim(scheduler_form_value(body, "usage_hours")))
-    let grace: u32 = int_from_str(scheduler_trim(scheduler_form_value(body, "grace_hours")))
-    var priority: string = scheduler_trim(scheduler_form_value(body, "priority"))
+    let kind: string = form_field(body, "kind")
+    let value: string = str_trim(form_field(body, "value"))
+    let interval_hours: u32 = int_from_str(str_trim(form_field(body, "interval_hours")))
+    let usage_hours: u32 = int_from_str(str_trim(form_field(body, "usage_hours")))
+    let grace: u32 = int_from_str(str_trim(form_field(body, "grace_hours")))
+    var priority: string = str_trim(form_field(body, "priority"))
     if strlen(priority) == 0 {
         priority = "normal"
     }
@@ -543,7 +537,7 @@ fn scheduler_add_chore(req: Request, body: string) string {
     sql_apply(db, scheduler_schema())
     let added: Result[u32, SqlError] = InsertChore(
         title,
-        scheduler_trim(scheduler_form_value(body, "description")),
+        str_trim(form_field(body, "description")),
         kind,
         value,
         int_to_str(interval_hours),
@@ -553,10 +547,10 @@ fn scheduler_add_chore(req: Request, body: string) string {
         int_to_str(next),
         "1",
         db)
-    let runtime_of: string = inventory_handle(scheduler_form_value(body, "runtime_of"))
-    let consumes: string = inventory_handle(scheduler_form_value(body, "consumes"))
+    let runtime_of: string = inventory_handle(form_field(body, "runtime_of"))
+    let consumes: string = inventory_handle(form_field(body, "consumes"))
     if added.is_ok && (runtime_of != "" || consumes != "") {
-        var quantity: u32 = scheduler_milli(scheduler_form_value(body, "consumes_qty"))
+        var quantity: u32 = scheduler_milli(form_field(body, "consumes_qty"))
         if consumes != "" && quantity == 0 {
             quantity = 1000
         }
@@ -589,11 +583,11 @@ fn chores_complete(req: Request) Response {
 }
 
 fn chores_complete_body(req: Request, body: string) Response {
-    let id: u32 = int_from_str(scheduler_trim(scheduler_form_value(body, "id")))
+    let id: u32 = int_from_str(str_trim(form_field(body, "id")))
     if id == 0 {
         return scheduler_page_message(req, "That chore was not found.")
     }
-    let problem: string = scheduler_complete(id, scheduler_trim(scheduler_form_value(body, "note")))
+    let problem: string = scheduler_complete(id, str_trim(form_field(body, "note")))
     if problem != "" {
         return scheduler_page_message(req, problem)
     }
@@ -656,8 +650,8 @@ fn chores_snooze(req: Request) Response {
 }
 
 fn chores_snooze_body(req: Request, body: string) Response {
-    let id: u32 = int_from_str(scheduler_trim(scheduler_form_value(body, "id")))
-    var hours: u32 = int_from_str(scheduler_trim(scheduler_form_value(body, "hours")))
+    let id: u32 = int_from_str(str_trim(form_field(body, "id")))
+    var hours: u32 = int_from_str(str_trim(form_field(body, "hours")))
     if hours == 0 {
         hours = 24
     }
@@ -681,8 +675,8 @@ fn chores_usage(req: Request) Response {
 }
 
 fn chores_usage_body(req: Request, body: string) Response {
-    let id: u32 = int_from_str(scheduler_trim(scheduler_form_value(body, "id")))
-    let hours: u32 = int_from_str(scheduler_trim(scheduler_form_value(body, "hours")))
+    let id: u32 = int_from_str(str_trim(form_field(body, "id")))
+    let hours: u32 = int_from_str(str_trim(form_field(body, "hours")))
     if id == 0 || hours == 0 {
         return scheduler_page_message(req, "A usage update needs a chore and hours.")
     }
@@ -746,7 +740,7 @@ fn scheduler_api_list(req: Request) Response {
 
 fn scheduler_api_add(req: Request) Response {
     let body: string = request_body(req)
-    if strlen(scheduler_trim(scheduler_form_value(body, "title"))) == 0 {
+    if strlen(str_trim(form_field(body, "title"))) == 0 {
         return json(status_bad_request(), "{\"ok\":false}")
     }
     // A program that adds a chore carries a token, not the page's form token;
@@ -834,7 +828,7 @@ fn scheduler_usage_tick() u32 {
 // `consumes_qty`. A chore is added once, by its title; after that it is the
 // person's. It answers how many chores the presets named.
 fn scheduler_presets(text: string) u32 {
-    if scheduler_trim(text) == "" {
+    if str_trim(text) == "" {
         return 0
     }
     let path: string = scheduler_db_path() + ".presets.yml"
@@ -899,7 +893,7 @@ fn scheduler_presets(text: string) u32 {
 }
 
 fn scheduler_unquote(text: string) string {
-    let value: string = scheduler_trim(text)
+    let value: string = str_trim(text)
     let n: u32 = u32(strlen(value))
     if n >= 2 && (str_eq(str_slice(value, 0, 1), "\"") || str_eq(str_slice(value, 0, 1), "'")) {
         return str_slice(value, 1, n - 2)

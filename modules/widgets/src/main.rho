@@ -6,7 +6,6 @@ module widgets
 // in the host's main SQL database, and its settings are the host's
 // app_modules entry.
 
-include "text.rho"
 include "widgets.rho"
 include "notifications"
 include "forms"

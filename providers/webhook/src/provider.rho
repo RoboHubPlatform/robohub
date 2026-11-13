@@ -27,31 +27,6 @@ fn report(name: string) string {
     return state_dir() + "/" + name + ".log"
 }
 
-fn urlencode(text: string) string {
-    var out: string = ""
-    var i: u32 = 0
-    while i < strlen(text) {
-        let ch: string = str_slice(text, i, 1)
-        if ch == " " {
-            out = out + "+"
-        } else if ch == "&" {
-            out = out + "%26"
-        } else if ch == "=" {
-            out = out + "%3D"
-        } else if ch == "+" {
-            out = out + "%2B"
-        } else if ch == "%" {
-            out = out + "%25"
-        } else if ch == "\n" {
-            out = out + "%0A"
-        } else {
-            out = out + ch
-        }
-        i = i + 1
-    }
-    return out
-}
-
 // send posts `level`, `message` and `metadata` as a form, from a file, so the
 // body never passes through an argument.
 fn send(level: string, message: string, metadata: string) u32 {
@@ -68,7 +43,7 @@ fn send(level: string, message: string, metadata: string) u32 {
     // The body is what the content type says it is: JSON for application/json,
     // a form otherwise. An HTTP error is a failure (-f), not a delivery.
     let file: string = state_dir() + "/webhook-body.txt"
-    var payload: string = "level=" + urlencode(level) + "&message=" + urlencode(message) + "&metadata=" + urlencode(metadata)
+    var payload: string = "level=" + str_url_encode(level) + "&message=" + str_url_encode(message) + "&metadata=" + str_url_encode(metadata)
     if str_index_of(content_type, "json") >= 0 {
         payload = "{\"level\":" + json_string(level) + ",\"message\":" + json_string(message) +
             ",\"metadata\":" + json_string(metadata) + "}"

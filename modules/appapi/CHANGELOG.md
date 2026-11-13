@@ -16,3 +16,7 @@ The clock is read from the process (`rho_now_s`, rho 0.6.0) instead of from `dat
 ## [0.1.2] - 2026-11-13
 
 A value's history returns the newest 5000 points of its window rather than the oldest, and each value to the nearest thousandth (0.007 was 0.006).
+
+## [0.1.3] - 2026-11-14
+
+Trimming, URL escapes, form fields and decimals come from the toolchain (rho 0.7.0: `str_trim`, `str_url_encode`/`str_url_decode`, `form_field`, `milli_*`) rather than this module's own copy, the same on both backends. Needs rho 0.7.0. A value is read with a decimal comma as well as a dot.

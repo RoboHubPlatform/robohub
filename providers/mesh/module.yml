@@ -18,7 +18,7 @@ module:
   previous_ids:
     - robohub.providers.mesh
   type: provider
-  version: 0.5.1
+  version: 0.5.2
   description: Serves Mesh projects, sources, gateway state and telemetry to an application, as a provider of the gateway interface.
   maintainer: "Aurel Miron"
   license: "MIT"

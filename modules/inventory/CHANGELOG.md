@@ -56,3 +56,7 @@ The clock is read from the process (`rho_now_s`, rho 0.6.0) instead of from `dat
 ## [0.2.3] - 2026-11-13
 
 A purchase's total is reckoned in 64 bits (100 units at 500.00 overflowed); a stock taken below zero is shown negative instead of as four billion; a decimal comma (2,50) is a decimal point; a capability bound from the Automation tab is kept under its name (`power`, not `power?`), so it is found again.
+
+## [0.2.4] - 2026-11-14
+
+Trimming, URL escapes, form fields and decimals come from the toolchain (rho 0.7.0: `str_trim`, `str_url_encode`/`str_url_decode`, `form_field`, `milli_*`) rather than this module's own copy, the same on both backends. Needs rho 0.7.0. The unprefixed `trim`, `url_decode` and `form_value` this module leaked into every application are gone; a `%` not followed by two hex digits is kept as written instead of becoming a zero byte.

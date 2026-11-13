@@ -29,3 +29,7 @@ Durations read decimals and days: `1.5h` is 5400 seconds and `1d` 86400, where b
 ## [0.1.4] - 2026-11-13
 
 A rule whose action failed keeps the failure until an action is done: while it waits out its minute, and while its condition comes and goes — a reading hovering at the threshold. The failure was cleared each time, so the action was tried at once whenever the condition held again and the failure written to the journal every few seconds. An item with no switch bound says so (`heater has no switch bound to a device`) rather than reading as a device that failed.
+
+## [0.1.5] - 2026-11-14
+
+Trimming, URL escapes, form fields and decimals come from the toolchain (rho 0.7.0: `str_trim`, `str_url_encode`/`str_url_decode`, `form_field`, `milli_*`) rather than this module's own copy, the same on both backends. Needs rho 0.7.0. A number in a condition may be written with a decimal comma; a lone `.` or `-` is no longer the number 0.

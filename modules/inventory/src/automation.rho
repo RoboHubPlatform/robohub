@@ -50,7 +50,7 @@ fn inventory_capability_list(text: string) string {
             item = str_slice(rest, 0, u32(at))
             rest = str_slice(rest, u32(at) + 1, u32(strlen(rest)) - u32(at) - 1)
         }
-        let name: string = trim(item)
+        let name: string = str_trim(item)
         if name != "" {
             out = out + name + "\n"
         }
@@ -66,7 +66,7 @@ fn inventory_ends_with(text: string, suffix: string) bool {
 
 // inventory_capability_name is a capability without its optional mark.
 fn inventory_capability_name(capability: string) string {
-    let name: string = trim(capability)
+    let name: string = str_trim(capability)
     if inventory_ends_with(name, "?") {
         return str_slice(name, 0, u32(strlen(name)) - 1)
     }
@@ -74,7 +74,7 @@ fn inventory_capability_name(capability: string) string {
 }
 
 fn inventory_capability_optional(capability: string) bool {
-    return inventory_ends_with(trim(capability), "?")
+    return inventory_ends_with(str_trim(capability), "?")
 }
 
 // inventory_capability_access is what an item does with a capability: it drives
@@ -481,7 +481,7 @@ fn inventory_bind(id: u32, capability: string, source: string) string {
 // current, because the application, not the person, decides what a filter is.
 // It answers how many categories the presets named.
 fn inventory_presets(text: string) u32 {
-    if trim(text) == "" {
+    if str_trim(text) == "" {
         return 0
     }
     // The YAML reader reads a file, so the text is put beside the database.
@@ -819,15 +819,15 @@ fn item_automation_message(req: Request, id: u32, message: string) Response {
 
 fn items_bind(req: Request) Response {
     let body: string = request_body(req)
-    let id: u32 = int_from_str(trim(form_value(body, "id")))
+    let id: u32 = int_from_str(str_trim(form_field(body, "id")))
     if !forms_csrf_ok(body) {
         return item_automation_message(req, id, i18n_t(req, "inventory.csrf_refused"))
     }
     // The capability as its category writes it (`power?`), and as it is bound
     // and looked up (`power`): binding under the first left it never found.
-    let written: string = trim(form_value(body, "capability"))
+    let written: string = str_trim(form_field(body, "capability"))
     let capability: string = inventory_capability_name(written)
-    let source: string = trim(form_value(body, "source"))
+    let source: string = str_trim(form_field(body, "source"))
     if id == 0 || capability == "" {
         return inventory_page_message(req, i18n_t(req, "inventory.not_found"))
     }
@@ -864,11 +864,11 @@ fn items_bind(req: Request) Response {
 
 fn items_switch(req: Request) Response {
     let body: string = request_body(req)
-    let id: u32 = int_from_str(trim(form_value(body, "id")))
+    let id: u32 = int_from_str(str_trim(form_field(body, "id")))
     if !forms_csrf_ok(body) {
         return item_automation_message(req, id, i18n_t(req, "inventory.csrf_refused"))
     }
-    let on: bool = str_eq(trim(form_value(body, "state")), "on")
+    let on: bool = str_eq(str_trim(form_field(body, "state")), "on")
     if inventory_switch(int_to_str(id), on, "person") {
         return item_automation_message(req, id, i18n_t(req, "inventory.switched"))
     }

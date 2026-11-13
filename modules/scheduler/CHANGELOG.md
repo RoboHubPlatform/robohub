@@ -48,3 +48,7 @@ The clock is read from the process (`rho_now_s`, rho 0.6.0) instead of from `dat
 ## [0.2.2] - 2026-11-13
 
 Cron is read as cron: `*`, numbers, ranges, lists and steps in all five fields (`*/15 * * * *`, `30 9 * * 1-5`, `0 8 * * 7`), day of week 7 as Sunday, and a day of the month or of the week matching when both are restricted, in local time with the offset of each moment. Before, `*/15` was never due and every weekday range was Saturday. A cron that names no time is refused. The API's add says whether the chore was kept, and why not, instead of always answering 201.
+
+## [0.2.3] - 2026-11-14
+
+Trimming, URL escapes, form fields and decimals come from the toolchain (rho 0.7.0: `str_trim`, `str_url_encode`/`str_url_decode`, `form_field`, `milli_*`) rather than this module's own copy, the same on both backends. Needs rho 0.7.0. A quantity reads a decimal comma and a sign; a negative one is 0.

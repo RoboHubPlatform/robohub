@@ -88,11 +88,11 @@ fn rules_after_word(text: string) string {
     if at < 0 {
         return ""
     }
-    return rules_trim(str_slice(text, u32(at) + 1, u32(strlen(text)) - u32(at) - 1))
+    return str_trim(str_slice(text, u32(at) + 1, u32(strlen(text)) - u32(at) - 1))
 }
 
 fn rules_unquote(text: string) string {
-    let value: string = rules_trim(text)
+    let value: string = str_trim(text)
     let n: u32 = u32(strlen(value))
     if n >= 2 && str_eq(str_slice(value, 0, 1), "\"") && str_eq(str_slice(value, n - 1, 1), "\"") {
         return str_slice(value, 1, n - 2)
@@ -128,7 +128,7 @@ fn rules_action(action: string, actor: string, subject: string) string {
         return ""
     }
     if str_eq(verb, "use") {
-        if !inventory_use(rules_trim(rest), actor) {
+        if !inventory_use(str_trim(rest), actor) {
             return rest + " could not be used"
         }
         return ""
@@ -146,7 +146,7 @@ fn rules_action(action: string, actor: string, subject: string) string {
         return ""
     }
     if str_eq(verb, "mode") {
-        let name: string = rules_trim(rest)
+        let name: string = str_trim(rest)
         if str_eq(rules_lower(name), "end") {
             rules_mode_end(actor)
             return ""
@@ -173,7 +173,7 @@ fn rules_run(actions: string, actor: string, subject: string) string {
             one = str_slice(rest, 0, u32(at))
             rest = str_slice(rest, u32(at) + 1, u32(strlen(rest)) - u32(at) - 1)
         }
-        let action: string = rules_trim(one)
+        let action: string = str_trim(one)
         if action != "" {
             let failed: string = rules_action(action, actor, subject)
             if failed != "" && problem == "" {
@@ -337,7 +337,7 @@ fn rules_suspended(modes: RuleModes[64], count: u32, mode: string, rule: string)
             one = str_slice(rest, 0, u32(comma))
             rest = str_slice(rest, u32(comma) + 1, u32(strlen(rest)) - u32(comma) - 1)
         }
-        if str_eq(rules_lower(rules_trim(one)), rules_lower(rule)) {
+        if str_eq(rules_lower(str_trim(one)), rules_lower(rule)) {
             return true
         }
     }
@@ -492,7 +492,7 @@ fn rules_step(rule: Rules, mode: string, minutes: u32, now: u32) bool {
 
 // rules_seconds reads `60`, `60s`, `10m` or `2h` as seconds.
 fn rules_seconds(text: string) u32 {
-    let value: string = rules_lower(rules_trim(text))
+    let value: string = rules_lower(str_trim(text))
     if value == "" {
         return 0
     }
@@ -527,7 +527,7 @@ fn rules_preset_value(path: string, key: string) string {
 // added is never touched; whether a rule is enabled stays the person's choice.
 // It answers how many rules and modes the presets named.
 fn rules_presets(text: string) u32 {
-    if rules_trim(text) == "" {
+    if str_trim(text) == "" {
         return 0
     }
     let path: string = rules_db_path() + ".presets.yml"
@@ -712,8 +712,8 @@ fn rules_add(req: Request) Response {
     if !forms_csrf_ok(body) {
         return rules_page_message(req, i18n_t(req, "rules.csrf_refused"))
     }
-    let name: string = inventory_handle(form_value(body, "name"))
-    let when: string = rules_trim(form_value(body, "when"))
+    let name: string = inventory_handle(form_field(body, "name"))
+    let when: string = str_trim(form_field(body, "when"))
     if name == "" || when == "" {
         return rules_page_message(req, i18n_t(req, "rules.need_name_when"))
     }
@@ -725,9 +725,9 @@ fn rules_add(req: Request) Response {
     if !opened.is_ok {
         return rules_page_message(req, opened.err)
     }
-    let added: Result[u32, SqlError] = SeedRule(name, when, rules_trim(form_value(body, "clear")),
-        int_to_str(rules_seconds(form_value(body, "for"))), int_to_str(rules_seconds(form_value(body, "cooldown"))),
-        rules_trim(form_value(body, "do")), rules_trim(form_value(body, "else")), "person", opened.ok)
+    let added: Result[u32, SqlError] = SeedRule(name, when, str_trim(form_field(body, "clear")),
+        int_to_str(rules_seconds(form_field(body, "for"))), int_to_str(rules_seconds(form_field(body, "cooldown"))),
+        str_trim(form_field(body, "do")), str_trim(form_field(body, "else")), "person", opened.ok)
     sql_close(opened.ok)
     if !added.is_ok {
         return rules_page_message(req, added.err.message)
@@ -744,18 +744,18 @@ fn rules_change(req: Request) Response {
     if !forms_csrf_ok(body) {
         return rules_page_message(req, i18n_t(req, "rules.csrf_refused"))
     }
-    let id: u32 = int_from_str(rules_trim(form_value(body, "id")))
+    let id: u32 = int_from_str(str_trim(form_field(body, "id")))
     let opened: Result[SqlDb, string] = rules_open()
     if !opened.is_ok || id == 0 {
         return rules_page_message(req, i18n_t(req, "rules.not_found"))
     }
-    if str_eq(form_value(body, "delete"), "1") {
+    if str_eq(form_field(body, "delete"), "1") {
         ignore_rules(DeletePersonRule(i64(id), opened.ok))
         sql_close(opened.ok)
         return rules_page_message(req, i18n_t(req, "rules.deleted"))
     }
     var enabled: i64 = 1
-    if str_eq(form_value(body, "enabled"), "1") {
+    if str_eq(form_field(body, "enabled"), "1") {
         enabled = 0
     }
     ignore_rules(SetRuleEnabled(enabled, i64(id), opened.ok))
@@ -768,11 +768,11 @@ fn rules_mode_form(req: Request) Response {
     if !forms_csrf_ok(body) {
         return rules_page_message(req, i18n_t(req, "rules.csrf_refused"))
     }
-    if str_eq(form_value(body, "end"), "1") {
+    if str_eq(form_field(body, "end"), "1") {
         rules_mode_end("person")
         return rules_page_message(req, i18n_t(req, "rules.mode_ended"))
     }
-    if !rules_mode_start(rules_trim(form_value(body, "mode")), "person") {
+    if !rules_mode_start(str_trim(form_field(body, "mode")), "person") {
         return rules_page_message(req, i18n_t(req, "rules.not_found"))
     }
     return rules_page_message(req, i18n_t(req, "rules.mode_started"))

@@ -18,24 +18,8 @@ module appshell
 // (`aquarium`), and host_app_title(), how it is shown (`Aquarium`). Its pages,
 // and the modules', are drawn through its host_shell.
 
-fn appshell_trim(text: string) string {
-    var out: string = text
-    while strlen(out) > 0 && (str_eq(str_slice(out, 0, 1), " ") || str_eq(str_slice(out, 0, 1), "\n") ||
-        str_eq(str_slice(out, 0, 1), "\r") || str_eq(str_slice(out, 0, 1), "\t")) {
-        out = str_slice(out, 1, u32(strlen(out)) - 1)
-    }
-    while strlen(out) > 0 {
-        let last: string = str_slice(out, u32(strlen(out)) - 1, 1)
-        if !str_eq(last, " ") && !str_eq(last, "\n") && !str_eq(last, "\r") && !str_eq(last, "\t") {
-            break
-        }
-        out = str_slice(out, 0, u32(strlen(out)) - 1)
-    }
-    return out
-}
-
 fn appshell_form(body: string, name: string) string {
-    return appshell_trim(form_value(body, name))
+    return str_trim(form_field(body, name))
 }
 
 // appshell_field is the field at an index of a `|`-separated line.

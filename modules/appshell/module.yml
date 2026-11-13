@@ -13,7 +13,7 @@ module:
   type: module
   title: RoboHub application shell
   category: ui
-  version: 0.1.0
+  version: 0.1.1
   description: >
     The shell, settings and docs pages every RoboHub application on the gateway
     shares, so aquarium, energy and those after them draw them once.

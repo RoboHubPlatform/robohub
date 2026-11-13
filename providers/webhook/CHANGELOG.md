@@ -16,3 +16,7 @@ alert plugin that wrapped it was removed.
 ## [0.2.1] - 2026-11-13
 
 An HTTP error is a failure, not a delivery (`-f`). A content type of application/json sends a JSON body. The URL must be http or https.
+
+## [0.2.2] - 2026-11-14
+
+Trimming, URL escapes, form fields and decimals come from the toolchain (rho 0.7.0: `str_trim`, `str_url_encode`/`str_url_decode`, `form_field`, `milli_*`) rather than this module's own copy, the same on both backends. Needs rho 0.7.0. A form value escapes every reserved byte; a space is `%20`.

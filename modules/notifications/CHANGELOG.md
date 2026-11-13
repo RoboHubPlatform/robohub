@@ -28,3 +28,7 @@ The clock is read from the process (`rho_now_s`, rho 0.6.0) instead of from `dat
 ## [0.1.6] - 2026-11-13
 
 An empty list has no blank notification: a run that finds no row is not read as one. Level and message are JSON strings in the API.
+
+## [0.1.7] - 2026-11-14
+
+Trimming, URL escapes, form fields and decimals come from the toolchain (rho 0.7.0: `str_trim`, `str_url_encode`/`str_url_decode`, `form_field`, `milli_*`) rather than this module's own copy, the same on both backends. Needs rho 0.7.0. A form field is URL-decoded: a channel name or message with a space, an `&` or an accent was stored as sent (`a+b%26c`).

@@ -56,18 +56,6 @@ fn journal_now() u32 {
     return rho_now_s()
 }
 
-fn journal_trim(text: string) string {
-    var out: string = text
-    while strlen(out) > 0 && (str_eq(str_slice(out, 0, 1), " ") || str_eq(str_slice(out, 0, 1), "\n")) {
-        out = str_slice(out, 1, u32(strlen(out)) - 1)
-    }
-    while strlen(out) > 0 && (str_eq(str_slice(out, u32(strlen(out)) - 1, 1), " ") ||
-        str_eq(str_slice(out, u32(strlen(out)) - 1, 1), "\n")) {
-        out = str_slice(out, 0, u32(strlen(out)) - 1)
-    }
-    return out
-}
-
 // journal_level is a level as written, or info.
 fn journal_level(level: string) string {
     if str_eq(level, "warning") || str_eq(level, "error") {
@@ -136,7 +124,7 @@ fn journal_open_count() u32 {
     let counted: Result[u32, SqlError] = CountOpenJournalEntries(db, slice, 1)
     sql_close(db)
     if counted.is_ok && counted.ok > 0 {
-        return int_from_str(journal_trim(rows[0].entries))
+        return int_from_str(str_trim(rows[0].entries))
     }
     return 0
 }
@@ -372,7 +360,7 @@ fn journal_page(req: Request) Response {
 }
 
 fn journal_resolve_form(req: Request) Response {
-    let id: u32 = int_from_str(journal_trim(form_value(request_body(req), "id")))
+    let id: u32 = int_from_str(str_trim(form_field(request_body(req), "id")))
     if id > 0 {
         journal_resolve(id)
     }

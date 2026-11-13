@@ -55,18 +55,6 @@ fn appapi_now() u32 {
     return rho_now_s()
 }
 
-fn appapi_trim(text: string) string {
-    var out: string = text
-    while strlen(out) > 0 && (str_eq(str_slice(out, 0, 1), " ") || str_eq(str_slice(out, 0, 1), "\n")) {
-        out = str_slice(out, 1, u32(strlen(out)) - 1)
-    }
-    while strlen(out) > 0 && (str_eq(str_slice(out, u32(strlen(out)) - 1, 1), " ") ||
-        str_eq(str_slice(out, u32(strlen(out)) - 1, 1), "\n")) {
-        out = str_slice(out, 0, u32(strlen(out)) - 1)
-    }
-    return out
-}
-
 fn ignore_appapi(value: Result[u32, SqlError]) void {
 }
 
@@ -82,76 +70,14 @@ struct AppapiNumber {
 // appapi_number reads a decimal (or a JSON number like 1.5e2 is not one: the
 // readings are plain decimals) in thousandths; on/true are 1, off/false 0.
 fn appapi_number(text: string) AppapiNumber {
-    var value: string = appapi_trim(text)
+    let value: string = str_trim(text)
     if str_eq(value, "on") || str_eq(value, "true") {
         return AppapiNumber{ true, 1000 }
     }
     if str_eq(value, "off") || str_eq(value, "false") {
         return AppapiNumber{ true, 0 }
     }
-    var negative: bool = false
-    if strlen(value) > 0 && str_eq(str_slice(value, 0, 1), "-") {
-        negative = true
-        value = str_slice(value, 1, u32(strlen(value)) - 1)
-    }
-    if value == "" {
-        return AppapiNumber{ false, 0 }
-    }
-    var whole: i64 = 0
-    var fraction: i64 = 0
-    var digits: u32 = 0
-    var dot: bool = false
-    var i: u32 = 0
-    while i < u32(strlen(value)) {
-        let ch: string = str_slice(value, i, 1)
-        let digit: i32 = str_index_of("0123456789", ch)
-        if str_eq(ch, ".") && !dot {
-            dot = true
-        } else if digit < 0 {
-            return AppapiNumber{ false, 0 }
-        } else if dot {
-            if digits < 3 {
-                fraction = fraction * 10 + i64(digit)
-                digits = digits + 1
-            }
-        } else {
-            whole = whole * 10 + i64(digit)
-        }
-        i = i + 1
-    }
-    while digits < 3 {
-        fraction = fraction * 10
-        digits = digits + 1
-    }
-    var milli: i64 = whole * 1000 + fraction
-    if negative {
-        milli = 0 - milli
-    }
-    return AppapiNumber{ true, milli }
-}
-
-// appapi_decimal writes thousandths as a decimal with no trailing zeros.
-fn appapi_decimal(milli: i64) string {
-    var value: i64 = milli
-    var sign: string = ""
-    if value < 0 {
-        sign = "-"
-        value = 0 - value
-    }
-    let whole: i64 = value / 1000
-    let fraction: i64 = value - whole * 1000
-    var out: string = sign + appapi_i64(whole)
-    if fraction > 0 {
-        var digits: string = appapi_i64(fraction)
-        while strlen(digits) < 3 {
-            digits = "0" + digits
-        }
-        while str_eq(str_slice(digits, u32(strlen(digits)) - 1, 1), "0") {
-            digits = str_slice(digits, 0, u32(strlen(digits)) - 1)
-        }
-        out = out + "." + digits
-    }
-    return out
+    return AppapiNumber{ milli_valid(value), milli_parse(value) }
 }
 
 // appapi_i64 writes a whole number that may not fit 32 bits.
@@ -205,7 +131,7 @@ fn appapi_store(id: string, value: string, unit: string, label: string, kind: st
     let saved: Result[u32, SqlError] = PutAppapiValue(id, value, unit, label, kind, int_to_str(now), db)
     let number: AppapiNumber = appapi_number(value)
     if number.ok {
-        ignore_appapi(AddAppapiPoint(id, int_to_str(now), appapi_decimal(number.milli), db))
+        ignore_appapi(AddAppapiPoint(id, int_to_str(now), milli_format(number.milli), db))
     }
     sql_close(db)
     return saved.is_ok
@@ -319,7 +245,7 @@ fn appapi_derive(source: string, function: string, window: u32, now: u32) string
             return ""
         }
         // In days, to a thousandth.
-        return appapi_decimal(i64(now - last) * 1000 / 86400)
+        return milli_format(i64(now - last) * 1000 / 86400)
     }
     let dot: i32 = str_index_of(source, ".")
     if dot <= 0 {
@@ -341,16 +267,16 @@ fn appapi_derive(source: string, function: string, window: u32, now: u32) string
         return ""
     }
     if str_eq(function, "avg") {
-        return appapi_decimal(summary.sum / i64(summary.count))
+        return milli_format(summary.sum / i64(summary.count))
     }
     if str_eq(function, "min") {
-        return appapi_decimal(summary.low)
+        return milli_format(summary.low)
     }
     if str_eq(function, "max") {
-        return appapi_decimal(summary.high)
+        return milli_format(summary.high)
     }
     if str_eq(function, "integral") {
-        return appapi_decimal(summary.integral)
+        return milli_format(summary.integral)
     }
     return ""
 }
@@ -399,7 +325,7 @@ fn appapi_tick() u32 {
 /* -------------------------------------------------------------------------- */
 
 fn appapi_unquote(text: string) string {
-    let value: string = appapi_trim(text)
+    let value: string = str_trim(text)
     let n: u32 = u32(strlen(value))
     if n >= 2 && (str_eq(str_slice(value, 0, 1), "\"") || str_eq(str_slice(value, 0, 1), "'")) {
         return str_slice(value, 1, n - 2)
@@ -408,7 +334,7 @@ fn appapi_unquote(text: string) string {
 }
 
 fn appapi_seconds(text: string) u32 {
-    let value: string = appapi_trim(text)
+    let value: string = str_trim(text)
     if value == "" {
         return 0
     }
@@ -425,7 +351,7 @@ fn appapi_seconds(text: string) u32 {
 // value it derives, by id, with its `from`, `fn` (latest, avg, min, max,
 // integral, since, export), `window`, `unit` and `label`. It answers how many.
 fn appapi_presets(text: string) u32 {
-    if appapi_trim(text) == "" {
+    if str_trim(text) == "" {
         return 0
     }
     let path: string = appapi_db_path() + ".presets.yml"
@@ -568,7 +494,7 @@ fn appapi_history_api(req: Request) Response {
         if scaled < 0.0 {
             milli = i64(scaled - 0.5)
         }
-        out = out + "{\"t\":" + int_to_str(u32(points[i].at)) + "000,\"v\":" + appapi_decimal(milli) + "}"
+        out = out + "{\"t\":" + int_to_str(u32(points[i].at)) + "000,\"v\":" + milli_format(milli) + "}"
         i = i + 1
     }
     return json(status_ok(), "{\"ok\":true,\"points\":[" + out + "]}")

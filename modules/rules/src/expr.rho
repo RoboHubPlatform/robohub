@@ -40,17 +40,6 @@ struct RulesCursor {
 /*  Tokens                                                                    */
 /* -------------------------------------------------------------------------- */
 
-fn rules_trim(text: string) string {
-    var out: string = text
-    while strlen(out) > 0 && rules_is_space(str_slice(out, 0, 1)) {
-        out = str_slice(out, 1, u32(strlen(out)) - 1)
-    }
-    while strlen(out) > 0 && rules_is_space(str_slice(out, u32(strlen(out)) - 1, 1)) {
-        out = str_slice(out, 0, u32(strlen(out)) - 1)
-    }
-    return out
-}
-
 fn rules_is_space(ch: string) bool {
     return str_eq(ch, " ") || str_eq(ch, "\t") || str_eq(ch, "\n") || str_eq(ch, "\r")
 }
@@ -165,60 +154,19 @@ struct RulesNumber {
 }
 
 fn rules_number(text: string) RulesNumber {
-    var value: string = text
-    var negative: bool = false
-    if strlen(value) > 0 && str_eq(str_slice(value, 0, 1), "-") {
-        negative = true
-        value = str_slice(value, 1, u32(strlen(value)) - 1)
-    } else if strlen(value) > 0 && str_eq(str_slice(value, 0, 1), "+") {
-        value = str_slice(value, 1, u32(strlen(value)) - 1)
-    }
-    if value == "" {
-        return RulesNumber{ false, 0 }
-    }
-    var whole: i64 = 0
-    var fraction: i64 = 0
-    var digits: u32 = 0
-    var seen_dot: bool = false
-    var i: u32 = 0
-    while i < u32(strlen(value)) {
-        let ch: string = str_slice(value, i, 1)
-        let digit: i32 = str_index_of("0123456789", ch)
-        if str_eq(ch, ".") && !seen_dot {
-            seen_dot = true
-        } else if digit < 0 {
-            return RulesNumber{ false, 0 }
-        } else if seen_dot {
-            if digits < 3 {
-                fraction = fraction * 10 + i64(digit)
-                digits = digits + 1
-            }
-        } else {
-            whole = whole * 10 + i64(digit)
-        }
-        i = i + 1
-    }
-    while digits < 3 {
-        fraction = fraction * 10
-        digits = digits + 1
-    }
-    var milli: i64 = whole * 1000 + fraction
-    if negative {
-        milli = 0 - milli
-    }
-    return RulesNumber{ true, milli }
+    return RulesNumber{ milli_valid(text), milli_parse(text) }
 }
 
 // rules_normal is a value as a condition compares it: on/true are 1, off/false 0.
 fn rules_normal(value: string) string {
-    let lower: string = rules_lower(rules_trim(value))
+    let lower: string = rules_lower(str_trim(value))
     if str_eq(lower, "on") || str_eq(lower, "true") {
         return "1"
     }
     if str_eq(lower, "off") || str_eq(lower, "false") {
         return "0"
     }
-    return rules_trim(value)
+    return str_trim(value)
 }
 
 // rules_value is what an operand stands for: a literal, or a reading — the

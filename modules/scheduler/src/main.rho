@@ -6,7 +6,6 @@ module scheduler
 // port and no database of its own: its tables are applied to the host's main
 // SQL database, and its settings come from the host's app_modules entry.
 
-include "text.rho"
 include "scheduler.rho"
 include "notifications"
 include "forms"

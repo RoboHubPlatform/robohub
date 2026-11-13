@@ -28,7 +28,6 @@ const LOW_STOCK_CAPACITY: u32 = 128
 /*  Where the database and its schema are                                     */
 /* -------------------------------------------------------------------------- */
 
-
 fn inventory_workspace() string {
     let workspace: string = getenv("ROBOHUB_APP_WORKSPACE")
     if workspace == "" {
@@ -82,7 +81,7 @@ fn inventory_host_config(key: string) string {
             end = i + u32(at)
         }
         let line: string = str_slice(text, i, end - i)
-        let trimmed: string = trim(line)
+        let trimmed: string = str_trim(line)
         if strlen(trimmed) == 0 {
             i = end + 1
             continue
@@ -127,7 +126,7 @@ fn inventory_setting(key: string, fallback: string) string {
 }
 
 fn unquote(text: string) string {
-    let value: string = trim(text)
+    let value: string = str_trim(text)
     if strlen(value) >= 2 {
         let first: string = str_slice(value, 0, 1)
         let last: string = str_slice(value, u32(strlen(value)) - 1, 1)
@@ -220,44 +219,11 @@ fn inventory_quantity(milli: i64) string {
 }
 
 fn inventory_parse_scaled(text: string, scale: u32) u32 {
-    var value: string = trim(text)
-    if strlen(value) == 0 {
+    let milli: i64 = milli_parse(text)
+    if milli <= 0 {
         return 0
     }
-    if str_eq(str_slice(value, 0, 1), "+") {
-        value = str_slice(value, 1, u32(strlen(value)) - 1)
-    }
-    if str_eq(str_slice(value, 0, 1), "-") {
-        return 0
-    }
-    var whole: string = value
-    var fraction: string = ""
-    // A decimal comma (2,50) is a decimal point: it is how Romanian is written.
-    var dot: i32 = str_index_of(value, ".")
-    if dot < 0 {
-        dot = str_index_of(value, ",")
-    }
-    if dot >= 0 {
-        whole = str_slice(value, 0, u32(dot))
-        fraction = str_slice(value, u32(dot) + 1,
-            u32(strlen(value)) - u32(dot) - 1)
-    }
-    if strlen(whole) == 0 {
-        whole = "0"
-    }
-    let whole_value: u32 = int_from_str(whole)
-    var frac_value: u32 = 0
-    var i: u32 = 0
-    while i < 3 {
-        if i < u32(strlen(fraction)) {
-            let ch: string = str_slice(fraction, i, 1)
-            frac_value = frac_value * 10 + int_from_str(ch)
-        } else {
-            frac_value = frac_value * 10
-        }
-        i = i + 1
-    }
-    return whole_value * scale + (frac_value * scale) / 1000
+    return u32(milli * i64(scale) / 1000)
 }
 
 /* -------------------------------------------------------------------------- */
@@ -443,7 +409,7 @@ fn inventory_kind_options(req: Request, selected: string) string {
 
 // inventory_kind is a kind as written, or the category's when none was chosen.
 fn inventory_kind(chosen: string, category_id: string, categories: Categories[64], count: u32) string {
-    let kind: string = trim(chosen)
+    let kind: string = str_trim(chosen)
     if str_eq(kind, "consumable") || str_eq(kind, "part") || str_eq(kind, "equipment") {
         return kind
     }
@@ -464,7 +430,7 @@ fn inventory_handle(text: string) string {
     let upper: string = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
     var out: string = ""
     var i: u32 = 0
-    let value: string = trim(text)
+    let value: string = str_trim(text)
     while i < u32(strlen(value)) {
         let ch: string = str_slice(value, i, 1)
         let up: i32 = str_index_of(upper, ch)
@@ -792,12 +758,12 @@ fn items_add(req: Request) Response {
     if !forms_csrf_ok(body) {
         return inventory_page_message(req, i18n_t(req, "inventory.csrf_refused"))
     }
-    let name: string = trim(form_value(body, "name"))
+    let name: string = str_trim(form_field(body, "name"))
     if strlen(name) == 0 {
         return inventory_page_message(req, "An item needs a name.")
     }
-    let quantity: u32 = inventory_parse_scaled(form_value(body, "quantity"), 1000)
-    let reorder: u32 = inventory_parse_scaled(form_value(body, "reorder"), 1000)
+    let quantity: u32 = inventory_parse_scaled(form_field(body, "quantity"), 1000)
+    let reorder: u32 = inventory_parse_scaled(form_field(body, "reorder"), 1000)
     let opened: Result[SqlDb, string] = sql_open(inventory_db_path())
     if !opened.is_ok {
         return inventory_page_message(req, "The database could not be opened: " + opened.err)
@@ -812,8 +778,8 @@ fn items_add(req: Request) Response {
     if listed_categories.is_ok {
         category_count = listed_categories.ok
     }
-    let category_id: string = trim(form_value(body, "category_id"))
-    let handle: string = inventory_handle(form_value(body, "handle"))
+    let category_id: string = str_trim(form_field(body, "category_id"))
+    let handle: string = inventory_handle(form_field(body, "handle"))
     if inventory_handle_taken(db, handle, 0) {
         sql_close(db)
         return inventory_page_message(req, i18n_t(req, "inventory.handle_taken"))
@@ -821,12 +787,12 @@ fn items_add(req: Request) Response {
     let added: Result[u32, SqlError] = InsertItem(
         name,
         category_id,
-        trim(form_value(body, "unit")),
+        str_trim(form_field(body, "unit")),
         int_to_str(quantity),
         int_to_str(reorder),
-        trim(form_value(body, "location")),
-        trim(form_value(body, "notes")),
-        inventory_kind(form_value(body, "kind"), category_id, categories, category_count),
+        str_trim(form_field(body, "location")),
+        str_trim(form_field(body, "notes")),
+        inventory_kind(form_field(body, "kind"), category_id, categories, category_count),
         handle,
         db)
     let failure: string = sql_last_message(db)
@@ -841,7 +807,7 @@ fn items_add(req: Request) Response {
 
 fn items_edit_save(req: Request) Response {
     let body: string = request_body(req)
-    let id: u32 = int_from_str(trim(form_value(body, "id")))
+    let id: u32 = int_from_str(str_trim(form_field(body, "id")))
     if id == 0 {
         return inventory_page_message(req, "That item was not found.")
     }
@@ -851,24 +817,24 @@ fn items_edit_save(req: Request) Response {
     }
     let db: SqlDb = opened.ok
     sql_apply(db, inventory_schema())
-    let handle: string = inventory_handle(form_value(body, "handle"))
+    let handle: string = inventory_handle(form_field(body, "handle"))
     if inventory_handle_taken(db, handle, id) {
         sql_close(db)
         return inventory_page_message(req, i18n_t(req, "inventory.handle_taken"))
     }
-    let reorder: u32 = inventory_parse_scaled(form_value(body, "reorder"), 1000)
-    let portion: u32 = inventory_parse_scaled(form_value(body, "portion"), 1000)
-    var kind: string = trim(form_value(body, "kind"))
+    let reorder: u32 = inventory_parse_scaled(form_field(body, "reorder"), 1000)
+    let portion: u32 = inventory_parse_scaled(form_field(body, "portion"), 1000)
+    var kind: string = str_trim(form_field(body, "kind"))
     if !str_eq(kind, "part") && !str_eq(kind, "equipment") {
         kind = "consumable"
     }
     let updated: Result[u32, SqlError] = UpdateItemDetails(
-        trim(form_value(body, "name")),
-        trim(form_value(body, "category_id")),
-        trim(form_value(body, "unit")),
+        str_trim(form_field(body, "name")),
+        str_trim(form_field(body, "category_id")),
+        str_trim(form_field(body, "unit")),
         i64(reorder),
-        trim(form_value(body, "location")),
-        trim(form_value(body, "notes")),
+        str_trim(form_field(body, "location")),
+        str_trim(form_field(body, "notes")),
         kind,
         handle,
         i64(portion),
@@ -886,8 +852,8 @@ fn items_consume(req: Request) Response {
     if !forms_csrf_ok(body) {
         return inventory_page_message(req, i18n_t(req, "inventory.csrf_refused"))
     }
-    let id: u32 = int_from_str(trim(form_value(body, "item_id")))
-    let amount: u32 = inventory_parse_scaled(form_value(body, "quantity"), 1000)
+    let id: u32 = int_from_str(str_trim(form_field(body, "item_id")))
+    let amount: u32 = inventory_parse_scaled(form_field(body, "quantity"), 1000)
     if id == 0 || amount == 0 {
         return inventory_page_message(req, "Choose an item and a quantity to remove.")
     }
@@ -901,8 +867,8 @@ fn items_consume(req: Request) Response {
     let updated: Result[u32, SqlError] = UpdateItemStock(delta, i64(id), db)
     if updated.is_ok {
         ignore_result(InsertMovement(int_to_str(id), "consume", delta, "0", "0",
-            trim(form_value(body, "source")), inventory_date(),
-            trim(form_value(body, "comment")), db))
+            str_trim(form_field(body, "source")), inventory_date(),
+            str_trim(form_field(body, "comment")), db))
     }
     sql_close(db)
     if !updated.is_ok {
@@ -918,9 +884,9 @@ fn expenses_add(req: Request) Response {
     if !forms_csrf_ok(body) {
         return inventory_page_message(req, i18n_t(req, "inventory.csrf_refused"))
     }
-    let item_id: u32 = int_from_str(trim(form_value(body, "item_id")))
-    let quantity: u32 = inventory_parse_scaled(form_value(body, "quantity"), 1000)
-    let unit_price: u32 = inventory_parse_scaled(form_value(body, "unit_price"), 100)
+    let item_id: u32 = int_from_str(str_trim(form_field(body, "item_id")))
+    let quantity: u32 = inventory_parse_scaled(form_field(body, "quantity"), 1000)
+    let unit_price: u32 = inventory_parse_scaled(form_field(body, "unit_price"), 100)
     if item_id == 0 {
         return inventory_page_message(req, "Choose the item this purchase belongs to.")
     }
@@ -930,7 +896,7 @@ fn expenses_add(req: Request) Response {
     }
     // In 64 bits: 100 units at 500.00 is more cents than 32 bits hold.
     let total: i64 = (i64(qty) * i64(unit_price)) / 1000
-    var purchased: string = trim(form_value(body, "purchased_at"))
+    var purchased: string = str_trim(form_field(body, "purchased_at"))
     if strlen(purchased) == 0 {
         purchased = inventory_date()
     }
@@ -959,16 +925,16 @@ fn expenses_add(req: Request) Response {
 
     let inserted: Result[u32, SqlError] = InsertExpense(
         int_to_str(item_id), item_name,
-        trim(form_value(body, "category_id")),
+        str_trim(form_field(body, "category_id")),
         int_to_str(qty), int_to_str(unit_price), inventory_i64(total),
-        trim(form_value(body, "source")), purchased,
-        trim(form_value(body, "comment")), db)
+        str_trim(form_field(body, "source")), purchased,
+        str_trim(form_field(body, "comment")), db)
     if inserted.is_ok {
         ignore_result(UpdateItemStock(int_to_str(qty), i64(item_id), db))
         ignore_result(InsertMovement(int_to_str(item_id), "purchase",
             int_to_str(qty), int_to_str(unit_price), inventory_i64(total),
-            trim(form_value(body, "source")), purchased,
-            trim(form_value(body, "comment")), db))
+            str_trim(form_field(body, "source")), purchased,
+            str_trim(form_field(body, "comment")), db))
     }
     sql_close(db)
     if !inserted.is_ok {
@@ -981,7 +947,7 @@ fn expenses_add(req: Request) Response {
 
 fn expenses_delete(req: Request) Response {
     let body: string = request_body(req)
-    let id: u32 = int_from_str(trim(form_value(body, "id")))
+    let id: u32 = int_from_str(str_trim(form_field(body, "id")))
     if id == 0 {
         return inventory_page_message(req, "That purchase was not found.")
     }
@@ -1004,7 +970,7 @@ fn categories_add(req: Request) Response {
     if !forms_csrf_ok(body) {
         return inventory_page_message(req, i18n_t(req, "inventory.csrf_refused"))
     }
-    let name: string = trim(form_value(body, "category"))
+    let name: string = str_trim(form_field(body, "category"))
     if strlen(name) == 0 {
         return inventory_page_message(req, "A category needs a name.")
     }

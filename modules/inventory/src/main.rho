@@ -7,7 +7,6 @@ module inventory
 // /expenses. Its database and settings live in the host application's
 // workspace, not beside the module.
 
-include "text.rho"
 include "inventory.rho"
 include "automation.rho"
 include "notifications"

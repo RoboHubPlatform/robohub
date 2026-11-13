@@ -71,20 +71,8 @@ fn sim_minutes() u32 {
     return 0
 }
 
-fn sim_trim(text: string) string {
-    var out: string = text
-    while strlen(out) > 0 && (str_eq(str_slice(out, 0, 1), " ") || str_eq(str_slice(out, 0, 1), "\n")) {
-        out = str_slice(out, 1, u32(strlen(out)) - 1)
-    }
-    while strlen(out) > 0 && (str_eq(str_slice(out, u32(strlen(out)) - 1, 1), " ") ||
-        str_eq(str_slice(out, u32(strlen(out)) - 1, 1), "\n")) {
-        out = str_slice(out, 0, u32(strlen(out)) - 1)
-    }
-    return out
-}
-
 fn sim_unquote(text: string) string {
-    let value: string = sim_trim(text)
+    let value: string = str_trim(text)
     let n: u32 = u32(strlen(value))
     if n >= 2 && (str_eq(str_slice(value, 0, 1), "\"") || str_eq(str_slice(value, 0, 1), "'")) {
         return str_slice(value, 1, n - 2)
@@ -156,49 +144,11 @@ fn sim_after_line(rest: string) string {
 
 // sim_milli reads a decimal (or on/off) in thousandths.
 fn sim_milli(text: string) i64 {
-    var value: string = sim_trim(text)
+    let value: string = str_trim(text)
     if str_eq(value, "on") || str_eq(value, "true") {
         return 1000
     }
-    if str_eq(value, "off") || str_eq(value, "false") || value == "" {
-        return 0
-    }
-    var negative: bool = false
-    if str_eq(str_slice(value, 0, 1), "-") {
-        negative = true
-        value = str_slice(value, 1, u32(strlen(value)) - 1)
-    }
-    var whole: i64 = 0
-    var fraction: i64 = 0
-    var digits: u32 = 0
-    var dot: bool = false
-    var i: u32 = 0
-    while i < u32(strlen(value)) {
-        let ch: string = str_slice(value, i, 1)
-        let digit: i32 = str_index_of("0123456789", ch)
-        if str_eq(ch, ".") {
-            dot = true
-        } else if digit >= 0 {
-            if dot {
-                if digits < 3 {
-                    fraction = fraction * 10 + i64(digit)
-                    digits = digits + 1
-                }
-            } else {
-                whole = whole * 10 + i64(digit)
-            }
-        }
-        i = i + 1
-    }
-    while digits < 3 {
-        fraction = fraction * 10
-        digits = digits + 1
-    }
-    var milli: i64 = whole * 1000 + fraction
-    if negative {
-        milli = 0 - milli
-    }
-    return milli
+    return milli_parse(value)
 }
 
 fn sim_i64(value: i64) string {
@@ -217,29 +167,6 @@ fn sim_i64(value: i64) string {
         rest = rest / 10
     }
     return sign + out
-}
-
-fn sim_decimal(milli: i64) string {
-    var value: i64 = milli
-    var sign: string = ""
-    if value < 0 {
-        sign = "-"
-        value = 0 - value
-    }
-    let whole: i64 = value / 1000
-    let fraction: i64 = value - whole * 1000
-    var out: string = sign + sim_i64(whole)
-    if fraction > 0 {
-        var digits: string = sim_i64(fraction)
-        while strlen(digits) < 3 {
-            digits = "0" + digits
-        }
-        while str_eq(str_slice(digits, u32(strlen(digits)) - 1, 1), "0") {
-            digits = str_slice(digits, 0, u32(strlen(digits)) - 1)
-        }
-        out = out + "." + digits
-    }
-    return out
 }
 
 fn sim_parse_i64(text: string) i64 {
@@ -317,7 +244,7 @@ fn sim_shown(value: string) string {
     if str_eq(value, "on") || str_eq(value, "off") || value == "" {
         return value
     }
-    return sim_decimal(sim_parse_signed(value))
+    return milli_format(sim_parse_signed(value))
 }
 
 fn sim_parse_signed(text: string) i64 {
@@ -351,11 +278,11 @@ fn sim_record(line: string, value: string, now: u32) void {
     } else if !str_eq(value, "off") {
         milli = sim_parse_signed(value)
     }
-    rho_append_text(sim_history_file(id), int_to_str(now) + " " + sim_decimal(milli) + "\n")
+    rho_append_text(sim_history_file(id), int_to_str(now) + " " + milli_format(milli) + "\n")
     let data: string = "{\"area\":0,\"field\":" + json_string(sim_field(line, 2)) +
         ",\"node\":0,\"project\":\"sim\",\"received_ms\":" + int_to_str(now) + "000" +
         ",\"source\":" + json_string(sim_field(line, 1)) + ",\"status\":0,\"value\":" +
-        json_string(sim_decimal(milli)) + "}"
+        json_string(milli_format(milli)) + "}"
     let event: string = "{\"data\":" + json_string(data) + ",\"event\":\"telemetry\"}\n"
     var follows: string = rho_read_text(sim_dir() + "/follow.txt")
     while follows != "" {
@@ -507,7 +434,7 @@ fn sim_next(line: string, current: string, seconds: u32, minutes: u32) string {
 }
 
 fn sim_clock(text: string) u32 {
-    let value: string = sim_trim(text)
+    let value: string = str_trim(text)
     if strlen(value) != 5 {
         return 0
     }
@@ -522,7 +449,7 @@ fn sim_clock(text: string) u32 {
 // device with a `label` and its `sources:`, each source with a `model` and the
 // model's settings — and keeps the sources. It answers how many.
 fn presets(text: string) u32 {
-    if sim_trim(text) == "" {
+    if str_trim(text) == "" {
         return 0
     }
     let path: string = sim_dir() + "/sim.yml"
@@ -586,7 +513,7 @@ fn presets(text: string) u32 {
 fn tick() u32 {
     rho_lock("simulator")
     let now: u32 = sim_now()
-    let last: u32 = int_from_str(sim_trim(rho_read_text(sim_dir() + "/last.txt")))
+    let last: u32 = int_from_str(str_trim(rho_read_text(sim_dir() + "/last.txt")))
     var seconds: u32 = 0
     if last > 0 && now > last {
         seconds = now - last
@@ -843,14 +770,14 @@ fn source_history(source: string, from_ms: string, to_ms: string, step_ms: strin
             if out != "" {
                 out = out + ","
             }
-            out = out + "{\"t\":" + sim_i64(t * 1000) + ",\"v\":" + sim_decimal(v) + "}"
+            out = out + "{\"t\":" + sim_i64(t * 1000) + ",\"v\":" + milli_format(v) + "}"
         } else {
             let this: i64 = (t / bucket_s) * bucket_s
             if this != bucket && count > 0 {
                 if out != "" {
                     out = out + ","
                 }
-                out = out + "{\"t\":" + sim_i64(bucket * 1000) + ",\"v\":" + sim_decimal(sum / count) + "}"
+                out = out + "{\"t\":" + sim_i64(bucket * 1000) + ",\"v\":" + milli_format(sum / count) + "}"
                 sum = 0
                 count = 0
             }
@@ -863,7 +790,7 @@ fn source_history(source: string, from_ms: string, to_ms: string, step_ms: strin
         if out != "" {
             out = out + ","
         }
-        out = out + "{\"t\":" + sim_i64(bucket * 1000) + ",\"v\":" + sim_decimal(sum / count) + "}"
+        out = out + "{\"t\":" + sim_i64(bucket * 1000) + ",\"v\":" + milli_format(sum / count) + "}"
     }
     return "{\"ok\":true,\"points\":[" + out + "]}"
 }

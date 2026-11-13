@@ -20,7 +20,6 @@ extern fn rho_asset(module: string, path: string) string
 const WIDGET_CAPACITY: u32 = 128
 const VALUE_CAPACITY: u32 = 100
 
-
 fn widget_workspace() string {
     let workspace: string = getenv("ROBOHUB_APP_WORKSPACE")
     if workspace == "" {
@@ -108,41 +107,8 @@ fn widget_curl(url: string, report: string) string {
     return rho_exec_capture("curl", widget_curl_line("GET", url, "3"))
 }
 
-fn widget_parse_milli(text: string) i64 {
-    var value: string = widget_trim(text)
-    var sign: i64 = 1
-    if strlen(value) > 0 && str_eq(str_slice(value, 0, 1), "-") {
-        sign = -1
-        value = str_slice(value, 1, u32(strlen(value)) - 1)
-    }
-    var whole: string = value
-    var fraction: string = ""
-    let dot: i32 = str_index_of(value, ".")
-    if dot >= 0 {
-        whole = str_slice(value, 0, u32(dot))
-        fraction = str_slice(value, u32(dot) + 1,
-            u32(strlen(value)) - u32(dot) - 1)
-    }
-    if strlen(whole) == 0 {
-        whole = "0"
-    }
-    let whole_value: u32 = int_from_str(whole)
-    var frac_value: u32 = 0
-    var i: u32 = 0
-    while i < 3 {
-        if i < u32(strlen(fraction)) {
-            frac_value = frac_value * 10 +
-                int_from_str(str_slice(fraction, i, 1))
-        } else {
-            frac_value = frac_value * 10
-        }
-        i = i + 1
-    }
-    return sign * i64(whole_value * 1000 + frac_value)
-}
-
 fn widget_epoch_seconds(text: string) u32 {
-    let value: string = widget_trim(text)
+    let value: string = str_trim(text)
     if strlen(value) <= 10 {
         return int_from_str(value)
     }
@@ -224,7 +190,7 @@ fn widgets_migrate_sources() u32 {
     }
     let stamp: string = widget_state_dir() + "/migrate.wait"
     let now: u32 = widget_now()
-    if !pending || now < int_from_str(widget_trim(rho_read_text(stamp))) {
+    if !pending || now < int_from_str(str_trim(rho_read_text(stamp))) {
         sql_close(db)
         return 0
     }
@@ -356,7 +322,7 @@ fn widget_refresh(widget: Widgets) string {
             return ""
         }
         widget_ignore_result(InsertWidgetValue(int_to_str(u32(widget.id)), text,
-            int_to_str(u32(widget_parse_milli(text))), int_to_str(widget_now()), db))
+            int_to_str(u32(milli_parse(text))), int_to_str(widget_now()), db))
         sql_close(db)
         return text
     }
@@ -365,7 +331,7 @@ fn widget_refresh(widget: Widgets) string {
         strlen(widget.source) == 0 {
         return ""
     }
-    let text: string = widget_trim(widget_curl(widget.source, ""))
+    let text: string = str_trim(widget_curl(widget.source, ""))
     if strlen(text) == 0 {
         return ""
     }
@@ -380,7 +346,7 @@ fn widget_refresh(widget: Widgets) string {
         return ""
     }
     widget_ignore_result(InsertWidgetValue(int_to_str(u32(widget.id)), text,
-        int_to_str(u32(widget_parse_milli(text))), int_to_str(widget_now()), db))
+        int_to_str(u32(milli_parse(text))), int_to_str(widget_now()), db))
     sql_close(db)
     return text
 }
@@ -445,20 +411,20 @@ fn widget_chart(values: WidgetValues[100], count: u32, locale: string) string {
         points = points + int_to_str(x) + "," + int_to_str(y) + " "
         i = i + 1
     }
-    return template_fill(widget_template("cards/chart"), vars("points", widget_trim(points)) + vars("__locale", locale))
+    return template_fill(widget_template("cards/chart"), vars("points", str_trim(points)) + vars("__locale", locale))
 }
 
 fn widget_setting(key: string, fallback: string) string {
     let value: string = settings_get("widgets." + key, "")
     if value != "" {
-        return widget_trim(value)
+        return str_trim(value)
     }
     // Older widget installs kept one file per setting.
     let workspace: string = getenv("ROBOHUB_APP_WORKSPACE")
     if workspace == "" {
         workspace = getenv("HOME") + "/.rho/modules/widgets"
     }
-    let legacy: string = widget_trim(rho_read_text(workspace + "/data/" + key))
+    let legacy: string = str_trim(rho_read_text(workspace + "/data/" + key))
     if legacy != "" {
         return legacy
     }
@@ -707,10 +673,8 @@ fn widget_method_options(selected: string) string {
     return out
 }
 
-
-
 fn widget_round(value: string, decimals: u32) string {
-    let v: string = widget_trim(value)
+    let v: string = str_trim(value)
     if v == "" {
         return v
     }
@@ -758,7 +722,6 @@ fn widget_table(values: WidgetValues[100], count: u32, rows: u32, unit: string, 
     return template_fill(widget_template("cards/table"), vars("rows", out) + vars("__locale", locale))
 }
 
-
 fn widget_card_controls(id: u32, pinned: u32, kind: string, locale: string) string {
     let sid: string = int_to_str(id)
     var pinnable: string = ""
@@ -781,7 +744,6 @@ fn widget_card_controls(id: u32, pinned: u32, kind: string, locale: string) stri
         vars("pin_icon", pin_icon) +
         vars("pinned", pinned_flag))
 }
-
 
 fn widget_card(db: SqlDb, widget: Widgets, locale: string) string {
     let values: WidgetValues[100]
@@ -812,7 +774,7 @@ fn widget_card(db: SqlDb, widget: Widgets, locale: string) string {
                 if value_text != "" {
                     var held: WidgetValues
                     held.valueText = value_text
-                    held.valueMilli = widget_parse_milli(value_text)
+                    held.valueMilli = milli_parse(value_text)
                     held.recordedEpoch = i64(widget_epoch_seconds(
                         widget_json_number_field(object, "t")))
                     values[count] = held
@@ -1110,25 +1072,25 @@ fn widgets_add(req: Request) Response {
     if !forms_csrf_ok(body) {
         return widgets_page_message(req, i18n_t(req, "widget.csrf_refused"))
     }
-    let title: string = widget_trim(widget_form_value(body, "title"))
+    let title: string = str_trim(form_field(body, "title"))
     if strlen(title) == 0 {
         return widgets_page_message(req, "A widget needs a title.")
     }
-    var kind: string = widget_form_value(body, "kind")
+    var kind: string = form_field(body, "kind")
     if strlen(kind) == 0 {
         kind = "numeric"
     }
-    var source_kind: string = widget_form_value(body, "source_kind")
+    var source_kind: string = form_field(body, "source_kind")
     if strlen(source_kind) == 0 {
         source_kind = "manual"
     }
-    var source: string = widget_trim(widget_form_value(body, "source"))
-    var method: string = widget_trim(widget_form_value(body, "method"))
+    var source: string = str_trim(form_field(body, "source"))
+    var method: string = str_trim(form_field(body, "method"))
     if strlen(method) == 0 {
         method = "GET"
     }
-    var mesh_source: string = widget_trim(widget_form_value(body, "mesh_source"))
-    var device_url: string = widget_trim(widget_form_value(body, "device_url"))
+    var mesh_source: string = str_trim(form_field(body, "mesh_source"))
+    var device_url: string = str_trim(form_field(body, "device_url"))
     if device_url != "" {
         source = device_url
         method = "POST"
@@ -1138,8 +1100,8 @@ fn widgets_add(req: Request) Response {
         source_kind = "mesh"
         method = "GET"
     }
-    let unit: string = widget_trim(widget_form_value(body, "unit"))
-    var points: u32 = int_from_str(widget_trim(widget_form_value(body, "points")))
+    let unit: string = str_trim(form_field(body, "unit"))
+    var points: u32 = int_from_str(str_trim(form_field(body, "points")))
     if points == 0 {
         points = 24
     }
@@ -1213,7 +1175,7 @@ fn widget_edit_page(req: Request) Response {
 
 fn widgets_edit_save(req: Request) Response {
     let body: string = request_body(req)
-    let id: u32 = int_from_str(widget_trim(widget_form_value(body, "id")))
+    let id: u32 = int_from_str(str_trim(form_field(body, "id")))
     if id == 0 {
         return widgets_page_message(req, "That widget was not found.")
     }
@@ -1223,11 +1185,11 @@ fn widgets_edit_save(req: Request) Response {
     }
     let db: SqlDb = opened.ok
     sql_apply(db, "")
-    var source: string = widget_trim(widget_form_value(body, "source"))
-    var method: string = widget_trim(widget_form_value(body, "method"))
-    var source_kind: string = widget_form_value(body, "source_kind")
-    var mesh_source: string = widget_trim(widget_form_value(body, "mesh_source"))
-    let device_url: string = widget_trim(widget_form_value(body, "device_url"))
+    var source: string = str_trim(form_field(body, "source"))
+    var method: string = str_trim(form_field(body, "method"))
+    var source_kind: string = form_field(body, "source_kind")
+    var mesh_source: string = str_trim(form_field(body, "mesh_source"))
+    let device_url: string = str_trim(form_field(body, "device_url"))
     if device_url != "" {
         source = device_url
         method = "POST"
@@ -1237,16 +1199,16 @@ fn widgets_edit_save(req: Request) Response {
         source_kind = "mesh"
         method = "GET"
     }
-    let points: u32 = int_from_str(widget_trim(widget_form_value(body, "points")))
-    var decimals: u32 = int_from_str(widget_trim(widget_form_value(body, "decimals")))
+    let points: u32 = int_from_str(str_trim(form_field(body, "points")))
+    var decimals: u32 = int_from_str(str_trim(form_field(body, "decimals")))
     if decimals > 3 { decimals = 3 }
     let updated: Result[u32, SqlError] = UpdateWidget(
-        widget_trim(widget_form_value(body, "title")),
-        widget_form_value(body, "kind"),
+        str_trim(form_field(body, "title")),
+        form_field(body, "kind"),
         source_kind,
         source,
         method,
-        widget_trim(widget_form_value(body, "unit")),
+        str_trim(form_field(body, "unit")),
         i64(points), i64(decimals), i64(id), db)
     sql_close(db)
     if !updated.is_ok {
@@ -1258,7 +1220,7 @@ fn widgets_edit_save(req: Request) Response {
 
 fn widgets_delete(req: Request) Response {
     let body: string = request_body(req)
-    let id: u32 = int_from_str(widget_trim(widget_form_value(body, "id")))
+    let id: u32 = int_from_str(str_trim(form_field(body, "id")))
     let opened: Result[SqlDb, string] = sql_open(widget_db_path())
     if !opened.is_ok {
         return widgets_page_message(req, "The database could not be opened: " + opened.err)
@@ -1283,8 +1245,8 @@ fn widgets_move_response(req: Request) Response {
 
 fn widgets_move(req: Request) Response {
     let body: string = request_body(req)
-    let id: u32 = int_from_str(widget_trim(widget_form_value(body, "id")))
-    let delta_str: string = widget_trim(widget_form_value(body, "delta"))
+    let id: u32 = int_from_str(str_trim(form_field(body, "id")))
+    let delta_str: string = str_trim(form_field(body, "delta"))
     var delta: i32 = 0
     if str_eq(delta_str, "-1") || str_eq(delta_str, "-") {
         delta = -1
@@ -1343,12 +1305,12 @@ fn widgets_move(req: Request) Response {
 
 fn widgets_resize(req: Request) Response {
     let body: string = request_body(req)
-    let id: u32 = int_from_str(widget_trim(widget_form_value(body, "id")))
+    let id: u32 = int_from_str(str_trim(form_field(body, "id")))
     if id == 0 {
         return widgets_page_message(req, "No such widget.")
     }
-    let delta: string = widget_trim(widget_form_value(body, "delta"))
-    let size_in: string = widget_trim(widget_form_value(body, "size"))
+    let delta: string = str_trim(form_field(body, "delta"))
+    let size_in: string = str_trim(form_field(body, "size"))
     var size: string = size_in
     if delta != "" {
         let opened0: Result[SqlDb, string] = sql_open(widget_db_path())
@@ -1397,11 +1359,10 @@ fn widgets_resize(req: Request) Response {
     return widgets_page_message(req, "Widget resized.")
 }
 
-
 fn widgets_pin(req: Request) Response {
     let body: string = request_body(req)
-    let id: u32 = int_from_str(widget_trim(widget_form_value(body, "id")))
-    let pinned: string = widget_trim(widget_form_value(body, "pinned"))
+    let id: u32 = int_from_str(str_trim(form_field(body, "id")))
+    let pinned: string = str_trim(form_field(body, "pinned"))
     if id == 0 {
         return widgets_page_message(req, "No such widget.")
     }
@@ -1425,8 +1386,8 @@ fn widgets_pin(req: Request) Response {
 
 fn widgets_value(req: Request) Response {
     let body: string = request_body(req)
-    let id: u32 = int_from_str(widget_trim(widget_form_value(body, "id")))
-    let value: string = widget_trim(widget_form_value(body, "value"))
+    let id: u32 = int_from_str(str_trim(form_field(body, "id")))
+    let value: string = str_trim(form_field(body, "value"))
     if id == 0 || strlen(value) == 0 {
         return widgets_page_message(req, "A value needs a widget and a number.")
     }
@@ -1437,14 +1398,14 @@ fn widgets_value(req: Request) Response {
     let db: SqlDb = opened.ok
     sql_apply(db, "")
     widget_ignore_result(InsertWidgetValue(int_to_str(id), value,
-        int_to_str(u32(widget_parse_milli(value))), int_to_str(widget_now()), db))
+        int_to_str(u32(milli_parse(value))), int_to_str(widget_now()), db))
     sql_close(db)
     return widgets_page_message(req, "Value recorded.")
 }
 
 fn widgets_press(req: Request) Response {
     let body: string = request_body(req)
-    let id: u32 = int_from_str(widget_trim(widget_form_value(body, "id")))
+    let id: u32 = int_from_str(str_trim(form_field(body, "id")))
     let opened: Result[SqlDb, string] = sql_open(widget_db_path())
     if !opened.is_ok {
         return widgets_page_message(req, "The database could not be opened: " + opened.err)
@@ -1502,7 +1463,7 @@ fn widgets_press(req: Request) Response {
     if str_eq(header_str(req, "HX-Request"), "true") {
         return html(status_ok(), card)
     }
-    let back: string = widget_form_value(body, "return")
+    let back: string = form_field(body, "return")
     if str_eq(back, "dashboard") {
         var ok: string = "true"
         if code != 0 {
@@ -1842,7 +1803,7 @@ fn widgets_api_list(req: Request) Response {
 fn widgets_api_value(req: Request) Response {
     let id: string = param(req, "id")
     let body: string = request_body(req)
-    let value: string = widget_trim(widget_form_value(body, "value"))
+    let value: string = str_trim(form_field(body, "value"))
     if strlen(id) == 0 || strlen(value) == 0 {
         return json(status_bad_request(), "{\"ok\":false}")
     }
@@ -1853,7 +1814,7 @@ fn widgets_api_value(req: Request) Response {
     let db: SqlDb = opened.ok
     sql_apply(db, "")
     widget_ignore_result(InsertWidgetValue(id, value,
-        int_to_str(u32(widget_parse_milli(value))), int_to_str(widget_now()), db))
+        int_to_str(u32(milli_parse(value))), int_to_str(widget_now()), db))
     sql_close(db)
     return json(status_ok(), "{\"ok\":true}")
 }

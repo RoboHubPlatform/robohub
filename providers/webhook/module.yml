@@ -7,7 +7,7 @@ module:
   previous_ids:
     - robohub.providers.webhook
   type: provider
-  version: 0.2.1
+  version: 0.2.2
   description: Posts an alert body to an HTTP endpoint.
   maintainer: "Aurel Miron"
   license: "MIT"

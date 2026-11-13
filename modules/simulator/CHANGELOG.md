@@ -20,3 +20,7 @@ power from the site's surplus, a grid meter from what is left.
 ## [0.2.1] - 2026-11-13
 
 The clock is read from the process (`rho_now_s`, rho 0.6.0) instead of from `date` written to a file and read back, which a request and the background loop could truncate under each other: entries dated 1970 and modes that expired at once. The time of day the `day` model follows likewise.
+
+## [0.2.2] - 2026-11-14
+
+Trimming, URL escapes, form fields and decimals come from the toolchain (rho 0.7.0: `str_trim`, `str_url_encode`/`str_url_decode`, `form_field`, `milli_*`) rather than this module's own copy, the same on both backends. Needs rho 0.7.0. A preset value that is not a number is 0, where its digits were picked out of it.

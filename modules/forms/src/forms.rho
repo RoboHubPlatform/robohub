@@ -15,7 +15,6 @@ extern fn rho_asset(module: string, path: string) string
 /*  Escaping and text                                                           */
 /* -------------------------------------------------------------------------- */
 
-
 fn forms_template(name: string) string {
     return rho_asset("forms", "templates/" + name)
 }
@@ -388,22 +387,6 @@ fn forms_token_file() string {
     return dir + "/csrf.txt"
 }
 
-fn forms_trim(text: string) string {
-    var out: string = text
-    while strlen(out) > 0 {
-        let last: string = str_slice(out, u32(strlen(out)) - 1, 1)
-        if str_eq(last, " ") || str_eq(last, "\n") || str_eq(last, "\r") || str_eq(last, "\t") {
-            out = str_slice(out, 0, u32(strlen(out)) - 1)
-        } else {
-            break
-        }
-    }
-    while strlen(out) > 0 && str_eq(str_slice(out, 0, 1), " ") {
-        out = str_slice(out, 1, u32(strlen(out)) - 1)
-    }
-    return out
-}
-
 // forms_token_ok is whether a stored token is one this module makes: 64 hex
 // characters from the runtime's random source. A token written by an older
 // release — the workspace path and a timestamp, which anyone could work out — is
@@ -430,7 +413,7 @@ fn forms_token_ok(token: string) bool {
 // refuses every submit rather than accepting a guessable one.
 fn forms_token() string {
     let path: string = forms_token_file()
-    let existing: string = forms_trim(rho_read_text(path))
+    let existing: string = str_trim(rho_read_text(path))
     if forms_token_ok(existing) {
         return existing
     }

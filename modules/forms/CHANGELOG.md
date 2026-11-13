@@ -31,3 +31,7 @@ importer names has to be listed under `provides.exports`.
 ## [0.3.1] - 2026-11-12
 
 The module builds on its own: it imports the template module whose `vars` it calls and declares the runtime functions it uses, rather than relying on the application that includes it to have declared them.
+
+## [0.3.3] - 2026-11-14
+
+Trimming, URL escapes, form fields and decimals come from the toolchain (rho 0.7.0: `str_trim`, `str_url_encode`/`str_url_decode`, `form_field`, `milli_*`) rather than this module's own copy, the same on both backends. Needs rho 0.7.0. A value is trimmed of tabs and line breaks at its start as well as its end.

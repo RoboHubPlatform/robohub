@@ -16,3 +16,7 @@ instead of relying on whoever includes it to have included them first.
 ## [0.2.1] - 2026-11-12
 
 The module builds on its own: it declares the runtime functions it calls rather than relying on the application that includes it.
+
+## [0.2.2] - 2026-11-14
+
+Trimming, URL escapes, form fields and decimals come from the toolchain (rho 0.7.0: `str_trim`, `str_url_encode`/`str_url_decode`, `form_field`, `milli_*`) rather than this module's own copy, the same on both backends. Needs rho 0.7.0.
