@@ -29,7 +29,7 @@ providers:
     enabled: true
   - name: robohub-provider-mesh
     path: mesh
-    implements: gateway
+    implements: robohub.gateway
     transport: mesh
     enabled: true
   - name: robohub-provider-mqtt

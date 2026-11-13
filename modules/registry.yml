@@ -30,3 +30,24 @@ modules:
   - name: appshell
     path: appshell
     enabled: true
+  - name: forms
+    path: forms
+    enabled: true
+  - name: htmx
+    path: htmx
+    enabled: true
+  - name: i18n
+    path: i18n
+    enabled: true
+  - name: logging
+    path: logging
+    enabled: true
+  - name: notifications
+    path: notifications
+    enabled: true
+  - name: settings
+    path: settings
+    enabled: true
+  - name: ui
+    path: ui
+    enabled: true

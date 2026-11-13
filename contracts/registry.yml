@@ -1,0 +1,20 @@
+# The contract registry.
+#
+# The interfaces an application calls, read the same way providers/registry.yml
+# is. Each is a module of its own with a module.yml identity, declaring the
+# functions a provider implements; this file is the installed set a person can
+# list and inspect. An application does not reach a contract through this file:
+# it depends on the contract, imports it and binds the providers it wants.
+contracts:
+  - name: robohub-alert
+    path: alert
+    import: robohub.alert
+    enabled: true
+  - name: robohub-gateway
+    path: gateway
+    import: robohub.gateway
+    enabled: true
+  - name: robohub-bus
+    path: bus
+    import: robohub.bus
+    enabled: true

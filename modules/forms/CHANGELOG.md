@@ -1,13 +1,5 @@
 # Changelog
 
-## [0.3.2] - 2026-11-13
-
-The CSRF token is 256 random bits from the runtime, kept owner-only in the
-application's workspace; a token an older release wrote — the workspace path and a
-timestamp, which anyone could work out — is replaced the first time it is read. A
-submit is compared with it without stopping at the first difference, and when no
-random value can be had every submit is refused rather than a guessable token used.
-
 ## [0.1.1] - 2026-11-08
 
 Form fields support mobile input modes, `forms_open` takes the active locale and
@@ -31,6 +23,14 @@ importer names has to be listed under `provides.exports`.
 ## [0.3.1] - 2026-11-12
 
 The module builds on its own: it imports the template module whose `vars` it calls and declares the runtime functions it uses, rather than relying on the application that includes it to have declared them.
+
+## [0.3.2] - 2026-11-13
+
+The CSRF token is 256 random bits from the runtime, kept owner-only in the
+application's workspace; a token an older release wrote — the workspace path and a
+timestamp, which anyone could work out — is replaced the first time it is read. A
+submit is compared with it without stopping at the first difference, and when no
+random value can be had every submit is refused rather than a guessable token used.
 
 ## [0.3.3] - 2026-11-14
 
