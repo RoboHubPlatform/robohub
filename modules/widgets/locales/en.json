@@ -44,5 +44,9 @@
   "toast.widget_resized": "Widget resized.",
   "widget.field.decimals": "Decimals (0-3)",
   "widget.choose_source": "Choose a gateway source",
-  "widget.csrf_refused": "Refused: the form token did not match."
+  "widget.csrf_refused": "Refused: the form token did not match.",
+  "widgets.settings.points": "Default points / rows",
+  "widgets.settings.refresh": "Refresh interval (seconds)",
+  "widgets.settings_tab": "Widgets",
+  "settings.save": "Save"
 }

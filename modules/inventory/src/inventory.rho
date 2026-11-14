@@ -1071,3 +1071,23 @@ fn inventory_categories_delete(req: Request) Response {
     }
     return inventory_back(i18n_t(req, "inventory.category_deleted"))
 }
+
+// inventory_settings_form is this module's own settings, as a form posted to action:
+// an application's settings page shows it as one of its tabs.
+fn inventory_settings_form(req: Request, action: string) string {
+    var fields: FormField[3]
+    fields[0] = FormField{ "currency", "select", i18n_t(req, "inventory.settings.currency"), "",
+        "", false, "", "RON|RON,EUR|EUR,USD|USD", settings_get("inventory.currency", "RON"), "", "" }
+    fields[1] = FormField{ "default_unit", "text", i18n_t(req, "inventory.settings.unit"), "",
+        "unit, kg, L", false, "", "", settings_get("inventory.default_unit", ""), "", "" }
+    fields[2] = FormField{ "reorder", "text", i18n_t(req, "inventory.settings.reorder"), "",
+        "0", false, "", "", settings_get("inventory.reorder", "0"), "", "decimal" }
+    return forms_open(fields, 3, action, i18n_t(req, "settings.save"), i18n_locale(req))
+}
+
+// inventory_settings_save keeps what that form posted.
+fn inventory_settings_save(body: string) void {
+    settings_set("inventory.currency", str_trim(form_field(body, "currency")))
+    settings_set("inventory.default_unit", str_trim(form_field(body, "default_unit")))
+    settings_set("inventory.reorder", str_trim(form_field(body, "reorder")))
+}

@@ -103,5 +103,10 @@
   "inventory.category_deleted": "Categorie ștearsă.",
   "inventory.category_unchanged": "Categoria nu poate fi redenumită: aparține aplicației sau numele este folosit.",
   "inventory.category_in_use": "Categoria nu poate fi ștearsă: mai are articole sau aparține aplicației.",
-  "inventory.no_categories": "Încă nu există categorii."
+  "inventory.no_categories": "Încă nu există categorii.",
+  "inventory.settings.currency": "Monedă",
+  "inventory.settings.reorder": "Nivel implicit de reaprovizionare",
+  "inventory.settings.unit": "Unitate implicită",
+  "inventory.settings_tab": "Inventar",
+  "settings.save": "Salvează"
 }

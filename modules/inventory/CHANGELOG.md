@@ -76,3 +76,7 @@ Its data is kept where `app_workspace()` says (rho 0.8.0) — the application's 
 ## [0.3.3] - 2026-11-14
 
 An item can be deleted from its edit page (its bindings and stock history go with it; its purchases stay in the expenses), and a category a person added can be renamed, or deleted while empty — a category the application's presets keep (`origin = 'preset'`) cannot, since the application reads it by name. The item edit form carries the form token. `inventory_return` puts stock back, the opposite of `inventory_consume`.
+
+## [0.3.4] - 2026-11-14
+
+Its settings form is its own (`inventory_settings_form`, `inventory_settings_save`), shown by an application as one of its settings tabs.

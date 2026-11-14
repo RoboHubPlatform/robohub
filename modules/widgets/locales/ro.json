@@ -44,5 +44,9 @@
   "toast.widget_resized": "Widget redimensionat.",
   "widget.field.decimals": "Decimale (0-3)",
   "widget.choose_source": "Alege o sursă gateway",
-  "widget.csrf_refused": "Refuzat: tokenul formularului nu corespunde."
+  "widget.csrf_refused": "Refuzat: tokenul formularului nu corespunde.",
+  "widgets.settings.points": "Puncte / rânduri implicite",
+  "widgets.settings.refresh": "Interval de reîmprospătare (secunde)",
+  "widgets.settings_tab": "Widgeturi",
+  "settings.save": "Salvează"
 }

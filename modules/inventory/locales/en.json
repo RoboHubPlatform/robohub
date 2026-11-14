@@ -103,5 +103,10 @@
   "inventory.category_deleted": "Category deleted.",
   "inventory.category_unchanged": "That category cannot be renamed: it is the application's, or the name is taken.",
   "inventory.category_in_use": "That category cannot be deleted: it still has items, or it is the application's.",
-  "inventory.no_categories": "No categories yet."
+  "inventory.no_categories": "No categories yet.",
+  "inventory.settings.currency": "Currency",
+  "inventory.settings.reorder": "Default reorder level",
+  "inventory.settings.unit": "Default unit",
+  "inventory.settings_tab": "Inventory",
+  "settings.save": "Save"
 }

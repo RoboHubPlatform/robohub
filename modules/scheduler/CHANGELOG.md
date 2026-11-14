@@ -68,3 +68,7 @@ Its data is kept where `app_workspace()` says (rho 0.8.0) — the application's 
 ## [0.2.7] - 2026-11-14
 
 A chore can be edited — its schedule, what it uses, its priority — and deleted with its history, from its row; renaming one does not move when it is due. The row's forms carry the form token and are translated, and a change returns to the page by GET.
+
+## [0.2.8] - 2026-11-14
+
+Its settings form is its own (`scheduler_settings_form`, `scheduler_settings_save`), shown by an application as one of its settings tabs.

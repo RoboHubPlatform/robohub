@@ -1,0 +1,15 @@
+{
+  "ui.applications": "Applications",
+  "ui.theme": "Theme",
+  "ui.language": "Language",
+  "ui.theme.dark": "dark",
+  "ui.theme.light": "light",
+  "ui.theme.system": "system",
+  "ui.state.running": "running",
+  "ui.state.stopped": "stopped",
+  "ui.state.keeper": "keeper",
+  "ui.state.starting": "starting",
+  "ui.state.failed": "failed",
+  "ui.state.not-built": "not built",
+  "ui.keeper": "Keeper"
+}

@@ -148,7 +148,43 @@ fn ui_field(line: string, index: u32) string {
 //   name|title|port|route|state
 // a port of "" is this application (opened at `route` on this host), and the one
 // named `current` is marked as the one the person is in.
+// ui_t is one of the bar's own words in a language ("" is the default one): the
+// catalogs travel with the module, so any application that includes it has them.
+fn ui_t(locale: string, key: string) string {
+    return template_fill("{{t \"" + key + "\"}}", vars("__locale", locale))
+}
+
+// ui_state_word is a state as the bar shows it; one it has no word for, as it is.
+fn ui_state_word(locale: string, state: string) string {
+    let said: string = ui_t(locale, "ui.state." + state)
+    if said == "" || str_eq(said, "ui.state." + state) {
+        return state
+    }
+    return said
+}
+
+// ui_locale is the language a request chose (its `locale` cookie), or "".
+fn ui_locale(req: Request) string {
+    if !has_header(req, "Cookie") {
+        return ""
+    }
+    let cookie: string = "; " + header_str(req, "Cookie")
+    let at: i32 = str_index_of(cookie, "; locale=")
+    if at < 0 {
+        return ""
+    }
+    let value: string = str_field(str_slice(cookie, u32(at) + 9, u32(strlen(cookie)) - u32(at) - 9), ";", 0)
+    if str_eq(value, "ro") || str_eq(value, "en") {
+        return value
+    }
+    return ""
+}
+
 fn ui_switcher(current: string, apps: string) string {
+    return ui_switcher_in(current, apps, "")
+}
+
+fn ui_switcher_in(current: string, apps: string, locale: string) string {
     var title: string = "RoboHub"
     var items: string = ""
     var rest: string = apps
@@ -175,10 +211,10 @@ fn ui_switcher(current: string, apps: string) string {
                 "\" data-app-route=\"" + ui_escape(at_path) + "\">"
         }
         items = items + link + "<span><span class=\"rh-dot " + ui_tone(state) + "\"></span> " + ui_escape(label) +
-            "</span><small>" + ui_escape(state) + "</small></a>"
+            "</span><small>" + ui_escape(ui_state_word(locale, state)) + "</small></a>"
     }
     return "<details class=\"rh-menu rh-switch\"><summary><span class=\"rh-dot\"></span>" + ui_escape(title) +
-        " <small>▾</small></summary><div class=\"rh-pop\"><h6>Applications</h6>" + items + "</div></details>"
+        " <small>▾</small></summary><div class=\"rh-pop\"><h6>" + ui_escape(ui_t(locale, "ui.applications")) + "</h6>" + items + "</div></details>"
 }
 
 // ui_person is the menu of the person signed in: their name, the theme (when
@@ -186,6 +222,7 @@ fn ui_switcher(current: string, apps: string) string {
 // (`links`, HTML), and `signout` (HTML) last.
 fn ui_person(req: Request, who: string, role: string, links: string, signout: string, themes: bool) string {
     let theme: string = ui_theme(req)
+    let locale: string = ui_locale(req)
     var back: string = request_path(req)
     if !ui_local_path(back) {
         back = "/"
@@ -203,7 +240,8 @@ fn ui_person(req: Request, who: string, role: string, links: string, signout: st
         if str_eq(theme, choice) {
             on = " class=\"on\""
         }
-        seg = seg + "<a" + on + " href=\"/ui/theme?set=" + choice + "&back=" + ui_escape(back) + "\">" + choice + "</a>"
+        seg = seg + "<a" + on + " href=\"/ui/theme?set=" + choice + "&back=" + ui_escape(back) + "\">" +
+            ui_escape(ui_t(locale, "ui.theme." + choice)) + "</a>"
         i = i + 1
     }
     var out: string = "<details class=\"rh-menu rh-person\"><summary><span class=\"rh-av\">" + ui_escape(ui_upper(initials)) +
@@ -213,7 +251,7 @@ fn ui_person(req: Request, who: string, role: string, links: string, signout: st
     }
     out = out + "</span></summary><div class=\"rh-pop right\">"
     if themes {
-        out = out + "<h6>Theme</h6><div class=\"rh-seg\">" + seg + "</div>"
+        out = out + "<h6>" + ui_escape(ui_t(locale, "ui.theme")) + "</h6><div class=\"rh-seg\">" + seg + "</div>"
     }
     return out + links + signout + "</div></details>"
 }
@@ -222,8 +260,14 @@ fn ui_person(req: Request, who: string, role: string, links: string, signout: st
 // switcher, what the application adds in the middle (`middle`, HTML), and the
 // person's menu (`person`, from ui_person).
 fn ui_topbar(current: string, apps: string, middle: string, person: string) string {
+    return ui_topbar_in(current, apps, middle, person, "")
+}
+
+// ui_topbar_in is the bar in a language: what an application that knows the
+// request's language calls.
+fn ui_topbar_in(current: string, apps: string, middle: string, person: string, locale: string) string {
     return "<header class=\"rh-top\"><a class=\"rh-brand\" href=\"/\">Robo<em>Hub</em></a>" +
-        ui_switcher(current, apps) + middle + "<span class=\"rh-spacer\"></span>" + person + "</header>"
+        ui_switcher_in(current, apps, locale) + middle + "<span class=\"rh-spacer\"></span>" + person + "</header>"
 }
 
 // ui_language is the language as a choice in the person's menu, posted to the
@@ -236,7 +280,7 @@ fn ui_language(locale: string, next: string) string {
     if !ui_local_path(back) {
         back = "/"
     }
-    return "<h6>Language</h6><form class=\"rh-seg\" method=\"post\" action=\"/i18n/locale\"><input type=\"hidden\" name=\"next\" value=\"" +
+    return "<h6>" + ui_escape(ui_t(locale, "ui.language")) + "</h6><form class=\"rh-seg\" method=\"post\" action=\"/i18n/locale\"><input type=\"hidden\" name=\"next\" value=\"" +
         ui_escape(back) + "\"><button" + en + " type=\"submit\" name=\"locale\" value=\"en\">English</button>" +
         "<button" + ro + " type=\"submit\" name=\"locale\" value=\"ro\">Română</button></form>"
 }
@@ -246,18 +290,27 @@ fn ui_language(locale: string, next: string) string {
 // /api/v1/switcher, on the keeper's port of the host the page was reached on.
 // Until it answers, the list holds the way back to the keeper.
 fn ui_switcher_remote(current: string, title: string, keeper_port: string) string {
+    return ui_switcher_remote_in(current, title, keeper_port, "")
+}
+
+fn ui_switcher_remote_in(current: string, title: string, keeper_port: string, locale: string) string {
     var keeper: string = ""
     if keeper_port != "" {
         keeper = "<a class=\"app-open\" href=\"#\" data-app-port=\"" + ui_escape(keeper_port) +
-            "\" data-app-route=\"/\"><span><span class=\"rh-dot ok\"></span> Keeper</span><small>keeper</small></a>"
+            "\" data-app-route=\"/\"><span><span class=\"rh-dot ok\"></span> " + ui_escape(ui_t(locale, "ui.keeper")) +
+            "</span><small>" + ui_escape(ui_state_word(locale, "keeper")) + "</small></a>"
     }
     return "<details class=\"rh-menu rh-switch\" data-keeper-port=\"" + ui_escape(keeper_port) + "\" data-current=\"" +
         ui_escape(current) + "\"><summary><span class=\"rh-dot\"></span>" + ui_escape(title) +
-        " <small>▾</small></summary><div class=\"rh-pop\"><h6>Applications</h6><div class=\"rh-apps\">" + keeper + "</div></div></details>"
+        " <small>▾</small></summary><div class=\"rh-pop\"><h6>" + ui_escape(ui_t(locale, "ui.applications")) + "</h6><div class=\"rh-apps\">" + keeper + "</div></div></details>"
 }
 
 // ui_topbar_remote is the top bar of an application that is not the keeper.
 fn ui_topbar_remote(current: string, title: string, keeper_port: string, middle: string, person: string) string {
+    return ui_topbar_remote_in(current, title, keeper_port, middle, person, "")
+}
+
+fn ui_topbar_remote_in(current: string, title: string, keeper_port: string, middle: string, person: string, locale: string) string {
     return "<header class=\"rh-top\"><a class=\"rh-brand\" href=\"/\">Robo<em>Hub</em></a>" +
-        ui_switcher_remote(current, title, keeper_port) + middle + "<span class=\"rh-spacer\"></span>" + person + "</header>"
+        ui_switcher_remote_in(current, title, keeper_port, locale) + middle + "<span class=\"rh-spacer\"></span>" + person + "</header>"
 }

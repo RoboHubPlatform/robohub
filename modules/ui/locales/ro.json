@@ -1,0 +1,15 @@
+{
+  "ui.applications": "Aplicații",
+  "ui.theme": "Temă",
+  "ui.language": "Limbă",
+  "ui.theme.dark": "întunecată",
+  "ui.theme.light": "luminoasă",
+  "ui.theme.system": "sistem",
+  "ui.state.running": "pornită",
+  "ui.state.stopped": "oprită",
+  "ui.state.keeper": "keeper",
+  "ui.state.starting": "pornește",
+  "ui.state.failed": "eșuată",
+  "ui.state.not-built": "neconstruită",
+  "ui.keeper": "Keeper"
+}

@@ -44,5 +44,9 @@
   "scheduler.cancel": "Cancel",
   "scheduler.saved": "saved.",
   "scheduler.deleted": "Chore deleted.",
-  "scheduler.not_found": "That chore was not found."
+  "scheduler.not_found": "That chore was not found.",
+  "scheduler.settings.grace": "Grace hours",
+  "scheduler.settings.priority": "Default priority",
+  "scheduler.settings_tab": "Scheduler",
+  "settings.save": "Save"
 }

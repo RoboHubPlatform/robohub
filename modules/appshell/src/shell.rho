@@ -134,8 +134,8 @@ fn appshell_topbar(req: Request, middle: string) string {
         signout = "<a class=\"app-open\" href=\"#\" data-app-port=\"" + escape_html(keeper_port) +
             "\" data-app-route=\"/logout\">" + i18n_t(req, "top.sign_out") + "</a>"
     }
-    return ui_topbar_remote(host_app(), host_app_title(), keeper_port, middle,
-        ui_person(req, who, "", ui_language(i18n_locale(req), request_path(req)), signout, true))
+    return ui_topbar_remote_in(host_app(), host_app_title(), keeper_port, middle,
+        ui_person(req, who, "", ui_language(i18n_locale(req), request_path(req)), signout, true), i18n_locale(req))
 }
 
 // appshell_docs is the application's own documentation page, its docs/index.md.

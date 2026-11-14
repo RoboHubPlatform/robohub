@@ -44,5 +44,9 @@
   "scheduler.cancel": "Renunță",
   "scheduler.saved": "salvată.",
   "scheduler.deleted": "Sarcină ștearsă.",
-  "scheduler.not_found": "Sarcina nu a fost găsită."
+  "scheduler.not_found": "Sarcina nu a fost găsită.",
+  "scheduler.settings.grace": "Ore de grație",
+  "scheduler.settings.priority": "Prioritate implicită",
+  "scheduler.settings_tab": "Programări",
+  "settings.save": "Salvează"
 }

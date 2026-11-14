@@ -69,7 +69,7 @@
           label.appendChild(dot);
           label.appendChild(document.createTextNode(" " + app.title));
           var small = document.createElement("small");
-          small.textContent = app.state;
+          small.textContent = app.state_label || app.state;
           a.appendChild(label);
           a.appendChild(small);
           list.appendChild(a);

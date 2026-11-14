@@ -80,9 +80,9 @@ fn widget_method(method: string) string {
     return "GET"
 }
 
-// widget_curl_args runs curl with one argument per line and no shell. The
-// gateway's token is sent only to the gateway itself: a URL a person typed into
-// a widget may be anywhere.
+// widget_curl_args runs curl with one argument per line and no shell. It sends
+// no credential: a gateway source is read through the gateway interface, and a
+// URL a person typed into a widget may be anywhere.
 fn widget_curl_args(method: string, url: string, timeout: string, report: string) u32 {
     if !widget_url_ok(url) {
         return 255
@@ -92,12 +92,7 @@ fn widget_curl_args(method: string, url: string, timeout: string, report: string
 
 // widget_curl_line is curl's arguments for one request, one per line.
 fn widget_curl_line(method: string, url: string, timeout: string) string {
-    var args: string = "-fsS\n--proto\n=http,https\n-m\n" + timeout + "\n-X\n" + widget_method(method) + "\n"
-    let token: string = gateway.token()
-    let base: string = gateway.config("url")
-    if token != "" && base != "" && str_index_of(token, "\n") < 0 && str_starts_with(url, base + "/") {
-        args = args + "-H\nAuthorization: Bearer " + token + "\n"
-    }
+    let args: string = "-fsS\n--proto\n=http,https\n-m\n" + timeout + "\n-X\n" + widget_method(method) + "\n"
     return args + url + "\n"
 }
 
@@ -1848,4 +1843,21 @@ fn widgets_api_press(req: Request) Response {
         state_json = ",\"state\":" + json_string(new_state)
     }
     return json(status_ok(), "{\"ok\":" + ok + state_json + "}")
+}
+
+// widgets_settings_form is this module's own settings, as a form posted to action:
+// an application's settings page shows it as one of its tabs.
+fn widgets_settings_form(req: Request, action: string) string {
+    var fields: FormField[2]
+    fields[0] = FormField{ "refresh_seconds", "text", i18n_t(req, "widgets.settings.refresh"), "",
+        "10", false, "", "", settings_get("widgets.refresh_seconds", "10"), "", "numeric" }
+    fields[1] = FormField{ "points", "text", i18n_t(req, "widgets.settings.points"), "",
+        "24", false, "", "", settings_get("widgets.points", "24"), "", "numeric" }
+    return forms_open(fields, 2, action, i18n_t(req, "settings.save"), i18n_locale(req))
+}
+
+// widgets_settings_save keeps what that form posted.
+fn widgets_settings_save(body: string) void {
+    settings_set("widgets.refresh_seconds", str_trim(form_field(body, "refresh_seconds")))
+    settings_set("widgets.points", str_trim(form_field(body, "points")))
 }

@@ -18,12 +18,17 @@ module appshell
 // the same in every application that includes the module; the application's
 // name is its host_app().
 
-const APPSHELL_SETTINGS_TABS: string = "gateway|settings.tab.gateway,inventory|settings.tab.inventory,scheduler|settings.tab.scheduler,widgets|settings.tab.widgets,logging|settings.tab.logging,about|settings.tab.about"
+// The page's tabs: the gateway first, then the ones the application adds for its
+// modules (host_settings_tabs: `key|label key,` each, a module's form drawn by
+// host_settings_form and kept by host_settings_save), then logging and about.
+// appshell knows no module's settings: each module owns its own form.
+fn appshell_settings_tabs() string {
+    return "gateway|settings.tab.gateway," + host_settings_tabs() + "logging|settings.tab.logging,about|settings.tab.about"
+}
 
 fn appshell_settings_tab(req: Request) string {
     let tab: string = request_query_param(req, "tab")
-    if rho_str_eq(tab, "inventory") || rho_str_eq(tab, "scheduler") || rho_str_eq(tab, "widgets") ||
-        rho_str_eq(tab, "logging") || rho_str_eq(tab, "about") {
+    if tab != "" && rho_str_index_of("," + appshell_settings_tabs(), "," + tab + "|") >= 0 {
         return tab
     }
     return "gateway"
@@ -86,38 +91,14 @@ fn appshell_settings_form(req: Request, tab: string) string {
     if rho_str_eq(tab, "logging") {
         return log_settings_form(host_app(), "/settings?tab=logging", i18n_locale(req))
     }
-    if rho_str_eq(tab, "inventory") {
-        var fields: FormField[3]
-        fields[0] = FormField{ "currency", "select", i18n_t(req, "settings.inventory.currency"), "",
-            "", false, "", "RON|RON,EUR|EUR,USD|USD", settings_get("inventory.currency", "RON"), "", "" }
-        fields[1] = FormField{ "default_unit", "text", i18n_t(req, "settings.inventory.unit"), "",
-            "unit, kg, L", false, "", "", settings_get("inventory.default_unit", ""), "", "" }
-        fields[2] = FormField{ "reorder", "text", i18n_t(req, "settings.inventory.reorder"), "",
-            "0", false, "", "", settings_get("inventory.reorder", "0"), "", "decimal" }
-        return forms_open(fields, 3, "/settings?tab=inventory", i18n_t(req, "settings.save"), i18n_locale(req))
-    }
-    if rho_str_eq(tab, "scheduler") {
-        var fields: FormField[2]
-        fields[0] = FormField{ "priority", "text", i18n_t(req, "settings.scheduler.priority"), "",
-            "normal", false, "", "", settings_get("scheduler.priority", "normal"), "", "" }
-        fields[1] = FormField{ "grace_hours", "text", i18n_t(req, "settings.scheduler.grace"), "",
-            "12", false, "", "", settings_get("scheduler.grace_hours", "12"), "", "numeric" }
-        return forms_open(fields, 2, "/settings?tab=scheduler", i18n_t(req, "settings.save"), i18n_locale(req))
-    }
-    if rho_str_eq(tab, "widgets") {
-        var fields: FormField[2]
-        fields[0] = FormField{ "refresh_seconds", "text", i18n_t(req, "settings.widgets.refresh"), "",
-            "10", false, "", "", settings_get("widgets.refresh_seconds", "10"), "", "numeric" }
-        fields[1] = FormField{ "points", "text", i18n_t(req, "settings.widgets.points"), "",
-            "24", false, "", "", settings_get("widgets.points", "24"), "", "numeric" }
-        return forms_open(fields, 2, "/settings?tab=widgets", i18n_t(req, "settings.save"), i18n_locale(req))
-    }
     if rho_str_eq(tab, "about") {
         return "<dl class=\"settings\"><dt>" + i18n_t(req, "settings.application") + "</dt><dd>" + escape_html(host_app()) + "</dd>" +
             "<dt>" + i18n_t(req, "settings.gateway") + "</dt><dd>" + escape_html(gateway.provider()) + " · " +
             escape_html(gateway.transport()) + "</dd><dt>" + i18n_t(req, "settings.api") +
-            "</dt><dd><code>/api/v1/values</code>, <code>/api/v1/events</code></dd><dt>" + i18n_t(req, "settings.modules") +
-            "</dt><dd>inventory, scheduler, widgets, journal, rules, appapi, simulator</dd></dl>"
+            "</dt><dd><code>/api/v1/values</code>, <code>/api/v1/events</code></dd></dl>"
+    }
+    if !rho_str_eq(tab, "gateway") {
+        return host_settings_form(req, tab, "/settings?tab=" + tab)
     }
     return appshell_gateway_form(req)
 }
@@ -125,7 +106,7 @@ fn appshell_settings_form(req: Request, tab: string) string {
 fn appshell_settings_page_message(req: Request, message: string) Response {
     let tab: string = appshell_settings_tab(req)
     var nav: string = "<nav class=\"rh-tabs\">"
-    var rest: string = APPSHELL_SETTINGS_TABS
+    var rest: string = appshell_settings_tabs()
     while rest != "" {
         let at: i32 = rho_str_index_of(rest, ",")
         var one: string = rest
@@ -161,20 +142,12 @@ fn appshell_settings_save(req: Request) Response {
     if !forms_csrf_ok(body) {
         return appshell_settings_page_message(req, i18n_t(req, "form.expired"))
     }
-    if rho_str_eq(tab, "inventory") {
-        settings_set("inventory.currency", appshell_form(body, "currency"))
-        settings_set("inventory.default_unit", appshell_form(body, "default_unit"))
-        settings_set("inventory.reorder", appshell_form(body, "reorder"))
-    } else if rho_str_eq(tab, "scheduler") {
-        settings_set("scheduler.priority", appshell_form(body, "priority"))
-        settings_set("scheduler.grace_hours", appshell_form(body, "grace_hours"))
-    } else if rho_str_eq(tab, "widgets") {
-        settings_set("widgets.refresh_seconds", appshell_form(body, "refresh_seconds"))
-        settings_set("widgets.points", appshell_form(body, "points"))
-    } else if rho_str_eq(tab, "logging") {
+    if rho_str_eq(tab, "logging") {
         if log_settings_save(host_app(), body) {
             info(host_app(), "logging settings updated")
         }
+    } else if !rho_str_eq(tab, "gateway") && !rho_str_eq(tab, "about") {
+        host_settings_save(req, tab, body)
     } else {
         let mesh: string = "robohub-provider-mesh"
         let provider: string = appshell_form(body, "provider")

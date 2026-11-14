@@ -944,3 +944,20 @@ fn scheduler_complete_title(title: string, note: string) bool {
     }
     return scheduler_complete(u32(best), note) == ""
 }
+
+// scheduler_settings_form is this module's own settings, as a form posted to action:
+// an application's settings page shows it as one of its tabs.
+fn scheduler_settings_form(req: Request, action: string) string {
+    var fields: FormField[2]
+    fields[0] = FormField{ "priority", "text", i18n_t(req, "scheduler.settings.priority"), "",
+        "normal", false, "", "", settings_get("scheduler.priority", "normal"), "", "" }
+    fields[1] = FormField{ "grace_hours", "text", i18n_t(req, "scheduler.settings.grace"), "",
+        "12", false, "", "", settings_get("scheduler.grace_hours", "12"), "", "numeric" }
+    return forms_open(fields, 2, action, i18n_t(req, "settings.save"), i18n_locale(req))
+}
+
+// scheduler_settings_save keeps what that form posted.
+fn scheduler_settings_save(body: string) void {
+    settings_set("scheduler.priority", str_trim(form_field(body, "priority")))
+    settings_set("scheduler.grace_hours", str_trim(form_field(body, "grace_hours")))
+}

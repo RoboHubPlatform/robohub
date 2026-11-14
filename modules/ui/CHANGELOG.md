@@ -30,3 +30,7 @@ long log).
 ## [0.1.3] - 2026-11-14
 
 The app switcher links to an application through the keeper's origin when the keeper says so (`path` in its switcher list), and to its port otherwise.
+
+## [0.1.4] - 2026-11-14
+
+The bar's own words — the Applications, Theme and Language headings, the theme names, the applications' states and the way back to the keeper — come from the module's catalogs (`locales/en.json`, `ro.json`), in the request's language: `ui_topbar_in`, `ui_topbar_remote_in` and `ui_switcher_in` take the locale, `ui_person` reads it from the request, and the old functions are the default language. The switcher shows the keeper's translated `state_label`.
