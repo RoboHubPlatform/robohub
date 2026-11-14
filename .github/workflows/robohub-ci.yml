@@ -50,6 +50,11 @@ on:
         required: false
         type: boolean
         default: false
+      machine_install:
+        description: Further tools to install through rho keeper, as module:dependency pairs from the toolchain's own system_deps (for example rho-target:arm-none-eabi-gcc, for a repository that builds firmware for a board).
+        required: false
+        type: string
+        default: ""
     secrets:
       RHO_TOKEN:
         description: Read access to the toolchain's repository, when it is private.
@@ -120,7 +125,7 @@ jobs:
           ./scripts/check.sh publish rho-test rho-test-ctest rho-test-junit \
             rho-target rho-cimport rho-kconfig rho-doc \
             rho-auth rho-sql rho-sql-sqlite rho-robohub \
-            ${{ inputs.machine && 'rho-keeper' || '' }} ${{ inputs.components }}
+            ${{ (inputs.machine || inputs.machine_install != '') && 'rho-keeper' || '' }} ${{ inputs.components }}
           echo "$HOME/.rho/bin" >> "$GITHUB_PATH"
 
       # What a platform needs from the machine — its cross compiler — is in its
@@ -133,6 +138,16 @@ jobs:
           rho module publish .
           name="$(sed -n 's/^  name: *//p' module.yml | head -1)"
           rho keeper sync --yes --module "${name}"
+
+      # A tool a repository's tests need that belongs to the toolchain rather than
+      # to the repository — the cross compiler rho-target builds a board with — is
+      # installed by name from the module that declares it.
+      - name: Install the toolchain's tools this repository's tests use
+        if: inputs.machine_install != ''
+        run: |
+          for pair in ${{ inputs.machine_install }}; do
+            rho keeper install --yes "${pair%%:*}" "${pair#*:}"
+          done
 
       # A path under someone's home is true for one machine and published to all:
       # a manifest names a sibling by ${ROBOHUB_WORKSPACE}.
