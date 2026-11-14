@@ -7,19 +7,28 @@
   <td>
     <div class="chore-actions">
       <form method="post" action="/scheduler/chores/complete">
+        {{{ csrf }}}
         <input type="hidden" name="id" value="{{ id }}">
-        <input name="note" placeholder="note">
-        <button type="submit">Done</button>
+        <input name="note" placeholder="{{t "scheduler.note"}}">
+        <button type="submit">{{t "scheduler.done"}}</button>
       </form>
       <form method="post" action="/scheduler/chores/snooze">
+        {{{ csrf }}}
         <input type="hidden" name="id" value="{{ id }}">
         <input type="hidden" name="hours" value="24">
-        <button type="submit" class="quiet">Snooze 1d</button>
+        <button type="submit" class="quiet">{{t "scheduler.snooze_day"}}</button>
       </form>
       <form method="post" action="/scheduler/chores/usage">
+        {{{ csrf }}}
         <input type="hidden" name="id" value="{{ id }}">
-        <input name="hours" inputmode="numeric" placeholder="hours">
-        <button type="submit" class="quiet">Add use</button>
+        <input name="hours" inputmode="numeric" placeholder="{{t "scheduler.hours"}}">
+        <button type="submit" class="quiet">{{t "scheduler.add_use"}}</button>
+      </form>
+      <a class="quiet" href="/scheduler/chores/edit?id={{ id }}">{{t "scheduler.edit"}}</a>
+      <form method="post" action="/scheduler/chores/delete" onsubmit="return confirm({{ confirm }})">
+        {{{ csrf }}}
+        <input type="hidden" name="id" value="{{ id }}">
+        <button type="submit" class="quiet">{{t "scheduler.delete"}}</button>
       </form>
     </div>
   </td>

@@ -2,14 +2,14 @@
 INSERT INTO categories (name) VALUES (:name);
 
 -- name: list_categories
-SELECT id, name, kind, capabilities, uses FROM categories ORDER BY name;
+SELECT id, name, kind, capabilities, uses, origin FROM categories ORDER BY name;
 
 -- name: seed_category
-INSERT OR IGNORE INTO categories (name, kind, capabilities, uses)
-VALUES (:name, :kind, :capabilities, :uses);
+INSERT OR IGNORE INTO categories (name, kind, capabilities, uses, origin)
+VALUES (:name, :kind, :capabilities, :uses, 'preset');
 
 -- name: update_category_preset
-UPDATE categories SET kind = :kind, capabilities = :capabilities, uses = :uses
+UPDATE categories SET kind = :kind, capabilities = :capabilities, uses = :uses, origin = 'preset'
 WHERE name = :name;
 
 -- name: insert_item
@@ -125,3 +125,30 @@ UPDATE items SET handle = :handle WHERE id = :id;
 
 -- name: clear_item_handle
 UPDATE items SET handle = '' WHERE handle = :handle AND id <> :id;
+
+-- A category a person added, renamed; a preset's name is the application's.
+-- name: rename_category
+UPDATE categories SET name = :name WHERE id = :id AND origin = 'person';
+
+-- A category a person added, deleted while no item is in it; purchases that
+-- named it keep their amounts.
+-- name: delete_category
+DELETE FROM categories WHERE id = :id AND origin = 'person'
+  AND NOT EXISTS (SELECT 1 FROM items WHERE items.category_id = categories.id);
+
+-- name: detach_category_expenses
+UPDATE expenses SET category_id = NULL WHERE category_id = :category_id;
+
+-- An item deleted: its bindings and stock history go with it; its purchases
+-- stay in the expenses, no longer naming it.
+-- name: delete_item_bindings
+DELETE FROM item_bindings WHERE item_id = :item_id;
+
+-- name: delete_item_movements
+DELETE FROM stock_movements WHERE item_id = :item_id;
+
+-- name: detach_item_expenses
+UPDATE expenses SET item_id = NULL WHERE item_id = :item_id;
+
+-- name: delete_item
+DELETE FROM items WHERE id = :id;

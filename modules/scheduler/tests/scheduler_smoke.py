@@ -237,6 +237,27 @@ def main() -> int:
             sunday = datetime.datetime.fromtimestamp(due["Sundays"])
             if sunday.weekday() != 6 or sunday.hour != 8:
                 raise AssertionError(f"0 8 * * 7 is due at {sunday}")
+            # A chore is edited and deleted from its row: renaming it does not
+            # move when it is due; deleting it takes its history with it.
+            def form(path, fields):
+                req = urllib.request.Request(base + path, method="POST",
+                    data=urllib.parse.urlencode(dict(fields, csrf=CSRF)).encode())
+                req.add_header("Content-Type", "application/x-www-form-urlencoded")
+                with open_url(req, timeout=20) as response:
+                    return response.read().decode("utf-8", "replace")
+            with sqlite3.connect(db) as conn:
+                sunday_id = conn.execute("SELECT id FROM chores WHERE title='Sundays'").fetchone()[0]
+            assert_contains(get(base, f"/scheduler/chores/edit?id={sunday_id}"), ["Sundays", "0 8 * * 7"], "the chore's edit page")
+            form(f"/scheduler/chores/edit?id={sunday_id}", {"title": "Sunday mornings", "kind": "cron", "value": "0 8 * * 7",
+                                                             "interval_hours": "0", "priority": "low"})
+            with sqlite3.connect(db) as conn:
+                row = conn.execute("SELECT title, priority, next_due_epoch FROM chores WHERE id=?", (sunday_id,)).fetchone()
+            if row != ("Sunday mornings", "low", due["Sundays"]):
+                raise AssertionError(f"the edited chore: {row} (due was {due['Sundays']})")
+            assert_contains(form("/scheduler/chores/delete", {"id": str(sunday_id)}), ["Chore deleted"], "a deleted chore")
+            with sqlite3.connect(db) as conn:
+                if conn.execute("SELECT COUNT(*) FROM chores WHERE id=?", (sunday_id,)).fetchone()[0] != 0:
+                    raise AssertionError("the deleted chore is still there")
             request = urllib.request.Request(base + "/api/scheduler/chores", method="POST",
                 data=urllib.parse.urlencode({"title": "Never", "kind": "cron", "value": "61 * * * *", "csrf": CSRF}).encode())
             request.add_header("Content-Type", "application/x-www-form-urlencoded")

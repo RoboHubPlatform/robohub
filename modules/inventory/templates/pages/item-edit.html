@@ -5,6 +5,7 @@
   {{{ automation_tab }}}
 </nav>
 <form class="panel-form" method="post" action="/expenses/items/edit">
+  {{{ csrf }}}
   <input type="hidden" name="id" value="{{ id }}">
   <div class="grid">
     <label>{{t "inventory.name"}}<input name="name" value="{{ name }}" required></label>
@@ -20,4 +21,9 @@
   </div>
   <div class="form-actions"><button type="submit">{{t "inventory.save_item"}}</button></div>
 </form>
-<p><a href="/expenses">← Inventory</a></p>
+<form method="post" action="/expenses/items/delete" class="danger-zone" onsubmit="return confirm({{ delete_confirm }})">
+  {{{ csrf }}}
+  <input type="hidden" name="id" value="{{ id }}">
+  <button type="submit" class="quiet">{{t "inventory.delete_item"}}</button>
+</form>
+<p><a href="/expenses">← {{t "inventory.title"}}</a></p>

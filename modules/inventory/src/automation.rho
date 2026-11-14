@@ -291,6 +291,33 @@ fn inventory_consume(ref: string, quantity_milli: u32, reason: string, for_ref: 
     return updated.is_ok
 }
 
+// inventory_return puts stock back on an item — a dose recorded by mistake and
+// deleted — and records why and for what, the movement a consume's opposite.
+fn inventory_return(ref: string, quantity_milli: u32, reason: string, for_ref: string) bool {
+    if quantity_milli == 0 {
+        return false
+    }
+    let opened: Result[SqlDb, string] = sql_open(inventory_db_path())
+    if !opened.is_ok {
+        return false
+    }
+    let db: SqlDb = opened.ok
+    sql_apply(db, inventory_schema())
+    let one: InventoryOne = inventory_one(db, ref)
+    if !one.found {
+        sql_close(db)
+        return false
+    }
+    let delta: string = int_to_str(quantity_milli)
+    let updated: Result[u32, SqlError] = UpdateItemStock(delta, one.row.id, db)
+    if updated.is_ok {
+        inventory_ignore(InsertMovement(int_to_str(u32(one.row.id)), "return", delta, "0", "0",
+            for_ref, inventory_date(), reason, db))
+    }
+    sql_close(db)
+    return updated.is_ok
+}
+
 // inventory_use is one use of an item that uses another category — a feeder's
 // press — which takes its portion from the first item in that category with any
 // stock left.

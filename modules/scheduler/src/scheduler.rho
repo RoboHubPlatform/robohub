@@ -209,7 +209,7 @@ fn scheduler_milli(text: string) u32 {
     return u32(milli)
 }
 
-fn scheduler_rows(chores: Chores[256], count: u32, now: u32) string {
+fn scheduler_rows(req: Request, chores: Chores[256], count: u32, now: u32) string {
     var out: string = ""
     var i: u32 = 0
     while i < count {
@@ -217,6 +217,9 @@ fn scheduler_rows(chores: Chores[256], count: u32, now: u32) string {
         let status: string = scheduler_status(chore, now)
         let id: string = int_to_str(u32(chore.id))
         let html: string = template_fill(scheduler_template("rows/chore-row"),
+            i18n_vars(req) +
+            vars("csrf", forms_csrf_field()) +
+            vars("confirm", json_string(i18n_t(req, "scheduler.delete_confirm"))) +
             vars("id", id) +
             vars("title", chore.title) +
             vars("description", scheduler_links_text(chore)) +
@@ -325,7 +328,7 @@ fn scheduler_page_message(req: Request, message: string) Response {
         vars("tabs_class", settings_get("ui.tabs", "vertical")) +
         vars("add_form", add_form) +
         vars("notice", notice) +
-        vars("rows", scheduler_rows(chores, count, now)) +
+        vars("rows", scheduler_rows(req, chores, count, now)) +
         vars("completions", scheduler_completion_rows(completions, completion_count)) +
         vars("docs", scheduler_docs()) +
         vars("notifications", notification_embed()))
@@ -333,7 +336,7 @@ fn scheduler_page_message(req: Request, message: string) Response {
 }
 
 fn scheduler_page(req: Request) Response {
-    return scheduler_page_message(req, "")
+    return scheduler_page_message(req, request_query_param(req, "msg"))
 }
 
 fn scheduler_keeper_link() string {
@@ -437,8 +440,150 @@ fn scheduler_chores_add(req: Request) Response {
     return scheduler_page_message(req, "Chore added.")
 }
 
+// scheduler_back is the scheduler page again, by GET, with what happened.
+fn scheduler_back(message: string) Response {
+    return redirect("/scheduler?msg=" + str_url_encode(message))
+}
+
+// scheduler_chore_edit_page is one chore's form, filled with what it is.
+fn scheduler_chore_edit_page(req: Request) Response {
+    let id: u32 = int_from_str(request_query_param(req, "id"))
+    let opened: Result[SqlDb, string] = sql_open(scheduler_db_path())
+    if !opened.is_ok || id == 0 {
+        return scheduler_back(i18n_t(req, "scheduler.not_found"))
+    }
+    sql_apply(opened.ok, scheduler_schema())
+    let chores: Chores[256]
+    let slice: Slice[Chores] = Slice[Chores]{ Ptr[Chores](&chores[0]), SCHEDULER_CHORE_CAPACITY }
+    let listed: Result[u32, SqlError] = ListChores(opened.ok, slice, SCHEDULER_CHORE_CAPACITY)
+    sql_close(opened.ok)
+    var count: u32 = 0
+    if listed.is_ok {
+        count = listed.ok
+    }
+    let at: i32 = scheduler_find(chores, count, id)
+    if at < 0 {
+        return scheduler_back(i18n_t(req, "scheduler.not_found"))
+    }
+    let index: u32 = u32(at)
+    let c: Chores = chores[index]
+    let kinds: string = "interval|" + i18n_t(req, "scheduler.every_hours") +
+        ",cron|" + i18n_t(req, "scheduler.cron") +
+        ",one_time|" + i18n_t(req, "scheduler.one_time") +
+        ",usage|" + i18n_t(req, "scheduler.after_use")
+    var qty: string = ""
+    if c.consumesMilli > 0 {
+        qty = milli_format(c.consumesMilli)
+    }
+    var fields: FormField[11]
+    fields[0] = FormField{ "title", "text", i18n_t(req, "scheduler.title_field"), "", "", true, "", "", c.title, "", "" }
+    fields[1] = FormField{ "kind", "select", i18n_t(req, "scheduler.schedule"), "", "", false, "", kinds, c.scheduleKind, "", "" }
+    fields[2] = FormField{ "value", "text", i18n_t(req, "scheduler.cron_date"), "", "0 9 * * 1 or 2026-11-03T09:00", false, "", "", c.scheduleValue, "", "" }
+    fields[3] = FormField{ "interval_hours", "text", i18n_t(req, "scheduler.interval_hours"), "", "", false, "", "", i64_to_str(c.intervalHours), "", "numeric" }
+    fields[4] = FormField{ "usage_hours", "text", i18n_t(req, "scheduler.usage_hours"), "", "", false, "", "", i64_to_str(c.usageIntervalHours), "", "numeric" }
+    fields[5] = FormField{ "grace_hours", "text", i18n_t(req, "scheduler.grace_hours"), "", "", false, "", "", i64_to_str(c.graceHours), "", "numeric" }
+    fields[6] = FormField{ "priority", "text", i18n_t(req, "scheduler.priority"), "", "", false, "", "", c.priority, "", "" }
+    fields[7] = FormField{ "description", "text", i18n_t(req, "scheduler.description"), "", "", false, "", "", c.description, "", "" }
+    fields[8] = FormField{ "runtime_of", "text", i18n_t(req, "scheduler.runtime_of"), "", "filter-main", false, "", "", c.runtimeOf, "", "" }
+    fields[9] = FormField{ "consumes", "text", i18n_t(req, "scheduler.consumes"), "", "filter-media", false, "", "", c.consumes, "", "" }
+    fields[10] = FormField{ "consumes_qty", "text", i18n_t(req, "scheduler.consumes_qty"), "", "1", false, "", "", qty, "", "decimal" }
+    let form: string = forms_open(fields, 11, "/scheduler/chores/edit?id=" + int_to_str(id),
+        i18n_t(req, "scheduler.save"), i18n_locale(req))
+    let body: string = "<h1>" + escape_html(i18n_t(req, "scheduler.edit_title")) + " <code>" + escape_html(c.title) + "</code></h1>" +
+        form + "<p><a class=\"quiet\" href=\"/scheduler\">" + escape_html(i18n_t(req, "scheduler.cancel")) + "</a></p>"
+    return host_shell(req, i18n_t(req, "scheduler.edit_title"), body, "")
+}
+
+// scheduler_chore_edit_save changes a chore. Its next due time is worked out
+// again only when its schedule changed: renaming a chore does not move it.
+fn scheduler_chore_edit_save(req: Request) Response {
+    let body: string = request_body(req)
+    if !forms_csrf_ok(body) {
+        return scheduler_back(i18n_t(req, "scheduler.csrf_refused"))
+    }
+    let id: u32 = int_from_str(request_query_param(req, "id"))
+    let title: string = str_trim(form_field(body, "title"))
+    if id == 0 || title == "" {
+        return scheduler_back(i18n_t(req, "scheduler.not_found"))
+    }
+    let opened: Result[SqlDb, string] = sql_open(scheduler_db_path())
+    if !opened.is_ok {
+        return scheduler_back(opened.err)
+    }
+    let db: SqlDb = opened.ok
+    sql_apply(db, scheduler_schema())
+    let chores: Chores[256]
+    let slice: Slice[Chores] = Slice[Chores]{ Ptr[Chores](&chores[0]), SCHEDULER_CHORE_CAPACITY }
+    let listed: Result[u32, SqlError] = ListChores(db, slice, SCHEDULER_CHORE_CAPACITY)
+    var count: u32 = 0
+    if listed.is_ok {
+        count = listed.ok
+    }
+    let at: i32 = scheduler_find(chores, count, id)
+    if at < 0 {
+        sql_close(db)
+        return scheduler_back(i18n_t(req, "scheduler.not_found"))
+    }
+    let index: u32 = u32(at)
+    let c: Chores = chores[index]
+    let kind: string = form_field(body, "kind")
+    let value: string = str_trim(form_field(body, "value"))
+    let interval_hours: u32 = int_from_str(str_trim(form_field(body, "interval_hours")))
+    var next: u32 = u32(c.nextDueEpoch)
+    if !str_eq(kind, c.scheduleKind) || !str_eq(value, c.scheduleValue) || i64(interval_hours) != c.intervalHours {
+        next = scheduler_next_due(kind, value, interval_hours, scheduler_now())
+        if str_eq(kind, "cron") && next == 0 {
+            sql_close(db)
+            return scheduler_back(i18n_t(req, "scheduler.bad_cron"))
+        }
+    }
+    var priority: string = str_trim(form_field(body, "priority"))
+    if priority == "" {
+        priority = "normal"
+    }
+    let consumes: string = inventory_handle(form_field(body, "consumes"))
+    var quantity: u32 = scheduler_milli(form_field(body, "consumes_qty"))
+    if consumes != "" && quantity == 0 {
+        quantity = 1000
+    }
+    let saved: Result[u32, SqlError] = UpdateChore(title, str_trim(form_field(body, "description")), kind, value,
+        i64(interval_hours), i64(int_from_str(str_trim(form_field(body, "usage_hours")))),
+        i64(int_from_str(str_trim(form_field(body, "grace_hours")))), priority, i64(next),
+        inventory_handle(form_field(body, "runtime_of")), consumes, i64(quantity), i64(id), db)
+    sql_close(db)
+    if !saved.is_ok {
+        return scheduler_back(saved.err.message)
+    }
+    journal_info("chore", title, "person", "chore changed")
+    return scheduler_back(title + ": " + i18n_t(req, "scheduler.saved"))
+}
+
+fn scheduler_chore_delete(req: Request) Response {
+    let body: string = request_body(req)
+    if !forms_csrf_ok(body) {
+        return scheduler_back(i18n_t(req, "scheduler.csrf_refused"))
+    }
+    let id: u32 = int_from_str(str_trim(form_field(body, "id")))
+    let opened: Result[SqlDb, string] = sql_open(scheduler_db_path())
+    if !opened.is_ok || id == 0 {
+        return scheduler_back(i18n_t(req, "scheduler.not_found"))
+    }
+    sql_apply(opened.ok, scheduler_schema())
+    scheduler_ignore_result(DeleteChoreCompletions(i64(id), opened.ok))
+    let removed: Result[u32, SqlError] = DeleteChore(i64(id), opened.ok)
+    sql_close(opened.ok)
+    if !removed.is_ok || removed.ok == 0 {
+        return scheduler_back(i18n_t(req, "scheduler.not_found"))
+    }
+    return scheduler_back(i18n_t(req, "scheduler.deleted"))
+}
+
 fn scheduler_chores_complete(req: Request) Response {
-    return scheduler_complete_body(req, request_body(req))
+    let body: string = request_body(req)
+    if !forms_csrf_ok(body) {
+        return scheduler_page_message(req, i18n_t(req, "scheduler.csrf_refused"))
+    }
+    return scheduler_complete_body(req, body)
 }
 
 fn scheduler_complete_body(req: Request, body: string) Response {
@@ -505,7 +650,11 @@ fn scheduler_complete(id: u32, note: string) string {
 }
 
 fn scheduler_chores_snooze(req: Request) Response {
-    return scheduler_snooze_body(req, request_body(req))
+    let body: string = request_body(req)
+    if !forms_csrf_ok(body) {
+        return scheduler_page_message(req, i18n_t(req, "scheduler.csrf_refused"))
+    }
+    return scheduler_snooze_body(req, body)
 }
 
 fn scheduler_snooze_body(req: Request, body: string) Response {
@@ -530,7 +679,11 @@ fn scheduler_snooze_body(req: Request, body: string) Response {
 }
 
 fn scheduler_chores_usage(req: Request) Response {
-    return scheduler_usage_body(req, request_body(req))
+    let body: string = request_body(req)
+    if !forms_csrf_ok(body) {
+        return scheduler_page_message(req, i18n_t(req, "scheduler.csrf_refused"))
+    }
+    return scheduler_usage_body(req, body)
 }
 
 fn scheduler_usage_body(req: Request, body: string) Response {

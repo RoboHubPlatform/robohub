@@ -247,6 +247,23 @@ def main() -> int:
                 kind, handle = conn.execute("SELECT kind, handle FROM items WHERE name='Eheim 2217'").fetchone()
             if (kind, handle) != ("equipment", "filter-main"):
                 raise AssertionError(f"the item is {kind!r} {handle!r}, want equipment filter-main")
+            # A person's category can be renamed, and deleted only while empty;
+            # an item can be deleted, its purchases kept.
+            assert_contains(post(base, "/expenses/categories/rename", {"id": filters, "name": "Filter units"}),
+                            ["renamed"], "a category renamed")
+            assert_contains(post(base, "/expenses/categories/delete", {"id": filters}),
+                            ["cannot be deleted"], "a category with items kept")
+            post(base, "/expenses/categories/rename", {"id": filters, "name": "Filters"})
+            post(base, "/expenses/categories/add", {"category": "Empty shelf"})
+            assert_contains(post(base, "/expenses/categories/delete", {"id": category_id("Empty shelf")}),
+                            ["Category deleted"], "an empty category deleted")
+            post(base, "/expenses/items/add", {"name": "Spare", "category_id": filters, "unit": "unit", "quantity": "1"})
+            with sqlite3.connect(db) as conn:
+                spare = conn.execute("SELECT id FROM items WHERE name='Spare'").fetchone()[0]
+            assert_contains(post(base, "/expenses/items/delete", {"id": str(spare)}), ["Spare: deleted"], "an item deleted")
+            with sqlite3.connect(db) as conn:
+                if conn.execute("SELECT COUNT(*) FROM items WHERE id=?", (spare,)).fetchone()[0]:
+                    raise AssertionError("the deleted item is still there")
             page = get(base, "/expenses")
             assert_contains(page, ["Equipment", "not connected", "/expenses/items/automation?id=2"],
                             "an unconnected equipment row")

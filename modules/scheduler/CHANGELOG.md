@@ -64,3 +64,7 @@ The route handlers are `scheduler_chores_add`, `scheduler_chores_complete` and s
 ## [0.2.6] - 2026-11-14
 
 Its data is kept where `app_workspace()` says (rho 0.8.0) — the application's workspace, else `~/.rho/apps/<app>` — so two applications started by hand no longer share this module's records. It declares the i18n module it uses. Needs rho 0.8.0.
+
+## [0.2.7] - 2026-11-14
+
+A chore can be edited — its schedule, what it uses, its priority — and deleted with its history, from its row; renaming one does not move when it is due. The row's forms carry the form token and are translated, and a change returns to the page by GET.

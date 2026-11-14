@@ -91,5 +91,17 @@
   "inventory.devices.taken": "That equipment could not be added.",
   "inventory.devices.title": "Devices",
   "inventory.devices.unfilled": "not mapped",
-  "inventory.devices.unknown": "There is no such role."
+  "inventory.devices.unknown": "There is no such role.",
+  "inventory.delete_item": "Delete this item",
+  "inventory.delete_item_confirm": "Delete this item, its bindings and its stock history? Its purchases stay in the expenses. This cannot be undone.",
+  "inventory.item_deleted": "deleted.",
+  "inventory.rename": "Rename",
+  "inventory.delete": "Delete",
+  "inventory.delete_category_confirm": "Delete this category? It must have no items.",
+  "inventory.category_preset": "from the application's presets",
+  "inventory.category_renamed": "renamed.",
+  "inventory.category_deleted": "Category deleted.",
+  "inventory.category_unchanged": "That category cannot be renamed: it is the application's, or the name is taken.",
+  "inventory.category_in_use": "That category cannot be deleted: it still has items, or it is the application's.",
+  "inventory.no_categories": "No categories yet."
 }

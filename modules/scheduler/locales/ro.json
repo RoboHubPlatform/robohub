@@ -31,5 +31,18 @@
   "scheduler.runtime_of": "Funcționarea articolului",
   "scheduler.consumes": "Consumă (articol)",
   "scheduler.consumes_qty": "Cantitate consumată",
-  "scheduler.bad_cron": "Expresia cron nu numește niciun moment: cinci câmpuri, minut oră zi lună zi-a-săptămânii, fiecare *, un număr, un interval a-b, o listă a,b sau un pas */n."
+  "scheduler.bad_cron": "Expresia cron nu numește niciun moment: cinci câmpuri, minut oră zi lună zi-a-săptămânii, fiecare *, un număr, un interval a-b, o listă a,b sau un pas */n.",
+  "scheduler.done": "Gata",
+  "scheduler.snooze_day": "Amână 1 zi",
+  "scheduler.hours": "ore",
+  "scheduler.add_use": "Adaugă utilizare",
+  "scheduler.edit": "Editează",
+  "scheduler.delete": "Șterge",
+  "scheduler.delete_confirm": "Ștergi această sarcină și istoricul ei? Acțiunea nu poate fi anulată.",
+  "scheduler.edit_title": "Editează sarcina",
+  "scheduler.save": "Salvează",
+  "scheduler.cancel": "Renunță",
+  "scheduler.saved": "salvată.",
+  "scheduler.deleted": "Sarcină ștearsă.",
+  "scheduler.not_found": "Sarcina nu a fost găsită."
 }

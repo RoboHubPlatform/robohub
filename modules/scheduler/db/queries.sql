@@ -57,3 +57,19 @@ INSERT INTO chores
 SELECT :title, :description, :schedule_kind, :schedule_value, :interval_hours,
        :usage_interval_hours, :grace_hours, :priority, :next_due_epoch, 1
 WHERE NOT EXISTS (SELECT 1 FROM chores WHERE title = :title);
+
+-- A chore changed by a person: what it is, when it comes round, what it uses.
+-- name: update_chore
+UPDATE chores SET title = :title, description = :description, schedule_kind = :schedule_kind,
+    schedule_value = :schedule_value, interval_hours = :interval_hours,
+    usage_interval_hours = :usage_interval_hours, grace_hours = :grace_hours,
+    priority = :priority, next_due_epoch = :next_due_epoch, runtime_of = :runtime_of,
+    consumes = :consumes, consumes_milli = :consumes_milli
+WHERE id = :id;
+
+-- A chore deleted, and its history with it.
+-- name: delete_chore_completions
+DELETE FROM chore_completions WHERE chore_id = :chore_id;
+
+-- name: delete_chore
+DELETE FROM chores WHERE id = :id;

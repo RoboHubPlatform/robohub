@@ -31,5 +31,18 @@
   "scheduler.runtime_of": "Runtime of (item)",
   "scheduler.consumes": "Uses (item)",
   "scheduler.consumes_qty": "Quantity used",
-  "scheduler.bad_cron": "That cron expression names no time: five fields, minute hour day month weekday, each *, a number, a range a-b, a list a,b or a step */n."
+  "scheduler.bad_cron": "That cron expression names no time: five fields, minute hour day month weekday, each *, a number, a range a-b, a list a,b or a step */n.",
+  "scheduler.done": "Done",
+  "scheduler.snooze_day": "Snooze 1 day",
+  "scheduler.hours": "hours",
+  "scheduler.add_use": "Add use",
+  "scheduler.edit": "Edit",
+  "scheduler.delete": "Delete",
+  "scheduler.delete_confirm": "Delete this chore and its history? This cannot be undone.",
+  "scheduler.edit_title": "Edit chore",
+  "scheduler.save": "Save",
+  "scheduler.cancel": "Cancel",
+  "scheduler.saved": "saved.",
+  "scheduler.deleted": "Chore deleted.",
+  "scheduler.not_found": "That chore was not found."
 }

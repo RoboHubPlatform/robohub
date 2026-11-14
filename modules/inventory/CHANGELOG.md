@@ -72,3 +72,7 @@ One item is looked up, not found in a list of every item: `inventory_resolve` �
 ## [0.3.2] - 2026-11-14
 
 Its data is kept where `app_workspace()` says (rho 0.8.0) — the application's workspace, else `~/.rho/apps/<app>` — so two applications started by hand no longer share this module's records. Copies of helpers the toolchain now provides (`i64_to_str`, `str_lower`, `str_field`, `json_str_field`, `escape_html`) are gone. It declares the i18n module it uses. Needs rho 0.8.0.
+
+## [0.3.3] - 2026-11-14
+
+An item can be deleted from its edit page (its bindings and stock history go with it; its purchases stay in the expenses), and a category a person added can be renamed, or deleted while empty — a category the application's presets keep (`origin = 'preset'`) cannot, since the application reads it by name. The item edit form carries the form token. `inventory_return` puts stock back, the opposite of `inventory_consume`.

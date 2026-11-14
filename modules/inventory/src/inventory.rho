@@ -494,17 +494,32 @@ fn inventory_docs() string {
     return text
 }
 
-fn inventory_category_rows(categories: Categories[64], count: u32) string {
+fn inventory_category_rows(req: Request, categories: Categories[64], count: u32) string {
     var out: string = ""
     var i: u32 = 0
     while i < count {
-        let html: string = template_fill(inventory_template("rows/category-row"),
-            vars("name", categories[i].name))
-        out = out + html + "\n"
+        let c: Categories = categories[i]
+        let id: string = int_to_str(u32(c.id))
+        var preset: string = ""
+        var actions: string = ""
+        if str_eq(c.origin, "preset") {
+            preset = " <small class=\"muted\">(" + escape_html(i18n_t(req, "inventory.category_preset")) + ")</small>"
+        } else {
+            actions = "<form method=\"post\" action=\"/expenses/categories/rename\" class=\"inline\">" + forms_csrf_field() +
+                "<input type=\"hidden\" name=\"id\" value=\"" + id + "\"><input name=\"name\" value=\"" + escape_html(c.name) +
+                "\" aria-label=\"" + escape_html(i18n_t(req, "inventory.name")) + "\"><button class=\"quiet\">" +
+                escape_html(i18n_t(req, "inventory.rename")) + "</button></form> " +
+                "<form method=\"post\" action=\"/expenses/categories/delete\" class=\"inline\" onsubmit=\"return confirm(" +
+                escape_html(json_string(i18n_t(req, "inventory.delete_category_confirm"))) + ")\">" + forms_csrf_field() +
+                "<input type=\"hidden\" name=\"id\" value=\"" + id + "\"><button class=\"quiet\">" +
+                escape_html(i18n_t(req, "inventory.delete")) + "</button></form>"
+        }
+        out = out + template_fill(inventory_template("rows/category-row"),
+            vars("name", c.name) + vars("preset", preset) + vars("actions", actions)) + "\n"
         i = i + 1
     }
     if out == "" {
-        out = "<tr><td>No categories yet.</td></tr>"
+        out = "<tr><td>" + escape_html(i18n_t(req, "inventory.no_categories")) + "</td></tr>"
     }
     return out
 }
@@ -660,7 +675,7 @@ fn inventory_page_message(req: Request, message: string) Response {
         vars("item_rows", inventory_item_rows(req, items, item_count, bindings, binding_count)) +
         vars("low_rows", inventory_low_rows(low, low_count)) +
         vars("expense_rows", inventory_expense_rows(expenses, expense_count)) +
-        vars("category_rows", inventory_category_rows(categories, category_count)) +
+        vars("category_rows", inventory_category_rows(req, categories, category_count)) +
         vars("total", escape_html(inventory_money(total))) +
         vars("item_count", int_to_str(item_count)) +
         vars("low_count", int_to_str(low_count)) +
@@ -722,6 +737,8 @@ fn inventory_edit_page(req: Request) Response {
     }
     let body: string = template_fill(inventory_template("pages/item-edit"),
         i18n_vars(req) +
+        vars("csrf", forms_csrf_field()) +
+        vars("delete_confirm", json_string(i18n_t(req, "inventory.delete_item_confirm"))) +
         vars("inventory_style", inventory_template("parts/style")) +
         vars("id", int_to_str(u32(row.id))) +
         vars("name", row.name) +
@@ -797,6 +814,9 @@ fn inventory_items_add(req: Request) Response {
 
 fn inventory_items_edit_save(req: Request) Response {
     let body: string = request_body(req)
+    if !forms_csrf_ok(body) {
+        return inventory_page_message(req, i18n_t(req, "inventory.csrf_refused"))
+    }
     let id: u32 = int_from_str(str_trim(form_field(body, "id")))
     if id == 0 {
         return inventory_page_message(req, "That item was not found.")
@@ -976,4 +996,78 @@ fn inventory_categories_add(req: Request) Response {
         return inventory_page_message(req, "The category could not be added: " + added.err.message)
     }
     return inventory_page_message(req, "Category added.")
+}
+
+// inventory_back is the inventory page again, by GET, with what happened.
+fn inventory_back(message: string) Response {
+    return redirect("/expenses?msg=" + str_url_encode(message))
+}
+
+// inventory_items_delete deletes an item with its bindings and stock history;
+// the purchases of it stay in the expenses, no longer naming it.
+fn inventory_items_delete(req: Request) Response {
+    let body: string = request_body(req)
+    if !forms_csrf_ok(body) {
+        return inventory_back(i18n_t(req, "inventory.csrf_refused"))
+    }
+    let id: u32 = int_from_str(str_trim(form_field(body, "id")))
+    let opened: Result[SqlDb, string] = sql_open(inventory_db_path())
+    if id == 0 || !opened.is_ok {
+        return inventory_back(i18n_t(req, "inventory.devices.no_item"))
+    }
+    let db: SqlDb = opened.ok
+    sql_apply(db, inventory_schema())
+    let one: InventoryOne = inventory_one(db, int_to_str(id))
+    inventory_ignore(DeleteItemBindings(i64(id), db))
+    inventory_ignore(DeleteItemMovements(i64(id), db))
+    inventory_ignore(DetachItemExpenses(i64(id), db))
+    let removed: Result[u32, SqlError] = DeleteItem(i64(id), db)
+    sql_close(db)
+    if !removed.is_ok || removed.ok == 0 {
+        return inventory_back(i18n_t(req, "inventory.devices.no_item"))
+    }
+    info("inventory", "item deleted: " + one.row.name)
+    return inventory_back(one.row.name + ": " + i18n_t(req, "inventory.item_deleted"))
+}
+
+fn inventory_categories_rename(req: Request) Response {
+    let body: string = request_body(req)
+    if !forms_csrf_ok(body) {
+        return inventory_back(i18n_t(req, "inventory.csrf_refused"))
+    }
+    let id: u32 = int_from_str(str_trim(form_field(body, "id")))
+    let name: string = str_trim(form_field(body, "name"))
+    let opened: Result[SqlDb, string] = sql_open(inventory_db_path())
+    if id == 0 || name == "" || !opened.is_ok {
+        return inventory_back(i18n_t(req, "inventory.category_unchanged"))
+    }
+    sql_apply(opened.ok, inventory_schema())
+    let renamed: Result[u32, SqlError] = RenameCategory(name, i64(id), opened.ok)
+    sql_close(opened.ok)
+    if !renamed.is_ok || renamed.ok == 0 {
+        return inventory_back(i18n_t(req, "inventory.category_unchanged"))
+    }
+    return inventory_back(name + ": " + i18n_t(req, "inventory.category_renamed"))
+}
+
+fn inventory_categories_delete(req: Request) Response {
+    let body: string = request_body(req)
+    if !forms_csrf_ok(body) {
+        return inventory_back(i18n_t(req, "inventory.csrf_refused"))
+    }
+    let id: u32 = int_from_str(str_trim(form_field(body, "id")))
+    let opened: Result[SqlDb, string] = sql_open(inventory_db_path())
+    if id == 0 || !opened.is_ok {
+        return inventory_back(i18n_t(req, "inventory.category_in_use"))
+    }
+    sql_apply(opened.ok, inventory_schema())
+    let removed: Result[u32, SqlError] = DeleteCategory(i64(id), opened.ok)
+    if removed.is_ok && removed.ok > 0 {
+        inventory_ignore(DetachCategoryExpenses(i64(id), opened.ok))
+    }
+    sql_close(opened.ok)
+    if !removed.is_ok || removed.ok == 0 {
+        return inventory_back(i18n_t(req, "inventory.category_in_use"))
+    }
+    return inventory_back(i18n_t(req, "inventory.category_deleted"))
 }
