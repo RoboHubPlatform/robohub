@@ -135,6 +135,7 @@ jobs:
         if: inputs.machine
         working-directory: ws/${{ github.event.repository.name }}
         run: |
+          sudo apt-get update -qq
           rho module publish .
           name="$(sed -n 's/^  name: *//p' module.yml | head -1)"
           rho keeper sync --yes --module "${name}"
@@ -145,6 +146,9 @@ jobs:
       - name: Install the toolchain's tools this repository's tests use
         if: inputs.machine_install != ''
         run: |
+          # A fresh runner's package lists are stale, and apt-get install refuses
+          # a package it cannot find in them.
+          sudo apt-get update -qq
           for pair in ${{ inputs.machine_install }}; do
             rho keeper install --yes "${pair%%:*}" "${pair#*:}"
           done
