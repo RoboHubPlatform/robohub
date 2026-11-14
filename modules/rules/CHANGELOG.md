@@ -45,3 +45,7 @@ The grammar has unit tests of its own (tests/rules_test.rho): tokens, numbers an
 ## [0.1.8] - 2026-11-14
 
 A rule can be changed: *Edit* on the rules page opens its condition, clear condition, wait, cooldown and actions, checked before they are saved and shown again with what was typed when they do not read. A preset rule changed becomes *edited*, which the presets leave alone, and *Back to the preset* restores it from `rule_presets`, which the presets fill each time they are applied. The page's forms send the browser back to the page by GET after a change.
+
+## [0.1.9] - 2026-11-14
+
+Deleting a rule asks for confirmation first.

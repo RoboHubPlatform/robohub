@@ -44,5 +44,6 @@
   "rules.reset_done": "put back as its preset.",
   "rules.preset_note": "A preset rule: once you change it, the application's presets no longer change it, and you can put it back as the preset at any time.",
   "rules.edited_note": "Changed from its preset: the application's presets leave it as you wrote it.",
-  "rules.bad_duration": "Not a duration (write 90s, 10m, 1.5h or 1d):"
+  "rules.bad_duration": "Not a duration (write 90s, 10m, 1.5h or 1d):",
+  "rules.delete_confirm": "Delete this rule? This cannot be undone."
 }

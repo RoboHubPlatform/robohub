@@ -610,7 +610,8 @@ fn rules_page_message(req: Request, message: string) Response {
         }
         var remove: string = ""
         if str_eq(rule.origin, "person") {
-            remove = "<button name=\"delete\" value=\"1\">" + escape_html(i18n_t(req, "rules.delete")) + "</button>"
+            remove = "<button name=\"delete\" value=\"1\" onclick=\"return confirm(" +
+                escape_html(json_string(i18n_t(req, "rules.delete_confirm"))) + ")\">" + escape_html(i18n_t(req, "rules.delete")) + "</button>"
         }
         var state: string = rule.state
         if rule.enabled == 0 {

@@ -44,5 +44,6 @@
   "rules.reset_done": "readusă la presetare.",
   "rules.preset_note": "O regulă presetată: după ce o modifici, presetările aplicației nu o mai schimbă și o poți readuce oricând la presetare.",
   "rules.edited_note": "Modificată față de presetare: presetările aplicației o lasă așa cum ai scris-o.",
-  "rules.bad_duration": "Nu este o durată (scrie 90s, 10m, 1.5h sau 1d):"
+  "rules.bad_duration": "Nu este o durată (scrie 90s, 10m, 1.5h sau 1d):",
+  "rules.delete_confirm": "Ștergi această regulă? Acțiunea nu poate fi anulată."
 }

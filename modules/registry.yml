@@ -1,10 +1,10 @@
 # The application module registry database.
 #
-# A module is a reusable Rho application with a backend, pages and its own
-# storage. This file is the installed set the keeper's Modules page reads;
-# each path is confirmed on disk before a row is shown. Install and uninstall
-# edit this file, so a module added from the dashboard is available without a
-# rebuild.
+# A module is shared Rho code with pages and storage of its own, which
+# applications include and compile in. This file is the installed set the
+# keeper's Modules page reads; each path is confirmed on disk before a row is
+# shown. Install and uninstall edit this file; an application uses a module it
+# includes once it is rebuilt.
 modules:
   - name: inventory
     path: inventory

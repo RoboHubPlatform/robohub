@@ -442,9 +442,9 @@ fn test_add(wanted: string, name: string, program: string, arguments: string) vo
 // stops. The CLI finds it where it was built and runs it, and says where to
 // look if it is not there.
 fn keeper_command() void {
-    let port: string = rho_arg(1)
+    var port: string = rho_arg(1)
     if port == "" {
-        port = "8080"
+        port = "19090"
     }
     // The keeper has a repository of its own, robohub-keeper: where
     // ROBOHUB_KEEPER says, or beside this orchestrator in the workspace.
@@ -458,8 +458,12 @@ fn keeper_command() void {
         print("robohub keeper: rho build " + checkout + "\n")
         return
     }
-    print("robohub keeper: starting on port " + port + "\n")
-    let code: u32 = rho_exec(keeper, "--port " + port, REPORT_DIR + "/keeper.txt")
+    // The keeper reads where to listen and where the orchestrator is from its
+    // environment; it runs until stopped, its output in the report. For a
+    // keeper that stays running, scripts/deploy-keeper.sh installs it as a
+    // user service.
+    print("robohub keeper: http://127.0.0.1:" + port + "/ (output in " + REPORT_DIR + "/keeper.txt)\n")
+    let code: u32 = rho_exec("env", "RHO_HTTP_ADDR=127.0.0.1:" + port + " ROBOHUB_ROOT=. " + keeper, REPORT_DIR + "/keeper.txt")
     if code != 0 {
         print("robohub keeper: stopped (" + int_to_str(code) + ")\n")
     }
