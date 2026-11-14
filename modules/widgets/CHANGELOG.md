@@ -125,3 +125,7 @@ Trimming, URL escapes, form fields and decimals come from the toolchain (rho 0.7
 ## [0.3.4] - 2026-11-14
 
 Widgets no longer call the inventory's `ignore_result`, which they reached only because an application included both: they have `widgets_ignore`. `VALUE_CAPACITY` is `WIDGETS_VALUE_CAPACITY`.
+
+## [0.3.5] - 2026-11-14
+
+Its data is kept where `app_workspace()` says (rho 0.8.0) — the application's workspace, else `~/.rho/apps/<app>` — so two applications started by hand no longer share this module's records. Copies of helpers the toolchain now provides (`i64_to_str`, `str_lower`, `str_field`, `json_str_field`, `escape_html`) are gone. It declares the i18n module it uses. Needs rho 0.8.0.

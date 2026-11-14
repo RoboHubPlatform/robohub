@@ -13,7 +13,7 @@ module:
   type: module
   title: Widgets
   category: dashboard
-  version: 0.3.4
+  version: 0.3.5
   description: >
     Dashboard widgets with a configurable source: a number, a chart of recent
     values, or a button that calls a hook or API.
@@ -34,6 +34,8 @@ sql:
 deps:
   rho-log: ">=0.1.0"
   robohub:
+    # Its pages are translated (i18n_t, i18n_vars).
+    i18n: ">=0.4.0"
     settings: ">=0.1.0"
     notifications: ">=0.1.0"
     forms: ">=0.1.0"

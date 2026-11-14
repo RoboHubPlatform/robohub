@@ -13,7 +13,7 @@ module:
   type: module
   title: Scheduler
   category: maintenance
-  version: 0.2.5
+  version: 0.2.6
   description: >
     A chore scheduler for maintenance tasks: interval, cron, one-time and
     usage-based schedules, due and overdue states, completion notes and
@@ -35,6 +35,8 @@ sql:
 deps:
   rho-log: ">=0.1.0"
   robohub:
+    # Its pages are translated (i18n_t, i18n_vars).
+    i18n: ">=0.4.0"
     settings: ">=0.1.0"
     notifications: ">=0.1.0"
     forms: ">=0.1.0"

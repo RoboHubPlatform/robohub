@@ -36,10 +36,7 @@ fn appapi_db_path() string {
     if override != "" {
         return override
     }
-    var workspace: string = getenv("ROBOHUB_APP_WORKSPACE")
-    if workspace == "" {
-        workspace = getenv("HOME") + "/.rho/modules/appapi"
-    }
+    let workspace: string = app_workspace()
     return workspace + "/data/app.db"
 }
 
@@ -78,26 +75,6 @@ fn appapi_number(text: string) AppapiNumber {
         return AppapiNumber{ true, 0 }
     }
     return AppapiNumber{ milli_valid(value), milli_parse(value) }
-}
-
-// appapi_i64 writes a whole number that may not fit 32 bits.
-fn appapi_i64(value: i64) string {
-    if value == 0 {
-        return "0"
-    }
-    var rest: i64 = value
-    var sign: string = ""
-    if rest < 0 {
-        sign = "-"
-        rest = 0 - rest
-    }
-    var out: string = ""
-    while rest > 0 {
-        let digit: i64 = rest - (rest / 10) * 10
-        out = str_slice("0123456789", u32(digit), 1) + out
-        rest = rest / 10
-    }
-    return sign + out
 }
 
 fn appapi_parse_i64(text: string) i64 {

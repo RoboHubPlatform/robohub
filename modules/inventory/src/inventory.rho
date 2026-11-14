@@ -41,10 +41,7 @@ const INVENTORY_LOW_STOCK_CAPACITY: u32 = 128
 /* -------------------------------------------------------------------------- */
 
 fn inventory_workspace() string {
-    let workspace: string = getenv("ROBOHUB_APP_WORKSPACE")
-    if workspace == "" {
-        workspace = getenv("HOME") + "/.rho/modules/inventory"
-    }
+    let workspace: string = app_workspace()
     return workspace
 }
 
@@ -184,25 +181,6 @@ fn inventory_money(cents: i64) string {
         frac = "0" + frac
     }
     return sign + int_to_str(whole) + "." + frac
-}
-
-// inventory_i64 writes a whole number of any size and sign.
-fn inventory_i64(value: i64) string {
-    if value == 0 {
-        return "0"
-    }
-    var rest: i64 = value
-    var sign: string = ""
-    if rest < 0 {
-        sign = "-"
-        rest = 0 - rest
-    }
-    var out: string = ""
-    while rest > 0 {
-        out = str_slice("0123456789", u32(rest - (rest / 10) * 10), 1) + out
-        rest = rest / 10
-    }
-    return sign + out
 }
 
 // inventory_quantity writes thousandths as a quantity: a stock taken below zero
@@ -938,13 +916,13 @@ fn inventory_expenses_add(req: Request) Response {
     let inserted: Result[u32, SqlError] = InsertExpense(
         int_to_str(item_id), item_name,
         str_trim(form_field(body, "category_id")),
-        int_to_str(qty), int_to_str(unit_price), inventory_i64(total),
+        int_to_str(qty), int_to_str(unit_price), i64_to_str(total),
         str_trim(form_field(body, "source")), purchased,
         str_trim(form_field(body, "comment")), db)
     if inserted.is_ok {
         inventory_ignore(UpdateItemStock(int_to_str(qty), i64(item_id), db))
         inventory_ignore(InsertMovement(int_to_str(item_id), "purchase",
-            int_to_str(qty), int_to_str(unit_price), inventory_i64(total),
+            int_to_str(qty), int_to_str(unit_price), i64_to_str(total),
             str_trim(form_field(body, "source")), purchased,
             str_trim(form_field(body, "comment")), db))
     }

@@ -12,7 +12,7 @@ module:
   type: module
   title: Internationalisation
   category: ui
-  version: 0.4.2
+  version: 0.4.3
   description: >
     Locale negotiation from a cookie or Accept-Language, a language switcher,
     and the helper that carries the active locale into a Rho template.

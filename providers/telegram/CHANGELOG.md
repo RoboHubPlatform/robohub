@@ -16,3 +16,7 @@ alert plugin that wrapped it was removed.
 ## [0.2.1] - 2026-11-13
 
 An alert of several lines is one message again: the text goes to curl through a file (`--data-urlencode text@file`) instead of an argument, which a line break split in two, so every alert the rules sent with metadata failed. The bot token is read from a configuration file only this user can read, never from the command line; the token and chat id must be what Telegram issues; an HTTP error is a failure (`-f`).
+
+## [0.2.2] - 2026-11-14
+
+Its data is kept where `app_workspace()` says (rho 0.8.0) — the application's workspace, else `~/.rho/apps/<app>` — so two applications started by hand no longer share this module's records. Needs rho 0.8.0.

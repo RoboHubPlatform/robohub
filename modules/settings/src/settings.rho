@@ -13,15 +13,9 @@
 module settings
 
 fn settings_file() string {
-    // The application's own workspace, under either name the launcher gives it.
-    // An application started with neither shares the fallback store.
-    var workspace: string = getenv("ROBOHUB_APP_WORKSPACE")
-    if workspace == "" {
-        workspace = getenv("RHO_APP_WORKSPACE")
-    }
-    if workspace == "" {
-        workspace = getenv("HOME") + "/.rho/robohub"
-    }
+    // The application's own workspace (app_workspace: what its supervisor
+    // says, else ~/.rho/apps/<app>): two applications never share settings.
+    let workspace: string = app_workspace()
     let dir: string = workspace + "/data"
     rho_exec("mkdir", "-p " + dir, dir + "/mkdir.txt")
     return dir + "/settings.conf"

@@ -45,13 +45,7 @@ const SIM_KEEP: u32 = 604800
 /* -------------------------------------------------------------------------- */
 
 fn sim_dir() string {
-    var workspace: string = getenv("ROBOHUB_APP_WORKSPACE")
-    if workspace == "" {
-        workspace = getenv("RHO_APP_WORKSPACE")
-    }
-    if workspace == "" {
-        workspace = getenv("HOME") + "/.rho/modules/simulator"
-    }
+    let workspace: string = app_workspace()
     let dir: string = workspace + "/data/simulator"
     if !rho_path_exists(dir + "/history") {
         rho_exec("mkdir", "-p " + dir + "/history", "/dev/null")
@@ -78,27 +72,6 @@ fn sim_unquote(text: string) string {
         return str_slice(value, 1, n - 2)
     }
     return value
-}
-
-// sim_field is the field at an index of a `|`-separated line.
-fn sim_field(line: string, index: u32) string {
-    var rest: string = line
-    var i: u32 = 0
-    while true {
-        let at: i32 = str_index_of(rest, "|")
-        if i == index {
-            if at < 0 {
-                return rest
-            }
-            return str_slice(rest, 0, u32(at))
-        }
-        if at < 0 {
-            return ""
-        }
-        rest = str_slice(rest, u32(at) + 1, u32(strlen(rest)) - u32(at) - 1)
-        i = i + 1
-    }
-    return ""
 }
 
 // sim_param is one `key=value` of a source's `;`-separated parameters.
@@ -151,24 +124,6 @@ fn sim_milli(text: string) i64 {
     return milli_parse(value)
 }
 
-fn sim_i64(value: i64) string {
-    if value == 0 {
-        return "0"
-    }
-    var rest: i64 = value
-    var sign: string = ""
-    if rest < 0 {
-        sign = "-"
-        rest = 0 - rest
-    }
-    var out: string = ""
-    while rest > 0 {
-        out = str_slice("0123456789", u32(rest - (rest / 10) * 10), 1) + out
-        rest = rest / 10
-    }
-    return sign + out
-}
-
 fn sim_parse_i64(text: string) i64 {
     var out: i64 = 0
     var i: u32 = 0
@@ -213,7 +168,7 @@ fn sim_source_line(id: string) string {
     while rest != "" {
         let line: string = sim_next_line(rest)
         rest = sim_after_line(rest)
-        if str_eq(sim_field(line, 0), id) {
+        if str_eq(str_field(line, "|", 0), id) {
             return line
         }
     }
@@ -271,7 +226,7 @@ fn sim_history_file(id: string) string {
 
 // sim_record writes a value to a source's history and to every followed feed.
 fn sim_record(line: string, value: string, now: u32) void {
-    let id: string = sim_field(line, 0)
+    let id: string = str_field(line, "|", 0)
     var milli: i64 = 0
     if str_eq(value, "on") {
         milli = 1000
@@ -279,9 +234,9 @@ fn sim_record(line: string, value: string, now: u32) void {
         milli = sim_parse_signed(value)
     }
     rho_append_text(sim_history_file(id), int_to_str(now) + " " + milli_format(milli) + "\n")
-    let data: string = "{\"area\":0,\"field\":" + json_string(sim_field(line, 2)) +
+    let data: string = "{\"area\":0,\"field\":" + json_string(str_field(line, "|", 2)) +
         ",\"node\":0,\"project\":\"sim\",\"received_ms\":" + int_to_str(now) + "000" +
-        ",\"source\":" + json_string(sim_field(line, 1)) + ",\"status\":0,\"value\":" +
+        ",\"source\":" + json_string(str_field(line, "|", 1)) + ",\"status\":0,\"value\":" +
         json_string(milli_format(milli)) + "}"
     let event: string = "{\"data\":" + json_string(data) + ",\"event\":\"telemetry\"}\n"
     var follows: string = rho_read_text(sim_dir() + "/follow.txt")
@@ -304,7 +259,7 @@ fn sim_ref(line: string, name: string) string {
     if str_index_of(name, ".") >= 0 {
         return name
     }
-    return sim_field(line, 1) + "." + name
+    return str_field(line, "|", 1) + "." + name
 }
 
 fn sim_is_on(value: string) bool {
@@ -313,8 +268,8 @@ fn sim_is_on(value: string) bool {
 
 // sim_next is a source's next value after `seconds`, by its model.
 fn sim_next(line: string, current: string, seconds: u32, minutes: u32) string {
-    let model: string = sim_field(line, 6)
-    let params: string = sim_field(line, 7)
+    let model: string = str_field(line, "|", 6)
+    let params: string = str_field(line, "|", 7)
     let noise: i64 = sim_milli(sim_param(params, "noise"))
     if str_eq(model, "state") {
         if current == "" {
@@ -322,22 +277,22 @@ fn sim_next(line: string, current: string, seconds: u32, minutes: u32) string {
             if str_eq(initial, "on") || str_eq(initial, "off") {
                 return initial
             }
-            return sim_i64(sim_milli(initial))
+            return i64_to_str(sim_milli(initial))
         }
         return current
     }
     if str_eq(model, "constant") {
-        return sim_i64(sim_milli(sim_param(params, "value")) + sim_noise(noise))
+        return i64_to_str(sim_milli(sim_param(params, "value")) + sim_noise(noise))
     }
     if str_eq(model, "noise") {
-        return sim_i64(sim_milli(sim_param(params, "base")) + sim_noise(noise))
+        return i64_to_str(sim_milli(sim_param(params, "base")) + sim_noise(noise))
     }
     if str_eq(model, "when") {
         let of: string = sim_value(sim_ref(line, sim_param(params, "of")))
         if sim_is_on(of) {
-            return sim_i64(sim_milli(sim_param(params, "on")) + sim_noise(noise))
+            return i64_to_str(sim_milli(sim_param(params, "on")) + sim_noise(noise))
         }
-        return sim_i64(sim_milli(sim_param(params, "off")))
+        return i64_to_str(sim_milli(sim_param(params, "off")))
     }
     if str_eq(model, "day") {
         // A half sine between from and to, peaking halfway, zero outside:
@@ -356,7 +311,7 @@ fn sim_next(line: string, current: string, seconds: u32, minutes: u32) string {
         if value < 0 {
             value = 0
         }
-        return sim_i64(value)
+        return i64_to_str(value)
     }
     if str_eq(model, "thermal") {
         var value: i64 = sim_milli(sim_param(params, "initial"))
@@ -376,7 +331,7 @@ fn sim_next(line: string, current: string, seconds: u32, minutes: u32) string {
             // Towards the room by a share of the difference each hour.
             value = value + ((ambient - value) * cool / 1000) * i64(seconds) / 3600
         }
-        return sim_i64(value + sim_noise(noise))
+        return i64_to_str(value + sim_noise(noise))
     }
     if str_eq(model, "sum") {
         // A balance: `of` adds and subtracts other sources — `a + b - c`, each a
@@ -407,7 +362,7 @@ fn sim_next(line: string, current: string, seconds: u32, minutes: u32) string {
             }
             i = i + 1
         }
-        return sim_i64(total + sim_noise(noise))
+        return i64_to_str(total + sim_noise(noise))
     }
     if str_eq(model, "integrator") {
         // A battery's state of charge in percent, from a power source in watts
@@ -428,7 +383,7 @@ fn sim_next(line: string, current: string, seconds: u32, minutes: u32) string {
         if value > 100000 {
             value = 100000
         }
-        return sim_i64(value)
+        return i64_to_str(value)
     }
     return current
 }
@@ -532,7 +487,7 @@ fn tick() u32 {
         if line == "" {
             continue
         }
-        let id: string = sim_field(line, 0)
+        let id: string = str_field(line, "|", 0)
         let next: string = sim_next(line, sim_value(id), seconds, minutes)
         values = values + id + "=" + next + "\n"
         count = count + 1
@@ -543,7 +498,7 @@ fn tick() u32 {
         let line: string = sim_next_line(again)
         again = sim_after_line(again)
         if line != "" {
-            sim_record(line, sim_value(sim_field(line, 0)), now)
+            sim_record(line, sim_value(str_field(line, "|", 0)), now)
         }
     }
     rho_write_text(sim_dir() + "/last.txt", int_to_str(now))
@@ -567,13 +522,13 @@ fn sim_prune(now: u32) void {
         if line == "" {
             continue
         }
-        let file: string = sim_history_file(sim_field(line, 0))
+        let file: string = sim_history_file(str_field(line, "|", 0))
         var kept: string = ""
         var points: string = rho_read_text(file)
         while points != "" {
             let point: string = sim_next_line(points)
             points = sim_after_line(points)
-            if point != "" && int_from_str(sim_field(point + " ", 0)) >= cutoff {
+            if point != "" && int_from_str(str_field(point + " ", "|", 0)) >= cutoff {
                 kept = kept + point + "\n"
             }
         }
@@ -610,7 +565,7 @@ fn nodes() string {
     while rest != "" {
         let line: string = sim_next_line(rest)
         rest = sim_after_line(rest)
-        let board: string = sim_field(line, 2)
+        let board: string = str_field(line, "|", 2)
         if board != "" && str_index_of(seen, "\n" + board + "\n") < 0 {
             seen = seen + board + "\n"
             out = out + ",{\"id\":" + json_string(sim_board_id(board)) + ",\"name\":" + json_string(board) +
@@ -621,15 +576,15 @@ fn nodes() string {
     while rest != "" {
         let line: string = sim_next_line(rest)
         rest = sim_after_line(rest)
-        let uid: string = sim_field(line, 0)
+        let uid: string = str_field(line, "|", 0)
         if uid == "" {
             continue
         }
         var parent: string = "gateway"
-        if sim_field(line, 2) != "" {
-            parent = sim_board_id(sim_field(line, 2))
+        if str_field(line, "|", 2) != "" {
+            parent = sim_board_id(str_field(line, "|", 2))
         }
-        out = out + ",{\"id\":" + json_string(uid) + ",\"name\":" + json_string(sim_field(line, 1)) +
+        out = out + ",{\"id\":" + json_string(uid) + ",\"name\":" + json_string(str_field(line, "|", 1)) +
             ",\"kind\":\"device\",\"parent\":" + json_string(parent) + ",\"device\":\"simulated\",\"transport\":\"sim\",\"state\":\"online\"}"
     }
     return "[" + out + "]"
@@ -658,20 +613,20 @@ fn sources() string {
             continue
         }
         var kinds: string = "numeric chart table"
-        if str_eq(sim_field(line, 5), "output") {
+        if str_eq(str_field(line, "|", 5), "output") {
             kinds = "toggle button"
         }
         if out != "" {
             out = out + ","
         }
-        out = out + "{\"id\":" + json_string(sim_field(line, 0)) +
-            ",\"name\":" + json_string(sim_field(line, 3) + " · " + sim_field(line, 2)) +
-            ",\"owner\":" + json_string(sim_field(line, 3)) +
-            ",\"project\":\"sim\",\"instance\":" + json_string(sim_field(line, 1)) +
-            ",\"kind\":\"device\",\"signal\":" + json_string(sim_field(line, 2)) +
-            ",\"label\":" + json_string(sim_field(line, 2)) +
-            ",\"direction\":" + json_string(sim_field(line, 5)) +
-            ",\"unit\":" + json_string(sim_field(line, 4)) +
+        out = out + "{\"id\":" + json_string(str_field(line, "|", 0)) +
+            ",\"name\":" + json_string(str_field(line, "|", 3) + " · " + str_field(line, "|", 2)) +
+            ",\"owner\":" + json_string(str_field(line, "|", 3)) +
+            ",\"project\":\"sim\",\"instance\":" + json_string(str_field(line, "|", 1)) +
+            ",\"kind\":\"device\",\"signal\":" + json_string(str_field(line, "|", 2)) +
+            ",\"label\":" + json_string(str_field(line, "|", 2)) +
+            ",\"direction\":" + json_string(str_field(line, "|", 5)) +
+            ",\"unit\":" + json_string(str_field(line, "|", 4)) +
             ",\"kinds\":" + json_string(kinds) + "}"
     }
     return "[" + out + "]"
@@ -697,7 +652,7 @@ fn transport() string {
 // action switches a simulated switch on or off, at once.
 fn action(source: string, state: string) bool {
     let line: string = sim_source_line(source)
-    if line == "" || !str_eq(sim_field(line, 6), "state") || (!str_eq(state, "on") && !str_eq(state, "off")) {
+    if line == "" || !str_eq(str_field(line, "|", 6), "state") || (!str_eq(state, "on") && !str_eq(state, "off")) {
         return false
     }
     rho_lock("simulator")
@@ -770,14 +725,14 @@ fn source_history(source: string, from_ms: string, to_ms: string, step_ms: strin
             if out != "" {
                 out = out + ","
             }
-            out = out + "{\"t\":" + sim_i64(t * 1000) + ",\"v\":" + milli_format(v) + "}"
+            out = out + "{\"t\":" + i64_to_str(t * 1000) + ",\"v\":" + milli_format(v) + "}"
         } else {
             let this: i64 = (t / bucket_s) * bucket_s
             if this != bucket && count > 0 {
                 if out != "" {
                     out = out + ","
                 }
-                out = out + "{\"t\":" + sim_i64(bucket * 1000) + ",\"v\":" + milli_format(sum / count) + "}"
+                out = out + "{\"t\":" + i64_to_str(bucket * 1000) + ",\"v\":" + milli_format(sum / count) + "}"
                 sum = 0
                 count = 0
             }
@@ -790,7 +745,7 @@ fn source_history(source: string, from_ms: string, to_ms: string, step_ms: strin
         if out != "" {
             out = out + ","
         }
-        out = out + "{\"t\":" + sim_i64(bucket * 1000) + ",\"v\":" + milli_format(sum / count) + "}"
+        out = out + "{\"t\":" + i64_to_str(bucket * 1000) + ",\"v\":" + milli_format(sum / count) + "}"
     }
     return "{\"ok\":true,\"points\":[" + out + "]}"
 }

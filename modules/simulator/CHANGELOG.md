@@ -24,3 +24,7 @@ The clock is read from the process (`rho_now_s`, rho 0.6.0) instead of from `dat
 ## [0.2.2] - 2026-11-14
 
 Trimming, URL escapes, form fields and decimals come from the toolchain (rho 0.7.0: `str_trim`, `str_url_encode`/`str_url_decode`, `form_field`, `milli_*`) rather than this module's own copy, the same on both backends. Needs rho 0.7.0. A preset value that is not a number is 0, where its digits were picked out of it.
+
+## [0.2.3] - 2026-11-14
+
+Its data is kept where `app_workspace()` says (rho 0.8.0) — the application's workspace, else `~/.rho/apps/<app>` — so two applications started by hand no longer share this module's records. Copies of helpers the toolchain now provides (`i64_to_str`, `str_lower`, `str_field`, `json_str_field`, `escape_html`) are gone. Needs rho 0.8.0.

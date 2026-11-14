@@ -37,10 +37,7 @@ fn journal_db_path() string {
         return override
     }
     // The records belong to the application that includes the module.
-    var workspace: string = getenv("ROBOHUB_APP_WORKSPACE")
-    if workspace == "" {
-        workspace = getenv("HOME") + "/.rho/modules/journal"
-    }
+    let workspace: string = app_workspace()
     return workspace + "/data/app.db"
 }
 

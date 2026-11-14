@@ -12,7 +12,7 @@ module:
   type: module
   title: Settings
   category: core
-  version: 0.2.1
+  version: 0.2.2
   description: >
     A small key-value store for runtime settings owned by the host application,
     with namespaced keys and a plain key=value file.

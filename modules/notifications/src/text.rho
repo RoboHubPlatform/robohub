@@ -12,32 +12,8 @@
 
 module notifications
 
-fn notification_escape(text: string) string {
-    var out: string = ""
-    var i: u32 = 0
-    while i < u32(strlen(text)) {
-        let ch: string = str_slice(text, i, 1)
-        if str_eq(ch, "<") {
-            out = out + "&lt;"
-        } else if str_eq(ch, ">") {
-            out = out + "&gt;"
-        } else if str_eq(ch, "&") {
-            out = out + "&amp;"
-        } else if str_eq(ch, "\"") {
-            out = out + "&quot;"
-        } else {
-            out = out + ch
-        }
-        i = i + 1
-    }
-    return out
-}
-
 fn notification_workspace() string {
-    let workspace: string = getenv("ROBOHUB_APP_WORKSPACE")
-    if workspace == "" {
-        workspace = getenv("HOME") + "/.rho/modules/notifications"
-    }
+    let workspace: string = app_workspace()
     return workspace
 }
 

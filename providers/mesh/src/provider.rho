@@ -50,33 +50,11 @@ fn mesh_setting(key: string) string {
 // mesh_report is where a request's answer is written: the application's own
 // workspace, or a folder of its own under the user's ~/.rho.
 fn mesh_report(name: string) string {
-    var dir: string = getenv("RHO_APP_WORKSPACE")
-    if dir == "" {
-        dir = getenv("ROBOHUB_APP_WORKSPACE")
-    }
-    if dir == "" {
-        dir = getenv("HOME") + "/.rho/gateway"
-    } else {
-        dir = dir + "/data"
-    }
+    let dir: string = app_workspace() + "/data"
     if !rho_path_exists(dir) {
         rho_exec("mkdir", "-p " + dir, "/dev/null")
     }
     return dir + "/" + name + ".log"
-}
-
-fn mesh_json_string_field(text: string, key: string) string {
-    let at: i32 = str_index_of(text, "\"" + key + "\":\"")
-    if at < 0 {
-        return ""
-    }
-    let start: u32 = u32(at) + u32(strlen(key)) + 4
-    let rest: string = str_slice(text, start, u32(strlen(text)) - start)
-    let end: i32 = str_index_of(rest, "\"")
-    if end < 0 {
-        return ""
-    }
-    return str_slice(rest, 0, u32(end))
 }
 
 // follow follows the project's live telemetry stream into a local file, for as
@@ -193,7 +171,7 @@ fn gateway() string {
     if str_index_of(text, "\"available\":true") < 0 {
         return ""
     }
-    return mesh_json_string_field(text, "url")
+    return json_str_field(text, "url")
 }
 
 fn sources() string {

@@ -660,9 +660,9 @@ fn inventory_source_options(capability: string, selected: string, bindings: List
         if close >= 0 {
             entry = str_slice(rest, 0, u32(close))
         }
-        let id: string = inventory_json_field("{\"id\":" + entry, "id")
-        let signal: string = inventory_json_field(entry, "signal")
-        let label: string = inventory_json_field(entry, "name")
+        let id: string = json_str_field("{\"id\":" + entry, "id")
+        let signal: string = json_str_field(entry, "signal")
+        let label: string = json_str_field(entry, "name")
         if id == "" || !str_eq(signal, name) {
             continue
         }
@@ -678,21 +678,6 @@ fn inventory_source_options(capability: string, selected: string, bindings: List
         out = out + ">" + escape_html(label + " · " + id) + "</option>"
     }
     return out
-}
-
-// inventory_json_field is one string field of a flat JSON object.
-fn inventory_json_field(text: string, key: string) string {
-    let at: i32 = str_index_of(text, "\"" + key + "\":\"")
-    if at < 0 {
-        return ""
-    }
-    let start: u32 = u32(at) + u32(strlen(key)) + 4
-    let rest: string = str_slice(text, start, u32(strlen(text)) - start)
-    let end: i32 = str_index_of(rest, "\"")
-    if end < 0 {
-        return ""
-    }
-    return str_slice(rest, 0, u32(end))
 }
 
 // inventory_connected says whether every required capability of an item is

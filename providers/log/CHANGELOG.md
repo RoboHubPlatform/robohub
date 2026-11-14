@@ -21,3 +21,7 @@ alert plugin that wrapped it was removed.
 ## [0.2.1] - 2026-11-13
 
 The log is rotated at 1 MB again: the size stat answers ends in a line break, which made it read as 0, so the log was never rotated.
+
+## [0.2.2] - 2026-11-14
+
+Its data is kept where `app_workspace()` says (rho 0.8.0) — the application's workspace, else `~/.rho/apps/<app>` — so two applications started by hand no longer share this module's records. Needs rho 0.8.0.

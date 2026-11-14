@@ -24,3 +24,7 @@ Trimming, URL escapes, form fields and decimals come from the toolchain (rho 0.7
 ## [0.1.4] - 2026-11-14
 
 `appapi_value` — a rule's host value and every dashboard card that shows one — looks the value up by its id, where it listed every value. `ignore_appapi` is `appapi_ignore`.
+
+## [0.1.5] - 2026-11-14
+
+Its data is kept where `app_workspace()` says (rho 0.8.0) — the application's workspace, else `~/.rho/apps/<app>` — so two applications started by hand no longer share this module's records. Copies of helpers the toolchain now provides (`i64_to_str`, `str_lower`, `str_field`, `json_str_field`, `escape_html`) are gone. Needs rho 0.8.0.

@@ -24,3 +24,7 @@ Trimming, URL escapes, form fields and decimals come from the toolchain (rho 0.7
 ## [0.2.3] - 2026-11-14
 
 The authorization header reaches curl from an owner-only file rather than its command line, and a URL or header with a line break is refused.
+
+## [0.2.4] - 2026-11-14
+
+Its data is kept where `app_workspace()` says (rho 0.8.0) — the application's workspace, else `~/.rho/apps/<app>` — so two applications started by hand no longer share this module's records. Needs rho 0.8.0.

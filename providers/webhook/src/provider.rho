@@ -27,10 +27,7 @@ extern fn rho_bind_config(provider: string, key: string) string
 // state_dir is where this provider keeps what it writes on the way out: the
 // application's workspace when it has one.
 fn state_dir() string {
-    var dir: string = getenv("RHO_APP_WORKSPACE")
-    if dir == "" {
-        dir = getenv("HOME") + "/.rho"
-    }
+    var dir: string = app_workspace()
     dir = dir + "/alerts"
     let made: u32 = rho_exec_args("mkdir", "-p\n" + dir + "\n", dir + ".mkdir.log")
     return dir

@@ -41,10 +41,7 @@ fn scheduler_ignore_response(value: Response) void {
 const SCHEDULER_COMPLETION_CAPACITY: u32 = 64
 
 fn scheduler_workspace() string {
-    let workspace: string = getenv("ROBOHUB_APP_WORKSPACE")
-    if workspace == "" {
-        workspace = getenv("HOME") + "/.rho/modules/scheduler"
-    }
+    let workspace: string = app_workspace()
     return workspace
 }
 

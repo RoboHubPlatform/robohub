@@ -19,3 +19,7 @@ The badge counts the open entries rather than the rows of a page of them, so it 
 ## [0.1.3] - 2026-11-14
 
 Trimming, URL escapes, form fields and decimals come from the toolchain (rho 0.7.0: `str_trim`, `str_url_encode`/`str_url_decode`, `form_field`, `milli_*`) rather than this module's own copy, the same on both backends. Needs rho 0.7.0.
+
+## [0.1.4] - 2026-11-14
+
+Its data is kept where `app_workspace()` says (rho 0.8.0) — the application's workspace, else `~/.rho/apps/<app>` — so two applications started by hand no longer share this module's records. It declares the i18n module it uses. Needs rho 0.8.0.

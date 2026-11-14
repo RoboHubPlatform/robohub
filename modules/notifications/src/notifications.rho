@@ -273,10 +273,10 @@ fn notifications_render(req: Request) Response {
         let color: string = notification_color(level)
         let icon: string = notification_icon(level)
         let remaining: u32 = u32(expires) - now
-        out = out + "<div class=\"notification notification-" + notification_escape(level) + "\" " +
+        out = out + "<div class=\"notification notification-" + escape_html(level) + "\" " +
             "style=\"border-left:4px solid " + color + ";background:" + color + "18;padding:.75rem 1rem;margin:.5rem 0;border-radius:6px;display:flex;align-items:center;gap:.75rem;\">" +
             "<span style=\"color:" + color + ";font-size:1.2rem\">" + icon + "</span>" +
-            "<span style=\"flex:1\">" + notification_escape(message) + "</span>" +
+            "<span style=\"flex:1\">" + escape_html(message) + "</span>" +
             "<span style=\"color:#8a929e;font-size:.8rem\">" + int_to_str(remaining) + "s</span>" +
             "<button onclick=\"this.parentElement.remove()\" style=\"background:none;border:none;cursor:pointer;color:#8a929e;font-size:1.2rem\">✕</button>" +
             "</div>"

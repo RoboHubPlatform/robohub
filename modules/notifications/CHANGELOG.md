@@ -32,3 +32,7 @@ An empty list has no blank notification: a run that finds no row is not read as 
 ## [0.1.7] - 2026-11-14
 
 Trimming, URL escapes, form fields and decimals come from the toolchain (rho 0.7.0: `str_trim`, `str_url_encode`/`str_url_decode`, `form_field`, `milli_*`) rather than this module's own copy, the same on both backends. Needs rho 0.7.0. A form field is URL-decoded: a channel name or message with a space, an `&` or an accent was stored as sent (`a+b%26c`).
+
+## [0.1.8] - 2026-11-14
+
+Its data is kept where `app_workspace()` says (rho 0.8.0) — the application's workspace, else `~/.rho/apps/<app>` — so two applications started by hand no longer share this module's records. Copies of helpers the toolchain now provides (`i64_to_str`, `str_lower`, `str_field`, `json_str_field`, `escape_html`) are gone. Needs rho 0.8.0.

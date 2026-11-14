@@ -10,7 +10,7 @@ module:
   previous_ids:
     - robohub.providers.log
   type: provider
-  version: 0.2.1
+  version: 0.2.2
   description: Appends an alert line to a file on the machine.
   maintainer: "Aurel Miron"
   license: "MIT"

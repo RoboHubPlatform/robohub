@@ -56,3 +56,7 @@ A reading is returned as the response body (`rho_http_body`, rho 0.6.0) instead 
 ## [0.5.2] - 2026-11-14
 
 Trimming, URL escapes, form fields and decimals come from the toolchain (rho 0.7.0: `str_trim`, `str_url_encode`/`str_url_decode`, `form_field`, `milli_*`) rather than this module's own copy, the same on both backends. Needs rho 0.7.0. A query value escapes every reserved byte, and a line break is escaped rather than dropped.
+
+## [0.5.3] - 2026-11-14
+
+Its data is kept where `app_workspace()` says (rho 0.8.0) — the application's workspace, else `~/.rho/apps/<app>` — so two applications started by hand no longer share this module's records. Copies of helpers the toolchain now provides (`i64_to_str`, `str_lower`, `str_field`, `json_str_field`, `escape_html`) are gone. Needs rho 0.8.0.

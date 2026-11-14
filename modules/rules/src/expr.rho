@@ -124,24 +124,6 @@ fn rules_peek(c: RulesCursor) string {
     return rules_token(c.tokens, c.pos)
 }
 
-fn rules_lower(text: string) string {
-    let lower: string = "abcdefghijklmnopqrstuvwxyz"
-    let upper: string = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-    var out: string = ""
-    var i: u32 = 0
-    while i < u32(strlen(text)) {
-        let ch: string = str_slice(text, i, 1)
-        let at: i32 = str_index_of(upper, ch)
-        if at >= 0 {
-            out = out + str_slice(lower, u32(at), 1)
-        } else {
-            out = out + ch
-        }
-        i = i + 1
-    }
-    return out
-}
-
 /* -------------------------------------------------------------------------- */
 /*  Values                                                                    */
 /* -------------------------------------------------------------------------- */
@@ -159,7 +141,7 @@ fn rules_number(text: string) RulesNumber {
 
 // rules_normal is a value as a condition compares it: on/true are 1, off/false 0.
 fn rules_normal(value: string) string {
-    let lower: string = rules_lower(str_trim(value))
+    let lower: string = str_lower(str_trim(value))
     if str_eq(lower, "on") || str_eq(lower, "true") {
         return "1"
     }
@@ -180,7 +162,7 @@ fn rules_value(token: string) string {
     if literal.ok {
         return token
     }
-    let lower: string = rules_lower(token)
+    let lower: string = str_lower(token)
     if str_eq(lower, "on") || str_eq(lower, "off") || str_eq(lower, "true") || str_eq(lower, "false") {
         return rules_normal(token)
     }
@@ -236,7 +218,7 @@ fn rules_minutes(text: string) u32 {
 // rules_seconds is a duration as a rule's `for` and `cooldown` write it, in
 // seconds; 0 when it is not one.
 fn rules_seconds(text: string) u32 {
-    let value: string = rules_lower(str_trim(text))
+    let value: string = str_lower(str_trim(text))
     if value == "" {
         return 0
     }
@@ -282,13 +264,13 @@ fn rules_fail(c: RulesCursor, problem: string) RulesTruth {
 fn rules_atom(c: RulesCursor) RulesTruth {
     var cur: RulesCursor = c
     let first: string = rules_peek(cur)
-    let lower: string = rules_lower(first)
+    let lower: string = str_lower(first)
     if first == "" {
         return rules_fail(cur, "the condition ends where a value was expected")
     }
-    if str_eq(lower, "time") && str_eq(rules_lower(rules_token(cur.tokens, cur.pos + 1)), "between") {
+    if str_eq(lower, "time") && str_eq(str_lower(rules_token(cur.tokens, cur.pos + 1)), "between") {
         let from: u32 = rules_minutes(rules_token(cur.tokens, cur.pos + 2))
-        let joiner: string = rules_lower(rules_token(cur.tokens, cur.pos + 3))
+        let joiner: string = str_lower(rules_token(cur.tokens, cur.pos + 3))
         let to: u32 = rules_minutes(rules_token(cur.tokens, cur.pos + 4))
         if from == 9999 || to == 9999 || !str_eq(joiner, "and") {
             return rules_fail(cur, "a time window is written `time between 10:00 and 20:00`")
@@ -307,7 +289,7 @@ fn rules_atom(c: RulesCursor) RulesTruth {
             return rules_fail(cur, "a mode is compared with == or !=: `mode == feeding`")
         }
         cur.pos = cur.pos + 3
-        let same: bool = str_eq(rules_lower(cur.mode), rules_lower(name))
+        let same: bool = str_eq(str_lower(cur.mode), str_lower(name))
         if str_eq(operator, "==") {
             return RulesTruth{ cur, same }
         }
@@ -344,7 +326,7 @@ fn rules_atom(c: RulesCursor) RulesTruth {
 fn rules_unary(c: RulesCursor) RulesTruth {
     var cur: RulesCursor = c
     let token: string = rules_peek(cur)
-    if str_eq(rules_lower(token), "not") {
+    if str_eq(str_lower(token), "not") {
         cur.pos = cur.pos + 1
         let inner: RulesTruth = rules_unary(cur)
         return RulesTruth{ inner.cursor, !inner.truth }
@@ -364,7 +346,7 @@ fn rules_unary(c: RulesCursor) RulesTruth {
 
 fn rules_and(c: RulesCursor) RulesTruth {
     var result: RulesTruth = rules_unary(c)
-    while str_eq(rules_lower(rules_peek(result.cursor)), "and") {
+    while str_eq(str_lower(rules_peek(result.cursor)), "and") {
         var cur: RulesCursor = result.cursor
         cur.pos = cur.pos + 1
         let decided: bool = !result.truth && cur.problem == ""
@@ -382,7 +364,7 @@ fn rules_and(c: RulesCursor) RulesTruth {
 
 fn rules_or(c: RulesCursor) RulesTruth {
     var result: RulesTruth = rules_and(c)
-    while str_eq(rules_lower(rules_peek(result.cursor)), "or") {
+    while str_eq(str_lower(rules_peek(result.cursor)), "or") {
         var cur: RulesCursor = result.cursor
         cur.pos = cur.pos + 1
         let decided: bool = result.truth && cur.problem == ""

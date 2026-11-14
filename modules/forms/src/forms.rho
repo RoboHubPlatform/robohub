@@ -38,30 +38,6 @@ fn forms_style() string {
     return "<style>" + forms_template("assets/forms.css") + "</style>"
 }
 
-// forms_escape makes a value safe to place inside HTML: the characters that
-// begin markup are turned into entities so a submitted value cannot change the
-// page's structure.
-fn forms_escape(text: string) string {
-    var out: string = ""
-    var i: u32 = 0
-    while i < u32(strlen(text)) {
-        let ch: string = str_slice(text, i, 1)
-        if str_eq(ch, "&") {
-            out = out + "&amp;"
-        } else if str_eq(ch, "<") {
-            out = out + "&lt;"
-        } else if str_eq(ch, ">") {
-            out = out + "&gt;"
-        } else if str_eq(ch, "\"") {
-            out = out + "&quot;"
-        } else {
-            out = out + ch
-        }
-        i = i + 1
-    }
-    return out
-}
-
 // forms_digit reports whether a single character is a decimal digit.
 fn forms_digit(ch: string) bool {
     if str_eq(ch, "0") { return true }
@@ -290,11 +266,11 @@ fn forms_field_html(f: FormField) string {
     if f.required { required_mark = " <span class=\"req\">*</span>" }
     var error_html: string = ""
     if f.err != "" {
-        error_html = "<small class=\"err\">" + forms_escape(f.err) + "</small>"
+        error_html = "<small class=\"err\">" + escape_html(f.err) + "</small>"
     }
     var hint_html: string = ""
     if f.hint != "" {
-        hint_html = "<small>" + forms_escape(f.hint) + "</small>"
+        hint_html = "<small>" + escape_html(f.hint) + "</small>"
     }
     if str_eq(f.kind, "hidden") {
         return template_fill(forms_template("fields/hidden.html"),
@@ -304,7 +280,7 @@ fn forms_field_html(f: FormField) string {
     if str_eq(f.kind, "select") {
         var prompt: string = ""
         if f.placeholder != "" {
-            prompt = "<option value=\"\">" + forms_escape(f.placeholder) + "</option>"
+            prompt = "<option value=\"\">" + escape_html(f.placeholder) + "</option>"
         }
         return template_fill(forms_template("fields/select.html"),
             vars("label", f.label) +
@@ -386,10 +362,7 @@ fn forms_body(fields: [FormField], count: u32) string {
 
 // The workspace the token is kept in, mirroring the host's own data directory.
 fn forms_workspace() string {
-    let workspace: string = getenv("ROBOHUB_APP_WORKSPACE")
-    if workspace == "" {
-        workspace = getenv("HOME") + "/.rho/modules/forms"
-    }
+    let workspace: string = app_workspace()
     return workspace
 }
 

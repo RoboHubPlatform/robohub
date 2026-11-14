@@ -68,3 +68,7 @@ The Devices page is the inventory's: `/devices`, one page for every application,
 ## [0.3.1] - 2026-11-14
 
 One item is looked up, not found in a list of every item: `inventory_resolve` — what every reading and switch of a rule goes through — reads the item by handle or id and its one binding, where it read up to 512 items and 512 bindings each time; `inventory_item_id`, `inventory_item_name`, `inventory_consume` and `inventory_runtime_seconds` likewise. Its route handlers, helpers and constants carry the module's prefix; unprefixed, they were in the namespace of every application that includes the module. (`items_add` is `inventory_items_add`, `unquote` is `inventory_unquote`, `ITEM_CAPACITY` is `INVENTORY_ITEM_CAPACITY`, and so on.)
+
+## [0.3.2] - 2026-11-14
+
+Its data is kept where `app_workspace()` says (rho 0.8.0) — the application's workspace, else `~/.rho/apps/<app>` — so two applications started by hand no longer share this module's records. Copies of helpers the toolchain now provides (`i64_to_str`, `str_lower`, `str_field`, `json_str_field`, `escape_html`) are gone. It declares the i18n module it uses. Needs rho 0.8.0.

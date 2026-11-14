@@ -32,24 +32,6 @@ fn i18n_supported(code: string) bool {
     return false
 }
 
-fn i18n_lower(value: string) string {
-    let upper: string = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-    let lower: string = "abcdefghijklmnopqrstuvwxyz"
-    var out: string = ""
-    var i: u32 = 0
-    let length: u32 = u32(strlen(value))
-    while i < length {
-        let ch: string = str_slice(value, i, 1)
-        let at: i32 = str_index_of(upper, ch)
-        if at >= 0 {
-            ch = str_slice(lower, u32(at), 1)
-        }
-        out = out + ch
-        i = i + 1
-    }
-    return out
-}
-
 fn i18n_starts(value: string, prefix: string) bool {
     return str_index_of(value, prefix) == 0
 }
@@ -101,7 +83,7 @@ fn i18n_accept(req: Request) string {
     if semi >= 0 {
         rest = str_slice(rest, 0, u32(semi))
     }
-    rest = i18n_lower(str_trim(rest))
+    rest = str_lower(str_trim(rest))
     if i18n_supported(rest) {
         return rest
     }
@@ -116,7 +98,7 @@ fn i18n_accept(req: Request) string {
 }
 
 fn i18n_locale(req: Request) string {
-    let cookie: string = i18n_lower(i18n_cookie(req, "locale"))
+    let cookie: string = str_lower(i18n_cookie(req, "locale"))
     if i18n_supported(cookie) {
         return cookie
     }
@@ -179,7 +161,7 @@ fn i18n_safe_next(value: string) string {
 
 fn i18n_switch(req: Request) Response {
     let body: string = request_body(req)
-    var code: string = i18n_lower(str_trim(forms_parse(body, "locale")))
+    var code: string = str_lower(str_trim(forms_parse(body, "locale")))
     if !i18n_supported(code) {
         code = "en"
     }

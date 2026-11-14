@@ -22,3 +22,7 @@ the import to use instead.
 ## [0.2.1] - 2026-11-12
 
 The module builds on its own: it declares the runtime functions it calls and no longer needs the including application's `ignore_u32`.
+
+## [0.2.2] - 2026-11-14
+
+Its data is kept where `app_workspace()` says (rho 0.8.0) — the application's workspace, else `~/.rho/apps/<app>` — so two applications started by hand no longer share this module's records. Needs rho 0.8.0.
