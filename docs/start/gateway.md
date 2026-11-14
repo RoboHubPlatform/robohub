@@ -33,8 +33,12 @@ three prompts:
    programming mode to flash it (for a Pico 2 W: hold BOOT, tap RST, release
    RST, then BOOT).
 
+A Pico flashed from Linux or WSL needs the platform's udev rule once, so the
+flash can reach the board as your user; see {ref}`robohub-pico/index`.
+
 Builds and flashes are jobs; the activity strip shows what runs and what failed,
-and a job's log opens in the inspector. When a board runs what is planned its
+and a job's log opens in the inspector. A job that waits in the queue with nothing running it
+is said on the page, with what holds the job runner. When a board runs what is planned its
 card stops showing *out of date*, and its readings appear on it.
 
 ## 3. What makes a board trusted
