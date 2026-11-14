@@ -11,7 +11,9 @@ page says what each one is and where it is enforced.
 | Keeper | `127.0.0.1:19090` | an SSH tunnel, or a TLS reverse proxy (`KEEPER_LISTEN` opens it, for use behind one) |
 | Applications | `127.0.0.1:<port>` | through the keeper, at `/app/<name>/`; an application listens on the network only when its manifest says `deploy.listen: lan` |
 | MQTT broker | `127.0.0.1:1884` | an admin opens it to the network for devices; nobody connects without a broker user |
-| A gateway | its REST and uplink ports | Mesh's tokens; HTTPS when the mesh names a certificate (`gateway_tls_cert`, `gateway_tls_key`) |
+| A gateway | its REST and uplink ports | Mesh's tokens; HTTPS when the mesh names a certificate (`gateway_tls_cert`, `gateway_tls_key`), and Mesh then records and calls its `https://` address |
+| The keeper's node endpoints | `/api/enroll`, `/api/nodes/verify` | no session: the token or credential is the authentication; a budget of calls per client |
+| Mesh's node-key endpoint | `/mesh/api/nodes/key`, through the keeper | a host node's keeper credential, checked with the keeper; ten calls a minute per client |
 
 ## Signing in
 
@@ -129,10 +131,12 @@ seed of its forms' CSRF tokens.
 | An application's environment, including its client secret path | `~/.rho/keeper/workspaces/<name>/app.env` | owner-only |
 | An application's broker password | its workspace | owner-only |
 | Broker users | hashed by `mosquitto_passwd` from an owner-only file | — |
-| A gateway's key | `<mesh>/gateway.key`, and `GATEWAY_KEY_FILE` beside the gateway | readable by its user only |
-| A board's key | `src/robohub_secret.h` in its generated build | never in a repository |
-| Enrollment tokens and node records | `~/.rho/keeper/enrollment.tokens`, `~/.rho/keeper/nodes/` | `0600` |
-| A host node's identity and credential | `~/.rho/identity/` | `0700` / `0600` |
+| Mesh's tree: plans, gateway keys, boards' build folders | `~/.rho/mesh/` | folders `0700`, files `0600`; closed again when Mesh starts |
+| A gateway's key and node manifest | `<mesh>/gateway.key`, `<mesh>/nodes.txt`, and the same beside the gateway (`GATEWAY_KEY_FILE`) | `0600`; created under `umask 077` on the gateway's host before anything is written |
+| A board's key | `src/robohub_secret.h` and the image built from it (`.elf`, `.uf2`) in Mesh's build folder | `0600`, never in a repository |
+| Enrollment tokens | `~/.rho/keeper/enrollment.tokens` | `0600`, changed under a lock, replaced whole |
+| Node records | `~/.rho/keeper/nodes/` | `0700` / `0600`; the credential kept only as a salted hash |
+| A host node's identity, credential and board key | `~/.rho/identity/` (`credential`, `board.key`, `board.env`) | `0700` / `0600` |
 
 Secrets never pass through a report file or a command line: every program the
 keeper runs gets its arguments one per line, so a name or a URL is exactly one
@@ -142,7 +146,11 @@ argument, and a value with a line break or a leading `-` is refused.
 
 Frames between a board and its gateway are authenticated, fresh and bounded in
 time, but not encrypted: readings and commands are not secret, but they must not
-be forged or replayed. See {ref}`architecture/enrollment` for the keys and
+be forged or replayed. A gateway admits the boards its node manifest lists, takes
+a board's readings only for its own placement and an announce only from a relay
+for its own areas, and a board revoked in Mesh is refused without re-keying the
+mesh. A Linux host node gets its board key from Mesh with its keeper credential.
+See {ref}`architecture/enrollment` for the keys, the manifest and enrollment, and
 {ref}`secure telemetry <architecture/secure-telemetry>` for the frame.
 
 ## Updates

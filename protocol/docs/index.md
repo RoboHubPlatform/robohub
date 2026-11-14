@@ -16,6 +16,12 @@ One `MessageId` numbers the whole wire. A message that has a name at each
 level is one number: `HELLO` and `ANNOUNCE` are both `0x0101`, `TELEMETRY` and
 `READING` both `0x0201`.
 
+`RELAYED` (`0x0013`) is a board's frame carried whole by a relay that holds no
+key of the board's: `port(u8) | inner_msg_id(u16) | inner_tx_id(u16) |
+inner_payload`, sealed under the relay's own session. Its payload runs to the end
+of the frame, so it is written out in `common.rho` rather than declared as a
+message; the gateway and the C relays read and write it by hand.
+
 ## Changing the protocol
 
 1. Edit the schema here, in `schemas/`.

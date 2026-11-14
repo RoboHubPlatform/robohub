@@ -80,28 +80,38 @@ acknowledged. In practice mesh is the one consumer, and this makes a second one
 
 ### Keys
 
-- Every gateway has a 256-bit gateway key `K_gw`. Mesh creates it when it plans
-  the gateway and installs it with the gateway (the same deployment that already
-  starts it over SSH or ADB), in a file readable only by the gateway's user.
-- Every device has a 64-bit device id `uid`: the chip's unique id when the part
-  has one, otherwise minted by mesh when the node is planned and built into its
-  firmware.
-- The device key is derived, not stored or sent: `K_dev = HMAC-SHA256(K_gw,
+- Every gateway has a 256-bit gateway key `K_gw`, kept as `gateway.key` in the
+  mesh's folder. Mesh makes it the first time it is needed and installs it with
+  the gateway (the same deployment that starts it over SSH or ADB), in a file
+  created `0600` on the gateway's host before anything is written to it, with the
+  node manifest `nodes.txt` beside it.
+- Every board has a 64-bit id `uid`, minted by Mesh (`node.<n>.id` in the plan)
+  and built into its firmware; a mesh linked below has one as its parent's relay
+  (`relay_uid`).
+- The device key is derived, not stored: `K_dev = HMAC-SHA256(K_gw,
   "rh-dev1" ‖ uid)[0:16]`. Mesh derives it to build the firmware; the gateway
-  derives it when the device says hello. No key crosses a network.
+  derives it when the board says hello. It crosses a network only to a Linux host
+  node, which fetches it from Mesh over HTTPS with its keeper credential
+  ({ref}`architecture/enrollment`).
+- The gateway admits only the boards its node manifest lists and does not mark
+  revoked; without a manifest it admits any board whose key derives.
 
 ### Session handshake
 
 ```
-board   → HELLO   { uid, nonce_b(8), firmware, platform, capabilities }      tag with K_dev
-gateway → SESSION { session_id(2), nonce_g(8), lifetime_s(2), time_ms(4) }   tag with K_dev
+board   → HELLO   uid(8) ‖ nonce_b(8) ‖ tag(8)
+                  tag = HMAC-SHA256(K_dev, "rh-hello1" ‖ uid ‖ nonce_b)[0:8]
+gateway → SESSION uid(8) ‖ session_id(2) ‖ nonce_g(8) ‖ lifetime_s(2) ‖ tag(8)
+                  tag = HMAC-SHA256(K_dev, "rh-session1" ‖ uid ‖ nonce_b ‖ session_id ‖ nonce_g ‖ lifetime_s)[0:8]
 both    K_up   = HMAC-SHA256(K_dev, "rh-up1"   ‖ nonce_b ‖ nonce_g)[0:16]
         K_down = HMAC-SHA256(K_dev, "rh-down1" ‖ nonce_b ‖ nonce_g)[0:16]
 ```
 
-A session lasts `lifetime_s` (one hour by default) or until a counter would wrap,
-whichever is first, and then the board says hello again. A gateway restart loses
-its sessions, and boards re-handshake on the first rejected frame.
+HELLO is message `0x0011` and SESSION `0x0012`; neither carries firmware,
+platform or time. A session lasts `lifetime_s` (one hour) and then the board says
+hello again. The gateway keeps its live sessions and their counters on disk, so a
+restart neither loses them nor accepts a frame recorded before it, and it does
+not answer a hello whose nonce it has just seen from that board.
 
 ### Secured frame
 
@@ -110,8 +120,11 @@ finds boundaries as before. A secured frame adds a trailer inside the payload ar
 
 ```
 header(6) ‖ session_id(2) ‖ counter(4) ‖ payload ‖ tag(8) ‖ check(2)
-tag = HMAC-SHA256(K_dir, header ‖ session_id ‖ counter ‖ payload)[0:8]
+tag = HMAC-SHA256(K_dir, msg_id(2) ‖ tx_id(2) ‖ session_id ‖ counter ‖ payload)[0:8]
 ```
+
+A secured frame's message id has its high bit set; the tag covers the message id
+and transaction id of the header, not its length.
 
 The receiver drops a frame whose session is unknown or expired, whose counter is
 not greater than the last one accepted in that direction, or whose tag does not
@@ -124,9 +137,10 @@ not encrypt: readings and commands are not secret, but they must not be forged o
 replayed. Encryption (an AEAD with the same keys and counters) can be added
 without changing the handshake.
 
-A relay link (gateway to gateway) uses the same frames. The relay is a device of
-its parent, with `uid` its gateway id, and its key is derived from the parent's
-`K_gw`.
+A relay link (gateway to gateway) uses the same frames. The relay is a board of
+its parent, with `uid` its `relay_uid`, and its key is derived from the parent's
+`K_gw`; the parent's manifest lists it as a `relay` with the areas it may
+announce.
 
 ## Live UI: HTMX and SSE
 
