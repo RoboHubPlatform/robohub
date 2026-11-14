@@ -34,3 +34,7 @@ The app switcher links to an application through the keeper's origin when the ke
 ## [0.1.4] - 2026-11-14
 
 The bar's own words — the Applications, Theme and Language headings, the theme names, the applications' states and the way back to the keeper — come from the module's catalogs (`locales/en.json`, `ro.json`), in the request's language: `ui_topbar_in`, `ui_topbar_remote_in` and `ui_switcher_in` take the locale, `ui_person` reads it from the request, and the old functions are the default language. The switcher shows the keeper's translated `state_label`.
+
+## [0.2.0] - 2026-11-14
+
+It lists what other code may use (`provides.exports`, imported as `robohub.ui`). An application that includes it still reaches everything, and a build (rho 0.8.3) names each call to a function outside the list. The list is what the applications and modules of the ecosystem call; anything else is the module's own and may change without notice.

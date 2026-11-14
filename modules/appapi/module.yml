@@ -14,7 +14,7 @@ module:
   type: module
   title: Application API
   category: integration
-  version: 0.1.5
+  version: 0.2.0
   description: >
     The read-only REST API every RoboHub application offers in the same shape:
     its values (derived from presets, computed by the application, or exported
@@ -25,6 +25,19 @@ module:
   created: "2026-11-13"
 
 main: src/main.rho
+
+# What other code may use, and by what name: `import robohub.appapi`. An
+# application that includes the module reaches everything in it, and a build
+# says when it calls a function not listed here.
+provides:
+  import: robohub.appapi
+  exports:
+    - appapi_publish
+    - appapi_value
+    - AppapiSummary
+    - appapi_summary
+    - appapi_tick
+    - appapi_presets
 
 sql:
   schema: db/schema.sql

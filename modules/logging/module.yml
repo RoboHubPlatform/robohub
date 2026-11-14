@@ -11,7 +11,7 @@ module:
   previous_ids:
     - robohub.modules.logging
   type: module
-  version: 0.2.2
+  version: 0.2.3
   title: Logging
   description: >
     Per-application logging policy: level, text or JSON, a rotating file under
@@ -31,6 +31,7 @@ provides:
     - log_settings_form
     - log_settings_save
     - log_file_in_settings_file
+    - log_settings_field_defs
 
 deps:
   rho-log: ">=0.1.2"

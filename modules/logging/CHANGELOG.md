@@ -20,3 +20,7 @@ The module builds on its own: it declares the runtime functions it calls rather 
 ## [0.2.2] - 2026-11-14
 
 Trimming, URL escapes, form fields and decimals come from the toolchain (rho 0.7.0: `str_trim`, `str_url_encode`/`str_url_decode`, `form_field`, `milli_*`) rather than this module's own copy, the same on both backends. Needs rho 0.7.0.
+
+## [0.2.3] - 2026-11-14
+
+`log_settings_field_defs` is exported: an application that draws the logging fields inside its own settings form uses it, and a build said it was not promised.

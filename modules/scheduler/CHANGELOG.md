@@ -72,3 +72,7 @@ A chore can be edited — its schedule, what it uses, its priority — and delet
 ## [0.2.8] - 2026-11-14
 
 Its settings form is its own (`scheduler_settings_form`, `scheduler_settings_save`), shown by an application as one of its settings tabs.
+
+## [0.3.0] - 2026-11-14
+
+It lists what other code may use (`provides.exports`, imported as `robohub.scheduler`). An application that includes it still reaches everything, and a build (rho 0.8.3) names each call to a function outside the list. The list is what the applications and modules of the ecosystem call; anything else is the module's own and may change without notice.

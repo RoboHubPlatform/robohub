@@ -13,7 +13,7 @@ module:
   type: module
   title: Widgets
   category: dashboard
-  version: 0.3.6
+  version: 0.4.0
   description: >
     Dashboard widgets with a configurable source: a number, a chart of recent
     values, or a button that calls a hook or API.
@@ -22,6 +22,19 @@ module:
   created: "2026-11-02"
 
 main: src/main.rho
+
+# What other code may use, and by what name: `import robohub.widgets`. An
+# application that includes the module reaches everything in it, and a build
+# says when it calls a function not listed here.
+provides:
+  import: robohub.widgets
+  exports:
+    - widgets_style
+    - widgets_migrate_sources
+    - widgets_live_changed
+    - widgets_refresh_all
+    - widgets_settings_form
+    - widgets_settings_save
 
 # The module's tables and statements, its own: rho-sql (0.2) generates them into
 # every application that depends on the module, so an application never repeats

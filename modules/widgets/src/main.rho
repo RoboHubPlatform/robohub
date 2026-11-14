@@ -37,6 +37,7 @@ extern fn rho_exec_capture(program: string, arguments: string) string
 extern fn rho_exec_args(program: string, arguments: string, output_path: string) u32
 extern fn rho_read_text(path: string) string
 extern fn rho_write_text(path: string, text: string) bool
+extern fn rho_append_text(path: string, text: string) bool
 
 route GET  "/widgets"                     => widgets_page
 route GET  "/widgets/cards"              => widgets_cards_endpoint

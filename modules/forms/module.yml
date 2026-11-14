@@ -15,7 +15,7 @@ module:
   type: module
   title: Forms
   category: forms
-  version: 0.3.4
+  version: 0.3.5
   description: >
     A schema-driven form engine: a module declares its fields as data and the
     engine renders the controls, validates the input and emits the payload.
@@ -39,6 +39,7 @@ provides:
     - forms_csrf_field
     - forms_csrf_ok
     - forms_style
+    - forms_body
     - FormField
 
 

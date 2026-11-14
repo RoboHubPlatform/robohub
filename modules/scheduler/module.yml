@@ -13,7 +13,7 @@ module:
   type: module
   title: Scheduler
   category: maintenance
-  version: 0.2.8
+  version: 0.3.0
   description: >
     A chore scheduler for maintenance tasks: interval, cron, one-time and
     usage-based schedules, due and overdue states, completion notes and
@@ -23,6 +23,20 @@ module:
   created: "2026-11-02"
 
 main: src/main.rho
+
+# What other code may use, and by what name: `import robohub.scheduler`. An
+# application that includes the module reaches everything in it, and a build
+# says when it calls a function not listed here.
+provides:
+  import: robohub.scheduler
+  exports:
+    - scheduler_status
+    - scheduler_links_text
+    - scheduler_usage_tick
+    - scheduler_presets
+    - scheduler_complete_title
+    - scheduler_settings_form
+    - scheduler_settings_save
 
 # The module's tables and statements, its own: rho-sql (0.2) generates them into
 # every application that depends on the module, so an application never repeats

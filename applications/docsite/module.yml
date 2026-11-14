@@ -4,7 +4,7 @@ module:
   previous_ids:
     - robohub.applications.docsite
   type: rho
-  version: 0.3.7
+  version: 0.3.8
   author: Aurel Miron
   maintainer: Aurel Miron
   license: "MIT"

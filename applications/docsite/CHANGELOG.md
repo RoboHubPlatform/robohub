@@ -51,3 +51,7 @@ is consistent.
 
 The site now carries the reactive UI, i18n, settings, telemetry, OTA and
 provisioning documentation, and the RoboHub 0.4.0 release notes.
+
+## [0.3.8] - 2026-11-14
+
+Its own replace helper is gone for the toolchain's `str_replace` (rho 0.8.3), which it needs.

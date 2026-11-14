@@ -80,3 +80,7 @@ An item can be deleted from its edit page (its bindings and stock history go wit
 ## [0.3.4] - 2026-11-14
 
 Its settings form is its own (`inventory_settings_form`, `inventory_settings_save`), shown by an application as one of its settings tabs.
+
+## [0.4.0] - 2026-11-14
+
+It lists what other code may use (`provides.exports`, imported as `robohub.inventory`). An application that includes it still reaches everything, and a build (rho 0.8.3) names each call to a function outside the list. The list is what the applications and modules of the ecosystem call; anything else is the module's own and may change without notice.

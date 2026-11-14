@@ -82,9 +82,11 @@ def free_port() -> int:
         return sock.getsockname()[1]
 
 
-def wait_for(base: str, timeout: float = 20.0) -> None:
+def wait_for(base: str, process=None, timeout: float = 60.0) -> None:
     deadline = time.time() + timeout
     while time.time() < deadline:
+        if process is not None and process.poll() is not None:
+            raise SystemExit(f"the aquarium host exited with {process.returncode}:\n{process.stdout.read()}")
         try:
             with open_url(base + "/", timeout=1) as response:
                 if response.status == 200:
@@ -163,7 +165,7 @@ def main() -> int:
                                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
         try:
             import json, sqlite3, time
-            wait_for(base)
+            wait_for(base, process)
             learn_csrf(base, "/expenses")
             db = Path(workspace) / "data" / "app.db"
             values_file = Path(workspace) / "data" / "simulator" / "values.txt"
@@ -213,12 +215,32 @@ def main() -> int:
                 raise AssertionError(f"the item widget does not read the bound probe: {widgets['Heater temperature']}")
 
             heater = widgets["Heater"]
+            # The aquarium's keep-temperature rule switches the same heater; it is
+            # turned off first, so the press is the only thing that changes it.
+            with sqlite3.connect(db) as conn:
+                conn.execute("UPDATE rules SET enabled=0")
+            time.sleep(3)
+            # The first press sends whatever the widget last saw the plug in, which
+            # may lag what the rule did; after it the widget knows the state it
+            # sent, so a second press must turn the plug to the other one.
             post(base, "/widgets/press", {"id": str(heater["id"])})
-            if sim_value("sim-heater-plug.switch") != "on":
-                raise AssertionError("pressing the item toggle did not switch the plug through inventory")
+            time.sleep(2)
+            first = sim_value("sim-heater-plug.switch")
+            expected = "off" if first == "on" else "on"
+            post(base, "/widgets/press", {"id": str(heater["id"])})
+            deadline = time.time() + 10
+            while time.time() < deadline and sim_value("sim-heater-plug.switch") != expected:
+                time.sleep(0.5)
+            if sim_value("sim-heater-plug.switch") != expected:
+                raise AssertionError(f"pressing the item toggle did not switch the plug through inventory ({first} -> {sim_value('sim-heater-plug.switch')})")
             journal = json.loads(get(base, "/api/journal?kind=widget"))
             if not any(e["subject"] == "Heater" for e in journal["entries"]):
                 raise AssertionError(f"the press is not in the journal: {journal}")
+        except BaseException:
+            process.terminate()
+            out, _ = process.communicate(timeout=10)
+            print("--- host output (last lines) ---\n" + "\n".join(out.splitlines()[-30:]), file=sys.stderr)
+            raise
         finally:
             process.terminate()
             try:

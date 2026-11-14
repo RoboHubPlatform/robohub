@@ -20,3 +20,7 @@ A header's value has its line breaks taken out, so a message or a rule name cann
 ## [0.2.2] - 2026-11-14
 
 Its data is kept where `app_workspace()` says (rho 0.8.0) — the application's workspace, else `~/.rho/apps/<app>` — so two applications started by hand no longer share this module's records. Needs rho 0.8.0.
+
+## [0.2.3] - 2026-11-14
+
+Its own replace helper is gone for the toolchain's `str_replace` (rho 0.8.3), which it needs.

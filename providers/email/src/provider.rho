@@ -45,21 +45,6 @@ fn setting(key: string, fallback: string) string {
     return value
 }
 
-fn replace(text: string, needle: string, replacement: string) string {
-    var out: string = ""
-    var rest: string = text
-    while rest != "" {
-        let at: i32 = str_index_of(rest, needle)
-        if at < 0 {
-            out = out + rest
-            break
-        }
-        out = out + str_slice(rest, 0, u32(at)) + replacement
-        rest = str_slice(rest, u32(at) + strlen(needle), strlen(rest) - u32(at) - strlen(needle))
-    }
-    return out
-}
-
 // one_line is a header's value with its line breaks taken out: a message or a
 // rule name with a line break in it would otherwise start a header of its own
 // (`Bcc: …`) in the mail it is written into.
@@ -98,11 +83,11 @@ fn render(template: string, level: string, message: string, metadata: string, ap
     if rule == "" {
         rule = "alert"
     }
-    var out: string = replace(template, "{level}", level)
-    out = replace(out, "{message}", message)
-    out = replace(out, "{metadata}", metadata)
-    out = replace(out, "{app}", app)
-    return replace(out, "{rule}", rule)
+    var out: string = str_replace(template, "{level}", level)
+    out = str_replace(out, "{message}", message)
+    out = str_replace(out, "{metadata}", metadata)
+    out = str_replace(out, "{app}", app)
+    return str_replace(out, "{rule}", rule)
 }
 
 // send writes the message to a local outbox (`mode: local`, the default), so a

@@ -14,7 +14,7 @@ module:
   type: module
   title: Notifications
   category: ui
-  version: 0.1.8
+  version: 0.2.0
   description: >
     Transient toast notifications with severity levels (info, warning, error)
     that auto-dismiss after a configurable timeout.
@@ -23,6 +23,17 @@ module:
   created: "2026-11-06"
 
 main: src/main.rho
+
+# What other code may use, and by what name: `import robohub.notifications`. An
+# application that includes the module reaches everything in it, and a build
+# says when it calls a function not listed here.
+provides:
+  import: robohub.notifications
+  exports:
+    - notification_push_level_locale
+    - notification_push_level
+    - notification_live_event
+    - notification_embed
 
 
 deps:

@@ -133,3 +133,7 @@ Its data is kept where `app_workspace()` says (rho 0.8.0) — the application's 
 ## [0.3.6] - 2026-11-14
 
 Its settings form is its own (`widgets_settings_form`, `widgets_settings_save`). A URL widget sends no credential: the gateway's token was sent to any address under the gateway's, where a gateway source is read through the gateway interface.
+
+## [0.4.0] - 2026-11-14
+
+The live stream of cards (`events.jsonl`) is appended to instead of read and written whole on every change, and starts over every 500 writes. An installation that had run for days kept a file of hundreds of megabytes and rewrote it on each widget update, which held a CPU busy and the memory high. A page following the stream picks up from the top when it starts over, and each event carries a whole card, so nothing is lost. The smoke tests wait longer for a slow host and no longer assume the state a plug starts in. It also lists what other code may use (`provides.exports`, imported as `robohub.widgets`). An application that includes it still reaches everything, and a build (rho 0.8.3) names each call to a function outside the list. The list is what the applications and modules of the ecosystem call; anything else is the module's own and may change without notice. Its JSON splitter is one of its own: Energy, which borrowed it, now has its own copy.

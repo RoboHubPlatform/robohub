@@ -81,7 +81,7 @@ fn assemble(tree: string) void {
         "build/reports/release-rows.txt")
     let version: string = yaml.value("module.yml", "module.version")
     var landing: string = rho_read_text("applications/docsite/templates/pages/landing.html")
-    landing = replace_all(landing, "{{VERSION}}", version)
+    landing = str_replace(landing, "{{VERSION}}", version)
     landing = replace_once(landing, "<!--RELEASES-->",
         rho_read_text("build/reports/release-rows.html"))
     rho_write_text(SITE + "/index.html", landing)
@@ -176,14 +176,3 @@ fn replace_once(text: string, needle: string, value: string) string {
             u32(rho_strlen(text)) - u32(at) - u32(rho_strlen(needle)))
 }
 
-fn replace_all(text: string, needle: string, value: string) string {
-    var out: string = text
-    var at: i32 = rho_str_index_of(out, needle)
-    while at >= 0 {
-        out = rho_str_slice(out, 0, u32(at)) + value +
-            rho_str_slice(out, u32(at) + u32(rho_strlen(needle)),
-                u32(rho_strlen(out)) - u32(at) - u32(rho_strlen(needle)))
-        at = rho_str_index_of(out, needle)
-    }
-    return out
-}

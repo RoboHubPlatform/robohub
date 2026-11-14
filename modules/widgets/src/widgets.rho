@@ -1453,6 +1453,21 @@ fn widgets_events_file() string {
     return widget_state_dir() + "/events.jsonl"
 }
 
+// A stream is appended to, never read back, and starts over every few hundred
+// writes: a follower that finds it shorter than where it was reads it from the
+// top, and every event carries a whole card, so nothing older is needed.
+fn widgets_events_append(file: string, lines: string) void {
+    let count_file: string = file + ".count"
+    let seen: i64 = i64_from_str(str_trim(rho_read_text(count_file)))
+    if !rho_path_exists(count_file) || seen >= 500 {
+        rho_write_text(file, lines)
+        rho_write_text(count_file, "1")
+        return
+    }
+    rho_append_text(file, lines)
+    rho_write_text(count_file, i64_to_str(seen + 1))
+}
+
 fn widgets_snapshot_file() string {
     return widget_state_dir() + "/snapshot.jsonl"
 }
@@ -1514,7 +1529,7 @@ fn widget_event(widget_id: u32, state: string) void {
             }
         }
     }
-    rho_write_text(file, rho_read_text(file) + lines)
+    widgets_events_append(file, lines)
 }
 
 fn widgets_snapshot_events() void {
@@ -1695,7 +1710,7 @@ fn widget_event_cards() void {
             }
         }
     }
-    rho_write_text(file, rho_read_text(file) + lines)
+    widgets_events_append(file, lines)
 }
 
 fn widgets_refresh(req: Request) Response {

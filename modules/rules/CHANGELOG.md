@@ -53,3 +53,7 @@ Deleting a rule asks for confirmation first.
 ## [0.1.10] - 2026-11-14
 
 Its data is kept where `app_workspace()` says (rho 0.8.0) — the application's workspace, else `~/.rho/apps/<app>` — so two applications started by hand no longer share this module's records. Copies of helpers the toolchain now provides (`i64_to_str`, `str_lower`, `str_field`, `json_str_field`, `escape_html`) are gone. It declares the i18n module it uses. Needs rho 0.8.0.
+
+## [0.2.0] - 2026-11-14
+
+It lists what other code may use (`provides.exports`, imported as `robohub.rules`). An application that includes it still reaches everything, and a build (rho 0.8.3) names each call to a function outside the list. The list is what the applications and modules of the ecosystem call; anything else is the module's own and may change without notice.

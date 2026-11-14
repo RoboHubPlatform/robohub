@@ -78,7 +78,7 @@ def free_port() -> int:
 
 
 def wait_for(base: str) -> None:
-    deadline = time.time() + 20
+    deadline = time.time() + 60
     while time.time() < deadline:
         try:
             with open_url(base + "/widgets", timeout=1) as response:

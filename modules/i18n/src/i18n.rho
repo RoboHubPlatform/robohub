@@ -184,25 +184,6 @@ fn i18n_switch(req: Request) Response {
 // page receives later (htmx, a live stream) is translated in the browser with the
 // same catalog.
 
-fn i18n_replace_all(text: string, from: string, to: string) string {
-    if from == "" || str_index_of(text, from) < 0 {
-        return text
-    }
-    var out: string = ""
-    var rest: string = text
-    while rest != "" {
-        let at: i32 = str_index_of(rest, from)
-        if at < 0 {
-            out = out + rest
-            rest = ""
-        } else {
-            out = out + str_slice(rest, 0, u32(at)) + to
-            rest = str_slice(rest, u32(at) + u32(strlen(from)), u32(strlen(rest)) - u32(at) - u32(strlen(from)))
-        }
-    }
-    return out
-}
-
 // i18n_phrases_script is the catalog for the browser.
 fn i18n_phrases_script(catalog: string) string {
     var pairs: string = ""
@@ -267,9 +248,9 @@ fn i18n_phrases(req: Request, html_text: string, folder: string) string {
         }
         let english: string = escape_html(str_slice(line, 0, u32(tab)))
         let mark: string = "⟦" + int_to_str(count) + "⟧"
-        out = i18n_replace_all(out, ">" + english + "<", ">" + mark + "<")
-        out = i18n_replace_all(out, "placeholder=\"" + english + "\"", "placeholder=\"" + mark + "\"")
-        out = i18n_replace_all(out, "title=\"" + english + "\"", "title=\"" + mark + "\"")
+        out = str_replace(out, ">" + english + "<", ">" + mark + "<")
+        out = str_replace(out, "placeholder=\"" + english + "\"", "placeholder=\"" + mark + "\"")
+        out = str_replace(out, "title=\"" + english + "\"", "title=\"" + mark + "\"")
         finals = finals + mark + "\t" + escape_html(str_slice(line, u32(tab) + 1, u32(strlen(line)) - u32(tab) - 1)) + "\n"
         count = count + 1
     }
@@ -285,7 +266,7 @@ fn i18n_phrases(req: Request, html_text: string, folder: string) string {
         }
         let tab: i32 = str_index_of(line, "\t")
         if tab > 0 {
-            out = i18n_replace_all(out, str_slice(line, 0, u32(tab)), str_slice(line, u32(tab) + 1, u32(strlen(line)) - u32(tab) - 1))
+            out = str_replace(out, str_slice(line, 0, u32(tab)), str_slice(line, u32(tab) + 1, u32(strlen(line)) - u32(tab) - 1))
         }
     }
     let body_end: i32 = str_index_of(out, "</body>")

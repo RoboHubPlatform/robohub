@@ -39,3 +39,7 @@ Trimming comes from the toolchain (`str_trim`, rho 0.7.0) rather than this modul
 ## [0.4.3] - 2026-11-14
 
 Copies of helpers the toolchain now provides (`i64_to_str`, `str_lower`, `str_field`, `json_str_field`, `escape_html`) are gone. Needs rho 0.8.0.
+
+## [0.4.4] - 2026-11-14
+
+`i18n_safe_next` is exported: an application that redirects back after a language switch uses it, and a build said it was not promised. The copy of a replace-all helper is gone for the toolchain's `str_replace` (rho 0.8.3), which this module needs.
