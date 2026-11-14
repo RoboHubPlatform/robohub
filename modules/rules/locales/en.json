@@ -35,5 +35,14 @@
   "rules.mode_started": "Mode started.",
   "rules.mode_ended": "Mode ended.",
   "rules.csrf_refused": "The form had expired; try again.",
-  "rules.grammar": "A condition compares readings — heater.temperature < 24.5, filter-main.switch == on — joined by and, or, not, brackets; mode == feeding; time between 10:00 and 20:00. Actions, separated by ;: switch <item> on|off, use <item>, alert <level> \"message\", journal <level> \"message\", mode <name>, mode end."
+  "rules.grammar": "A condition compares readings — heater.temperature < 24.5, filter-main.switch == on — joined by and, or, not, brackets; mode == feeding; time between 10:00 and 20:00. Actions, separated by ;: switch <item> on|off, use <item>, alert <level> \"message\", journal <level> \"message\", mode <name>, mode end.",
+  "rules.edit": "Edit",
+  "rules.edit_title": "Edit rule",
+  "rules.save": "Save",
+  "rules.cancel": "Cancel",
+  "rules.reset_preset": "Back to the preset",
+  "rules.reset_done": "put back as its preset.",
+  "rules.preset_note": "A preset rule: once you change it, the application's presets no longer change it, and you can put it back as the preset at any time.",
+  "rules.edited_note": "Changed from its preset: the application's presets leave it as you wrote it.",
+  "rules.bad_duration": "Not a duration (write 90s, 10m, 1.5h or 1d):"
 }

@@ -35,5 +35,14 @@
   "rules.mode_started": "Mod pornit.",
   "rules.mode_ended": "Mod oprit.",
   "rules.csrf_refused": "Formularul a expirat; încearcă din nou.",
-  "rules.grammar": "O condiție compară valori — heater.temperature < 24.5, filter-main.switch == on — legate prin and, or, not, paranteze; mode == feeding; time between 10:00 and 20:00. Acțiuni, separate prin ;: switch <articol> on|off, use <articol>, alert <nivel> \"mesaj\", journal <nivel> \"mesaj\", mode <nume>, mode end."
+  "rules.grammar": "O condiție compară valori — heater.temperature < 24.5, filter-main.switch == on — legate prin and, or, not, paranteze; mode == feeding; time between 10:00 and 20:00. Acțiuni, separate prin ;: switch <articol> on|off, use <articol>, alert <nivel> \"mesaj\", journal <nivel> \"mesaj\", mode <nume>, mode end.",
+  "rules.edit": "Editează",
+  "rules.edit_title": "Editează regula",
+  "rules.save": "Salvează",
+  "rules.cancel": "Renunță",
+  "rules.reset_preset": "Înapoi la presetare",
+  "rules.reset_done": "readusă la presetare.",
+  "rules.preset_note": "O regulă presetată: după ce o modifici, presetările aplicației nu o mai schimbă și o poți readuce oricând la presetare.",
+  "rules.edited_note": "Modificată față de presetare: presetările aplicației o lasă așa cum ai scris-o.",
+  "rules.bad_duration": "Nu este o durată (scrie 90s, 10m, 1.5h sau 1d):"
 }

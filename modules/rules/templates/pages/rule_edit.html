@@ -1,0 +1,18 @@
+<h1>{{t "rules.edit_title"}} <code>{{ name }}</code></h1>
+<p class="lede">{{ note }}</p>
+<form class="rule-form" method="post" action="/rules/edit">
+  {{{ csrf }}}
+  <input type="hidden" name="id" value="{{ id }}">
+  <label>{{t "rules.when"}}<input name="when" required value="{{ when }}"></label>
+  <label>{{t "rules.clear"}}<input name="clear" value="{{ clear }}"></label>
+  <label>{{t "rules.for"}}<input name="for" value="{{ for }}" placeholder="60s"></label>
+  <label>{{t "rules.cooldown"}}<input name="cooldown" value="{{ cooldown }}" placeholder="10m"></label>
+  <label>{{t "rules.do"}}<input name="do" value="{{ do }}"></label>
+  <label>{{t "rules.else"}}<input name="else" value="{{ else }}"></label>
+  <div><button type="submit" class="primary">{{t "rules.save"}}</button> {{{ reset }}} <a class="quiet" href="/rules">{{t "rules.cancel"}}</a></div>
+</form>
+<p class="hint">{{t "rules.grammar"}}</p>
+<style>
+  .rule-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: .6rem; margin: .6rem 0 1.4rem; }
+  .rule-form label { display: grid; gap: .2rem; font-size: .78rem; color: var(--faint); }
+</style>

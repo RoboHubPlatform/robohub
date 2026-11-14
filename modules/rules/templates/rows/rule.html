@@ -3,5 +3,5 @@
   <td><code>{{ when }}</code><br><small>{{ clear }}</small></td>
   <td><code>{{ do }}</code><br><small>{{ else }}</small></td>
   <td><span class="st {{ state }}">{{ state }}</span><br><span class="problem">{{ problem }}</span></td>
-  <td><form method="post" action="/rules/change" class="inline">{{{ csrf }}}<input type="hidden" name="id" value="{{ id }}"><input type="hidden" name="enabled" value="{{ enabled }}"><button>{{ toggle }}</button>{{{ remove }}}</form></td>
+  <td><form method="post" action="/rules/change" class="inline">{{{ csrf }}}<input type="hidden" name="id" value="{{ id }}"><input type="hidden" name="enabled" value="{{ enabled }}"><button>{{ toggle }}</button>{{{ remove }}}</form> <a class="quiet" href="/rules/edit?id={{ id }}">{{ edit }}</a></td>
 </tr>

@@ -77,6 +77,15 @@ modes:
 say; one a person added is never touched; whether a rule is enabled stays the
 person's choice.
 
+## Changing a rule
+
+Every rule has an *Edit* link on the rules page: its condition, clear
+condition, wait, cooldown and actions are changed there and checked before they
+are saved — a change that does not read is shown again with what was typed and
+why. A preset rule that is changed becomes *edited*: the application's presets
+no longer change it, and *Back to the preset* puts it back as they say it (the
+presets' own values are kept in `rule_presets` each time they are applied).
+
 ## The host
 
 The host includes the module after inventory and journal, defines

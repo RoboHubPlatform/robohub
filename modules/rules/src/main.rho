@@ -34,5 +34,7 @@ extern fn rho_write_text(path: string, text: string) bool
 route GET  "/rules"        => rules_page
 route POST "/rules/add"    => rules_add
 route POST "/rules/change" => rules_change
+route GET  "/rules/edit"   => rules_edit_page
+route POST "/rules/edit"   => rules_edit_save
 route POST "/rules/mode"   => rules_mode_form
 route GET  "/api/rules"    => rules_api

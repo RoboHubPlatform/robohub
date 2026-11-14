@@ -534,6 +534,7 @@ fn rules_presets(text: string) u32 {
             if when != "" {
                 rules_ignore(SeedRule(name, when, clear, int_to_str(wait), int_to_str(cooldown), doing, otherwise, "preset", db))
                 rules_ignore(UpdatePresetRule(when, clear, i64(wait), i64(cooldown), doing, otherwise, name, db))
+                rules_ignore(PutRulePreset(name, when, clear, int_to_str(wait), int_to_str(cooldown), doing, otherwise, db))
                 count = count + 1
             }
         }
@@ -630,6 +631,7 @@ fn rules_page_message(req: Request, message: string) Response {
             vars("problem", rule.lastError) +
             vars("toggle", toggle) +
             vars("remove", remove) +
+            vars("edit", i18n_t(req, "rules.edit")) +
             vars("csrf", forms_csrf_field())) + "\n"
         i = i + 1
     }
@@ -680,6 +682,12 @@ fn rules_page_message(req: Request, message: string) Response {
     return host_shell(req, i18n_t(req, "rules.title"), body, toast_js)
 }
 
+// rules_back is the rules page again, by GET, with what happened as its message:
+// a refresh reloads the page rather than doing the change a second time.
+fn rules_back(message: string) Response {
+    return redirect("/rules?msg=" + str_url_encode(message))
+}
+
 fn rules_add(req: Request) Response {
     let body: string = request_body(req)
     if !forms_csrf_ok(body) {
@@ -709,7 +717,7 @@ fn rules_add(req: Request) Response {
         return rules_page_message(req, i18n_t(req, "rules.name_taken"))
     }
     journal_info("rule", name, "person", "rule added: " + when)
-    return rules_page_message(req, i18n_t(req, "rules.added"))
+    return rules_back(i18n_t(req, "rules.added"))
 }
 
 fn rules_change(req: Request) Response {
@@ -725,7 +733,7 @@ fn rules_change(req: Request) Response {
     if str_eq(form_field(body, "delete"), "1") {
         rules_ignore(DeletePersonRule(i64(id), opened.ok))
         sql_close(opened.ok)
-        return rules_page_message(req, i18n_t(req, "rules.deleted"))
+        return rules_back(i18n_t(req, "rules.deleted"))
     }
     var enabled: i64 = 1
     if str_eq(form_field(body, "enabled"), "1") {
@@ -733,7 +741,149 @@ fn rules_change(req: Request) Response {
     }
     rules_ignore(SetRuleEnabled(enabled, i64(id), opened.ok))
     sql_close(opened.ok)
-    return rules_page_message(req, i18n_t(req, "rules.saved"))
+    return rules_back(i18n_t(req, "rules.saved"))
+}
+
+// rules_one is one rule by id, and whether there is one.
+struct RulesOne {
+    found: bool
+    rule: Rules
+}
+
+fn rules_one(id: u32) RulesOne {
+    var none: Rules = Rules{ 0, "", 0, "", "", 0, 0, "", "", "", "", 0, 0, "" }
+    if id == 0 {
+        return RulesOne{ false, none }
+    }
+    let opened: Result[SqlDb, string] = rules_open()
+    if !opened.is_ok {
+        return RulesOne{ false, none }
+    }
+    let rows: Rules[1]
+    let slice: Slice[Rules] = Slice[Rules]{ Ptr[Rules](&rows[0]), 1 }
+    let got: Result[u32, SqlError] = GetRule(i64(id), opened.ok, slice, 1)
+    sql_close(opened.ok)
+    if !got.is_ok || got.ok == 0 {
+        return RulesOne{ false, none }
+    }
+    return RulesOne{ true, rows[0] }
+}
+
+// rules_duration is seconds as a rule's form writes them back: `90s`, `10m`,
+// `2h`, or "" for none.
+fn rules_duration(seconds: i64) string {
+    if seconds <= 0 {
+        return ""
+    }
+    if seconds % 3600 == 0 {
+        return int_to_str(u32(seconds / 3600)) + "h"
+    }
+    if seconds % 60 == 0 {
+        return int_to_str(u32(seconds / 60)) + "m"
+    }
+    return int_to_str(u32(seconds)) + "s"
+}
+
+fn rules_edit_page(req: Request) Response {
+    let one: RulesOne = rules_one(int_from_str(request_query_param(req, "id")))
+    if !one.found {
+        return rules_back(i18n_t(req, "rules.not_found"))
+    }
+    let r: Rules = one.rule
+    return rules_edit_form(req, r, r.whenExpr, r.clearExpr, rules_duration(r.forS), rules_duration(r.cooldownS),
+        r.doActions, r.elseActions, "")
+}
+
+// rules_edit_form is the edit page with the values to show — the rule's, or
+// what was sent when it was refused — and why it was refused.
+fn rules_edit_form(req: Request, r: Rules, when: string, clear: string, wait: string, cooldown: string,
+    doing: string, otherwise: string, problem: string) Response {
+    var note: string = ""
+    if str_eq(r.origin, "preset") {
+        note = i18n_t(req, "rules.preset_note")
+    } else if str_eq(r.origin, "edited") {
+        note = i18n_t(req, "rules.edited_note")
+    }
+    var reset: string = ""
+    if str_eq(r.origin, "edited") {
+        reset = "<button name=\"reset\" value=\"1\" class=\"quiet\">" + escape_html(i18n_t(req, "rules.reset_preset")) + "</button>"
+    }
+    var toast_js: string = ""
+    if problem != "" {
+        toast_js = "<script>document.addEventListener(\"DOMContentLoaded\",function(){if(window.rhoToast){window.rhoToast(" +
+            json_string(problem) + ", \"warning\");}});</script>"
+    }
+    let body: string = template_fill(rules_template("pages/rule_edit"),
+        i18n_vars(req) +
+        vars("id", int_to_str(u32(r.id))) +
+        vars("name", r.name) +
+        vars("note", note) +
+        vars("when", when) +
+        vars("clear", clear) +
+        vars("for", wait) +
+        vars("cooldown", cooldown) +
+        vars("do", doing) +
+        vars("else", otherwise) +
+        vars("reset", reset) +
+        vars("csrf", forms_csrf_field()))
+    return host_shell(req, i18n_t(req, "rules.edit_title") + " " + r.name, body, toast_js)
+}
+
+fn rules_edit_save(req: Request) Response {
+    let body: string = request_body(req)
+    if !forms_csrf_ok(body) {
+        return rules_back(i18n_t(req, "rules.csrf_refused"))
+    }
+    let one: RulesOne = rules_one(int_from_str(str_trim(form_field(body, "id"))))
+    if !one.found {
+        return rules_back(i18n_t(req, "rules.not_found"))
+    }
+    let r: Rules = one.rule
+    let opened: Result[SqlDb, string] = rules_open()
+    if !opened.is_ok {
+        return rules_back(opened.err)
+    }
+    if str_eq(form_field(body, "reset"), "1") {
+        let reset: Result[u32, SqlError] = ResetRuleToPreset(r.id, opened.ok)
+        sql_close(opened.ok)
+        if !reset.is_ok || reset.ok == 0 {
+            return rules_back(i18n_t(req, "rules.not_found"))
+        }
+        journal_info("rule", r.name, "person", "rule put back as its preset")
+        return rules_back(r.name + ": " + i18n_t(req, "rules.reset_done"))
+    }
+    let when: string = str_trim(form_field(body, "when"))
+    let clear: string = str_trim(form_field(body, "clear"))
+    let wait: string = str_trim(form_field(body, "for"))
+    let cooldown: string = str_trim(form_field(body, "cooldown"))
+    let doing: string = str_trim(form_field(body, "do"))
+    let otherwise: string = str_trim(form_field(body, "else"))
+    // A refused change shows the form again with what was sent: nothing typed
+    // is lost to a typo in the condition.
+    var problem: string = ""
+    if when == "" {
+        problem = i18n_t(req, "rules.need_name_when")
+    } else {
+        problem = rules_check(when)
+        if problem == "" && clear != "" {
+            problem = rules_check(clear)
+        }
+    }
+    if problem == "" && wait != "" && rules_seconds(wait) == 0 {
+        problem = i18n_t(req, "rules.bad_duration") + " " + wait
+    }
+    if problem == "" && cooldown != "" && rules_seconds(cooldown) == 0 {
+        problem = i18n_t(req, "rules.bad_duration") + " " + cooldown
+    }
+    if problem != "" {
+        sql_close(opened.ok)
+        return rules_edit_form(req, r, when, clear, wait, cooldown, doing, otherwise, problem)
+    }
+    rules_ignore(UpdateRule(when, clear, i64(rules_seconds(wait)), i64(rules_seconds(cooldown)), doing, otherwise,
+        r.id, opened.ok))
+    sql_close(opened.ok)
+    journal_info("rule", r.name, "person", "rule changed: " + when)
+    return rules_back(r.name + ": " + i18n_t(req, "rules.saved"))
 }
 
 fn rules_mode_form(req: Request) Response {
@@ -743,12 +893,12 @@ fn rules_mode_form(req: Request) Response {
     }
     if str_eq(form_field(body, "end"), "1") {
         rules_mode_end("person")
-        return rules_page_message(req, i18n_t(req, "rules.mode_ended"))
+        return rules_back(i18n_t(req, "rules.mode_ended"))
     }
     if !rules_mode_start(str_trim(form_field(body, "mode")), "person") {
         return rules_page_message(req, i18n_t(req, "rules.not_found"))
     }
-    return rules_page_message(req, i18n_t(req, "rules.mode_started"))
+    return rules_back(i18n_t(req, "rules.mode_started"))
 }
 
 // rules_api is every rule's state and the mode in force, as JSON.

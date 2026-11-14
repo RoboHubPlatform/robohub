@@ -173,6 +173,31 @@ def main() -> int:
             post(base, "/rules/add", {"name": "unread", "when": "heater.temperature < 24.5", "do": "switch heater on"})
             post(base, "/rules/add", {"name": "in-feeding", "when": "mode == smoke-mode or nothing.there > 1",
                                       "do": 'journal info "the mode is seen"'})
+            # Editing: a refused change keeps what was typed; a saved one changes
+            # the rule; a preset rule edited is left alone by the presets and
+            # can be put back.
+            with sqlite3.connect(db) as conn:
+                unread = conn.execute("SELECT id FROM rules WHERE name='unread'").fetchone()[0]
+                preset = conn.execute("SELECT id, when_expr FROM rules WHERE name='keep-temperature'").fetchone()
+            assert_contains(get(base, f"/rules/edit?id={unread}"), ["heater.temperature &lt; 24.5", "switch heater on"], "the edit page")
+            refused = post(base, "/rules/edit", {"id": str(unread), "when": "(heater.temperature < 23", "do": "switch heater on"})
+            assert_contains(refused, ["not closed", "(heater.temperature &lt; 23"], "a refused edit keeps what was typed")
+            post(base, "/rules/edit", {"id": str(unread), "when": "heater.temperature < 23", "for": "2m", "do": "switch heater on"})
+            with sqlite3.connect(db) as conn:
+                row = conn.execute("SELECT when_expr, for_s, origin FROM rules WHERE id=?", (unread,)).fetchone()
+            if row != ("heater.temperature < 23", 120, "person"):
+                raise AssertionError(f"the edited rule: {row}")
+            post(base, "/rules/edit", {"id": str(preset[0]), "when": "heater.temperature < 22", "do": "switch heater on",
+                                       "else": "switch heater off"})
+            with sqlite3.connect(db) as conn:
+                row = conn.execute("SELECT when_expr, origin FROM rules WHERE id=?", (preset[0],)).fetchone()
+            if row != ("heater.temperature < 22", "edited"):
+                raise AssertionError(f"the edited preset rule: {row}")
+            assert_contains(post(base, "/rules/edit", {"id": str(preset[0]), "reset": "1"}), ["put back as its preset"], "a preset put back")
+            with sqlite3.connect(db) as conn:
+                row = conn.execute("SELECT when_expr, origin FROM rules WHERE id=?", (preset[0],)).fetchone()
+            if row != (preset[1], "preset"):
+                raise AssertionError(f"the preset rule put back: {row} (was {preset[1]})")
             deadline = time.time() + 20
             state = {}
             while time.time() < deadline:

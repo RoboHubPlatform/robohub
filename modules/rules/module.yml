@@ -14,7 +14,7 @@ module:
   type: module
   title: Rules & modes
   category: automation
-  version: 0.1.7
+  version: 0.1.8
   description: >
     The automation engine every RoboHub application shares: rules in a small
     fixed grammar (comparisons, and/or/not, durations, time windows, modes),
