@@ -40,3 +40,7 @@ Its data is kept where `app_workspace()` says (rho 0.8.0) — the application's 
 ## [0.2.0] - 2026-11-14
 
 It lists what other code may use (`provides.exports`, imported as `robohub.notifications`). An application that includes it still reaches everything, and a build (rho 0.8.3) names each call to a function outside the list. The list is what the applications and modules of the ecosystem call; anything else is the module's own and may change without notice.
+
+## [0.2.1] - 2026-11-14
+
+`notification_live_event_locale` is exported, and a warning toast has its own colour.
