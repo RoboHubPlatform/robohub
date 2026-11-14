@@ -1,0 +1,4 @@
+# The docsite image (applications/docsite/deploy/Dockerfile) carries only the
+# built site; nothing else of the repository is sent to the build.
+*
+!build/site
