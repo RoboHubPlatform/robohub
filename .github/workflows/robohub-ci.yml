@@ -81,6 +81,7 @@ jobs:
         uses: actions/checkout@v5
         with:
           path: ws/${{ github.event.repository.name }}
+          submodules: recursive
 
       # The toolchain. A platform is not built by cmake: it is built by rho, for a
       # board, from an application — a board cannot be compiled on its own and
@@ -103,6 +104,10 @@ jobs:
             git clone --depth 1 \
               "https://x-access-token:${TOKEN}@github.com/RoboHubPlatform/${sibling}.git" \
               "${ROBOHUB_WORKSPACE}/${sibling}"
+            # A platform vendors its SDK as a submodule (robohub-pico's pico-sdk,
+            # and the SDK's own USB and wireless libraries); a board is built
+            # from them.
+            git -C "${ROBOHUB_WORKSPACE}/${sibling}" submodule update --init --recursive --depth 1
           done
 
       - name: Set up Go
