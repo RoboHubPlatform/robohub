@@ -5,6 +5,14 @@ thing, about what, who or what did it, and what was said. Every RoboHub
 application that includes the module records in the same shape, so a page, a
 badge or another application reads them the same way.
 
+## How an application uses it
+
+Include the module and add it to `deps`; it brings `i18n` and `notifications`.
+The application defines `host_shell(req, title, body, scripts)`, which draws the
+journal page in its layout, and calls `journal_prune()` from its background work
+now and then. `rules`, `appshell`, `widgets` and `scheduler` write to it, so an
+application that includes them includes the journal too.
+
 ## Writing
 
 ```rho
@@ -25,8 +33,7 @@ the notifications module, so a person sees it now and can read it later.
 
 ## Open entries
 
-A warning or an error stays open until it is resolved, on the page or with
-`journal_resolve(id)`. `journal_open_count()` is what a badge shows.
+A warning or an error stays open until it is resolved on the journal page. `journal_open_count()` is what a badge shows.
 `journal_last_at(kind, subject)` is when the newest entry of a kind was written
 ("how long since the last water change"). `journal_prune()` drops what is older than three months and needs nothing more;
 a host calls it from its background work.
@@ -41,7 +48,14 @@ a host calls it from its background work.
   "subject":"aquarium","actor":"person:ana","message":"NO₃ 28 mg/L","resolved_at":0}]}
 ```
 
-## Storage
+`journal_time(at, offset)` shows a time as `2026-11-13 14:02` with the offset in
+force at that moment (the `offset` argument is no longer read), and
+`journal_api(req)` is the JSON answer above, for an application that serves it
+under another route.
 
-The table is the module's own (`db/schema.sql`, declared in its `sql:` block), in
-the database of the application that includes it.
+## Data it keeps
+
+One table, `journal_entries`, the module's own (`db/schema.sql`, declared in its
+`sql:` block and generated in by rho-sql), in the application's database
+(`<workspace>/data/app.db`, or `RHO_JOURNAL_DB`). Entries are kept for three
+months; open ones are kept until they are resolved. The module has no settings.

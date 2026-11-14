@@ -8,8 +8,9 @@ plugin runs.
 
 ```yaml
 deps:
-  robohub-bus: ">=0.2.0"
-  robohub-provider-mqtt: ">=0.2.0"
+  robohub:
+    robohub-bus: ">=0.2.0"
+    robohub-provider-mqtt: ">=0.2.0"
 bind:
   robohub.bus:
     providers: [robohub-provider-mqtt]
@@ -17,6 +18,16 @@ bind:
 
 With no settings the provider uses the broker the keeper gave the application
 (`ROBOHUB_BUS_URL`, `ROBOHUB_BUS_USER`, `ROBOHUB_BUS_PASSWORD_FILE`).
+What that user may publish and subscribe to is the application's manifest's
+`bus:` block. Mesh, aquarium and energy bind the bus: Mesh reaches MQTT devices
+through it (`+/rpc`, `+/status/#`) and relays each project's live feed to
+`mesh/<project>/telemetry`, and the Mesh gateway provider in aquarium and energy
+follows that feed over the broker when its `transport` allows (see
+{ref}`robohub-provider-mesh/index`).
+
+The provider that answers is the first bound one whose `enabled` setting is not
+`"false"`; `config(key)` reads its settings, from its `bind:` values or the
+application's `bind.conf`.
 
 ## What an application calls
 

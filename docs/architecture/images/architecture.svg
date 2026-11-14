@@ -1,0 +1,140 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 880" width="760" height="880" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" role="img" aria-labelledby="t d">
+  <title id="t">How RoboHub fits together</title>
+  <desc id="d">A browser reaches the keeper on port 19090, which signs people in and proxies the applications Mesh, Aquarium and Energy at /app/name/. The applications include the shared modules and reach the world through the interfaces robohub.gateway, robohub.bus and robohub.alert, bound to providers. The gateway provider reads Mesh, which polls the gateway's outbox; the gateway reaches boards over serial, USB and Wi-Fi and polls network devices; MQTT devices report through the keeper's broker.</desc>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#5c646c"/>
+    </marker>
+    <style>
+      .box { fill: #f6f7f8; stroke: #c9ced3; stroke-width: 1.2; }
+      .key { fill: #e7f3f1; stroke: #0d6e63; stroke-width: 1.6; }
+      .ifc { fill: #ffffff; stroke: #0d6e63; stroke-width: 1.2; stroke-dasharray: 5 3; }
+      .out { fill: #ffffff; stroke: #c9ced3; stroke-width: 1.2; stroke-dasharray: 2 3; }
+      .h { font-size: 15px; font-weight: 700; fill: #171a1d; }
+      .s { font-size: 12px; fill: #5c646c; }
+      .m { font-size: 13px; font-weight: 600; fill: #0d6e63; font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace; }
+      .lbl { font-size: 11px; fill: #5c646c; font-style: italic; }
+      .ln { stroke: #5c646c; stroke-width: 1.3; fill: none; marker-end: url(#a); }
+      .ln2 { stroke: #5c646c; stroke-width: 1.3; fill: none; marker-end: url(#a); marker-start: url(#a); }
+    </style>
+  </defs>
+  <rect width="760" height="880" fill="#ffffff"/>
+
+  <!-- Browser -->
+  <rect class="box" x="280" y="16" width="200" height="44" rx="8"/>
+  <text class="h" x="380" y="43" text-anchor="middle">Browser</text>
+  <path class="ln" d="M380 60 V92"/>
+  <text class="lbl" x="390" y="81">http://127.0.0.1:19090</text>
+
+  <!-- Keeper -->
+  <rect class="key" x="40" y="94" width="680" height="76" rx="10"/>
+  <text class="h" x="380" y="120" text-anchor="middle">Keeper · 127.0.0.1:19090</text>
+  <text class="s" x="380" y="140" text-anchor="middle">sign-in, roles and grants · tickets and service tokens signed with its key</text>
+  <text class="s" x="380" y="158" text-anchor="middle">installs and runs each application as a systemd user unit · serves it at /app/&lt;name&gt;/</text>
+
+  <path class="ln" d="M160 170 V202"/>
+  <path class="ln" d="M380 170 V202"/>
+  <path class="ln" d="M600 170 V202"/>
+  <text class="lbl" x="390" y="191">/app/&lt;name&gt;/ proxy</text>
+
+  <!-- Applications -->
+  <rect class="box" x="60" y="204" width="200" height="56" rx="8"/>
+  <text class="h" x="160" y="228" text-anchor="middle">Mesh</text>
+  <text class="s" x="160" y="247" text-anchor="middle">127.0.0.1:8478</text>
+  <rect class="box" x="280" y="204" width="200" height="56" rx="8"/>
+  <text class="h" x="380" y="228" text-anchor="middle">Aquarium</text>
+  <text class="s" x="380" y="247" text-anchor="middle">127.0.0.1:8480</text>
+  <rect class="box" x="500" y="204" width="200" height="56" rx="8"/>
+  <text class="h" x="600" y="228" text-anchor="middle">Energy</text>
+  <text class="s" x="600" y="247" text-anchor="middle">127.0.0.1:8482</text>
+
+  <path class="ln" d="M380 260 V290"/>
+  <text class="lbl" x="390" y="280">include</text>
+
+  <!-- Shared modules -->
+  <rect class="box" x="60" y="292" width="640" height="54" rx="8"/>
+  <text class="h" x="380" y="314" text-anchor="middle">Shared modules</text>
+  <text class="s" x="380" y="333" text-anchor="middle">appshell · inventory · rules · scheduler · widgets · journal · appapi · forms · i18n · logging</text>
+
+  <path class="ln" d="M160 346 V376"/>
+  <path class="ln" d="M380 346 V376"/>
+  <path class="ln" d="M600 346 V376"/>
+  <text class="lbl" x="390" y="366">import</text>
+
+  <!-- Interfaces -->
+  <rect class="ifc" x="60" y="378" width="200" height="46" rx="8"/>
+  <text class="m" x="160" y="406" text-anchor="middle">robohub.gateway</text>
+  <rect class="ifc" x="280" y="378" width="200" height="46" rx="8"/>
+  <text class="m" x="380" y="406" text-anchor="middle">robohub.bus</text>
+  <rect class="ifc" x="500" y="378" width="200" height="46" rx="8"/>
+  <text class="m" x="600" y="406" text-anchor="middle">robohub.alert</text>
+
+  <path class="ln" d="M160 424 V452"/>
+  <path class="ln" d="M380 424 V452"/>
+  <path class="ln" d="M600 424 V452"/>
+  <text class="lbl" x="390" y="443">bind (module.yml)</text>
+
+  <!-- Providers -->
+  <rect class="box" x="60" y="454" width="200" height="54" rx="8"/>
+  <text class="h" x="160" y="476" text-anchor="middle">provider-mesh</text>
+  <text class="s" x="160" y="495" text-anchor="middle">or the simulator</text>
+  <rect class="box" x="280" y="454" width="200" height="54" rx="8"/>
+  <text class="h" x="380" y="476" text-anchor="middle">provider-mqtt</text>
+  <text class="s" x="380" y="495" text-anchor="middle">an MQTT client</text>
+  <rect class="box" x="500" y="454" width="200" height="54" rx="8"/>
+  <text class="h" x="600" y="476" text-anchor="middle">alert providers</text>
+  <text class="s" x="600" y="495" text-anchor="middle">email · telegram · webhook · log</text>
+
+  <path class="ln" d="M160 508 V538"/>
+  <text class="lbl" x="170" y="528">/mesh/api, token</text>
+  <path class="ln" d="M380 508 V538"/>
+  <path class="ln" d="M600 508 V538"/>
+
+  <!-- Mesh API, broker, outside -->
+  <rect class="key" x="60" y="540" width="200" height="62" rx="8"/>
+  <text class="h" x="160" y="564" text-anchor="middle">Mesh API</text>
+  <text class="s" x="160" y="583" text-anchor="middle">telemetry store · live feed</text>
+  <text class="s" x="160" y="597" text-anchor="middle">commands · plans and jobs</text>
+  <rect class="box" x="280" y="540" width="200" height="62" rx="8"/>
+  <text class="h" x="380" y="564" text-anchor="middle">MQTT broker</text>
+  <text class="s" x="380" y="583" text-anchor="middle">robohub-mqtt, run by</text>
+  <text class="s" x="380" y="597" text-anchor="middle">the keeper · port 1884</text>
+  <rect class="out" x="500" y="540" width="200" height="62" rx="8"/>
+  <text class="h" x="600" y="566" text-anchor="middle">The outside</text>
+  <text class="s" x="600" y="586" text-anchor="middle">mail, chat, HTTP, a file</text>
+
+  <path class="ln2" d="M262 571 H278"/>
+
+  <path class="ln2" d="M160 602 V646"/>
+  <text class="lbl" x="170" y="621">polls the outbox,</text>
+  <text class="lbl" x="170" y="636">sends commands</text>
+
+  <!-- Gateway -->
+  <rect class="key" x="60" y="648" width="380" height="70" rx="10"/>
+  <text class="h" x="250" y="672" text-anchor="middle">Gateway</text>
+  <text class="s" x="250" y="692" text-anchor="middle">REST /api/v1 · durable outbox · authenticated frames</text>
+  <text class="s" x="250" y="709" text-anchor="middle">relay / uplink to a parent gateway</text>
+
+  <path class="ln2" d="M160 718 V768"/>
+  <text class="lbl" x="170" y="740">frames</text>
+  <path class="ln2" d="M380 718 V768"/>
+  <text class="lbl" x="390" y="740">HTTP polls</text>
+  <path class="ln2" d="M460 602 V742 H600 V768"/>
+  <text class="lbl" x="470" y="690">MQTT</text>
+
+  <!-- Devices -->
+  <rect class="box" x="60" y="770" width="200" height="70" rx="8"/>
+  <text class="h" x="160" y="795" text-anchor="middle">Boards</text>
+  <text class="s" x="160" y="814" text-anchor="middle">serial · USB · Wi-Fi</text>
+  <text class="s" x="160" y="830" text-anchor="middle">sensors on their buses</text>
+  <rect class="box" x="280" y="770" width="200" height="70" rx="8"/>
+  <text class="h" x="380" y="795" text-anchor="middle">HTTP devices</text>
+  <text class="s" x="380" y="814" text-anchor="middle">plugs, inverters</text>
+  <text class="s" x="380" y="830" text-anchor="middle">polled by Mesh or the gateway</text>
+  <rect class="box" x="500" y="770" width="200" height="70" rx="8"/>
+  <text class="h" x="600" y="795" text-anchor="middle">MQTT devices</text>
+  <text class="s" x="600" y="814" text-anchor="middle">a broker user each,</text>
+  <text class="s" x="600" y="830" text-anchor="middle">under its topic prefix</text>
+
+  <text class="lbl" x="380" y="868" text-anchor="middle">Dashed: an interface the application imports. Teal: the keeper, Mesh and the gateway, which hold keys.</text>
+</svg>

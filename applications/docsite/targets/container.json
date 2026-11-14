@@ -8,9 +8,9 @@
     "docker": {
       "file": "deploy/Dockerfile",
       "context": "../..",
-      "image": "miraur/robohub-docsite",
+      "image": "<dockerhub-user>/robohub-docsite",
       "tag": "latest",
-      "run": ["-p", "8080:8080", "{image}"],
+      "run": ["-p", "127.0.0.1:8090:8080", "{image}"],
       "comment": "RH_DEPLOY_DOCKER_IMAGE and _TAG name the image for another registry"
     }
   }

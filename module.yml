@@ -105,7 +105,16 @@ docs:
   index: docs/index.md
   sources:
     - docs/index.md
-    - docs/reactive-ui.md
-    - docs/stack.md
-    - docs/networking.md
-    - docs/secure-telemetry.md
+    - docs/start/install.md
+    - docs/start/first-run.md
+    - docs/start/applications.md
+    - docs/start/gateway.md
+    - docs/architecture/index.md
+    - docs/architecture/reading.md
+    - docs/architecture/enrollment.md
+    - docs/architecture/security.md
+    - docs/architecture/stack.md
+    - docs/architecture/secure-telemetry.md
+    - docs/architecture/networking.md
+    - docs/build/host-application.md
+    - docs/build/reactive-ui.md

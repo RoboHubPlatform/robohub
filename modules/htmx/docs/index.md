@@ -18,11 +18,17 @@ for `htmx-ext-sse@2.2.4`.
 
 ## Using it
 
-Include the module's main file beside the other modules a host carries, then put
-`htmx_head()` in the page layout:
+Add the module to `deps` and include it by name, then put `htmx_head()` in the
+page layout. It needs no host hooks and has no settings.
+
+```yaml
+deps:
+  robohub:
+    htmx: ">=0.1.0"
+```
 
 ```rho
-include "../../../modules/htmx/src/main.rho"
+include "htmx"
 ```
 
 ```html

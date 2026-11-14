@@ -1,16 +1,20 @@
 # Plugins
 
 Every directory in this folder is an installed plugin: it has a `module.yml`
-with an identity, a `src/main.rho`, documentation, and a changelog, and it is
-listed in `registry.yml`. A directory without those is not a plugin and does not
+with an identity, documentation and a changelog, and it is listed in
+`registry.yml`, which is what the keeper lists and what its install and
+uninstall actions edit. A directory without those is not a plugin and does not
 belong here.
 
-The plugin is `robohub-auth`, how an application signs a person in.
+| Plugin | What it is |
+|---|---|
+| `robohub-auth` | How an application signs a person in, with the keeper as the authorization server. Its middleware is generated from the application's `project.yml` (see {ref}`robohub-auth/index`) |
+| `robohub-mqtt` | An integration plugin with no code of its own: a Mosquitto broker the keeper runs as a user service on port 1884, with a broker user for every application that binds `robohub.bus` and for each device an admin adds. Applications reach it through `robohub-provider-mqtt` (see {ref}`robohub-mqtt/index`) |
 
-Alert channels and the Mesh gateway are not plugins. They are providers of an
-interface (`contracts/alert/`, `contracts/gateway/`): an application depends on
-the providers it wants and binds them in its `module.yml`. See
-`providers/README.md`.
+Alert channels, the Mesh gateway and the MQTT client are not plugins. They are
+providers of an interface (`contracts/alert/`, `contracts/gateway/`,
+`contracts/bus/`): an application depends on the providers it wants and binds
+them in its `module.yml`. See `providers/README.md`.
 
 ## Dependencies
 

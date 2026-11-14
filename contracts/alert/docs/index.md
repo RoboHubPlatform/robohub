@@ -7,8 +7,10 @@ severity threshold. The channels are providers: `robohub-provider-log`,
 
 ```yaml
 deps:
-  robohub-alert: ">=1.1.0"
-  robohub-provider-telegram: ">=0.2.0"
+  robohub:
+    robohub-alert: ">=1.1.0"
+    robohub-provider-telegram: ">=0.2.0"
+    robohub-provider-log: ">=0.2.0"
 bind:
   robohub.alert:
     providers: [robohub-provider-telegram, robohub-provider-log]
@@ -17,8 +19,31 @@ bind:
 ```rho
 import robohub.alert
 
-let delivered: u32 = alert.raise("warning", "Tank too warm", "{\"tank\":\"main\"}")
+let delivered: u32 = alert.raise("WARNING", "Tank too warm", "{\"tank\":\"main\"}")
 ```
+
+The interface only is a dependency of a shared module such as `rules`; the
+application chooses the channels. An application that binds none raises alerts
+that reach no channel (`raise` answers 0) — `rules` writes them to the journal
+either way.
+
+## Settings every channel has
+
+Besides its own settings (listed on each provider's page), every channel
+accepts two the interface reads:
+
+| Setting | What it does |
+|---|---|
+| `enabled` | `"false"` stops the channel receiving alerts; anything else, or nothing, leaves it on |
+| `severity_threshold` | The lowest level the channel receives: `INFO`, `WARNING`, `ERROR` or `CRITICAL`. Empty receives everything |
+
+Levels are compared by name, in capitals: `INFO` < `WARNING` < `ERROR` <
+`CRITICAL`, and a level the interface does not know ranks with `INFO`.
+
+A channel's settings are its `bind:` values, and the application's `bind.conf`
+(`<provider>.<key>=value` lines in its workspace) wins over them, so
+`configure(provider, key, value)` changes a setting on a running installation
+without a rebuild.
 
 ## What an application calls
 

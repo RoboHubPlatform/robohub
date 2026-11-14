@@ -3,8 +3,8 @@
 A program that speaks MQTT, HTTP or a websocket should not carry a vendor's
 networking stack in its source. `robohub-common` declares the contract such a
 program is written against — `robohub/net.h` — and each platform implements it.
-A protocol built on this compiles for a Pico W, an ESP32 or a Linux gateway
-without a line changed.
+A protocol built on this runs on a Pico W or a Linux host without a line
+changed, and still links on a board that has no network port.
 
 ## The contract
 
@@ -36,12 +36,12 @@ sleeps, so a network read never starves the control loop sharing its core.
 
 ## How each platform supplies it
 
-| Capability | ESP32 | Pico W | Linux / gateway |
-|------------|-------|--------|-----------------|
-| Interface control | `esp_wifi` + `esp_event` | `cyw43_arch_wifi_connect_timeout_ms` | NetworkManager / `wpa_supplicant` |
-| IP stack | LwIP via `esp_netif` | LwIP via the Pico SDK | POSIX |
-| Sockets | LwIP BSD wrapper | LwIP RAW API (`tcp`/`udp` pcbs) | `<sys/socket.h>` |
-| Name resolution | `getaddrinfo` (LwIP) | numeric IPv4 (`ip4addr_aton`) | `getaddrinfo` |
+| Capability | Pico W (`pico_net.c`) | Linux (`linux_net.c`) | ESP32 |
+|------------|-----------------------|-----------------------|-------|
+| Interface control | `cyw43_arch_wifi_connect_timeout_ms` | none: the host is already on its network, and `wifi_connect` succeeds | not written yet (`esp_wifi` + `esp_event`) |
+| IP stack | LwIP via the Pico SDK | the kernel's | LwIP via `esp_netif` |
+| Sockets | LwIP RAW API (`tcp`/`udp` pcbs) | BSD sockets, non-blocking, the timeout as a `select` | the LwIP BSD wrapper |
+| Name resolution | numeric IPv4 (`ip4addr_aton`) | numeric IPv4 (`inet_pton`) | — |
 
 The Pico W column is not the BSD layer because its arch —
 `pico_cyw43_arch_lwip_threadsafe_background` — runs LwIP bare-metal
@@ -52,7 +52,7 @@ drains; that is also what makes a receive the non-blocking poll the contract
 asks for. Resolving a name would need `dns_gethostbyname`'s asynchronous
 callback, so `connect` takes a numeric address, as the POSIX reference does.
 
-The POSIX column is the reference: `tests/test_net_posix.c` implements the
+The POSIX test is the reference: `robohub-common/tests/test_net_posix.c` implements the
 contract over `<sys/socket.h>` and drives it against a loopback socket, so the
 contract itself is exercised without a board. A platform port follows the same
 shape with its own stack beneath.

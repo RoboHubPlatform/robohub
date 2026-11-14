@@ -16,3 +16,5 @@ build/test-reports/
 *.swp
 *~
 build/doctree/
+# The "Build an application" pages are documentation, not build output.
+!docs/build/

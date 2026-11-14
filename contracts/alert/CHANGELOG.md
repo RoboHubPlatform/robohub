@@ -30,3 +30,7 @@ itself (`rho test`), and string comparisons in them compare contents on C.
 `AlertRule` and `AlertEvaluation` are exported, so an application that keeps a
 rule names its type, as `alert.AlertRule` or, when no other module declares
 one, `AlertRule`.
+
+## [1.1.1] - 2026-11-14
+
+A severity is read in any case: the rules module raises `warning`, and a channel whose threshold is `WARNING` dropped every one of those alerts.

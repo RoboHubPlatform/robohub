@@ -3,9 +3,16 @@
 The MQTT provider of the bus interface (`robohub.bus`). It publishes at QoS 1
 and follows a filter in the background, keeping the newest message per topic,
 through the RoboHub platform's `mqtt` port: a program that binds this provider
-gets the port.
+gets the port. The application calls the interface (`bus.publish`,
+`bus.follow` …), never the provider (see {ref}`robohub-bus/index`); Mesh,
+aquarium and energy bind it.
 
 ```yaml
+deps:
+  robohub:
+    robohub-bus: ">=0.2.0"
+    robohub-provider-mqtt: ">=0.2.0"
+
 bind:
   robohub.bus:
     providers: [robohub-provider-mqtt]
@@ -21,6 +28,7 @@ bind:
 | `broker` | `ROBOHUB_BUS_URL` | the broker's URL |
 | `user` | `ROBOHUB_BUS_USER` | the broker user |
 | `password_file` | `ROBOHUB_BUS_PASSWORD_FILE` | the file the password is in |
+| `enabled` | on | `"false"` keeps it bound but not answering |
 
 The defaults are what the keeper starts the application with: it runs the broker
 (the `robohub-mqtt` plugin) and makes a broker user for every application that

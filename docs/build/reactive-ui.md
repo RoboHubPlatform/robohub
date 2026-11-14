@@ -4,7 +4,7 @@ RoboHub applications stay server-rendered. HTMX makes a page react to what the
 server already knows, and Server-Sent Events (SSE) push live changes. There is no
 node runtime, no bundler, and no client-side router to deploy on an edge device.
 
-The shared [HTMX module](../modules/htmx/) vendors HTMX and its SSE extension,
+The shared {ref}`htmx/index` module vendors HTMX and its SSE extension,
 serves them from `/assets/`, and carries the small helpers a host uses:
 
 - `htmx_head()` — the two script tags for a layout;
@@ -28,7 +28,7 @@ serves them from `/assets/`, and carries the small helpers a host uses:
    `htmx_is_request(req)` is true and keeps its normal redirect or full page
    otherwise. Forms still work with JavaScript off.
 5. **Keep the data plane where it belongs.** Mesh owns the gateway and the
-   telemetry store. Aquarium and Keeper ask Mesh for data and render their own
+   telemetry store. Aquarium and Energy ask Mesh for data and render their own
    fragments. Do not make telemetry an application UI server.
 
 ## A page
@@ -113,17 +113,21 @@ Those scripts are the exception, not the page architecture.
 
 ## Telemetry
 
-Telemetry remains optional and belongs to Mesh. Mesh exposes a data-only feed at
+Telemetry belongs to Mesh. Mesh exposes a data-only feed per project at
 `/mesh/api/projects/{project}/telemetry/stream`. It emits `telemetry` events whose
 data is JSON:
 
 ```json
-{"project":"default","node":1,"field":"temperature","value":"24.5","status":0}
+{"project":"default","source":"ba06f37ca34ba32c","area":1,"node":7,
+ "field":"temperature","value":"24.5","status":0,"received_ms":1794095053000}
 ```
 
-The feed carries changes only; a reader asks `/telemetry/latest` for the current
-state first. Applications still render their own templates from that data. The
-gateway stays the single place that reaches drivers and devices.
+The stream starts with the project's current values and then carries changes. An
+application does not open it from the browser: its gateway provider follows it on
+the server (`gateway.follow`, or the MQTT topic `mesh/<project>/telemetry`), and the
+application renders its own fragments from what arrives — see
+{ref}`architecture/reading`. Mesh and the gateway stay the only places that reach
+drivers and devices.
 
 ## Verifying a change
 
@@ -140,7 +144,7 @@ A reactive application keeps the ordinary RoboHub layout and adds three things:
 the HTMX dependency, one SSE connection, and fragment responses.
 
 ```text
-applications/example/
+example/
   module.yml
   project.yml
   src/main.rho
@@ -160,10 +164,10 @@ deps:
     htmx: ">=0.1.0"
 ```
 
-`src/main.rho` includes it beside the other modules:
+`src/main.rho` includes it by name, beside the other modules:
 
 ```rho
-include "../../../modules/htmx/src/main.rho"
+include "htmx"
 ```
 
 The layout passes the scripts once:

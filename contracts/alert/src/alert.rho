@@ -65,7 +65,10 @@ fn configure(provider: string, key: string, value: string) bool {
     return bind_config_set(provider, key, value)
 }
 
-fn severity_rank(level: string) u32 {
+// severity_rank orders the levels; a level is read in any case, so a rule that
+// raises "warning" passes a channel that wants WARNING.
+fn severity_rank(raw: string) u32 {
+    let level: string = str_upper(str_trim(raw))
     if level == "CRITICAL" {
         return 3
     }

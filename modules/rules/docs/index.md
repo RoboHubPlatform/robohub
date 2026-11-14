@@ -5,6 +5,27 @@ evaluation are this module's; the rules are the application's — seeded from it
 `presets/rules.yml`, changed by its people, kept in its database, and seen by no
 other application.
 
+## How an application uses it
+
+Include the module after `inventory` and `journal`, and add it to `deps`. It
+brings `i18n`, `inventory`, `journal`, `notifications`, `forms` and the
+`robohub.alert` interface — the interface only. An application that binds
+`robohub.alert` to providers in its `bind:` block gets a rule's alerts on those
+channels (see {ref}`robohub-alert/index`); one that binds none gets them in the
+journal.
+
+The application:
+
+- defines `host_shell(req, title, body, scripts)`, which draws the rules page in
+  its layout;
+- defines `rules_host_value(ref: string) string` — its own values that a
+  condition may name (`aquarium.nitrate`), and `""` for any it does not know;
+- seeds its rules and modes at startup with `rules_presets(text)`;
+- calls `rules_tick()` from its background work: every few seconds, and when a
+  reading arrives;
+- reads the mode in force with `rules_mode()`; `appshell` shows it in the top
+  bar, and its quick-mode button posts to `/rules/mode`.
+
 ## Conditions
 
 A small fixed grammar, combined with `and`, `or`, `not` and brackets:
@@ -86,13 +107,20 @@ why. A preset rule that is changed becomes *edited*: the application's presets
 no longer change it, and *Back to the preset* puts it back as they say it (the
 presets' own values are kept in `rule_presets` each time they are applied).
 
-## The host
+## Data it keeps
 
-The host includes the module after inventory and journal, defines
-`fn rules_host_value(ref: string) string` (its own values, `""` for any it does
-not know), and calls `rules_tick()` from its background work: every few seconds,
-and when a reading arrives. An application that binds `robohub.alert` gets a
-rule's alerts on its channels.
+In the application's database, `<workspace>/data/app.db` (or `RHO_RULES_DB`),
+from the module's own `db/schema.sql`, which rho-sql generates into every
+application that depends on the module:
 
-`GET /rules` is the page; `GET /api/rules` the state of every rule and the mode
-in force, as JSON.
+| Table | What it holds |
+|---|---|
+| `rules` | Each rule: its condition, clear condition, wait, cooldown, actions, origin (`preset`, `edited`, `person`), whether it is enabled, its state and when it last fired |
+| `rule_presets` | What the presets say each preset rule is, for *Back to the preset* |
+| `rule_modes` | Each mode: its actions, duration, end actions and the rules it suspends |
+| `rule_mode_active` | The mode in force, at most one |
+
+The module has no settings of its own; its rules and modes are its data.
+
+`GET /rules` is the page; `GET /api/rules` is the state of every rule and the
+mode in force, as JSON.

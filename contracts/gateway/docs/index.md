@@ -8,12 +8,34 @@ answers the same calls when an application runs without devices.
 
 ```yaml
 deps:
-  robohub-gateway: ">=1.2.0"
-  robohub-provider-mesh: ">=0.5.0"
+  robohub:
+    robohub-gateway: ">=1.2.0"
+    robohub-provider-mesh: ">=0.5.0"
+    simulator: ">=0.1.0"
 bind:
   robohub.gateway:
-    providers: [robohub-provider-mesh]
+    providers: [robohub-provider-mesh, simulator]
+    config:
+      robohub-provider-mesh:
+        project: "default"
+        transport: auto
+      simulator:
+        enabled: "false"
 ```
+
+This is a different module from the gateway firmware and server
+({ref}`robohub-gateway/index`): the interface is what an application calls, and
+the Mesh provider reaches the gateway through Mesh, never directly.
+
+## Choosing the provider
+
+The provider that answers is the first bound one whose `enabled` setting is not
+`"false"`. `choose(name)` makes one bound provider the one that answers by
+writing `enabled` for every bound provider into the application's `bind.conf`
+(`<provider>.<key>=value` lines in its workspace, which win over the `bind:`
+values), so the choice survives a restart and needs no rebuild. The gateway tab
+of `appshell`'s settings page is that choice, with the Mesh provider's `project`
+and `transport` beside it (see {ref}`appshell/index`).
 
 An application rarely calls the gateway for a device by name: the inventory binds
 an item's capabilities to the gateway's sources, and the rules, the dashboard
@@ -27,7 +49,7 @@ and the pages name the item (`heater.switch`).
 | `choose(name)` | makes one bound provider the one that answers |
 | `config(key)`, `configure(key, value)` | the gateway's settings — its `url`, its `project` |
 | `provider_config(name, key)`, `configure_provider(name, key, value)` | one provider's settings, answering or not |
-| `token()` | the service token the gateway was configured with, if any |
+| `token()` | the answering provider's `token` setting, if one is configured. The Mesh provider stores none: each of its requests carries a short-lived service token scoped to the project |
 | `sources()` | the project's inputs and outputs, by stable id |
 | `source_latest(source)`, `source_state(source)` | the newest reading of a source; the state behind it |
 | `source_history(source, from_ms, to_ms, step_ms)` | readings over a range, Unix milliseconds as text; an empty step is raw readings |

@@ -6,10 +6,12 @@ function flush_para() {
   }
 }
 /^# Changelog$/ { next }
+# A release is a small heading under the page's "Release history", so the page's
+# table of contents lists the history once rather than every version.
 /^## \[/ {
   flush_para()
   print ""
-  print
+  print "####" substr($0, 3)
   print ""
   next
 }

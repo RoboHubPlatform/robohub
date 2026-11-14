@@ -1,8 +1,9 @@
 #
 # appshell — what every RoboHub application on the gateway draws the same way.
 #
-# The settings page (where readings come from, the inventory's, scheduler's and
-# dashboard's settings, logging, about), the docs page, and the pieces of the
+# The settings page (where readings come from, the tabs each module and the
+# application add through host_settings_tabs/form/save, logging, about), the
+# docs page, and the pieces of the
 # shell: the rail's links, the top bar with the gateway and the mode, a toast.
 # An application includes it, keeps its own rail and layout, and answers
 # host_app() and host_app_title().

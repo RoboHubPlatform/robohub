@@ -14,17 +14,18 @@ module docsite
 
 // The RoboHub documentation, built.
 //
-// The documentation each module of the ecosystem ships — the pages in its
-// `docs/` directory — is collected here into one tree, and the tree is built
-// into one site. A module's pages are a section of the tree named for the
-// module, so the site has a section per module and the keeper can serve them.
+// The documentation each part of the ecosystem ships — the pages in its
+// `docs/` directory, or its README when it has no such directory — is collected
+// into one tree, and the tree is built into one site by the toolchain's own
+// `rho doc`. The site's shape — its sections, their names and order — is
+// `applications/docsite/site.yml`, copied into the tree as `docs/site.yml`;
+// which section a part lands in is decided here, by where the part lives.
 //
-// The modules come from the registry, not from a list written here: a module
-// that joins the ecosystem is in the registry, and a list written here would be
-// a second copy of the ecosystem that drifts.
+// The tree's root is not a module: the orchestrator's own pages, in docs/ and
+// its subfolders, are the repository's pages, one section per subfolder.
 //
-// The build is the toolchain's own: `rho doc`, and the pages are written where
-// a reader can find them.
+// The tree and the site are emptied first, so a part that was renamed or
+// removed is not left behind in the site.
 
 extern fn rho_arg(index: i32) string
 extern fn rho_exec(program: string, arguments: string, output_path: string) u32
@@ -39,17 +40,17 @@ extern fn rho_str_slice(s: string, start: u32, length: u32) string
 const REGISTRY: string = "registry/modules"
 
 /// Where the tree is assembled.
-///
-/// The tree is a `docs` directory beside a root, because that is where the
-/// generator reads a project's documentation from, and the keeper's store reads
-/// it from the same place.
 const TREE: string = "build/doctree"
 
 /// Where the built site is written.
 const SITE: string = "build/site"
 
+/// The applications a person installs and uses; every other repository in the
+/// registry is a device, a board or the firmware under them.
+const APPLICATIONS: string = "robohub-keeper robohub-mesh robohub-aquarium robohub-energy"
+
 fn main() void {
-    let tree: string = rho_arg(1)
+    var tree: string = rho_arg(1)
     if tree == "" {
         tree = TREE
     }
@@ -58,112 +59,140 @@ fn main() void {
     print("done\n")
 }
 
-// assemble collects every module's documentation into one tree and builds it.
-fn assemble(tree: string) void {
-    // The orchestrator's own documentation and manifest.
-    rho_exec("sh", "-c \"mkdir -p " + tree + "/docs\"", "build/reports/assemble.txt")
-    rho_exec("sh", "-c \"cp -f docs/index.md " + tree + "/docs/index.md && if [ -f CHANGELOG.md ]; then printf '\\n\\n## Release history\\n\\n' >> " + tree + "/docs/index.md && awk -f applications/docsite/templates/scripts/normalize-changelog.awk CHANGELOG.md >> " + tree + "/docs/index.md; fi\"", "build/reports/assemble2.txt")
-    rho_exec("sh", "-c \"sed \'s/name: robohub/name: build/\' module.yml > " + tree + "/module.yml\"", "build/reports/assemble3.txt")
-    rho_exec("sh", "-c \"mkdir -p " + tree + "/src && cp -f src/main.rho " + tree + "/src/main.rho\"", "build/reports/assemble4.txt")
+// sh runs one shell command line, its output kept under build/reports.
+fn sh(command: string, report: string) void {
+    rho_exec("sh", "-c \"" + command + "\"", "build/reports/" + report + ".txt")
+}
 
-    // Every module's documentation is a section named for the module.
+// assemble collects every part's documentation into one tree and builds it.
+fn assemble(tree: string) void {
+    sh("mkdir -p build/reports && rm -rf " + tree + " " + SITE + " && mkdir -p " + tree + "/docs", "assemble-clean")
+    // The orchestrator's own pages, its release history on the overview, and
+    // the shape of the site.
+    sh("cp -Rf docs/. " + tree + "/docs/ && cp -f applications/docsite/site.yml " + tree + "/docs/site.yml", "assemble-root")
+    sh("if [ -f CHANGELOG.md ]; then printf '\\n\\n## Release history\\n\\n' >> " + tree +
+        "/docs/index.md && awk -f applications/docsite/templates/scripts/normalize-changelog.awk CHANGELOG.md >> " +
+        tree + "/docs/index.md; fi", "assemble-releases")
+
     assemble_registry(tree)
-    assemble_directories(tree, "applications")
-    assemble_directories(tree, "modules")
-    assemble_directories(tree, "plugins")
+    assemble_folders(tree, "modules", "build")
+    assemble_folders(tree, "providers", "integrations")
+    assemble_folders(tree, "contracts", "integrations")
+    // The gateway contract shares its name with the gateway repository.
+    assemble_renamed(tree, "gateway", "contracts/gateway", "integrations", "robohub-gateway-contract")
+    assemble_folders(tree, "plugins", "integrations")
+    assemble_part(tree, "robohub-protocol", "protocol", "integrations")
+    assemble_folders(tree, "../robohub-mesh/plugins", "integrations")
+    assemble_renamed(tree, "robohub-devices-mqtt", "../robohub-devices/protocols/mqtt", "devices", "robohub-devices-mqtt")
+    assemble_folders(tree, "../robohub-devices/devices/plug", "devices")
+    assemble_folders(tree, "../robohub-devices/devices/inverter", "devices")
+    assemble_folders(tree, "../robohub-devices/devices/actuator", "devices")
+    assemble_folders(tree, "../robohub-devices/devices/sensor", "devices")
 
     // The site is the toolchain's own build of the tree.
-    rho_exec("rho", "doc " + tree + " -title RoboHub -api /dev/null -out " + SITE, "build/reports/doc.txt")
+    rho_exec("rho", "doc " + tree + " -out " + SITE, "build/reports/doc.txt")
 
-    // A landing page in the same shape as the Rho docsite: the ecosystem's
-    // entry points, its repository, and its release history.
-    rho_exec("sh", "-c \"awk -f applications/docsite/templates/scripts/release-rows.awk CHANGELOG.md > build/reports/release-rows.html\"",
-        "build/reports/release-rows.txt")
+    // The landing page: the ecosystem's entry points and its release history.
+    sh("awk -f applications/docsite/templates/scripts/release-rows.awk CHANGELOG.md > build/reports/release-rows.html", "release-rows")
     let version: string = yaml.value("module.yml", "module.version")
     var landing: string = rho_read_text("applications/docsite/templates/pages/landing.html")
     landing = str_replace(landing, "{{VERSION}}", version)
-    landing = replace_once(landing, "<!--RELEASES-->",
-        rho_read_text("build/reports/release-rows.html"))
+    landing = replace_once(landing, "<!--RELEASES-->", rho_read_text("build/reports/release-rows.html"))
     rho_write_text(SITE + "/index.html", landing)
 }
 
-// assemble_module copies one module's page, manifest and release history into
-// the tree. The manifest is what gives the page its section and order.
-fn assemble_module(tree: string, name: string, path: string) void {
-    if !rho_path_exists(path + "/docs/index.md") {
-        return
-    }
-    rho_exec("sh", "-c \"mkdir -p " + tree + "/" + name + "/docs && cp -Rf " +
-        path + "/docs/. " + tree + "/" + name + "/docs/ && cp -f " +
-        path + "/module.yml " + tree + "/" + name + "/module.yml && if [ -f " +
-        path + "/CHANGELOG.md ]; then printf '\\n\\n## Release history\\n\\n' >> " +
-        tree + "/" + name + "/docs/index.md && awk -f applications/docsite/templates/scripts/normalize-changelog.awk " +
-        path + "/CHANGELOG.md >> " + tree + "/" + name + "/docs/index.md; fi\"",
-        "build/reports/assemble-" + name + ".txt")
+// assemble_part copies one part — its pages, or its README when it has no
+// docs/index.md, its manifest with the site's section, and its release history
+// — into the tree under name.
+fn assemble_part(tree: string, name: string, path: string, section: string) void {
+    assemble_renamed(tree, name, path, section, "")
 }
 
-// assemble_directories reads a directory of modules: applications, modules or
-// plugins. Each folder with a docs/index.md becomes a page.
-fn assemble_directories(tree: string, group: string) void {
+// assemble_renamed is assemble_part with the module renamed in the copy, for a
+// part whose name another part already has.
+fn assemble_renamed(tree: string, name: string, path: string, section: string, rename: string) void {
+    if !rho_path_exists(path + "/module.yml") {
+        return
+    }
+    let has_docs: bool = rho_path_exists(path + "/docs/index.md")
+    if !has_docs && !rho_path_exists(path + "/README.md") {
+        return
+    }
+    let dest: string = tree + "/" + name
+    sh("mkdir -p " + dest + "/docs", "part-" + name)
+    if has_docs {
+        sh("cp -Rf " + path + "/docs/. " + dest + "/docs/", "part-" + name + "-docs")
+    } else {
+        sh("cp -f " + path + "/README.md " + dest + "/docs/index.md", "part-" + name + "-readme")
+    }
+    sh("awk -v section=" + section + " -v name=" + rename + " -f applications/docsite/templates/scripts/set-section.awk " +
+        path + "/module.yml > " + dest + "/module.yml", "part-" + name + "-manifest")
+    // A shared module's page ends with what its manifest and sources declare:
+    // exports, routes and the host hooks an application has to define.
+    if section == "build" {
+        sh("sh applications/docsite/templates/scripts/module-reference.sh " + path + " >> " + dest + "/docs/index.md",
+            "part-" + name + "-reference")
+    }
+    sh("if [ -f " + path + "/CHANGELOG.md ]; then printf '\\n\\n## Release history\\n\\n' >> " + dest +
+        "/docs/index.md && awk -f applications/docsite/templates/scripts/normalize-changelog.awk " +
+        path + "/CHANGELOG.md >> " + dest + "/docs/index.md; fi", "part-" + name + "-releases")
+}
+
+// assemble_folders reads a folder of parts: each subfolder with a manifest is
+// one, named for the subfolder.
+fn assemble_folders(tree: string, group: string, section: string) void {
     if !rho_path_exists(group) {
         return
     }
-    rho_exec("sh", "-c \"ls " + group + "/\"", "build/reports/ls-" + group + ".txt")
-    var rest: string = rho_read_text("build/reports/ls-" + group + ".txt")
+    sh("ls " + group + "/", "ls-" + str_replace(str_replace(group, "/", "-"), ".", ""))
+    var rest: string = rho_read_text("build/reports/ls-" + str_replace(str_replace(group, "/", "-"), ".", "") + ".txt")
     while rest != "" {
-        let at: i32 = rho_str_index_of(rest, "\n")
-        let name: string = ""
-        if at < 0 {
-            name = rest
-            rest = ""
-        } else {
-            name = rho_str_slice(rest, 0, u32(at))
-            rest = rho_str_slice(rest, u32(at) + 1,
-                u32(rho_strlen(rest)) - u32(at) - 1)
+        let name: string = first_line(rest)
+        rest = after_line(rest)
+        if name != "" {
+            assemble_part(tree, name, group + "/" + name, section)
         }
-        if name == "" || !rho_path_exists(group + "/" + name + "/module.yml") {
-            continue
-        }
-        assemble_module(tree, name, group + "/" + name)
     }
 }
 
-// assemble_registry reads the ecosystem registry, where each entry is a
-// manifest beside the modules it names.
+// assemble_registry reads the ecosystem registry: each entry names a sibling
+// repository, which is an application or part of the device side.
 fn assemble_registry(tree: string) void {
     if !rho_path_exists(REGISTRY) {
         return
     }
-    rho_exec("sh", "-c \"ls " + REGISTRY + "/\"", "build/reports/ls-modules.txt")
-    var rest: string = rho_read_text("build/reports/ls-modules.txt")
+    sh("ls " + REGISTRY + "/", "ls-registry")
+    var rest: string = rho_read_text("build/reports/ls-registry.txt")
     while rest != "" {
-        let at: i32 = rho_str_index_of(rest, "\n")
-        let filename: string = ""
-        if at < 0 {
-            filename = rest
-            rest = ""
-        } else {
-            filename = rho_str_slice(rest, 0, u32(at))
-            rest = rho_str_slice(rest, u32(at) + 1,
-                u32(rho_strlen(rest)) - u32(at) - 1)
-        }
-        if filename == "" || rho_str_index_of(filename, ".yml") < 0 {
-            continue
-        }
-        let name: string = rho_str_slice(filename, 0,
-            u32(rho_str_index_of(filename, ".yml")))
-        assemble_module(tree, name, "../" + name)
-        // A repository is grouped by what its manifest says it is: a runtime,
-        // middleware, interfaces, a platform or a collection. Only the
-        // application modules under modules/ are "Modules"; the ecosystem
-        // repositories are never mixed into that section.
-        let kind: string = yaml.value("../" + name + "/module.yml", "module.type")
-        if kind != "" && kind != "rho" {
-            rho_exec("sh", "-c \"sed -i 's/^  section: .*/  section: " + kind +
-                "/' " + tree + "/" + name + "/module.yml\"",
-                "build/reports/section-" + name + ".txt")
+        let filename: string = first_line(rest)
+        rest = after_line(rest)
+        let dot: i32 = rho_str_index_of(filename, ".yml")
+        if dot > 0 {
+            let name: string = rho_str_slice(filename, 0, u32(dot))
+            var section: string = "devices"
+            if rho_str_index_of(" " + APPLICATIONS + " ", " " + name + " ") >= 0 {
+                section = "applications"
+            }
+            assemble_part(tree, name, "../" + name, section)
         }
     }
+}
+
+// first_line is the text up to the first line break; after_line is the rest.
+fn first_line(text: string) string {
+    let at: i32 = rho_str_index_of(text, "\n")
+    if at < 0 {
+        return text
+    }
+    return rho_str_slice(text, 0, u32(at))
+}
+
+fn after_line(text: string) string {
+    let at: i32 = rho_str_index_of(text, "\n")
+    if at < 0 {
+        return ""
+    }
+    return rho_str_slice(text, u32(at) + 1, u32(rho_strlen(text)) - u32(at) - 1)
 }
 
 fn replace_once(text: string, needle: string, value: string) string {

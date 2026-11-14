@@ -1,0 +1,29 @@
+# The shape of the RoboHub documentation site, copied into the assembled tree as
+# docs/site.yml and read by `rho doc`. The landing page (index.html) is the
+# docsite's own template, written over the generated one after the build, so no
+# front page is named here. The parts of the ecosystem are documented in their
+# own repositories; there is no API reference.
+title: RoboHub
+api: none
+sections:
+  - name: documentation
+    title: Overview
+    pages: [index]
+  - name: start
+    title: Get started
+    pages: [install, first-run, applications, gateway]
+  - name: architecture
+    title: How it fits
+    pages: [index, reading, enrollment, security, stack, secure-telemetry, networking]
+  - name: applications
+    title: Applications
+    pages: [keeper, mesh, aquarium, energy]
+  - name: build
+    title: Build an application
+    pages: [host-application, reactive-ui, appshell, ui, inventory, scheduler, rules, widgets, journal, notifications, appapi, i18n, forms, settings, logging, htmx, simulator]
+  - name: integrations
+    title: Integrations
+    pages: [robohub-provider-mesh, robohub-provider-mqtt, robohub-provider-email, robohub-provider-telegram, robohub-provider-webhook, robohub-provider-log, robohub-gateway-contract, robohub-alert, robohub-bus, robohub-protocol, robohub-auth, robohub-mqtt, mesh-telemetry]
+  - name: devices
+    title: Devices & firmware
+    pages: [robohub-gateway, robohub-devices, robohub-drivers, robohub-common, robohub-core, robohub-transport, robohub-telemetry, robohub-esp32, robohub-pico, robohub-stm32, robohub-avr, robohub-linux, robohub-freertos]

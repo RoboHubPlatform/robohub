@@ -33,7 +33,15 @@ not checked out is passed over.
 
 | Consumer | Carries | Generates |
 |---|---|---|
-| `robohub-gateway` | all four | Rho: `src/gateway/{link,uplink,wire}` |
+| `robohub-gateway` | all four | Rho, from `gateway.rho`: `src/gateway/wire` |
 | `robohub-devices/runtime/device-node`, `nodes/gateway-node` | common, link | C: `src/protocol` |
 | `robohub-drivers` gateway examples (relay, relay-host, uplink-host) | all four | C: `src/protocol` |
 | `robohub-drivers` repeater and the DS18B20 telemetry node | common, link | C: `src/protocol` |
+
+`consumers.yml` is the list `tools/sync.py` reads: each consumer's path, the
+schemas it carries, and what is generated where. A consumer keeps its copy in its
+own `schemas/` directory, byte for byte the source's.
+
+This is not an interface an application calls. Applications reach readings
+through `robohub.gateway` (see {ref}`robohub-gateway-contract/index`); the wire is
+what boards and gateways speak (see {ref}`robohub-gateway/index`).
