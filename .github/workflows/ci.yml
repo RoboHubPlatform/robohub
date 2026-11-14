@@ -14,6 +14,13 @@ jobs:
     uses: ./.github/workflows/robohub-ci.yml
     secrets: inherit
     with:
+      # The orchestrator's tests check the ecosystem is whole: every repository
+      # its registry names is checked out beside it.
+      siblings: >-
+        robohub-aquarium robohub-avr robohub-common robohub-core robohub-devices
+        robohub-drivers robohub-energy robohub-esp32 robohub-freertos robohub-gateway
+        robohub-keeper robohub-linux robohub-mesh robohub-pico robohub-stm32
+        robohub-telemetry robohub-transport
       components: rho-auth rho-log rho-sql rho-sql-sqlite rho-doc rho-doc-api rho-doc-toc rho-robohub
       # The orchestrator itself first: its tests run ./build/robohub.
       build: . applications/*

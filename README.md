@@ -65,4 +65,4 @@ it and building its container image.
 
 ## License
 
-MIT
+MIT. See [LICENSE](LICENSE).
