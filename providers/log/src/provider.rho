@@ -45,6 +45,10 @@ fn log_path() string {
     }
     if str_index_of(path, "~/") == 0 {
         path = home + str_slice(path, 1, strlen(path) - 1)
+    } else if str_index_of(path, "/") != 0 {
+        // A path that names no folder of its own is the application's: it
+        // goes in its workspace, so two applications never share one log.
+        path = app_workspace() + "/" + path
     }
     return path
 }

@@ -25,7 +25,7 @@ bind:
 
 | Setting | Default | What it is |
 |---|---|---|
-| `path` | `~/.rho/alerts.log` | The file; a leading `~/` is the user's home. Its folder is created when needed |
+| `path` | `~/.rho/alerts.log` | The file; a leading `~/` is the user's home, and a path without a leading `/` is in the application's workspace. Its folder is created when needed |
 | `severity_threshold` | everything | The lowest level written: `INFO`, `WARNING`, `ERROR`, `CRITICAL` |
 | `enabled` | on | `"false"` stops the channel |
 

@@ -25,3 +25,7 @@ The log is rotated at 1 MB again: the size stat answers ends in a line break, wh
 ## [0.2.2] - 2026-11-14
 
 Its data is kept where `app_workspace()` says (rho 0.8.0) — the application's workspace, else `~/.rho/apps/<app>` — so two applications started by hand no longer share this module's records. Needs rho 0.8.0.
+
+## [0.2.3] - 2026-11-14
+
+A `path` that does not start with `/` or `~/` is in the application's workspace, so two applications never write one log.
