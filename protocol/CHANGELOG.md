@@ -17,3 +17,5 @@ now.
 ## [1.2.0] - 2026-11-14
 
 `REKEY` (20) and `REKEY_ACK` (21): a gateway hands a board its next key sealed under the current one, and the board confirms with a proof made under the new key.
+
+`SESSION_RESET` (22): a gateway that restarted asks a board, sealed under the session it restored, to start a new session.

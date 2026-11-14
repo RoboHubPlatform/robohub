@@ -28,6 +28,12 @@ epoch, sealed under the board's current session and never plain:
 back. The key derivation and what each field is are in `common.rho` and in
 robohub/docs/architecture/security.md.
 
+`SESSION_RESET` (`0x0016`) asks a board to drop its session and say hello again.
+It is only ever sent sealed, gateway to board, under the session it ends; its
+payload is empty or one reason byte (`1`: the gateway restarted). A gateway sends
+it for a session it restored after a restart, whose upward counter it could only
+place past a safety margin.
+
 ## Changing the protocol
 
 1. Edit the schema here, in `schemas/`.

@@ -141,6 +141,24 @@ not encrypt: readings and commands are not secret, but they must not be forged o
 replayed. Encryption (an AEAD with the same keys and counters) can be added
 without changing the handshake.
 
+### Sessions across a gateway restart (SESSION_RESET)
+
+The gateway keeps its sessions on disk, with each counter whenever it has moved 64
+past what was kept, and restores a session's counters 128 past the kept marks, so
+no frame recorded before a restart opens after it. A board does not see the
+restart and goes on counting below that mark, so the gateway asks it, sealed under
+the restored session's `K_down` with a counter past anything the board accepted:
+
+```
+gateway → SESSION_RESET  [reason(1)]       message 0x0016, reason 1 = the gateway restarted
+```
+
+on the serial link as soon as it is open, and through a relay (inside `RELAYED`)
+or on an uplink connection on the board's first refused frame from it — at most
+once in 10 s per session. The board drops the session and says HELLO at once; its
+first frame under the new session ends the restored one. Unsealed, or under
+another session, the board refuses it like any frame.
+
 ### Key rotation (REKEY)
 
 A board's key is rotated without flashing it. Mesh's **Rotate key** raises the
