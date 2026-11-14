@@ -1,6 +1,7 @@
 /*
  * robohub.js — what every RoboHub page does in the browser, and nothing more:
- * fills links to applications on other ports, shows times in the reader's zone,
+ * fills links to applications (through the keeper's origin when it serves them,
+ * on their own ports otherwise), shows times in the reader's zone,
  * closes an open menu when the reader clicks elsewhere, and marks the card whose
  * inspector is open. It runs again after every htmx swap.
  */
@@ -53,9 +54,15 @@
         data.apps.forEach(function (app) {
           var a = document.createElement("a");
           a.className = "app-open" + (app.name === current ? " on" : "");
-          a.href = "#";
-          a.setAttribute("data-app-port", app.port);
-          a.setAttribute("data-app-route", app.route || "/");
+          if (app.path) {
+            // Served through the keeper, on its origin: the application's own
+            // port is never visited, so the keeper's cookie never reaches it.
+            a.href = location.protocol + "//" + location.hostname + ":" + port + app.path;
+          } else {
+            a.href = "#";
+            a.setAttribute("data-app-port", app.port);
+            a.setAttribute("data-app-route", app.route || "/");
+          }
           var label = document.createElement("span");
           var dot = document.createElement("span");
           dot.className = "rh-dot " + tone(app.state);

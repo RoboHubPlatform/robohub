@@ -26,3 +26,7 @@ A browser keeps the stylesheet and the script for five minutes rather than a day
 and the version in their address moves with the module, so a page never runs
 with the look of an older release (where an inspector's tabs collapsed under a
 long log).
+
+## [0.1.3] - 2026-11-14
+
+The app switcher links to an application through the keeper's origin when the keeper says so (`path` in its switcher list), and to its port otherwise.
