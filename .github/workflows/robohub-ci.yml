@@ -106,12 +106,21 @@ jobs:
           go-version-file: ws/rho/go.mod
 
       # check.sh builds the toolchain and publishes the modules named into the
-      # local registry: the test runner, its plugins, and what this repository
-      # builds with.
+      # local registry, each with what it depends on: the test runner and its
+      # plugins; what every build of a Rho test needs (a test is compiled to C, and
+      # a C build asks rho-target, rho-cimport and rho-kconfig); the documentation
+      # generator an application's docs page renders with; what every RoboHub
+      # application is built with (sign-in, its database, the platform's ports),
+      # so a repository's list names only what is particular to it; rho-keeper (and the
+      # rho-doctor it reads) when the machine's own tools are to be installed;
+      # and what this repository builds with.
       - name: Install the toolchain
         working-directory: ws/rho
         run: |
-          ./scripts/check.sh publish rho-test rho-test-ctest rho-test-junit ${{ inputs.components }}
+          ./scripts/check.sh publish rho-test rho-test-ctest rho-test-junit \
+            rho-target rho-cimport rho-kconfig rho-doc \
+            rho-auth rho-sql rho-sql-sqlite rho-robohub \
+            ${{ inputs.machine && 'rho-keeper' || '' }} ${{ inputs.components }}
           echo "$HOME/.rho/bin" >> "$GITHUB_PATH"
 
       # What a platform needs from the machine — its cross compiler — is in its

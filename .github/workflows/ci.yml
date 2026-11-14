@@ -15,4 +15,5 @@ jobs:
     secrets: inherit
     with:
       components: rho-auth rho-log rho-sql rho-sql-sqlite rho-doc rho-doc-api rho-doc-toc rho-robohub
-      build: applications/*
+      # The orchestrator itself first: its tests run ./build/robohub.
+      build: . applications/*
