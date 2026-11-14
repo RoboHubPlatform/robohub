@@ -93,6 +93,10 @@ acknowledged. In practice mesh is the one consumer, and this makes a second one
   derives it when the board says hello. It crosses a network only to a Linux host
   node, which fetches it from Mesh over HTTPS with its keeper credential
   ({ref}`architecture/enrollment`).
+- That is the key's epoch 0. A rotated key is a later epoch n:
+  `K_dev(n) = HMAC-SHA256(K_gw, "rh-dev2" ‖ uid ‖ n as u32 LE)[0:16]`. The node
+  manifest says which epoch each board should be at; see
+  [key rotation](#key-rotation-rekey).
 - The gateway admits only the boards its node manifest lists and does not mark
   revoked; without a manifest it admits any board whose key derives.
 
@@ -136,6 +140,48 @@ This provides authenticity, integrity, replay protection and freshness. It does
 not encrypt: readings and commands are not secret, but they must not be forged or
 replayed. Encryption (an AEAD with the same keys and counters) can be added
 without changing the handshake.
+
+### Key rotation (REKEY)
+
+A board's key is rotated without flashing it. Mesh's **Rotate key** raises the
+board's epoch in the plan and the manifest. Nothing in a HELLO says which epoch it
+was made under, so the gateway tries the manifest's epoch for that uid, then the
+one before it (the grace epoch) while the board has not confirmed the new one;
+the session records the epoch it was opened under. A board whose session is under
+the grace epoch is sent, sealed under that session's `K_down`:
+
+```
+gateway → REKEY      new_epoch(4) ‖ wrapped(16)                         message 0x0014
+                     wrapped = K_dev(new) XOR HMAC-SHA256(K_dev(current), "rh-wrap1" ‖ session_id ‖ counter)[0:16]
+board   → REKEY_ACK  new_epoch(4) ‖ proof(8)                            message 0x0015
+                     proof = HMAC-SHA256(K_dev(new), "rh-rekey-ok" ‖ uid ‖ new_epoch)[0:8]
+```
+
+with `session_id` and `counter` the REKEY frame's own and every integer
+little-endian. Both are only ever sent sealed. The board stores the new key, with
+its gateway's key scope (`RH_KEY_SCOPE`, so a board later moved to another mesh
+ignores it), in its keystore's inactive slot (`robohub/keystore.h`: two A/B slots with a CRC and a
+sequence number; a Linux host node rewrites its key file, `<epoch>:<hex>`, `0600`,
+atomically), answers under the current session, keeps the current key for the
+rest of the session and uses the new one from its next HELLO. The gateway checks
+the proof and records the board's **confirmed epoch** with its sessions; from then
+on it refuses the old epoch for that uid and drops any other session that uid
+holds under it. A HELLO that authenticates under the manifest's epoch confirms it
+as well, so a firmware built after a rotation — which carries the current epoch's
+key and `RH_DEVICE_KEY_EPOCH` — needs no REKEY. The gateway writes `rekey.txt`
+beside the manifest (`uid|epoch|status|time`, status `confirmed` or `cannot`) and
+serves it as `GET /api/v1/keys`, which is what Mesh shows. A board whose platform
+has no key store answers epoch 0 and a zero proof: it *cannot rotate*, which Mesh
+shows on the board, and it stays in its grace epoch until it is reflashed.
+
+Revocation after a compromise is: rotate, and once the board has confirmed, the
+stolen old key no longer opens a session. The caveat is that there is no forward
+secrecy: whoever already holds the old key and recorded the REKEY frame can unwrap
+the new key. A key exchange (X25519) would remove that and is out of scope; for a
+key known to be stolen, reflash the board as well, or rotate while no one can be
+listening. Only one epoch of grace is kept, so Mesh does not rotate a board again
+before it confirmed the last rotation, and a board two epochs behind its manifest
+is refused.
 
 A relay link (gateway to gateway) uses the same frames. The relay is a board of
 its parent, with `uid` its `relay_uid`, and its key is derived from the parent's
@@ -191,4 +237,5 @@ routing on the wire.
 | Applications reading Mesh with service tokens and relaying its feed | `robohub-provider-mesh` and the widgets module |
 | The gateway as a relying party; the outbox with a cursor per consumer | `robohub-gateway` (`security.rho`, `outbox.rho`) |
 | Authenticated frames | `robohub-transport` (`secure.h`), the gateway (`secure.rho`), Mesh's firmware generation, relay links |
+| Key epochs and REKEY | `robohub-transport` (`secure.c`: unwrap, store, ack), robohub-common's `keystore.h` and each platform's store, the gateway (`keys.rho`), Mesh (`node.<n>.epoch`, **Rotate key**) |
 | Source identity | Mesh's `telemetry_source` table; readings keyed by source |

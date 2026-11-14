@@ -22,6 +22,12 @@ inner_payload`, sealed under the relay's own session. Its payload runs to the en
 of the frame, so it is written out in `common.rho` rather than declared as a
 message; the gateway and the C relays read and write it by hand.
 
+`REKEY` (`0x0014`) and `REKEY_ACK` (`0x0015`) rotate a board's key to its next
+epoch, sealed under the board's current session and never plain:
+`new_epoch(u32) | wrapped(16)` from the gateway, and `new_epoch(u32) | proof(8)`
+back. The key derivation and what each field is are in `common.rho` and in
+robohub/docs/architecture/security.md.
+
 ## Changing the protocol
 
 1. Edit the schema here, in `schemas/`.

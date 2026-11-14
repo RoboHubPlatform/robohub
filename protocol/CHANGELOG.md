@@ -13,3 +13,7 @@ now.
 ## [1.1.0] - 2026-11-14
 
 `RELAYED` (19): a relay carries a board's handshake and sealed frames unchanged inside its own sealed frame, so the gateway checks the board itself and a relay can only drop or delay.
+
+## [1.2.0] - 2026-11-14
+
+`REKEY` (20) and `REKEY_ACK` (21): a gateway hands a board its next key sealed under the current one, and the board confirms with a proof made under the new key.

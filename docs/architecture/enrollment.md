@@ -58,7 +58,8 @@ per node:
 ```
 
 `uid` is `node.<n>.id`, `area` and `node` the board's placement, `role` `board` or
-`relay`, `epoch` the key epoch (`0`; not read yet), `revoked` `0` or `1`, and
+`relay`, `epoch` the key epoch the board should be at (`node.<n>.epoch`, `0` until
+its key is rotated; see below), `revoked` `0` or `1`, and
 `areas`, for a relay, the areas it may announce. A board the plan gives the role
 `relay` carries boards in the mesh's own area, which speak for themselves, so it
 announces nothing; a mesh linked below is a relay for its own area and every
@@ -79,6 +80,24 @@ within seconds; one deployed to another host over SSH or ADB is sent the new
 file at once (if that fails, Mesh says so and the next gateway start sends it).
 The gateway then refuses the board's hello and drops its sessions. **Admit it
 again** undoes it; the board's key was never changed.
+
+### Rotating a board's key
+
+**Rotate key**, beside **Revoke**, gives a board a new key without flashing it:
+`node.<n>.epoch` goes up by one, the manifest is rewritten and sent as above, and
+the gateway hands the board its next key, wrapped under the current one and
+sealed under its session (REKEY, {ref}`architecture/secure-telemetry`). The board
+keeps it in its keystore (a Linux host node in its key file, as `<epoch>:<hex>`)
+and proves it did; from then on the old key opens nothing. Mesh shows what the
+gateway reports — waiting for the board to confirm, confirmed, or *cannot rotate*
+for a board whose firmware has no key store — and does not rotate a board again
+before it confirmed the last rotation, since the gateway keeps one epoch of grace.
+A board rebuilt after a rotation carries the current epoch's key
+(`RH_DEVICE_KEY_EPOCH` in `robohub_secret.h`), and a host node fetching its key
+gets the current epoch's (`"epoch"` in the answer). After a compromise: rotate;
+once confirmed, the stolen key is useless — except to someone who also recorded
+the REKEY frame, who can unwrap the new key (there is no forward secrecy). For a
+key known to be stolen, reflash as well.
 
 On the gateway's host every secret file — `gateway.key`, `relay.key`,
 `nodes.txt` — is created by the remote shell under `umask 077` before anything is
@@ -216,7 +235,7 @@ keeper's origin, over HTTPS:
 ```text
 POST <keeper>/app/mesh/mesh/api/nodes/key
 Authorization: Node <device>:<credential>
-→ { "ok": true, "uid": "<16 hex>", "key": "<32 hex>", "project", "area", "node" }
+→ { "ok": true, "uid": "<16 hex>", "key": "<32 hex>", "epoch", "project", "area", "node" }
 ```
 
 Mesh asks the keeper on the loopback (`/api/nodes/verify`) whom the credential
@@ -224,7 +243,8 @@ belongs to, finds the board planned at that placement — the project the keeper
 recorded, or the one mesh with that area — and answers its id and `K_dev`. A
 revoked board, a placement with no board planned and a credential the keeper
 refuses get nothing; the key is never logged, and a client may ask ten times a
-minute. The node keeps them as `board.key` (the key) and `board.env`
+minute. The node keeps them as `board.key` (`<epoch>:<key>`, which the node
+rewrites when the gateway rotates its key) and `board.env`
 (`RH_SECURE_UID`, `RH_SECURE_KEY_FILE`) in its identity folder, both `0600`; a
 systemd unit reads `board.env` as its environment file. The board must be
 planned in Mesh at the token's area and node before the key can be fetched.
@@ -236,7 +256,15 @@ planned in Mesh at the token's area and node before the key can be fetched.
   it, to hand a host node its board key.
 - Mesh asks the keeper from its own loopback, so the keeper counts those calls
   against one client; Mesh's own budget per client is what bounds them.
-- Keys are not rotated: the manifest's `epoch` is always `0`.
+- A board on a platform with no key store yet cannot take a rotation (it says so,
+  and Mesh shows it); reflashing it gives it the current key. A board reached only
+  through `POST /api/v1/frames` cannot be sent a REKEY either.
+- A board keeps a rotated key with its gateway's key scope (`RH_KEY_SCOPE`,
+  `HMAC-SHA256(K_gw, "rh-scope1")[0:8]`, built into its firmware), so a board moved
+  to another mesh and flashed for it ignores the key it stored for the old one. A
+  Linux host node has no scope: its key file is `<epoch>:<hex>`, and it takes back
+  only a keystore key stored without one; moved to another mesh, it fetches its
+  key again (`rho bootstrap key`), which overwrites the file.
 - On a microcontroller, the identity is the key built into its flash. Keeping a
   key in secure storage, flash encryption, enrollment over a link, taking a
   rotated credential and a factory reset that clears the identity belong to the

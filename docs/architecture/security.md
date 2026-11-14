@@ -134,6 +134,8 @@ seed of its forms' CSRF tokens.
 | Mesh's tree: plans, gateway keys, boards' build folders | `~/.rho/mesh/` | folders `0700`, files `0600`; closed again when Mesh starts |
 | A gateway's key and node manifest | `<mesh>/gateway.key`, `<mesh>/nodes.txt`, and the same beside the gateway (`GATEWAY_KEY_FILE`) | `0600`; created under `umask 077` on the gateway's host before anything is written |
 | A board's key | `src/robohub_secret.h` and the image built from it (`.elf`, `.uf2`) in Mesh's build folder | `0600`, never in a repository |
+| A board's rotated key | the board's keystore (`robohub/keystore.h`: two A/B slots in a reserved flash, EEPROM or NVS region); on a Linux host node its key file (`RH_SECURE_KEY_FILE`, `<epoch>:<hex>`) | host files `0600`, replaced atomically |
+| What happened to each board's key | `rekey.txt` beside the gateway's key, and with its sessions | `0600` |
 | Enrollment tokens | `~/.rho/keeper/enrollment.tokens` | `0600`, changed under a lock, replaced whole |
 | Node records | `~/.rho/keeper/nodes/` | `0700` / `0600`; the credential kept only as a salted hash |
 | A host node's identity, credential and board key | `~/.rho/identity/` (`credential`, `board.key`, `board.env`) | `0700` / `0600` |
@@ -149,7 +151,12 @@ time, but not encrypted: readings and commands are not secret, but they must not
 be forged or replayed. A gateway admits the boards its node manifest lists, takes
 a board's readings only for its own placement and an announce only from a relay
 for its own areas, and a board revoked in Mesh is refused without re-keying the
-mesh. A Linux host node gets its board key from Mesh with its keeper credential.
+mesh. A board's key can be rotated from Mesh without flashing it (REKEY): once the
+board confirms the new key, the old one opens no session — the way to retire a
+key that may have been copied. There is no forward secrecy: whoever holds the old
+key and recorded the REKEY frame can unwrap the new one. A Linux host node gets
+its board key from Mesh with its keeper credential, and rewrites its key file when
+it is rotated.
 See {ref}`architecture/enrollment` for the keys, the manifest and enrollment, and
 {ref}`secure telemetry <architecture/secure-telemetry>` for the frame.
 
@@ -160,3 +167,42 @@ only when it verifies against `ROBOHUB_ARTIFACT_PUBKEY` (Ed25519); a failed heal
 check after the switch restores the previous version.
 `ROBOHUB_ARTIFACT_ALLOW_UNSIGNED=1` accepts a checksum alone, for a development
 machine.
+
+## Production builds
+
+A board flashed for development can be read out and re-flashed by anyone with
+a cable: its flash holds the device key in the clear. A production build closes
+that, at the cost of steps that cannot be undone — so none of them is ever a
+default.
+
+**Opt-in, in two places.** `CONFIG_RH_PRODUCTION=y` (the
+`production/production.conf` fragment each platform ships; off by default)
+builds with the platform's preset. Building burns nothing. The irreversible
+steps run only from `rho flash --production`, which prints every step in order —
+the exact command, the full contents of any file it burns, and `[IRREVERSIBLE]`
+against each one, including what the image itself does at its first boot — and
+continues only when the board's name is typed. `--dry-run` prints the same and
+runs nothing. Mesh shows a per-board "production build" toggle, off by default.
+
+| Platform | What the preset does | Irreversible |
+|---|---|---|
+| ESP32 | secure boot v2 (RSA-3072, signed bootloader and app), flash encryption in release mode, NVS encryption (keys in an encrypted `nvs_keys` partition) | yes — the first boot burns the flash-encryption key, the key digest and the download/JTAG disables into eFuses |
+| RP2350 (Pico 2W) | a signed image and the OTP rows that enable secure boot for its key | yes — `picotool otp load` writes BOOTKEY0, KEY_VALID and SECURE_BOOT_ENABLE |
+| STM32 | read-out protection level 1, set after flashing | no — going back to level 0 mass-erases the flash. Level 2 is irreversible and is never run by the toolchain |
+| AVR, Linux | no production mode | — |
+
+Keep the signing key. A board that has burned its hash boots only what that key
+signed.
+
+**Where the device key lives.** A rotated key (REKEY) is stored by the
+platform's keystore (`robohub/keystore.h` in robohub-common): two A/B slots,
+each a record with a CRC32 and a sequence number, written to the slot not
+holding the newest key and read back before it counts, so a power loss mid-write
+keeps the previous key. On a Pico it is the last two flash sectors (the link
+fails if an image reaches them); on an ESP32, NVS namespace `rh_keys`, which only
+the production preset encrypts; on an STM32, two reserved bank-2 sectors on the
+boards whose memory map sets them aside (others keep the compiled-in key and
+answer REKEY "cannot rotate"); on an AVR, EEPROM below the nonce counter; on a
+Linux host, a 0600 file replaced atomically. Without production protection
+(flash encryption, read-out protection) the stored key is as readable as the
+compiled-in one. The RP2350's OTP is a planned home for it.
