@@ -20,6 +20,7 @@ module robohub.alert_webhook
 extern fn rho_exec_args(program: string, arguments: string, output_path: string) u32
 extern fn rho_read_text(path: string) string
 extern fn rho_write_text(path: string, text: string) bool
+extern fn rho_write_secret(path: string, text: string) bool
 extern fn rho_append_text(path: string, text: string) bool
 extern fn rho_bind_config(provider: string, key: string) string
 
@@ -65,8 +66,18 @@ fn send(level: string, message: string, metadata: string) u32 {
     }
     var args: string = "-fsS\n-X\nPOST\n-H\nContent-Type: " + content_type + "\n--data-binary\n@" + file + "\n"
     let authorization: string = rho_bind_config("robohub-provider-webhook", "authorization")
+    // A line break would be another of curl's arguments (one per line).
+    if str_index_of(url, "\n") >= 0 || str_index_of(authorization, "\n") >= 0 || str_index_of(authorization, "\r") >= 0 {
+        return 0
+    }
     if authorization != "" {
-        args = args + "-H\nAuthorization: " + authorization + "\n"
+        // From an owner-only file (-H @file), never on the command line, where
+        // any user of the machine could read it.
+        let header_file: string = state_dir() + "/webhook-auth.txt"
+        if !rho_write_secret(header_file, "Authorization: " + authorization + "\n") {
+            return 0
+        }
+        args = args + "-H\n@" + header_file + "\n"
     }
     if rho_exec_args("curl", args + url + "\n", report("webhook")) == 0 {
         return 1

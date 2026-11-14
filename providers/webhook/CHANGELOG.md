@@ -20,3 +20,7 @@ An HTTP error is a failure, not a delivery (`-f`). A content type of application
 ## [0.2.2] - 2026-11-14
 
 Trimming, URL escapes, form fields and decimals come from the toolchain (rho 0.7.0: `str_trim`, `str_url_encode`/`str_url_decode`, `form_field`, `milli_*`) rather than this module's own copy, the same on both backends. Needs rho 0.7.0. A form value escapes every reserved byte; a space is `%20`.
+
+## [0.2.3] - 2026-11-14
+
+The authorization header reaches curl from an owner-only file rather than its command line, and a URL or header with a line break is refused.
