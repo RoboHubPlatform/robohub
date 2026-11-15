@@ -76,3 +76,7 @@ Its settings form is its own (`scheduler_settings_form`, `scheduler_settings_sav
 ## [0.3.0] - 2026-11-14
 
 It lists what other code may use (`provides.exports`, imported as `robohub.scheduler`). An application that includes it still reaches everything, and a build (rho 0.8.3) names each call to a function outside the list. The list is what the applications and modules of the ecosystem call; anything else is the module's own and may change without notice.
+
+## [0.3.1] - 2026-11-15
+
+Every `let` the code assigned to is declared with `var`, as rho 0.19.0 asks (assigning to a `let` is deprecated there and refused in the next minor release). Nothing else changes.

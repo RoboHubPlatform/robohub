@@ -208,7 +208,7 @@ fn validate_command() void {
     // The registry it checks is named, so that a check over a copy of the
     // ecosystem is the same check: a validator that can only look at one
     // directory cannot be shown to catch anything.
-    let registry: string = rho_arg(1)
+    var registry: string = rho_arg(1)
     if registry == "" {
         registry = "registry/modules"
     }
@@ -267,7 +267,7 @@ fn test_command() void {
     }
 
     let mode: string = rho_arg(2)
-    let tool: string = "test"
+    var tool: string = "test"
     if mode == "--unit" {
         tool = "test --tag unit"
     }
@@ -279,7 +279,7 @@ fn test_command() void {
 
 // test_list says what a module's tests are, and which of them are run.
 fn test_list(wanted: string) void {
-    let index: u32 = 0
+    var index: u32 = 0
     while index < MODULE_COUNT {
         let name: string = module_name(index)
         if wanted == "" || wanted == name {
@@ -335,7 +335,7 @@ fn test_set_state(wanted: string, name: string, state: string) void {
         // Find the enabled field after the suite name.
         let at: i32 = rho_str_index_of(text, name)
         let rest_text: string = rho_str_slice(text, u32(at), u32(rho_strlen(text)) - u32(at))
-        let new_val: string = "true"
+        var new_val: string = "true"
         if state == "disabled" {
             new_val = "false"
         }
@@ -409,7 +409,7 @@ fn test_add(wanted: string, name: string, program: string, arguments: string) vo
         return
     }
     let path: string = yaml_value(entry_path(wanted), "path")
-    let args: string = arguments
+    var args: string = arguments
     if args == "" {
         args = ""
     }
@@ -421,7 +421,7 @@ fn test_add(wanted: string, name: string, program: string, arguments: string) vo
         print("robohub test: what it said is in " + output + "\n")
         return
     }
-    let manifest: string = path + "/tests/unit/tests.yml"
+    var manifest: string = path + "/tests/unit/tests.yml"
     if !rho_path_exists(manifest) {
         manifest = path + "/tests/tests.yml"
     }

@@ -44,7 +44,7 @@ fn log_level_name(level: u32) string {
 fn log_default_file(app: string) string {
     var base: string = getenv("XDG_STATE_HOME")
     if base == "" {
-        let home: string = getenv("HOME")
+        var home: string = getenv("HOME")
         if home == "" {
             home = "."
         }
@@ -123,7 +123,7 @@ fn log_config_apply(app: string) void {
     let file: string = log_file_for_app(app)
     let max_bytes: u32 = log_parse_u32(log_setting("max_bytes", "5242880"), 5242880)
     let keep: u32 = log_parse_u32(log_setting("keep", "5"), 5)
-    let stderr: u32 = 1
+    var stderr: u32 = 1
     if str_eq(log_setting("stderr", "1"), "0") {
         stderr = 0
     }

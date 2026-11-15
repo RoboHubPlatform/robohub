@@ -24,3 +24,7 @@ Trimming, URL escapes, form fields and decimals come from the toolchain (rho 0.7
 ## [0.2.3] - 2026-11-14
 
 `log_settings_field_defs` is exported: an application that draws the logging fields inside its own settings form uses it, and a build said it was not promised.
+
+## [0.2.4] - 2026-11-15
+
+Every `let` the code assigned to is declared with `var`, as rho 0.19.0 asks (assigning to a `let` is deprecated there and refused in the next minor release). Nothing else changes.

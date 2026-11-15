@@ -43,3 +43,7 @@ Its data is kept where `app_workspace()` says (rho 0.8.0) — the application's 
 ## [0.3.5] - 2026-11-14
 
 `forms_body` is exported: an application that brings its own fixed array of fields renders it with this, and a build said it was not promised.
+
+## [0.3.6] - 2026-11-15
+
+Every `let` the code assigned to is declared with `var`, as rho 0.19.0 asks (assigning to a `let` is deprecated there and refused in the next minor release). Nothing else changes.

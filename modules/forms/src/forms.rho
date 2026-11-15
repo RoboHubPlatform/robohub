@@ -487,7 +487,7 @@ fn forms_read(fields: [FormField], count: u32, body: string) void {
 // forms_validate checks every field against its rules, writes the per-field
 // error into the schema, and answers whether every field passed.
 fn forms_validate(fields: [FormField], count: u32) bool {
-    let ok: bool = true
+    var ok: bool = true
     var i: u32 = 0
     while i < count {
         let v: string = fields[i].value

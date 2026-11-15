@@ -44,3 +44,7 @@ It lists what other code may use (`provides.exports`, imported as `robohub.notif
 ## [0.2.1] - 2026-11-14
 
 `notification_live_event_locale` is exported, and a warning toast has its own colour.
+
+## [0.2.2] - 2026-11-15
+
+Every `let` the code assigned to is declared with `var`, as rho 0.19.0 asks (assigning to a `let` is deprecated there and refused in the next minor release). Nothing else changes.

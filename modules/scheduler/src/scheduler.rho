@@ -289,7 +289,7 @@ fn scheduler_page_message(req: Request, message: string) Response {
     }
     sql_close(db)
     let now: u32 = scheduler_now()
-    let notice: string = ""
+    var notice: string = ""
     if message != "" {
         notice = template_fill(scheduler_template("parts/notice"), vars("message", message))
     }

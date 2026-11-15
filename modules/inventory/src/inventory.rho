@@ -85,7 +85,7 @@ fn inventory_host_config(key: string) string {
     while i < u32(strlen(text)) {
         let at: i32 = str_index_of(
             str_slice(text, i, u32(strlen(text)) - i), "\n")
-        let end: u32 = u32(strlen(text))
+        var end: u32 = u32(strlen(text))
         if at >= 0 {
             end = i + u32(at)
         }
@@ -594,7 +594,7 @@ fn inventory_page_message(req: Request, message: string) Response {
         Ptr[ListBindingsRow](&bindings[0]), INVENTORY_BINDING_CAPACITY })
     sql_close(db)
 
-    let toast_js: string = ""
+    var toast_js: string = ""
     if message != "" {
         toast_js = "<script>document.addEventListener(\"DOMContentLoaded\",function(){if(window.rhoToast){window.rhoToast(" +
             json_string(message) + ", \"info\");}});</script>"
@@ -900,7 +900,7 @@ fn inventory_expenses_add(req: Request) Response {
     if item_id == 0 {
         return inventory_page_message(req, "Choose the item this purchase belongs to.")
     }
-    let qty: u32 = quantity
+    var qty: u32 = quantity
     if qty == 0 {
         qty = 1000
     }

@@ -166,3 +166,7 @@ A reactive UI, internationalisation, telemetry and provisioning release.
   verification, rotation and revocation.
 - Cross-entity includes use portable bare names, and RoboHub dependencies are
   declared once under `deps.robohub`.
+
+## [0.4.1] - 2026-11-15
+
+Every `let` the code assigned to is declared with `var`, as rho 0.19.0 asks (assigning to a `let` is deprecated there and refused in the next minor release). Nothing else changes.

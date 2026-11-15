@@ -68,7 +68,7 @@ fn notification_insert(db: SqlDb, message: string, level: string, now: u32, expi
 
 fn notification_push_level_locale(message: string, level: string, timeout: u32, locale: string) u32 {
     let now: u32 = notification_now()
-    let t: u32 = timeout
+    var t: u32 = timeout
     if t == 0 { t = NOTIFICATION_DEFAULT_TIMEOUT }
     let expires: u32 = now + t
     let opened: Result[SqlDb, string] = notification_open_db()
@@ -141,10 +141,10 @@ fn notifications_push(req: Request) Response {
         return json(400, "{\"ok\":false,\"error\":\"message is required\"}")
     }
     let level: string = form_field(body, "level")
-    let lvl: string = level
+    var lvl: string = level
     if lvl == "" { lvl = NOTIFICATION_INFO }
     let timeout_str: string = form_field(body, "timeout")
-    let timeout: u32 = 0
+    var timeout: u32 = 0
     if timeout_str != "" { timeout = int_from_str(timeout_str) }
     let code: u32 = notification_push_level(message, lvl, timeout)
     if code == 0 {
