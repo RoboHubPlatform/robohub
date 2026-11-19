@@ -1,0 +1,14 @@
+# The logging policy's tests are a small C program of their own: where the
+# default log file is, read the same way on the C backend.
+module:
+  name: logging-tests
+  id: robohub.app.logging-tests
+  type: rho
+  version: 0.1.0
+
+main: logging_test.rho
+
+build:
+  language: c
+  targets:
+    - c

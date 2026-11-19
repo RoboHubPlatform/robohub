@@ -7,7 +7,7 @@ module:
   previous_ids:
     - robohub.providers.webhook
   type: provider
-  version: 0.2.4
+  version: 0.2.5
   description: Posts an alert body to an HTTP endpoint.
   maintainer: "Aurel Miron"
   license: "MIT"
@@ -42,3 +42,7 @@ docs:
   index: README.md
   sources:
     - README.md
+
+# Requirements: the prefix of the ids this module allocates, and the repository
+# that holds levels.yml and the system level (rho req).
+requirements: { prefix: HOOK, parent: robohub }

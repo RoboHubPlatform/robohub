@@ -1,0 +1,138 @@
+# What the journal module does for the applications that include it: one table
+# of what happened, in a shape every application shares, a page and a JSON API
+# to read it, warnings and errors that stay open until resolved and are passed
+# on as notifications. Written in the R5 backfill from the module's
+# documentation, changelog, code and smoke test; proposed until the maintainer
+# approves them.
+level: NODE
+prefix: JRNL
+title: Journal
+requirements:
+  - id: JRNL-0001
+    title: One shape for what happened
+    statement: >
+      `journal_write(level, kind, subject, actor, message)` and its
+      `journal_info`, `journal_warning` and `journal_error` forms shall keep one
+      entry with the time, the level (`warning` or `error` as given, `info` for
+      anything else), the kind, the subject, the actor and the message, and
+      answer whether it was kept.
+    rationale: Rules, modes, switches, tests and stock read the same way on every page and in every application.
+    satisfies: [SYS-0061]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [journal, host-contract]
+
+  - id: JRNL-0002
+    title: Warnings and errors are seen now
+    statement: >
+      An entry kept as a warning or an error shall also be pushed as a
+      notification of that level, reading `<subject>: <message>` when it has a
+      subject.
+    rationale: A person must see a problem when it happens, and be able to read it later.
+    satisfies: [SYS-0061]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [journal, notifications]
+
+  - id: JRNL-0003
+    title: A warning stays open until it is resolved
+    statement: >
+      A warning or an error shall stay open until a person resolves it on the
+      journal page (`POST /journal/resolve`), which records when it was
+      resolved, and `journal_open_count()` shall count every open warning and
+      error, however many there are.
+    rationale: A badge must show what still needs attention, not what fitted on a page.
+    satisfies: [SYS-0061]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [journal]
+
+  - id: JRNL-0004
+    title: The journal is read on a page and as JSON
+    statement: >
+      The module shall register `GET /journal`, drawn through the host's
+      `host_shell`, filtered by level, kind and period (the last day, week —
+      the default — month, or everything), and `GET /api/journal?since=&level=&kind=`
+      answering `{"entries":[...]}` with each entry's id, time, level, kind,
+      subject, actor, message and `resolved_at`, newest first, at most 500.
+    rationale: A person reads what happened; another application or the keeper reads it as data.
+    satisfies: [SYS-0061]
+    decided_by: [robohub:ADR-0005]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [journal, api, ui, host-contract]
+
+  - id: JRNL-0005
+    title: How long since the last one
+    statement: >
+      `journal_last_at(kind, subject)` shall answer when the newest entry of a
+      kind (and, when a subject is given, about that subject) was written, in
+      Unix seconds, or 0 when there is none.
+    rationale: How many days since the last water change is a question about the journal.
+    satisfies: [SYS-0061]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [journal, host-contract]
+
+  - id: JRNL-0006
+    title: Three months of what happened, and every open problem
+    statement: >
+      `journal_prune()` shall drop the info entries and the resolved warnings and
+      errors older than 90 days, and keep every open warning and error however
+      old.
+    rationale: The journal must not grow without bound, nor forget a problem nobody has looked at.
+    satisfies: [SYS-0061]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [journal, retention]
+
+  - id: JRNL-0007
+    title: A time is shown as it was
+    statement: >
+      The journal shall show an entry's time as `YYYY-MM-DD HH:MM` in local time
+      with the UTC offset in force at that moment.
+    rationale: Last winter's entries must not read an hour off in summer.
+    satisfies: [SYS-0061]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [journal, ui]
+
+  - id: JRNL-0008
+    title: The journal lives in the application's own database
+    statement: >
+      The module shall keep its `journal_entries` table, from its own
+      `db/schema.sql`, in the including application's database
+      (`<workspace>/data/app.db`, or `RHO_JOURNAL_DB`).
+    rationale: Each application's history is its own and survives reinstalling it.
+    satisfies: [SYS-0001, SYS-0016]
+    decided_by: [robohub:ADR-0006]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [data, host-contract]
+
+  - id: JRNL-0009
+    title: Resolving an entry carries the form token
+    statement: POST /journal/resolve shall be refused with 403, leaving the entry open, unless it carries the application's form token, and the journal page shall draw the token into each resolve form.
+    rationale: A cross-site page must not be able to close the warnings a person has not seen.
+    satisfies: [SYS-0034]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [security, csrf]

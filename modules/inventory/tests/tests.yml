@@ -1,5 +1,6 @@
 name: inventory
 suites:
+  # @verifies INV-0001, INV-0002, INV-0003, INV-0004, INV-0005, INV-0007, INV-STOCK-0001, INV-STOCK-0002, INV-STOCK-0003, INV-STOCK-0004, INV-STOCK-0005, INV-STOCK-0006, INV-AUTO-0001, INV-AUTO-0002
   - name: inventory-smoke
     kind: command
     tags: [smoke]

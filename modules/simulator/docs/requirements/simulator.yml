@@ -1,0 +1,150 @@
+# What the simulator does for the applications that bind it: simulated devices
+# behind the robohub.gateway interface, built from an application's presets and
+# moved on by models, so an application runs, is developed and is tried with no
+# mesh. Written in the R5 backfill from the module's documentation, changelog,
+# code and smoke test; proposed until the maintainer approves them.
+level: NODE
+prefix: SIM
+title: Simulator
+requirements:
+  - id: SIM-0001
+    title: A gateway provider nothing above can tell from Mesh
+    statement: >
+      The simulator shall implement the `robohub.gateway` interface, listing its
+      sources in the shape the Mesh provider lists Mesh's — id
+      `<device>.<signal>`, owner, project `sim`, signal, unit, direction, and the
+      kinds `toggle button` for an output and `numeric chart table` for an
+      input — so that an application binding it beside the Mesh provider reads
+      and switches simulated devices through inventory, rules and widgets
+      unchanged.
+    rationale: An application must work without hardware, and the code that reads devices must not know which gateway answers.
+    satisfies: [SYS-0018]
+    decided_by: [robohub:ADR-0007, ADR-0001]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [gateway, simulator]
+
+  - id: SIM-0002
+    title: The devices are the application's presets
+    statement: >
+      `presets(text)` shall read the application's `presets/sim.yml` — under
+      `devices:`, each device with an optional `label` and `board` and its
+      `sources:`, each source with a `model`, the model's settings and a `unit`
+      — keep one source per signal, a `state` source as an output and every
+      other as an input, and answer how many sources it kept.
+    rationale: What is simulated is the application's own equipment, so a tank and a solar site each simulate what they have.
+    satisfies: [SYS-0018]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [presets, simulator]
+
+  - id: SIM-0003
+    title: Sources behave by their models
+    statement: >
+      Each source shall move by its model: `state` only by an action, `constant`
+      and `noise` around a value, `when` at `on` while the source it names is on
+      and `off` otherwise, `day` as a half sine from `from` to `to` peaking
+      halfway, `thermal` rising `rate` per hour while its heater is on and
+      otherwise drifting to `ambient` by `cool` of the difference per hour,
+      `sum` as the signed sum of the sources it names, and `integrator` as a
+      state of charge in percent from a power in watts and a capacity in
+      watt-hours.
+    rationale: A rule that heats a tank, or a battery that charges from the sun, is only tried when the simulation answers like the equipment does.
+    satisfies: [SYS-0018]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [models, simulator]
+
+  - id: SIM-0004
+    title: A simulated switch follows an action at once
+    statement: >
+      `action(source, state)` shall set a `state` source to `on` or `off` at
+      once, record the change in its history and its followers' feeds, and
+      answer true; for any other source or state it shall change nothing and
+      answer false.
+    rationale: A switch on a page, or a rule, must see the simulated output change as it would see a board's.
+    satisfies: [SYS-0018, SYS-0025]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [outputs, simulator]
+
+  - id: SIM-0005
+    title: The simulation moves at most once a second
+    statement: >
+      `tick()` shall move every source on by the seconds since the previous tick
+      and keep its value, history and followers' lines, and shall do nothing
+      when called again within the same second, however often the application
+      calls it.
+    rationale: A background loop of any period must give the same simulation.
+    satisfies: [SYS-0018]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [simulator]
+
+  - id: SIM-0006
+    title: A week of history in the gateway's shape
+    statement: >
+      The simulator shall keep every source's values for seven days and answer
+      `source_history(source, from_ms, to_ms, step_ms)` with the points between
+      the two times, raw or averaged into steps of `step_ms`, as
+      `{"ok":true,"points":[{"t":ms,"v":value}]}`.
+    rationale: Charts and derived values read history from the gateway and must have some to read on a simulator.
+    satisfies: [SYS-0018]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [history, simulator]
+
+  - id: SIM-0007
+    title: A live feed in Mesh's stream format
+    statement: >
+      Every value the simulator records shall be appended, as a Mesh `telemetry`
+      event, to every file an application asked it to `follow(path)`, so what
+      reads the feed cannot tell it from Mesh's.
+    rationale: Live pages follow the gateway's feed and must update on a simulator as on a mesh.
+    satisfies: [SYS-0018]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [live, simulator]
+
+  - id: SIM-0008
+    title: The simulated tree
+    statement: >
+      `nodes()` shall answer the simulated tree: a gateway, the boards the
+      presets' devices name with `board:`, and every device under its board, or
+      under the gateway when it names none.
+    rationale: The pages that draw a mesh's tree must have one to draw.
+    satisfies: [SYS-0018]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [simulator]
+
+  - id: SIM-0009
+    title: The simulation's state is files in the application's workspace
+    statement: >
+      The simulator shall keep its sources, values (in thousandths), history and
+      followed feeds in files under `data/simulator/` of the binding
+      application's workspace, and in none of the application's tables.
+    rationale: Two applications must not share a simulation, and an imported provider has no share in the application's database.
+    satisfies: [SYS-0018, SYS-0001]
+    decided_by: [ADR-0001]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [data, simulator]

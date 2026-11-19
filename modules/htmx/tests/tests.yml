@@ -1,0 +1,8 @@
+# The htmx module's own tests: the asset route, inside the aquarium.
+name: htmx
+suites:
+  # @verifies HTMX-0002
+  - name: htmx-smoke
+    kind: command
+    tags: [smoke]
+    command: [python3, tests/htmx_smoke.py]

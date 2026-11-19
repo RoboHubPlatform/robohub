@@ -34,6 +34,7 @@ fn local(epoch: u32) i64 {
     return i64(epoch) + rho_utc_offset_at(i64(epoch))
 }
 
+// @verifies SCHED-0002
 test fn a_field_names_the_values_it_allows() void {
     check(str_eq(scheduler_cron_set("*", 0, 5), "xxxxxx"), "every value")
     check(str_eq(scheduler_cron_set("3", 0, 5), "...x.."), "one value")
@@ -51,6 +52,7 @@ test fn a_field_names_the_values_it_allows() void {
     print("[PASS] a_field_names_the_values_it_allows\n")
 }
 
+// @verifies SCHED-0002
 test fn the_next_time_is_in_local_time() void {
     let quarter: u32 = scheduler_cron_next("*/15 * * * *", NOW)
     check(quarter > NOW && quarter - NOW <= 900, "every quarter hour is within one")
@@ -67,6 +69,7 @@ test fn the_next_time_is_in_local_time() void {
     print("[PASS] the_next_time_is_in_local_time\n")
 }
 
+// @verifies SCHED-0002
 test fn an_expression_that_cannot_be_read_names_no_time() void {
     check(scheduler_cron_next("61 * * * *", NOW) == 0, "a minute out of range")
     check(scheduler_cron_next("0 9 * * 1 extra", NOW) == 0, "six fields")

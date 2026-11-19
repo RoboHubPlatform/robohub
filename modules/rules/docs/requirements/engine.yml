@@ -1,0 +1,99 @@
+# The engine: a rule's states, its retries, and modes (src/rules.rho).
+# Proposed until the maintainer approves them.
+level: SUB
+prefix: RULES-ENG
+title: Engine
+requirements:
+  - id: RULES-ENG-0001
+    title: A rule moves through idle, pending and active
+    statement: >
+      On each tick an enabled rule that the mode in force does not suspend shall
+      go from idle to pending when its condition holds and it has a wait, to
+      active (running its do actions) when the condition has held for the whole
+      wait or at once when it has none, from pending back to idle when the
+      condition stops holding first, and from active to idle (running its else
+      actions) when its clear condition holds or, with none, when its condition
+      stops holding without a problem.
+    rationale: A filter that stops for a second must not raise an alarm, and a heater switched on must be switched off by a condition of its own.
+    satisfies: [RULES-0001, RULES-0005]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [engine, states]
+
+  - id: RULES-ENG-0002
+    title: A rule fires at most once per cooldown
+    statement: >
+      A rule with a cooldown shall not run its do actions again until the
+      cooldown has passed since it last fired.
+    rationale: An alert repeated every few seconds is not read.
+    satisfies: [RULES-0005]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [engine, alerts]
+
+  - id: RULES-ENG-0003
+    title: A failed action is retried after a minute and said once
+    statement: >
+      When an action of a rule cannot be done — an item with no switch bound, a
+      device that did not take a switch — the rule shall stay in the state it was
+      in, show the problem, write it to the journal once rather than on every
+      tick, keep it while the condition comes and goes, and try again no sooner
+      than 60 s later; an action that is done shall clear it.
+    rationale: A device that does not answer must not count as switched, nor flood the journal while a reading hovers at its threshold.
+    satisfies: [RULES-0005, RULES-0004]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [engine, recovery, journal]
+
+  - id: RULES-ENG-0004
+    title: One mode in force, which ends by itself
+    statement: >
+      Starting a mode shall end the one in force first, run the new mode's do
+      actions, suspend the rules it names and set its end to its time from now
+      (none when it has no time); a tick after that end, or a person, shall end
+      it and run its end actions exactly once, and the start and the end shall be
+      written to the journal.
+    rationale: Feeding stops the filter for ten minutes and must start it again even when nobody remembers to.
+    satisfies: [RULES-0005, RULES-0001]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [modes]
+
+  - id: RULES-ENG-0005
+    title: People change rules; a preset rule can be put back
+    statement: >
+      A person shall be able to add a rule (refused when its name is taken), enable
+      or disable any rule, delete a rule a person added, and edit any rule's
+      condition, clear condition, wait, cooldown and actions; an edited preset
+      rule shall become edited, which the presets leave alone, until Back to the
+      preset restores it from what the presets last said.
+    rationale: The application's rules are a starting point, not a cage, and a change can always be undone.
+    satisfies: [RULES-0006, RULES-0002]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [editing, presets]
+
+  - id: RULES-ENG-0006
+    title: What a rule does is in the journal
+    statement: >
+      A rule's firing (with its condition), a rule added, changed or put back as
+      its preset, and a rule's or a mode's failed action shall be written to the
+      journal with the rule or mode as subject and who acted (a person, the rule,
+      the mode or the system).
+    rationale: When the heater switched at night, the journal says which rule did it and why.
+    satisfies: [RULES-0005]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [journal, observability]

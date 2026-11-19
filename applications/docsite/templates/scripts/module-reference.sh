@@ -9,6 +9,7 @@
 #
 # usage: module-reference.sh <module-dir>   (prints to standard output)
 
+# @req SITE-0003
 dir="$1"
 manifest="$dir/module.yml"
 [ -f "$manifest" ] || exit 0

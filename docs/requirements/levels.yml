@@ -1,0 +1,8 @@
+# The requirement levels of this workspace, highest first. A requirement
+# satisfies only requirements of a higher level. Every repository whose
+# module.yml names this one as its requirements.parent uses these levels.
+levels:
+  - { name: SYS,  title: System }
+  - { name: NODE, title: Node }
+  - { name: SUB,  title: Subsystem }
+  - { name: UNIT, title: Unit }

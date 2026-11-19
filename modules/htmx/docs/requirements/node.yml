@@ -1,0 +1,52 @@
+# What htmx promises the applications that include it: the vendored HTMX and SSE
+# scripts served from the application, and the fragment helpers. Written in
+# the R5 backfill from the module's documentation, changelog and code; proposed
+# until the maintainer approves them.
+level: NODE
+prefix: HTMX
+title: HTMX
+requirements:
+  - id: HTMX-0001
+    title: The scripts are served by the application, never a CDN
+    statement: >
+      The module shall serve HTMX 2.0.11 and htmx-ext-sse 2.2.4 from the
+      application's own GET /assets/{file}, embedded in the program, and
+      htmx_head() shall load them from there, deferred, HTMX first.
+    rationale: An off-grid deployment must draw its live pages with no reach for the internet and no JavaScript build.
+    satisfies: [SYS-0001]
+    decided_by: [robohub:ADR-0009]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [offline, web]
+
+  - id: HTMX-0002
+    title: Only the two vendored files are served
+    statement: >
+      GET /assets/{file} shall answer only `htmx.min.js` and
+      `sse.min.js`, as `text/javascript` with `X-Content-Type-Options:
+      nosniff`, and 404 for any other name.
+    rationale: A route that takes a file name must not become a way to read other files.
+    satisfies: [SYS-0001]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [security, web]
+
+  - id: HTMX-0003
+    title: A handler can tell an HTMX request and answer it in kind
+    statement: >
+      htmx_is_request shall be true only when the request carries `HX-
+      Request: true`; htmx_redirect shall answer a redirect that also
+      carries `HX-Redirect` with the same location, and htmx_trigger
+      shall add `HX-Trigger` with the event named.
+    rationale: A form keeps working without JavaScript, and with HTMX a successful change swaps a fragment rather than reloading.
+    satisfies: [SYS-0059]
+    decided_by: [robohub:ADR-0009]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [web, live-ui]

@@ -1,0 +1,108 @@
+//
+// @file settings_test.rho
+// @brief The settings store, checked: a key is kept and replaced, and a value cannot add keys.
+//
+// @module settings.tests
+// @project robohub
+// @author Aurel Miron
+// @date 2026-11-19
+//
+// SPDX-License-Identifier: MIT
+//
+
+module settings.tests
+
+include "../src/settings.rho"
+
+extern fn rho_exec(program: string, arguments: string, output_path: string) u32
+extern fn rho_exec_args(program: string, arguments: string, output_path: string) u32
+extern fn rho_path_exists(path: string) bool
+extern fn rho_read_text(path: string) string
+extern fn rho_write_text(path: string, text: string) bool
+extern fn rho_str_eq(a: string, b: string) bool
+extern fn setenv(name: string, value: string, overwrite: i32) i32
+extern fn abort()
+
+fn check(condition: bool, what: string) void {
+    if !condition {
+        print("FAIL: " + what + "\n")
+        abort()
+    }
+}
+
+// fresh gives the store an empty workspace of its own under build/.
+fn fresh(name: string) void {
+    let dir: string = "build/settings-test/" + name
+    rho_exec_args("rm", "-rf\n--\n" + dir + "\n", "/dev/null")
+    rho_exec_args("mkdir", "-p\n" + dir + "\n", "/dev/null")
+    setenv("RHO_APP_WORKSPACE", dir, 1)
+}
+
+// @verifies SET-0002
+test fn a_key_is_kept_and_replaced() void {
+    fresh("kept")
+    settings_set("ui.tabs", "vertical")
+    settings_set("inventory.currency", "RON")
+    settings_set("ui.tabs", "horizontal")
+    check(rho_str_eq(settings_get("ui.tabs", ""), "horizontal"), "the second value replaces the first")
+    check(rho_str_eq(settings_get("inventory.currency", ""), "RON"), "the other key is kept")
+    check(rho_str_eq(settings_get("missing", "fallback"), "fallback"), "a missing key reads the fallback")
+    settings_set("log.file", "/var/log/a=b.log")
+    check(rho_str_eq(settings_get("log.file", ""), "/var/log/a=b.log"), "a value may hold =")
+    check(rho_str_eq(settings_list("ui."), "ui.tabs=horizontal\n"), "the list holds the namespace")
+}
+
+// @verifies SET-0003
+test fn a_value_cannot_add_a_key() void {
+    fresh("value")
+    settings_set("inventory.currency", "RON")
+    settings_set("inventory.currency", "EUR\nlog.file=/etc/cron.d/evil")
+    check(rho_str_eq(settings_get("log.file", "none"), "none"), "a line break in a value adds no key")
+    check(rho_str_eq(settings_get("inventory.currency", ""), "RON"), "the refused value leaves the old one")
+    settings_set("widgets.points", "24\rlog.level=trace")
+    check(rho_str_eq(settings_get("widgets.points", "none"), "none"), "a carriage return is refused too")
+    check(rho_str_eq(settings_get("log.level", "none"), "none"), "and adds no key")
+    check(!settings_valid("a", "1\n2"), "settings_valid says so")
+    check(settings_valid("a", "1 2 = 3"), "an ordinary value is valid")
+}
+
+// @verifies SET-0003
+test fn a_key_cannot_be_two_keys() void {
+    fresh("key")
+    settings_set("a=log.level", "trace")
+    check(rho_str_eq(settings_get("a", "none"), "none"), "a key holding = is refused")
+    settings_set("a\nlog.level", "trace")
+    check(rho_str_eq(settings_get("log.level", "none"), "none"), "a key holding a line break is refused")
+    settings_set("", "x")
+    check(rho_str_eq(rho_read_text("build/settings-test/key/data/settings.conf"), ""), "nothing was written")
+}
+
+// @verifies SET-0003
+test fn a_read_takes_the_whole_name() void {
+    fresh("strict")
+    rho_write_text(settings_file(),
+        " log.level=trace\nlog.levelx=debug\nlog.level\nlog.level=warn\nlog.level=error\n")
+    check(rho_str_eq(settings_get("log.level", ""), "warn"), "only a line named exactly log.level is read, the first")
+}
+
+// @verifies SET-0001
+test fn a_workspace_path_may_hold_a_space() void {
+    rho_exec_args("rm", "-rf\n--\nbuild/settings-test/with space\nbuild/settings-test/with\nspace\n", "/dev/null")
+    // The workspace itself is not made first: the store makes its own data
+    // directory, whatever the path holds.
+    setenv("RHO_APP_WORKSPACE", "build/settings-test/with space/ws", 1)
+    settings_set("ui.tabs", "horizontal")
+    check(rho_path_exists("build/settings-test/with space/ws/data/settings.conf"), "the store is under the path with a space")
+    check(rho_str_eq(settings_get("ui.tabs", ""), "horizontal"), "and is read back from there")
+    check(!rho_path_exists("build/settings-test/with"), "no directory is made from the path's first word")
+    check(!rho_path_exists("space"), "nor from its second")
+}
+
+fn main() void {
+    a_key_is_kept_and_replaced()
+    a_value_cannot_add_a_key()
+    a_key_cannot_be_two_keys()
+    a_read_takes_the_whole_name()
+    a_workspace_path_may_hold_a_space()
+    print("settings: every case passed\n")
+}

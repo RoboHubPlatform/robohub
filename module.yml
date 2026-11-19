@@ -23,7 +23,7 @@ module:
   previous_ids:
     - robohub
   type: rho
-  version: 0.4.1
+  version: 0.4.2
   description: >
     The orchestrator of the RoboHub ecosystem: a registry of its modules, and
     the tools that run over all of them — static analysis, unit tests, software
@@ -102,19 +102,27 @@ docs:
   title: RoboHub Orchestrator
   section: applications
   order: "10"
-  index: docs/index.md
+  index: docs/doc/index.md
   sources:
-    - docs/index.md
-    - docs/start/install.md
-    - docs/start/first-run.md
-    - docs/start/applications.md
-    - docs/start/gateway.md
-    - docs/architecture/index.md
-    - docs/architecture/reading.md
-    - docs/architecture/enrollment.md
-    - docs/architecture/security.md
-    - docs/architecture/stack.md
-    - docs/architecture/secure-telemetry.md
-    - docs/architecture/networking.md
-    - docs/build/host-application.md
-    - docs/build/reactive-ui.md
+    - docs/doc/index.md
+    - docs/doc/start/install.md
+    - docs/doc/start/first-run.md
+    - docs/doc/start/applications.md
+    - docs/doc/start/gateway.md
+    - docs/doc/architecture/index.md
+    - docs/doc/architecture/reading.md
+    - docs/doc/architecture/enrollment.md
+    - docs/doc/architecture/security.md
+    - docs/doc/architecture/stack.md
+    - docs/doc/architecture/secure-telemetry.md
+    - docs/doc/architecture/networking.md
+    - docs/doc/build/host-application.md
+    - docs/doc/build/reactive-ui.md
+    - docs/doc/process/index.md
+    - docs/doc/process/governance.md
+
+# Requirements: the prefix of the ids the orchestrator itself allocates. robohub
+# is the root of the family: it holds levels.yml and the system level, and has
+# no parent (rho req).
+requirements:
+  prefix: HUB

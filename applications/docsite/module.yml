@@ -4,7 +4,7 @@ module:
   previous_ids:
     - robohub.applications.docsite
   type: rho
-  version: 0.3.8
+  version: 0.3.9
   author: Aurel Miron
   maintainer: Aurel Miron
   license: "MIT"
@@ -23,9 +23,15 @@ docs:
   title: The RoboHub documentation site
   section: applications
   order: "20"
-  index: docs/index.md
+  index: docs/doc/index.md
   sources:
-    - docs/index.md
+    - docs/doc/index.md
 
 hardware:
   targets: targets/
+
+# Requirements: the prefix of the ids the documentation site allocates, and the
+# repository that holds the levels and the system requirements (rho req).
+requirements:
+  prefix: SITE
+  parent: robohub

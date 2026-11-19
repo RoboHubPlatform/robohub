@@ -34,6 +34,7 @@ fn forms_template(name: string) string {
 // forms_style is the module's own CSS, read from its template assets, so any
 // host that renders a form can drop it into its <head> and the form looks
 // right without copying a single rule.
+// @req FORMS-0007
 fn forms_style() string {
     return "<style>" + forms_template("assets/forms.css") + "</style>"
 }
@@ -206,6 +207,7 @@ fn forms_plain_ok(v: string) bool {
 
 // forms_match is whether a value passes a named pattern. An unknown name is a
 // schema that asked for no check, so it is accepted.
+// @req FORMS-0003
 fn forms_match(pattern: string, value: string) bool {
     if str_eq(pattern, "ip") { return forms_ip_ok(value) }
     if str_eq(pattern, "number") { return forms_number_ok(value) }
@@ -261,6 +263,7 @@ fn forms_select_options(options: string, selected: string) string {
 
 // forms_field_html renders one field: its label, its control, its hint and - if
 // the last submit failed it - its error message.
+// @req FORMS-0004
 fn forms_field_html(f: FormField) string {
     var required_mark: string = ""
     if f.required { required_mark = " <span class=\"req\">*</span>" }
@@ -333,6 +336,7 @@ fn forms_field_html(f: FormField) string {
 // `FormField*` in C) so the engine can index them on either backend; an
 // enclosing `Slice[FormField]` carries its storage through a pointer that Go
 // cannot index. The caller brings its own fixed array and its length.
+// @req FORMS-0001
 fn forms_body(fields: [FormField], count: u32) string {
     // Hidden fields are not part of the visible grid: render them first so
     // they do not occupy a cell and push the visible fields out of line.
@@ -368,7 +372,7 @@ fn forms_workspace() string {
 
 fn forms_token_file() string {
     let dir: string = forms_workspace() + "/data"
-    rho_exec("mkdir", "-p " + dir, dir + "/stamp.txt")
+    rho_exec_args("mkdir", "-p\n" + dir + "\n", dir + "/stamp.txt")
     return dir + "/csrf.txt"
 }
 
@@ -396,6 +400,7 @@ fn forms_token_ok(token: string) bool {
 // submit it sends back are checked against the same value and no site that has
 // not seen the page can produce it. "" when no random value can be had, which
 // refuses every submit rather than accepting a guessable one.
+// @req FORMS-0005
 fn forms_token() string {
     let path: string = forms_token_file()
     let existing: string = str_trim(rho_read_text(path))
@@ -412,6 +417,7 @@ fn forms_token() string {
 
 // forms_csrf_field is the hidden input every form must carry so a submit can
 // prove it came from the page this server drew.
+// @req FORMS-0006
 fn forms_csrf_field() string {
     return template_fill(forms_template("parts/csrf.html"), vars("token", forms_token()))
 }
@@ -419,12 +425,30 @@ fn forms_csrf_field() string {
 // forms_csrf_ok is whether a submitted body carries the token the server drew
 // the form with. A consumer calls it before acting on any POST; a mismatch is
 // a request a cross-site page forged, and it is refused.
+// @req FORMS-0006
 fn forms_csrf_ok(body: string) bool {
     let expected: string = forms_token()
     if expected == "" {
         return false
     }
     return forms_same(forms_parse(body, "csrf"), expected)
+}
+
+// forms_machine_ok is the check for a route that code calls rather than a form a
+// person submits (an `/api/` route, a push): it is accepted with a bearer ticket
+// in the `Authorization` header, which a page on another site cannot make a
+// browser send, or with the form token like any form post. A post that rides on
+// the browser's session cookie alone and carries no token is a request a
+// cross-site page could have forged, and it is refused. Whether the ticket is
+// valid is the auth middleware's answer; this only refuses the one way a
+// browser can be made to post without the person meaning to.
+// @req FORMS-0008
+fn forms_machine_ok(req: Request, body: string) bool {
+    let auth: string = header_str(req, "Authorization")
+    if strlen(auth) > 7 && str_starts_with(auth, "Bearer ") {
+        return true
+    }
+    return forms_csrf_ok(body)
 }
 
 // forms_same compares a submitted token with the expected one without stopping
@@ -455,6 +479,7 @@ fn forms_same(given: string, expected: string) bool {
 // fields, the CSRF token and the submit button. The consumer drops the result
 // into its page body, and verifies the token with forms_csrf_ok when the form
 // comes back.
+// @req FORMS-0001
 fn forms_open(fields: [FormField], count: u32, action: string, submit: string, locale: string) string {
     var label: string = submit
     if label == "" {
@@ -476,6 +501,7 @@ fn forms_open(fields: [FormField], count: u32, action: string, submit: string, l
 // forms_read takes a submitted body and writes each field's value into the
 // caller's schema. After a submit the caller's array holds what the user
 // typed, ready to validate and then to persist.
+// @req FORMS-0002
 fn forms_read(fields: [FormField], count: u32, body: string) void {
     var i: u32 = 0
     while i < count {
@@ -486,6 +512,7 @@ fn forms_read(fields: [FormField], count: u32, body: string) void {
 
 // forms_validate checks every field against its rules, writes the per-field
 // error into the schema, and answers whether every field passed.
+// @req FORMS-0003
 fn forms_validate(fields: [FormField], count: u32) bool {
     var ok: bool = true
     var i: u32 = 0

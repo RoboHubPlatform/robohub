@@ -1,0 +1,75 @@
+# What robohub-auth promises the applications that include it: the plugin an
+# application names to accept the sessions the keeper issues for it; the
+# middleware itself is the toolchain's rho-auth, generated from project.yml. Written in
+# the R5 backfill from the module's documentation, changelog and code; proposed
+# until the maintainer approves them.
+level: NODE
+prefix: AUTHP
+title: robohub-auth
+requirements:
+  - id: AUTHP-0001
+    title: The plugin names the keeper as the issuer for rho-auth
+    statement: >
+      The plugin's manifest shall declare plugin_kind `auth`,
+      plugin_provider `rho-auth` and plugin_transport `keeper`, so an
+      application that names it in `plugins:` and puts the `auth`
+      middleware on its target accepts only sessions issued by the
+      keeper.
+    rationale: One issuer for every application is what makes one sign-in possible.
+    satisfies: [SYS-0006, SYS-0029]
+    decided_by: [robohub:ADR-0003]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [sign-in, contract]
+
+  - id: AUTHP-0002
+    title: A session opens only the application it was issued for
+    statement: >
+      With the defaults the plugin documents, an application's audience
+      shall be its `deploy.service`, else its module name, its session
+      cookie `rho_session_<audience>`, and a session issued for another
+      audience shall be refused.
+    rationale: Two applications on one host must not overwrite or accept each other's sessions.
+    satisfies: [SYS-0008, SYS-0030]
+    decided_by: [robohub:ADR-0003]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [sign-in, security]
+
+  - id: AUTHP-0003
+    title: A request without a session is sent to the keeper or refused
+    statement: >
+      A browser request without a valid session shall be redirected to
+      the keeper's /auth/login?audience=<audience> and return through
+      /auth/callback with a one-time ticket; an API request (a path with
+      `/api/` or Accept: application/json) shall get 401; a request with
+      a valid session shall reach the handler with X-Rho-Subject, X-Rho-
+      Scopes and X-Rho-Aud set.
+    rationale: Signing in once at the keeper signs a person in to the application, and a program gets an answer it can act on.
+    satisfies: [SYS-0006]
+    decided_by: [robohub:ADR-0003]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [sign-in]
+
+  - id: AUTHP-0004
+    title: The keeper's forwarded prefix is believed only from the loopback
+    statement: >
+      An application behind the keeper's proxy shall build its login
+      return address and callback under X-Forwarded-Prefix, -Host and
+      -Proto only when the request comes from the loopback, unless
+      `trust_forwarded` is set.
+    rationale: The same build works at its own port and at /app/<name>/, and a remote caller cannot redirect a sign-in elsewhere.
+    satisfies: [SYS-0005, SYS-0063]
+    decided_by: [robohub:ADR-0004]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [sign-in, security, proxy]

@@ -34,3 +34,10 @@ one, `AlertRule`.
 ## [1.1.1] - 2026-11-14
 
 A severity is read in any case: the rules module raises `warning`, and a channel whose threshold is `WARNING` dropped every one of those alerts.
+
+## [1.1.2] - 2026-11-19
+
+Documentation: the reference said a rule goes pending when a value "reaches" its
+threshold. It never did: a value has to be above the threshold, and one equal to
+it is not a breach, which is what ALERT-0005 says and what a test now pins
+(`a_value_at_the_threshold_does_not_fire`). The behaviour is unchanged.

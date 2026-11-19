@@ -1,0 +1,128 @@
+# What the Mesh gateway provider (robohub-provider-mesh, a provider of
+# robohub.gateway) guarantees to an application that binds it
+# (src/provider.rho): it is the one place the paths of Mesh's API are known, and
+# it talks to Mesh and to nothing else. Written in the R5 backfill from the
+# README, the changelog and the code; its first test (tests/provider_smoke.py)
+# switches an output through it against a stand-in Mesh (the applications' smoke
+# tests run with it disabled, against the simulator).
+# Proposed until the maintainer approves them.
+level: NODE
+prefix: PMESH
+title: Mesh gateway provider
+requirements:
+  - id: PMESH-0001
+    title: Mesh's address comes from the supervisor, else the binding
+    statement: >
+      The provider shall address Mesh at RHO_SERVICE_MESH_URL when the process
+      has it and at its `url` setting otherwise, with trailing slashes removed,
+      for the project its `project` setting names; with no address or no
+      project every read shall answer "" and every action false.
+    rationale: The keeper says where Mesh is for an application it starts; a setting is the fallback for one started by hand.
+    satisfies: [SYS-0005, SYS-0025]
+    decided_by: [robohub:ADR-0007]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [gateway, mesh, settings]
+
+  - id: PMESH-0002
+    title: Every request carries a service token for Mesh, and only to Mesh
+    statement: >
+      Every request the provider makes to Mesh shall carry a short-lived service
+      token for the audience `mesh` and the scope `mesh:<project>`, obtained by
+      the runtime from the issuer; a URL outside Mesh's address shall be
+      requested with no token, and no token shall be kept in a setting or put on
+      a command line.
+    rationale: A source a person stored can name any address, and a token is only ever sent to its audience.
+    satisfies: [SYS-0029, SYS-0030]
+    decided_by: [robohub:ADR-0003]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [gateway, mesh, security, tokens]
+
+  - id: PMESH-0003
+    title: Mesh is the only way to a device
+    statement: >
+      The provider shall read sources, readings, the node tree and state, and
+      switch outputs, only through Mesh's API under `/mesh/api/`, never by asking
+      a project's gateway directly; device_states shall answer "" so a caller
+      reads a device's state as a source through Mesh.
+    rationale: A second way to a device beside Mesh had no token and no scope.
+    satisfies: [SYS-0025, SYS-0030]
+    decided_by: [robohub:ADR-0008]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [gateway, mesh, security]
+
+  - id: PMESH-0004
+    title: The live stream comes over the broker when there is one
+    statement: >
+      transport() shall answer `none` without a project; with the `transport`
+      setting `http` it shall answer `http`; otherwise `bus` when the process
+      has ROBOHUB_BUS_URL and ROBOHUB_BUS_USER, else `none` when the setting is
+      `bus` and `http` when it is `auto` or empty. follow(path) shall then follow
+      the broker topic `mesh/<project>/telemetry` as the application's broker
+      user, or Mesh's telemetry stream with the service token, writing the same
+      lines to path either way.
+    rationale: A choice of the broker that is not there is not quietly replaced, and a page never connects to Mesh itself.
+    satisfies: [SYS-0025, SYS-0028]
+    decided_by: [robohub:ADR-0008]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [gateway, mesh, live, bus]
+
+  - id: PMESH-0005
+    title: An output is switched through Mesh and only on success reported
+    statement: >
+      action(source, state) shall refuse any state but `on` and `off` without
+      sending anything, switch the source by a POST to Mesh's action endpoint of
+      the source with `state` in the query and no body, carrying the bearer
+      ticket of PMESH-0002 (whose `mesh:<project>` scope is the grant Mesh asks
+      for to change a mesh) and never a GET, answer true only when Mesh answers
+      200 (confirmed), and log a warning naming the source and the status
+      otherwise, a 202 (pending or unconfirmed) included.
+    rationale: A page must never claim a heater is off when the switch failed or is not yet confirmed; and Mesh switches an output only on a POST that holds a control grant (MESH-API-0010).
+    satisfies: [SYS-0025, SYS-0030]
+    decided_by: [robohub:ADR-0008]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [gateway, mesh, outputs, security]
+
+  - id: PMESH-0006
+    title: A source is one series however it was stored
+    statement: >
+      source_latest, source_history and action shall accept a source as the id
+      sources() returned, a Mesh value or action URL, or a URL with a `source=`
+      query, and treat all three as the same series; source_history shall ask
+      Mesh's telemetry series for it with `from`, `to` and `step` passed through
+      as given.
+    rationale: A caller may have stored any of the three; an application never has to know which area, node or field a reading was stored under.
+    satisfies: [SYS-0037]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [gateway, mesh, telemetry]
+
+  - id: PMESH-0007
+    title: Two callers never read each other's answer
+    statement: >
+      Every read shall return Mesh's answer as its result rather than through a
+      shared file, so a page and a background loop asking at once each get their
+      own answer.
+    rationale: Until 0.5.1 every caller shared one answer file, and a page and the background loop could be handed each other's reading, so a load's switch read another source's value.
+    satisfies: [SYS-0025]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [gateway, mesh, concurrency]

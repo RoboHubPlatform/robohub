@@ -23,6 +23,7 @@ extern fn rho_write_text(path: string, text: string) bool
 extern fn rho_write_secret(path: string, text: string) bool
 extern fn rho_append_text(path: string, text: string) bool
 extern fn rho_bind_config(provider: string, key: string) string
+extern fn rho_random_hex(bytes: u32) string
 
 // state_dir is where this provider keeps what it writes on the way out: the
 // application's workspace when it has one.
@@ -48,6 +49,7 @@ fn setting(key: string, fallback: string) string {
 // one_line is a header's value with its line breaks taken out: a message or a
 // rule name with a line break in it would otherwise start a header of its own
 // (`Bcc: …`) in the mail it is written into.
+// @req EMAIL-0004
 fn one_line(text: string) string {
     var out: string = ""
     var i: u32 = 0
@@ -78,6 +80,7 @@ fn metadata_rule(metadata: string) string {
     return str_slice(rest, 0, u32(end))
 }
 
+// @req EMAIL-0003
 fn render(template: string, level: string, message: string, metadata: string, app: string) string {
     var rule: string = metadata_rule(metadata)
     if rule == "" {
@@ -90,9 +93,63 @@ fn render(template: string, level: string, message: string, metadata: string, ap
     return str_replace(out, "{rule}", rule)
 }
 
+// has_break is whether a value holds a line break: in curl's configuration a
+// line break ends one option and starts another.
+fn has_break(value: string) bool {
+    return str_index_of(value, "\n") >= 0 || str_index_of(value, "\r") >= 0
+}
+
+// curl_quoted is a value as a quoted string of curl's configuration file, with
+// its backslashes and double quotes escaped, so it is read back exactly and
+// never ends early. The caller has refused a value with a line break.
+// @req EMAIL-0006
+fn curl_quoted(value: string) string {
+    return "\"" + str_replace(str_replace(value, "\\", "\\\\"), "\"", "\\\"") + "\""
+}
+
+// digits is whether a value is a number written in decimal digits only.
+fn digits(value: string) bool {
+    if value == "" {
+        return false
+    }
+    var i: u32 = 0
+    while i < u32(strlen(value)) {
+        if str_index_of("0123456789", str_slice(value, i, 1)) < 0 {
+            return false
+        }
+        i = i + 1
+    }
+    return true
+}
+
+// host_ok is whether an SMTP server setting is a host name or an address and
+// nothing else: letters, digits, dots, dashes, and the brackets and colons of an
+// IPv6 address. A slash, an `@` or a space would make the URL name another
+// server, a path or a login.
+// @req EMAIL-0006
+fn host_ok(host: string) bool {
+    if host == "" {
+        return false
+    }
+    var i: u32 = 0
+    while i < u32(strlen(host)) {
+        if str_index_of("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-[]:", str_slice(host, i, 1)) < 0 {
+            return false
+        }
+        i = i + 1
+    }
+    return true
+}
+
+// forget removes what a delivery wrote on the way out, once curl has read it.
+fn forget(first: string, second: string) void {
+    let removed: u32 = rho_exec_args("rm", "-f\n--\n" + first + "\n" + second + "\n", report("email-cleanup"))
+}
+
 // send writes the message to a local outbox (`mode: local`, the default), so a
 // machine with no mail server still shows what would have gone out, or uploads
 // it to an SMTP server (`mode: smtp`).
+// @req EMAIL-0001, EMAIL-0002, EMAIL-0005, EMAIL-0006
 fn send(level: string, message: string, metadata: string) u32 {
     let to: string = one_line(setting("to_address", ""))
     if to == "" {
@@ -115,35 +172,48 @@ fn send(level: string, message: string, metadata: string) u32 {
         return 0
     }
     let host: string = setting("smtp_host", "")
-    if host == "" {
+    let port: string = setting("smtp_port", "587")
+    if !host_ok(host) || !digits(port) || has_break(from) || has_break(to) {
         return 0
     }
-    let port: string = setting("smtp_port", "587")
     let security: string = setting("smtp_security", "")
     var url: string = "smtp://" + host + ":" + port
     if security == "ssl" || security == "smtps" {
         url = "smtps://" + host + ":" + port
     }
-    let file: string = state_dir() + "/email-message.eml"
-    let written: bool = rho_write_text(file, mail)
-    var args: string = "-fsS\n--url\n" + url + "\n--mail-from\n" + from + "\n--mail-rcpt\n" + to +
-        "\n--upload-file\n" + file + "\n"
-    // The password is read by curl from a file only this user can read, never
-    // from its command line, which any user of the machine can list.
+    // The server, the addresses and the login are read by curl from a
+    // configuration file only this user can read (-K), never from its command
+    // line, which any user of the machine can list. The message and that file
+    // are named afresh for each delivery and removed after it.
+    var config_text: string = "url = " + curl_quoted(url) + "\n" +
+        "mail-from = " + curl_quoted(from) + "\n" +
+        "mail-rcpt = " + curl_quoted(to) + "\n"
     let user: string = setting("smtp_user", "")
     if user != "" {
         let password: string = setting("smtp_pass", "")
-        let config: string = state_dir() + "/email-smtp.curl"
-        if str_index_of(user, "\"") >= 0 || str_index_of(password, "\"") >= 0 || str_index_of(user + password, "\n") >= 0 ||
-            str_index_of(user + password, "\\") >= 0 || !rho_write_secret(config, "user = \"" + user + ":" + password + "\"\n") {
+        if has_break(user) || has_break(password) {
             return 0
         }
-        args = args + "-K\n" + config + "\n"
+        config_text = config_text + "user = " + curl_quoted(user + ":" + password) + "\n"
     }
+    let id: string = rho_random_hex(8)
+    if id == "" {
+        return 0
+    }
+    let dir: string = state_dir()
+    let file: string = dir + "/email-" + id + ".eml"
+    let config: string = dir + "/email-" + id + ".curl"
+    if !rho_write_secret(file, mail) || !rho_write_secret(config, config_text) {
+        forget(config, file)
+        return 0
+    }
+    var args: string = "-fsS\n--upload-file\n" + file + "\n-K\n" + config + "\n"
     if security == "starttls" || security == "tls" {
         args = args + "--ssl-reqd\n"
     }
-    if rho_exec_args("curl", args, report("email")) == 0 {
+    let code: u32 = rho_exec_args("curl", args, report("email"))
+    forget(config, file)
+    if code == 0 {
         return 1
     }
     return 0

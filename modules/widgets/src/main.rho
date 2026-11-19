@@ -38,7 +38,11 @@ extern fn rho_exec_args(program: string, arguments: string, output_path: string)
 extern fn rho_read_text(path: string) string
 extern fn rho_write_text(path: string, text: string) bool
 extern fn rho_append_text(path: string, text: string) bool
+// A file only this user can read, and a fresh name for it.
+extern fn rho_write_secret(path: string, text: string) bool
+extern fn rho_random_hex(bytes: u32) string
 
+// @req WIDG-0001
 route GET  "/widgets"                     => widgets_page
 route GET  "/widgets/cards"              => widgets_cards_endpoint
 route GET  "/widgets/card/{id}"          => widgets_card_endpoint

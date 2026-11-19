@@ -1,0 +1,105 @@
+# What the RoboHub wire protocol module (robohub-protocol) guarantees to the
+# boards, gateways and relays that generate their payloads from it: one source
+# for the wire (schemas/), copied into every consumer and regenerated there by
+# tools/sync.py. Written in the R5 backfill from the documentation, the
+# changelog, the schemas and the tool; the module has no test suite of its own.
+# Proposed until the maintainer approves them.
+level: NODE
+prefix: PROTO
+title: Wire protocol
+requirements:
+  - id: PROTO-0001
+    title: One message id numbers the whole wire
+    statement: >
+      The schemas shall declare one MessageId enumeration, in the namespace
+      robohub.v1, for both levels — L2 between a board and its gateway and L1
+      between gateways — in which a message with a name at each level has one
+      number (HELLO and ANNOUNCE 0x0101, TELEMETRY and READING 0x0201).
+    rationale: Two numberings of one message are two things to keep in step, and a relay forwards what it does not parse.
+    satisfies: [SYS-0020, SYS-0026, SYS-0052]
+    decided_by: [robohub:ADR-0010]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [protocol, wire]
+
+  - id: PROTO-0002
+    title: Every consumer's copy and code is written from the source
+    statement: >
+      tools/sync.py shall copy each schema a consumer listed in consumers.yml
+      carries into that consumer's `schemas/` directory byte for byte, and run
+      `rho protocol generate --platform robohub` for each of its `generate`
+      entries into the directory it names, passing over, with a note, a consumer
+      that is not checked out in ROBOHUB_WORKSPACE (or the directory beside the
+      robohub checkout).
+    rationale: The gateway, two device nodes and five driver examples speak the protocol; the two device nodes had fallen behind before there was one source.
+    satisfies: [SYS-0040, SYS-0052]
+    status: proposed
+    verification: demonstration
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [protocol, sync]
+
+  - id: PROTO-0003
+    title: Drift from the source is found without changing anything
+    statement: >
+      `tools/sync.py --check` shall change no file, regenerate into a temporary
+      directory, name every schema copy and generated file that differs from
+      what the source makes, and exit 1 when there is any.
+    rationale: A schema edited in a consumer, a generated file edited by hand, or code from an older toolchain must be found before it reaches a board.
+    satisfies: [SYS-0040, SYS-0052]
+    status: proposed
+    verification: demonstration
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [protocol, sync]
+
+  - id: PROTO-0004
+    title: A relay carries a board's frame whole
+    statement: >
+      RELAYED (0x0013) shall carry `port(u8) | inner_msg_id(u16) |
+      inner_tx_id(u16) | inner_payload`, with both ids little-endian, sealed
+      under the relay's own session, so that the board's hello and the frames
+      sealed under the board's own session reach the parent gateway unchanged.
+    rationale: The parent authenticates each relayed board by its own key, and a relay that holds no board key can only drop or delay.
+    satisfies: [SYS-0026]
+    decided_by: [robohub:ADR-0010]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [protocol, relay, security]
+
+  - id: PROTO-0005
+    title: A key is rotated by two sealed messages
+    statement: >
+      REKEY (0x0014) shall carry `new_epoch(u32) | wrapped(16)` and REKEY_ACK
+      (0x0015) `new_epoch(u32) | proof(8)`, with wrapped and proof derived as
+      common.rho states, both only ever sent sealed under the board's current
+      session; a board that cannot store a key shall answer epoch 0 and a zero
+      proof.
+    rationale: A key that may have been copied is retired without a cable, and the new key never crosses the link in the clear.
+    satisfies: [SYS-0022]
+    decided_by: [robohub:ADR-0010]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [protocol, key-rotation, security]
+
+  - id: PROTO-0006
+    title: A restarted gateway asks a board for a new session, sealed
+    statement: >
+      SESSION_RESET (0x0016) shall be sent only gateway to board, sealed under
+      the session it ends, with an empty payload or one reason byte (1: the
+      gateway restarted), and a board shall take it only when it verifies under
+      that session with a counter greater than the last it accepted.
+    rationale: A board is heard again soon after a restart, and the reset itself cannot be forged or replayed.
+    satisfies: [SYS-0023]
+    decided_by: [robohub:ADR-0010]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [protocol, recovery, security]

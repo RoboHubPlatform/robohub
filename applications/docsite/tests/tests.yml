@@ -1,0 +1,9 @@
+# The documentation site's own test: the tree it assembles is one `rho req`
+# reads as it reads the repositories.
+name: docsite
+suites:
+  # @verifies SITE-0008
+  - name: the tree names parts as rho req does
+    kind: command
+    command: ["sh", "tests/tree_names.sh"]
+    tags: [smoke, slow]

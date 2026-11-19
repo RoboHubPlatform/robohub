@@ -1,0 +1,64 @@
+# What the webhook channel (robohub-provider-webhook, a provider of
+# robohub.alert) guarantees to an application that binds it (src/provider.rho).
+# Written in the R5 backfill from the README, the changelog and the code; the
+# provider has no tests of its own. Proposed until the maintainer approves them.
+level: NODE
+prefix: HOOK
+title: Webhook alert channel
+requirements:
+  - id: HOOK-0001
+    title: An alert is posted to the configured endpoint as a form or JSON
+    statement: >
+      send(level, message, metadata) shall POST `level`, `message` and `metadata`
+      to `url`, as a JSON object when `content_type` contains `json` and as a
+      URL-encoded form otherwise (`application/x-www-form-urlencoded` by
+      default), with the body read from a file, and answer 1 only when the
+      request succeeded (an HTTP error is a failure).
+    rationale: A webhook is how an alert reaches any service the other channels do not cover.
+    satisfies: [SYS-0036]
+    decided_by: [robohub:ADR-0007]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [alerts, webhook]
+
+  - id: HOOK-0002
+    title: Only an http or https address on one line is posted to
+    statement: >
+      An alert shall not be sent, and send shall answer 0, when `url` does not
+      start with `http://` or `https://` or holds a line break, when
+      `content_type` holds a line break, or when `authorization` holds a line
+      break or a carriage return.
+    rationale: Anything else would be another protocol or another of curl's arguments, which are one per line.
+    satisfies: [SYS-0036, SYS-0064]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [alerts, webhook, security]
+
+  - id: HOOK-0003
+    title: The authorization header never reaches a command line
+    statement: >
+      A non-empty `authorization` setting shall reach curl only as a header read
+      from a file written readable by the owner alone, and the alert shall not
+      be sent when that file cannot be written.
+    rationale: Any user of the machine can list a command line, and the header is the endpoint's credential.
+    satisfies: [SYS-0033]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [alerts, webhook, secrets]
+
+  - id: HOOK-0004
+    title: The address and the Authorization header are never on curl's command line
+    statement: The webhook's address and Authorization header shall be given to curl in a configuration file only the owner can read, quoted so they are read back exactly, named afresh for each delivery and removed after it; an address that is not http or https on one line is refused.
+    rationale: A webhook address is often itself the secret, and any user of the machine can list a command line.
+    satisfies: [SYS-0033, SYS-0064]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [security, secrets]

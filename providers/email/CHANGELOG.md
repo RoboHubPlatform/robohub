@@ -24,3 +24,7 @@ Its data is kept where `app_workspace()` says (rho 0.8.0) — the application's 
 ## [0.2.3] - 2026-11-14
 
 Its own replace helper is gone for the toolchain's `str_replace` (rho 0.8.3), which it needs.
+
+## [0.2.4] - 2026-11-19
+
+Security: in smtp mode the server, the sender and the recipient were curl's arguments, visible to every user of the machine, and the message file stayed behind. They are now in the owner-only configuration file with the login, which is quoted so a password may hold quotes and backslashes (they were refused before), and the message and the file are named afresh and removed after each delivery. A server that is not a host name or address, or a port that is not digits, is refused rather than put into the URL. Tested with a curl of the test's own (`providers/tests/provider_smoke.py email`).

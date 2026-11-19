@@ -1,5 +1,6 @@
 <h1>Edit widget</h1>
 <form class="panel-form" method="post" action="/widgets/edit">
+  {{{ csrf }}}
   <input type="hidden" name="id" value="{{ id }}">
   <div class="grid">
     <label>Title<input name="title" value="{{ title }}" required></label>
@@ -77,6 +78,7 @@
 <section class="panel-form" style="margin-top:1rem">
   <h2>Manual value</h2>
   <form method="post" action="/widgets/value" class="inline-form">
+    {{{ csrf }}}
     <input type="hidden" name="id" value="{{ id }}">
     <input name="value" placeholder="value">
     <button type="submit" class="quiet">Add value</button>
@@ -87,6 +89,7 @@
 <section class="panel-form" style="margin-top:1rem">
   <h2>Press</h2>
   <form method="post" action="/widgets/press" class="inline-form">
+    {{{ csrf }}}
     <input type="hidden" name="id" value="{{ id }}">
     <input type="hidden" name="return" value="widgets">
     <button type="submit" class="quiet">Press</button>

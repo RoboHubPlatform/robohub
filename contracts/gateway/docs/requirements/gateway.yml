@@ -1,0 +1,91 @@
+# What the gateway interface (module robohub-gateway, import robohub.gateway;
+# named robohub-gateway-contract in the requirements family, apart from the
+# robohub-gateway repository) guarantees to the applications that read a mesh's
+# sources and switch its outputs (src/gateway.rho). Written in the R5 backfill
+# from the documentation, the changelog and the code; the interface has no tests
+# of its own. Proposed until the maintainer approves them.
+level: NODE
+prefix: GWC
+title: Gateway interface
+requirements:
+  - id: GWC-0001
+    title: One bound gateway answers
+    statement: >
+      Every read and action of the gateway interface shall be answered by the
+      first provider the application binds to robohub.gateway whose `enabled`
+      setting is not "false", and gateway.config(key) and
+      gateway.configure(key, value) shall read and change that provider's
+      settings on the running installation.
+    rationale: A gateway is one place; an application must not read Mesh and the simulator at once.
+    satisfies: [SYS-0018, SYS-0025]
+    decided_by: [robohub:ADR-0007]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [gateway, interface]
+
+  - id: GWC-0002
+    title: A settings page chooses between the bound gateways
+    statement: >
+      gateway.providers() shall list every bound gateway provider, enabled or
+      not; gateway.choose(name) shall enable the named provider and disable every
+      other one in the application's bind.conf and answer true, and shall change
+      nothing and answer false for a name the application does not bind; and
+      provider_config and configure_provider shall read and change any bound
+      provider's setting whether or not it is the one answering.
+    rationale: Switching between Mesh and the simulator is a setting on the running application, not a rebuild.
+    satisfies: [SYS-0018]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [gateway, settings, simulator]
+
+  - id: GWC-0003
+    title: Sources and readings are asked for through the interface
+    statement: >
+      An application shall obtain a mesh's projects, gateway, sources, node
+      tree, source state, newest reading, history and the store's status only
+      through gateway.projects, gateway, sources, nodes, source_state,
+      source_latest, source_history and telemetry_status, with
+      source_history's times passed to the provider unchanged as Unix
+      milliseconds in text and an empty step asking for raw readings.
+    rationale: The paths of Mesh's API belong to the provider; an application that hard-codes them breaks when Mesh changes.
+    satisfies: [SYS-0025, SYS-0037]
+    decided_by: [robohub:ADR-0007, robohub:ADR-0008]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [gateway, telemetry]
+
+  - id: GWC-0004
+    title: An output is switched by its source name
+    statement: >
+      gateway.action(source, state) shall ask the provider to switch the output
+      named as gateway.sources() names it to `on` or `off` and answer whether the
+      gateway did it, so an application never stores or calls an action URL.
+    rationale: A switch on a page must go through the owner of the device's state, and say when it failed.
+    satisfies: [SYS-0025]
+    decided_by: [robohub:ADR-0008]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [gateway, outputs]
+
+  - id: GWC-0005
+    title: The live stream is followed into a file and its transport is told
+    statement: >
+      gateway.follow(path) shall have the provider write the project's live
+      stream to path in the background, answering whether it could, and
+      gateway.transport() shall answer how it does so: `bus`, `http` or `none`.
+    rationale: A page shows readings as they arrive from a local file and never connects to Mesh itself; a settings page says which way they come.
+    satisfies: [SYS-0025]
+    decided_by: [robohub:ADR-0009]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [gateway, live]

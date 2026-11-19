@@ -24,9 +24,13 @@ include "schema.rho"
 include "forms.rho"
 
 import std.web.template
+import std.web.http
 
 // The runtime functions this module calls.
 extern fn rho_exec(program: string, arguments: string, output_path: string) u32
+// One argument per line, nothing in one interpreted: a path with a space in it
+// is one argument.
+extern fn rho_exec_args(program: string, arguments: string, output_path: string) u32
 extern fn rho_read_text(path: string) string
 extern fn rho_write_text(path: string, text: string) bool
 extern fn rho_write_secret(path: string, text: string) bool

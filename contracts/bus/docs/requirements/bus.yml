@@ -1,0 +1,58 @@
+# What the message bus interface (robohub-bus, import robohub.bus) guarantees to
+# the applications that reach devices and each other through a broker
+# (src/bus.rho). Written in the R5 backfill from the documentation, the
+# changelog and the code; the interface has no tests of its own. Proposed until
+# the maintainer approves them.
+level: NODE
+prefix: BUS
+title: Message bus interface
+requirements:
+  - id: BUS-0001
+    title: One bound broker answers
+    statement: >
+      Every call of the bus interface shall be answered by the first provider the
+      application binds to robohub.bus whose `enabled` setting is not "false",
+      and bus.config(key) shall answer that provider's setting, or "" when no
+      provider is enabled.
+    rationale: A bus is one broker; two answering at once would split what an application hears.
+    satisfies: [SYS-0028]
+    decided_by: [robohub:ADR-0007]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [bus, interface]
+
+  - id: BUS-0002
+    title: Publish, follow and read the newest message
+    statement: >
+      Through the bound provider, bus.publish(topic, payload, retain) shall answer
+      whether the broker took the message, keeping it as the topic's retained
+      message when retain is true; bus.follow(filter, events_path) shall follow a
+      topic filter in the background, keeping each topic's newest message and
+      appending a JSON line to events_path when one is given; bus.latest(topic)
+      shall answer the newest message heard on a topic or ""; and
+      bus.topics(prefix) shall answer the topics heard under a prefix, newest
+      first, one per line as topic, seconds since, payload, tab-separated.
+    rationale: Plugs and inverters that speak MQTT are read and switched through these four calls, whatever the broker.
+    satisfies: [SYS-0028]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [bus, mqtt]
+
+  - id: BUS-0003
+    title: A file of lines is carried across the broker unchanged
+    statement: >
+      bus.relay(lines_path, topic) shall publish every line appended to
+      lines_path from then on to topic, in the background, and
+      bus.follow_lines(filter, lines_path) shall append every payload heard on
+      the filter to lines_path as it came, one per line.
+    rationale: This is how Mesh's live telemetry feed reaches an application without an HTTP stream.
+    satisfies: [SYS-0028]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [bus, relay]

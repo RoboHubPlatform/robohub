@@ -1,0 +1,44 @@
+//
+// @file logging_test.rho
+// @brief The default log file, checked: it is under the state directory, whatever that path holds.
+//
+// @module logging.tests
+// @project robohub
+// @author Aurel Miron
+// @date 2026-11-19
+//
+// SPDX-License-Identifier: MIT
+//
+
+module logging.tests
+
+include "../src/logfile.rho"
+
+extern fn rho_exec_args(program: string, arguments: string, output_path: string) u32
+extern fn rho_path_exists(path: string) bool
+extern fn setenv(name: string, value: string, overwrite: i32) i32
+extern fn abort()
+
+fn check(condition: bool, what: string) void {
+    if !condition {
+        print("FAIL: " + what + "\n")
+        abort()
+    }
+}
+
+// @verifies LOG-0002
+test fn the_state_directory_may_hold_a_space() void {
+    rho_exec_args("rm", "-rf\n--\nbuild/logging-test\nspace\n", "/dev/null")
+    setenv("XDG_STATE_HOME", "build/logging-test/state space", 1)
+    let file: string = log_default_file("demo")
+    check(str_eq(file, "build/logging-test/state space/robohub/demo/app.log"), "the file is under the state directory")
+    check(rho_path_exists("build/logging-test/state space/robohub/demo"), "its directory is made, space and all")
+    check(!rho_path_exists("build/logging-test/state"), "no directory is made from the path's first word")
+    check(!rho_path_exists("space"), "nor from its second")
+    print("[PASS] the_state_directory_may_hold_a_space\n")
+}
+
+fn main() void {
+    the_state_directory_may_hold_a_space()
+    print("logging: every case passed\n")
+}

@@ -264,6 +264,7 @@ fn inventory_devices_page(req: Request) Response {
     return inventory_devices_message(req, request_query_param(req, "msg"))
 }
 
+// @req INV-DEV-0001
 fn inventory_devices_message(req: Request, message: string) Response {
     let title: string = i18n_t(req, "inventory.devices.title")
     let opened: Result[SqlDb, string] = sql_open(inventory_db_path())
@@ -353,6 +354,7 @@ fn inventory_bind_all(id: u32, capabilities: string, body: string) string {
     return problem
 }
 
+// @req INV-0007, INV-DEV-0001
 fn inventory_devices_save(req: Request) Response {
     let body: string = request_body(req)
     if !forms_csrf_ok(body) {
@@ -390,6 +392,7 @@ fn inventory_devices_save(req: Request) Response {
 
 // inventory_role_save fills a role with the item chosen, or a new one made for
 // it, and binds its capabilities.
+// @req INV-DEV-0002
 fn inventory_role_save(req: Request, body: string, handle: string) Response {
     let role: string = inventory_role_line(req, form_field(body, "section"), handle)
     if role == "" {
@@ -426,6 +429,7 @@ fn inventory_role_save(req: Request, body: string, handle: string) Response {
 // inventory_add_named adds an equipment item with a handle made from its name,
 // the next free one when that is taken (`battery`, `battery-2`), and answers its
 // id, or 0.
+// @req INV-DEV-0003
 fn inventory_add_named(name: string, category: string) u32 {
     var base: string = inventory_handle(name)
     if base == "" {
@@ -440,6 +444,7 @@ fn inventory_add_named(name: string, category: string) u32 {
     return inventory_add_equipment(name, category, handle)
 }
 
+// @req INV-0007, INV-DEV-0003
 fn inventory_devices_add(req: Request) Response {
     let body: string = request_body(req)
     if !forms_csrf_ok(body) {

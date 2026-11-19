@@ -3,6 +3,7 @@ suites:
   - name: tests/scheduler_test.rho
     kind: rho
     tags: [unit, rho]
+  # @verifies SCHED-0001, SCHED-0002, SCHED-0003, SCHED-0004, SCHED-0008, SCHED-0010, SCHED-0011, SCHED-0013
   - name: scheduler-smoke
     kind: command
     tags: [smoke]

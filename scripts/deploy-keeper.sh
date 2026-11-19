@@ -13,4 +13,5 @@ if [ ! -x "$KEEPER/scripts/deploy-keeper.sh" ]; then
     echo "  or set ROBOHUB_KEEPER to where it is." >&2
     exit 1
 fi
+# @req HUB-0013
 ROBOHUB_ROOT="$ROBOHUB" exec "$KEEPER/scripts/deploy-keeper.sh" "$@"

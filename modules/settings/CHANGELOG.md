@@ -26,3 +26,9 @@ The module builds on its own: it declares the runtime functions it calls and no 
 ## [0.2.2] - 2026-11-14
 
 Its data is kept where `app_workspace()` says (rho 0.8.0) — the application's workspace, else `~/.rho/apps/<app>` — so two applications started by hand no longer share this module's records. Needs rho 0.8.0.
+
+## [0.2.3] - 2026-11-19
+
+Security: a value with a line break was written as it was, so it added a key of its own to the store (`EUR\nlog.file=/somewhere`), and a key holding `=` read back as another key. `settings_set` now writes nothing for an empty key, a key holding `=`, or a key or value holding a line break or carriage return, and leaves the old value in place; `settings_valid(key, value)` says beforehand. Reads stay strict: only a line named exactly the key, the first one. The module has tests of its own (`tests/settings_test.rho`).
+
+The directory it keeps its data in is made with `mkdir` given the path as one argument (`rho_exec_args`, one argument per line) rather than one string the runtime splits on spaces: a workspace path holding a space made stray directories from the words of the path, one of them relative to wherever the application runs, and on the C backend left the real directory unmade.

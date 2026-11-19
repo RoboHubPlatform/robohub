@@ -1,0 +1,9 @@
+# The provider's tests: the alert harness raises an alert through it with a curl
+# of the test's own on PATH (../tests/provider_smoke.py).
+name: robohub-provider-email
+suites:
+  # @verifies EMAIL-0004, EMAIL-0006
+  - name: email-smoke
+    kind: command
+    tags: [smoke]
+    command: [python3, ../tests/provider_smoke.py, email]

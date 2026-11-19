@@ -170,6 +170,23 @@ def main() -> int:
                                                       "do": 'journal warning "always holds"'}), ["Rule added"], "a rule")
             assert_contains(post(base, "/rules/add", {"name": "always", "when": "1 == 1"}), ["already exists"], "a name taken")
             assert_contains(post(base, "/rules/add", {"name": "broken", "when": "(1 == 1"}), ["not closed"], "a bracket left open")
+            # @verifies RULES-EXPR-0007, RULES-EXPR-0008
+            # A right side written wrong is refused even where the left side
+            # decides, and so is an action the engine does not know, a switch
+            # written wrong and a mode the application does not define, each
+            # with the field it was typed in.
+            assert_contains(post(base, "/rules/add", {"name": "typo", "when": "1 == 1 or not"}),
+                            ["ends where a value was expected"], "a broken right side of an or")
+            assert_contains(post(base, "/rules/add", {"name": "blink", "when": "1 == 1", "do": "blink light"}),
+                            ["Then: unknown action"], "an unknown action")
+            assert_contains(post(base, "/rules/add", {"name": "nomode", "when": "1 == 1", "else": "mode party"}),
+                            ["Otherwise: there is no mode party"], "a mode that is not defined")
+            assert_contains(post(base, "/rules/add", {"name": "loud", "when": "1 == 1", "do": "alert loud \"x\""}),
+                            ["Then: an alert is written"], "an alert level that is not one")
+            with sqlite3.connect(db) as conn:
+                saved = [r[0] for r in conn.execute("SELECT name FROM rules WHERE name IN ('typo','blink','nomode','loud')")]
+            if saved:
+                raise AssertionError(f"refused rules were saved: {saved}")
             post(base, "/rules/add", {"name": "unread", "when": "heater.temperature < 24.5", "do": "switch heater on"})
             post(base, "/rules/add", {"name": "in-feeding", "when": "mode == smoke-mode or nothing.there > 1",
                                       "do": 'journal info "the mode is seen"'})
@@ -182,6 +199,8 @@ def main() -> int:
             assert_contains(get(base, f"/rules/edit?id={unread}"), ["heater.temperature &lt; 24.5", "switch heater on"], "the edit page")
             refused = post(base, "/rules/edit", {"id": str(unread), "when": "(heater.temperature < 23", "do": "switch heater on"})
             assert_contains(refused, ["not closed", "(heater.temperature &lt; 23"], "a refused edit keeps what was typed")
+            refused = post(base, "/rules/edit", {"id": str(unread), "when": "heater.temperature < 23", "do": "switch heater up"})
+            assert_contains(refused, ["Then: a switch is written", "switch heater up"], "a refused action keeps what was typed")
             post(base, "/rules/edit", {"id": str(unread), "when": "heater.temperature < 23", "for": "2m", "do": "switch heater on"})
             with sqlite3.connect(db) as conn:
                 row = conn.execute("SELECT when_expr, for_s, origin FROM rules WHERE id=?", (unread,)).fetchone()
@@ -243,6 +262,13 @@ def main() -> int:
             # goes (a reading hovering at its threshold): the failure is said
             # once, kept while the condition is away, and tried again in a minute.
             post(base, "/rules/add", {"name": "flicker", "when": "mode == smoke-mode", "do": "switch nothing-bound on"})
+            # The same coming and going, for a rule with a cooldown and one
+            # without: the one without fires each time the mode starts, the one
+            # with an hour's cooldown fires once.
+            post(base, "/rules/add", {"name": "cooled", "when": "mode == smoke-mode", "cooldown": "1h",
+                                      "do": 'journal info "cooled fired"'})
+            post(base, "/rules/add", {"name": "uncooled", "when": "mode == smoke-mode",
+                                      "do": 'journal info "uncooled fired"'})
             def flicker_row(label):
                 if os.environ.get("RULES_DEBUG"):
                     with sqlite3.connect(db) as conn:
@@ -260,6 +286,13 @@ def main() -> int:
             said = [e for e in json.loads(get(base, "/api/journal?kind=rule"))["entries"] if e["subject"] == "flicker" and e["level"] == "warning"]
             if len(said) != 1:
                 raise AssertionError(f"a failure that kept coming back was written {len(said)} times: {said}")
+
+            # @verifies RULES-ENG-0002
+            fired = [e["message"] for e in json.loads(get(base, "/api/journal?kind=rule"))["entries"]]
+            if fired.count("uncooled fired") < 2:
+                raise AssertionError(f"a rule without a cooldown did not fire each time: {fired}")
+            if fired.count("cooled fired") != 1:
+                raise AssertionError(f"a rule with a cooldown fired {fired.count('cooled fired')} times")
 
             # Disabled, then deleted.
             with sqlite3.connect(db) as conn:

@@ -17,4 +17,4 @@ build/test-reports/
 *~
 build/doctree/
 # The "Build an application" pages are documentation, not build output.
-!docs/build/
+!docs/doc/build/

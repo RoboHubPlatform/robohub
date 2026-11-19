@@ -20,6 +20,7 @@ module robohub.gateway
 // bind_config — are generated from the application's binding.
 
 // provider is the bound gateway that answers: the first enabled one.
+// @req GWC-0001
 fn provider() string {
     var rest: string = bound_providers()
     while rest != "" {
@@ -42,6 +43,7 @@ fn providers() string {
 // choose makes one bound provider the one that answers, by enabling it and
 // disabling the others, on the running installation. It answers whether the
 // application binds such a provider.
+// @req GWC-0002
 fn choose(name: string) bool {
     var known: bool = false
     var rest: string = bound_providers()
@@ -129,6 +131,7 @@ fn device_states() string {
 }
 
 // follow follows the project's live stream into path, when the gateway has one.
+// @req GWC-0005
 fn follow(path: string) bool {
     return follow_to(provider(), path)
 }
@@ -140,6 +143,7 @@ fn transport() string {
 
 // action switches an output source `on` or `off`, and answers whether the
 // gateway did it. The source is named the way sources() names it.
+// @req GWC-0004
 fn action(source: string, state: string) bool {
     return action_to(provider(), source, state)
 }
@@ -157,6 +161,7 @@ fn source_latest(source: string) string {
 // source_history is one source's readings over a range. The times are Unix
 // milliseconds as text, 64-bit and passed through unchanged; an empty step asks
 // for raw readings.
+// @req GWC-0003
 fn source_history(source: string, from_ms: string, to_ms: string, step_ms: string) string {
     return source_history_to(provider(), source, from_ms, to_ms, step_ms)
 }

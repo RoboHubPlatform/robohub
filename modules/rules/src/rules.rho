@@ -29,6 +29,7 @@ const RULES_MODES_CAPACITY: u32 = 64
 /*  Where it is                                                               */
 /* -------------------------------------------------------------------------- */
 
+// @req RULES-0003
 fn rules_db_path() string {
     let override: string = getenv("RHO_RULES_DB")
     if override != "" {
@@ -71,31 +72,8 @@ fn rules_open() Result[SqlDb, string] {
 /*  Actions                                                                   */
 /* -------------------------------------------------------------------------- */
 
-// rules_word is the first word of a text and the rest, split on the first space.
-fn rules_first_word(text: string) string {
-    let at: i32 = str_index_of(text, " ")
-    if at < 0 {
-        return text
-    }
-    return str_slice(text, 0, u32(at))
-}
-
-fn rules_after_word(text: string) string {
-    let at: i32 = str_index_of(text, " ")
-    if at < 0 {
-        return ""
-    }
-    return str_trim(str_slice(text, u32(at) + 1, u32(strlen(text)) - u32(at) - 1))
-}
-
-fn rules_unquote(text: string) string {
-    let value: string = str_trim(text)
-    let n: u32 = u32(strlen(value))
-    if n >= 2 && str_eq(str_slice(value, 0, 1), "\"") && str_eq(str_slice(value, n - 1, 1), "\"") {
-        return str_slice(value, 1, n - 2)
-    }
-    return value
-}
+// rules_first_word, rules_after_word and rules_unquote are in src/expr.rho,
+// beside the check of an action as it is written.
 
 // rules_action runs one action and answers "" when it was done, what went wrong
 // otherwise:
@@ -105,6 +83,7 @@ fn rules_unquote(text: string) string {
 //   alert warning "the filter draws no power"     the journal, and the alert channels bound
 //   journal info "lights on"                      the journal only
 //   mode feeding | mode end                       start a mode, or end the one in force
+// @req RULES-0005
 fn rules_action(action: string, actor: string, subject: string) string {
     let verb: string = str_lower(rules_first_word(action))
     let rest: string = rules_after_word(action)
@@ -186,6 +165,7 @@ fn rules_run(actions: string, actor: string, subject: string) string {
 /* -------------------------------------------------------------------------- */
 
 // rules_mode is the mode in force, or "".
+// @req RULES-0001
 fn rules_mode() string {
     let opened: Result[SqlDb, string] = rules_open()
     if !opened.is_ok {
@@ -233,6 +213,7 @@ fn rules_find_mode(modes: RuleModes[64], count: u32, name: string) i32 {
 
 // rules_mode_start puts a mode in force: the one in force first ends, then this
 // one's actions run and its end is set. It answers whether there is such a mode.
+// @req RULES-ENG-0004
 fn rules_mode_start(name: string, actor: string) bool {
     let opened: Result[SqlDb, string] = rules_open()
     if !opened.is_ok {
@@ -279,6 +260,7 @@ fn rules_mode_start(name: string, actor: string) bool {
 }
 
 // rules_mode_end ends the mode in force, running its end actions.
+// @req RULES-ENG-0004
 fn rules_mode_end(actor: string) void {
     let name: string = rules_mode()
     if name == "" {
@@ -315,6 +297,7 @@ fn rules_mode_end(actor: string) void {
 }
 
 // rules_suspended says whether the mode in force suspends a rule.
+// @req RULES-ENG-0004
 fn rules_suspended(modes: RuleModes[64], count: u32, mode: string, rule: string) bool {
     if mode == "" {
         return false
@@ -351,6 +334,7 @@ fn rules_ignore(value: Result[u32, SqlError]) void {
 // rules_tick evaluates every enabled rule once, and ends a mode whose time is
 // up. A host calls it from its background work — every few seconds, and when a
 // reading arrives. It answers how many rules fired or cleared.
+// @req RULES-0001, RULES-ENG-0001, RULES-ENG-0004
 fn rules_tick() u32 {
     let now: u32 = rules_now()
     let ends: u32 = rules_mode_ends()
@@ -401,6 +385,7 @@ fn rules_tick() u32 {
 //   pending -> idle     it stopped holding first
 //   active  -> idle     the clear condition holds, or (with none) the condition
 //                       stopped holding; the else actions run
+// @req RULES-ENG-0001, RULES-ENG-0002, RULES-ENG-0003, RULES-ENG-0006
 fn rules_step(rule: Rules, mode: string, minutes: u32, now: u32) bool {
     let verdict: RulesVerdict = rules_evaluate(rule.whenExpr, mode, minutes)
     var state: string = rule.state
@@ -496,6 +481,7 @@ fn rules_preset_value(path: string, key: string) string {
 // rule or mode is added when missing and kept as the presets say; one a person
 // added is never touched; whether a rule is enabled stays the person's choice.
 // It answers how many rules and modes the presets named.
+// @req RULES-0006
 fn rules_presets(text: string) u32 {
     if str_trim(text) == "" {
         return 0
@@ -680,12 +666,56 @@ fn rules_page_message(req: Request, message: string) Response {
     return host_shell(req, i18n_t(req, "rules.title"), body, toast_js)
 }
 
+// rules_known_mode says whether the application defines a mode by that name.
+fn rules_known_mode(name: string) bool {
+    let opened: Result[SqlDb, string] = rules_open()
+    if !opened.is_ok {
+        return false
+    }
+    let modes: RuleModes[64]
+    let slice: Slice[RuleModes] = Slice[RuleModes]{ Ptr[RuleModes](&modes[0]), RULES_MODES_CAPACITY }
+    let listed: Result[u32, SqlError] = ListRuleModes(opened.ok, slice, RULES_MODES_CAPACITY)
+    sql_close(opened.ok)
+    if !listed.is_ok {
+        return false
+    }
+    return rules_find_mode(modes, listed.ok, name) >= 0
+}
+
+// rules_actions_problem checks a form's list of actions before it is saved: an
+// action the engine does not know, or a mode the application does not define,
+// is refused with the field it was typed in ("Then: unknown action `blink`"),
+// rather than saved and found later as a rule that fails each time it holds.
+// @req RULES-EXPR-0008
+fn rules_actions_problem(req: Request, field: string, actions: string) string {
+    let label: string = i18n_t(req, field)
+    let written: string = rules_actions_check(actions)
+    if written != "" {
+        return label + ": " + written
+    }
+    let list: string = rules_action_list(actions)
+    let count: u32 = rules_token_count(list)
+    var i: u32 = 0
+    while i < count {
+        let action: string = rules_token(list, i)
+        if str_eq(str_lower(rules_first_word(action)), "mode") {
+            let name: string = rules_after_word(action)
+            if !str_eq(str_lower(name), "end") && !rules_known_mode(name) {
+                return label + ": there is no mode " + name
+            }
+        }
+        i = i + 1
+    }
+    return ""
+}
+
 // rules_back is the rules page again, by GET, with what happened as its message:
 // a refresh reloads the page rather than doing the change a second time.
 fn rules_back(message: string) Response {
     return redirect("/rules?msg=" + str_url_encode(message))
 }
 
+// @req RULES-0007, RULES-EXPR-0006, RULES-EXPR-0008, RULES-ENG-0005
 fn rules_add(req: Request) Response {
     let body: string = request_body(req)
     if !forms_csrf_ok(body) {
@@ -696,7 +726,16 @@ fn rules_add(req: Request) Response {
     if name == "" || when == "" {
         return rules_page_message(req, i18n_t(req, "rules.need_name_when"))
     }
-    let problem: string = rules_check(when)
+    var problem: string = rules_check(when)
+    if problem == "" && str_trim(form_field(body, "clear")) != "" {
+        problem = rules_check(str_trim(form_field(body, "clear")))
+    }
+    if problem == "" {
+        problem = rules_actions_problem(req, "rules.do", form_field(body, "do"))
+    }
+    if problem == "" {
+        problem = rules_actions_problem(req, "rules.else", form_field(body, "else"))
+    }
     if problem != "" {
         return rules_page_message(req, problem)
     }
@@ -718,6 +757,7 @@ fn rules_add(req: Request) Response {
     return rules_back(i18n_t(req, "rules.added"))
 }
 
+// @req RULES-0007, RULES-ENG-0005
 fn rules_change(req: Request) Response {
     let body: string = request_body(req)
     if !forms_csrf_ok(body) {
@@ -827,6 +867,7 @@ fn rules_edit_form(req: Request, r: Rules, when: string, clear: string, wait: st
     return host_shell(req, i18n_t(req, "rules.edit_title") + " " + r.name, body, toast_js)
 }
 
+// @req RULES-0007, RULES-EXPR-0006, RULES-EXPR-0008, RULES-ENG-0005
 fn rules_edit_save(req: Request) Response {
     let body: string = request_body(req)
     if !forms_csrf_ok(body) {
@@ -873,6 +914,12 @@ fn rules_edit_save(req: Request) Response {
     if problem == "" && cooldown != "" && rules_seconds(cooldown) == 0 {
         problem = i18n_t(req, "rules.bad_duration") + " " + cooldown
     }
+    if problem == "" {
+        problem = rules_actions_problem(req, "rules.do", doing)
+    }
+    if problem == "" {
+        problem = rules_actions_problem(req, "rules.else", otherwise)
+    }
     if problem != "" {
         sql_close(opened.ok)
         return rules_edit_form(req, r, when, clear, wait, cooldown, doing, otherwise, problem)
@@ -884,6 +931,7 @@ fn rules_edit_save(req: Request) Response {
     return rules_back(r.name + ": " + i18n_t(req, "rules.saved"))
 }
 
+// @req RULES-0007, RULES-ENG-0004
 fn rules_mode_form(req: Request) Response {
     let body: string = request_body(req)
     if !forms_csrf_ok(body) {
@@ -900,6 +948,7 @@ fn rules_mode_form(req: Request) Response {
 }
 
 // rules_api is every rule's state and the mode in force, as JSON.
+// @req RULES-0002
 fn rules_api(req: Request) Response {
     let opened: Result[SqlDb, string] = rules_open()
     if !opened.is_ok {

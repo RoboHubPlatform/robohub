@@ -1,0 +1,82 @@
+# An equipment item's capabilities bound to gateway sources, and what the
+# application and other modules do through them (src/automation.rho). Proposed
+# until the maintainer approves them.
+level: SUB
+prefix: INV-AUTO
+title: Equipment automation
+requirements:
+  - id: INV-AUTO-0001
+    title: A category says what its equipment can be bound to
+    statement: >
+      An equipment item shall be bindable to exactly the capabilities its
+      category lists (`switch, power?`), a trailing ? marking one that may stay
+      unbound; a capability shall be bound and looked up under its name without
+      the ?, for control when it is switch or press and for reading otherwise.
+    rationale: A capability bound as `power?` was never found again; the category, not the page, decides what an item is.
+    satisfies: [INV-0005]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [equipment, bindings]
+
+  - id: INV-AUTO-0002
+    title: A source is controlled by one item at most
+    statement: >
+      Binding a capability for control to a gateway source that another item
+      already controls shall be refused with the name of the item that holds it;
+      binding with no source shall unbind the capability.
+    rationale: Two items driving one relay would fight over it.
+    satisfies: [INV-0005]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [equipment, bindings]
+
+  - id: INV-AUTO-0003
+    title: Reading and switching through the bound source
+    statement: >
+      inventory_resolve(ref, capability) shall answer the source an item's
+      capability is bound to, the item named by its handle or its id, or "" when
+      unbound; inventory_read shall answer that source's newest reading through
+      the gateway interface; and inventory_switch(ref, on, actor) shall switch the
+      item's bound switch source on or off through the gateway, answer whether it
+      did, and answer false without acting when no switch is bound.
+    rationale: Every rule, card and chore reads and switches equipment the same way.
+    satisfies: [INV-0005]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [equipment, automation, contract]
+
+  - id: INV-AUTO-0004
+    title: One use takes a portion from the category it uses
+    statement: >
+      inventory_use(ref, actor) for an item whose category uses another category
+      and that has a portion shall consume the portion from the first item of the
+      used category with stock left, and answer false when there is none.
+    rationale: A feeder's press is food leaving the shelf.
+    satisfies: [INV-0005, INV-0004]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [equipment, stock]
+
+  - id: INV-AUTO-0005
+    title: Switch runtime is counted from the gateway's history
+    statement: >
+      inventory_runtime_tick() shall add to every item with a switch bound the
+      time its switch was on since it was last counted, from the gateway's
+      one-minute history (a minute's average being the share it was on, a minute
+      with no reading counting as off), counting each item at most once an hour
+      and first over the past seven days.
+    rationale: A usage-driven chore — clean the filter every 500 hours — needs hours run, not days installed.
+    satisfies: [INV-0005]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [equipment, runtime]

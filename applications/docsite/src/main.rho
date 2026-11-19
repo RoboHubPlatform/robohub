@@ -15,14 +15,26 @@ module docsite
 // The RoboHub documentation, built.
 //
 // The documentation each part of the ecosystem ships — the pages in its
-// `docs/` directory, or its README when it has no such directory — is collected
-// into one tree, and the tree is built into one site by the toolchain's own
-// `rho doc`. The site's shape — its sections, their names and order — is
+// `docs/doc/` directory (or `docs/`, for a part that has not moved its pages
+// there), or its README when it has neither — is collected into one tree, and
+// the tree is built into one site by the toolchain's own `rho doc`. The site's
+// shape — its sections, their names and order — is
 // `applications/docsite/site.yml`, copied into the tree as `docs/site.yml`;
 // which section a part lands in is decided here, by where the part lives.
 //
-// The tree's root is not a module: the orchestrator's own pages, in docs/ and
-// its subfolders, are the repository's pages, one section per subfolder.
+// In the tree every part keeps the layout the repositories use: its pages in
+// docs/doc/ (whichever of the two its repository keeps them in; the addresses
+// are the same either way), and beside them its requirements (docs/requirements/)
+// and architecture decisions (docs/architecture/), which are not pages: `rho doc`
+// writes pages from them — a part's requirements, its decisions, and the
+// family's trace — when the rho-doc-req plugin is installed, and says once that
+// it did not when it is not.
+//
+// The tree's root is not a module: the orchestrator's own pages, in docs/doc/
+// and its subfolders, are the repository's pages, one section per subfolder.
+// The orchestrator's requirements and decisions are a part of their own,
+// `robohub/`, because the other repositories name it as their parent and find it
+// beside them; its pages land in the process section.
 //
 // The tree and the site are emptied first, so a part that was renamed or
 // removed is not left behind in the site.
@@ -50,12 +62,18 @@ const SITE: string = "build/site"
 const APPLICATIONS: string = "robohub-keeper robohub-mesh robohub-aquarium robohub-energy"
 
 fn main() void {
-    var tree: string = rho_arg(1)
+    var tree: string = rho_arg(0)
     if tree == "" {
         tree = TREE
     }
+    // The site is written to the second argument when there is one, so a check
+    // can assemble and build into a scratch folder and leave build/site alone.
+    var site: string = rho_arg(1)
+    if site == "" {
+        site = SITE
+    }
     print("assembling the RoboHub documentation in " + tree + "\n")
-    assemble(tree)
+    assemble(tree, site)
     print("done\n")
 }
 
@@ -65,23 +83,28 @@ fn sh(command: string, report: string) void {
 }
 
 // assemble collects every part's documentation into one tree and builds it.
-fn assemble(tree: string) void {
-    sh("mkdir -p build/reports && rm -rf " + tree + " " + SITE + " && mkdir -p " + tree + "/docs", "assemble-clean")
+// @req SITE-0001, SITE-0002, SITE-0006
+fn assemble(tree: string, site: string) void {
+    sh("mkdir -p build/reports && rm -rf " + tree + " " + site + " && mkdir -p " + tree + "/docs/doc", "assemble-clean")
     // The orchestrator's own pages, its release history on the overview, and
     // the shape of the site.
-    sh("cp -Rf docs/. " + tree + "/docs/ && cp -f applications/docsite/site.yml " + tree + "/docs/site.yml", "assemble-root")
+    sh("cp -Rf " + pages_dir(".") + "/. " + tree + "/docs/doc/ && cp -f applications/docsite/site.yml " + tree + "/docs/site.yml", "assemble-root")
     sh("if [ -f CHANGELOG.md ]; then printf '\\n\\n## Release history\\n\\n' >> " + tree +
-        "/docs/index.md && awk -f applications/docsite/templates/scripts/normalize-changelog.awk CHANGELOG.md >> " +
-        tree + "/docs/index.md; fi", "assemble-releases")
+        "/docs/doc/index.md && awk -f applications/docsite/templates/scripts/normalize-changelog.awk CHANGELOG.md >> " +
+        tree + "/docs/doc/index.md; fi", "assemble-releases")
+    assemble_root_process(tree)
 
     assemble_registry(tree)
-    assemble_folders(tree, "modules", "build")
-    assemble_folders(tree, "providers", "integrations")
-    assemble_folders(tree, "contracts", "integrations")
-    // The gateway contract shares its name with the gateway repository.
-    assemble_renamed(tree, "gateway", "contracts/gateway", "integrations", "robohub-gateway-contract")
-    assemble_folders(tree, "plugins", "integrations")
-    assemble_part(tree, "robohub-protocol", "protocol", "integrations")
+    // The parts nested in this repository are named in the tree as `rho req`
+    // names them — by `requirements: name:`, else by module name — so their
+    // requirements, and references to them, resolve in the tree as they do
+    // here. The gateway contract, the module robohub-gateway, is
+    // robohub-gateway-contract: the gateway repository has the other name.
+    assemble_folders_named(tree, "modules", "build")
+    assemble_folders_named(tree, "providers", "integrations")
+    assemble_folders_named(tree, "contracts", "integrations")
+    assemble_folders_named(tree, "plugins", "integrations")
+    assemble_named(tree, "protocol", "integrations")
     assemble_folders(tree, "../robohub-mesh/plugins", "integrations")
     assemble_renamed(tree, "robohub-devices-mqtt", "../robohub-devices/protocols/mqtt", "devices", "robohub-devices-mqtt")
     assemble_folders(tree, "../robohub-devices/devices/plug", "devices")
@@ -90,7 +113,7 @@ fn assemble(tree: string) void {
     assemble_folders(tree, "../robohub-devices/devices/sensor", "devices")
 
     // The site is the toolchain's own build of the tree.
-    rho_exec("rho", "doc " + tree + " -out " + SITE, "build/reports/doc.txt")
+    rho_exec("rho", "doc " + tree + " -out " + site, "build/reports/doc.txt")
 
     // The landing page: the ecosystem's entry points and its release history.
     sh("awk -f applications/docsite/templates/scripts/release-rows.awk CHANGELOG.md > build/reports/release-rows.html", "release-rows")
@@ -98,44 +121,103 @@ fn assemble(tree: string) void {
     var landing: string = rho_read_text("applications/docsite/templates/pages/landing.html")
     landing = str_replace(landing, "{{VERSION}}", version)
     landing = replace_once(landing, "<!--RELEASES-->", rho_read_text("build/reports/release-rows.html"))
-    rho_write_text(SITE + "/index.html", landing)
+    // The ecosystem's requirements trace, when the build wrote it.
+    var trace_link: string = ""
+    if rho_path_exists(site + "/robohub/requirements/trace.html") {
+        trace_link = "<li><a href=\"robohub/requirements/trace.html\">Requirements</a></li>"
+    }
+    landing = replace_once(landing, "<!--REQUIREMENTS-->", trace_link)
+    rho_write_text(site + "/index.html", landing)
 }
 
 // assemble_part copies one part — its pages, or its README when it has no
-// docs/index.md, its manifest with the site's section, and its release history
-// — into the tree under name.
+// docs/doc/index.md (or docs/index.md), its manifest with the site's section,
+// and its release history — into the tree under name.
 fn assemble_part(tree: string, name: string, path: string, section: string) void {
     assemble_renamed(tree, name, path, section, "")
 }
 
 // assemble_renamed is assemble_part with the module renamed in the copy, for a
 // part whose name another part already has.
+// @req SITE-0001, SITE-0003, SITE-0004
 fn assemble_renamed(tree: string, name: string, path: string, section: string, rename: string) void {
     if !rho_path_exists(path + "/module.yml") {
         return
     }
-    let has_docs: bool = rho_path_exists(path + "/docs/index.md")
+    let pages: string = pages_dir(path)
+    let has_docs: bool = rho_path_exists(pages + "/index.md")
     if !has_docs && !rho_path_exists(path + "/README.md") {
         return
     }
     let dest: string = tree + "/" + name
-    sh("mkdir -p " + dest + "/docs", "part-" + name)
+    sh("mkdir -p " + dest + "/docs/doc", "part-" + name)
     if has_docs {
-        sh("cp -Rf " + path + "/docs/. " + dest + "/docs/", "part-" + name + "-docs")
+        sh("cp -Rf " + pages + "/. " + dest + "/docs/doc/", "part-" + name + "-docs")
+        // A part that has not moved its pages to docs/doc/ copied its whole
+        // docs/; what is not a page goes back beside the pages.
+        if pages == path + "/docs" {
+            sh("rm -rf " + dest + "/docs/doc/requirements " + dest + "/docs/doc/architecture/adr", "part-" + name + "-unpages")
+        }
     } else {
-        sh("cp -f " + path + "/README.md " + dest + "/docs/index.md", "part-" + name + "-readme")
+        sh("cp -f " + path + "/README.md " + dest + "/docs/doc/index.md", "part-" + name + "-readme")
     }
+    assemble_process(path, dest, "part-" + name)
     sh("awk -v section=" + section + " -v name=" + rename + " -f applications/docsite/templates/scripts/set-section.awk " +
         path + "/module.yml > " + dest + "/module.yml", "part-" + name + "-manifest")
     // A shared module's page ends with what its manifest and sources declare:
     // exports, routes and the host hooks an application has to define.
     if section == "build" {
-        sh("sh applications/docsite/templates/scripts/module-reference.sh " + path + " >> " + dest + "/docs/index.md",
+        sh("sh applications/docsite/templates/scripts/module-reference.sh " + path + " >> " + dest + "/docs/doc/index.md",
             "part-" + name + "-reference")
     }
     sh("if [ -f " + path + "/CHANGELOG.md ]; then printf '\\n\\n## Release history\\n\\n' >> " + dest +
-        "/docs/index.md && awk -f applications/docsite/templates/scripts/normalize-changelog.awk " +
-        path + "/CHANGELOG.md >> " + dest + "/docs/index.md; fi", "part-" + name + "-releases")
+        "/docs/doc/index.md && awk -f applications/docsite/templates/scripts/normalize-changelog.awk " +
+        path + "/CHANGELOG.md >> " + dest + "/docs/doc/index.md; fi", "part-" + name + "-releases")
+}
+
+// assemble_process copies a part's requirements (docs/requirements/) and
+// architecture decisions (docs/architecture/) beside its pages in the tree.
+// Test results are not carried: a published site shows what is required and
+// how it is traced, and evidence is what `rho req trace` reports where the
+// tests ran.
+// @req SITE-0005
+fn assemble_process(path: string, dest: string, report: string) void {
+    if rho_path_exists(path + "/docs/requirements") {
+        sh("mkdir -p " + dest + "/docs && cp -Rf " + path + "/docs/requirements " + dest + "/docs/", report + "-requirements")
+    }
+    if rho_path_exists(path + "/docs/architecture") {
+        sh("mkdir -p " + dest + "/docs && cp -Rf " + path + "/docs/architecture " + dest + "/docs/", report + "-architecture")
+    }
+}
+
+// assemble_root_process makes the orchestrator's requirements, decisions and
+// maintainers a part of their own, robohub/, in the process section: the other
+// repositories name robohub as their parent and find it beside them. It carries
+// no pages (the orchestrator's pages are the repository's, above), only what
+// `rho doc` writes pages from.
+// @req SITE-0005
+fn assemble_root_process(tree: string) void {
+    if !rho_path_exists("docs/requirements") {
+        if !rho_path_exists("docs/architecture/adr") {
+            return
+        }
+    }
+    let dest: string = tree + "/robohub"
+    sh("mkdir -p " + dest + " && awk -v section=process -f applications/docsite/templates/scripts/set-section.awk module.yml > " +
+        dest + "/module.yml", "root-process-manifest")
+    assemble_process(".", dest, "root-process")
+    if rho_path_exists("MAINTAINERS.yml") {
+        sh("cp -f MAINTAINERS.yml " + dest + "/MAINTAINERS.yml", "root-process-maintainers")
+    }
+}
+
+// pages_dir is where a part keeps its pages: docs/doc when it has that folder,
+// docs otherwise.
+fn pages_dir(path: string) string {
+    if rho_path_exists(path + "/docs/doc") {
+        return path + "/docs/doc"
+    }
+    return path + "/docs"
 }
 
 // assemble_folders reads a folder of parts: each subfolder with a manifest is
@@ -155,8 +237,53 @@ fn assemble_folders(tree: string, group: string, section: string) void {
     }
 }
 
+// assemble_folders_named reads a folder of parts as assemble_folders does,
+// each named as `rho req` names it (assemble_named).
+// @req SITE-0008
+fn assemble_folders_named(tree: string, group: string, section: string) void {
+    if !rho_path_exists(group) {
+        return
+    }
+    let report: string = "ls-" + str_replace(str_replace(group, "/", "-"), ".", "")
+    sh("ls " + group + "/", report)
+    var rest: string = rho_read_text("build/reports/" + report + ".txt")
+    while rest != "" {
+        let name: string = first_line(rest)
+        rest = after_line(rest)
+        if name != "" {
+            assemble_named(tree, group + "/" + name, section)
+        }
+    }
+}
+
+// assemble_named copies the part at path under the name `rho req` gives a
+// module nested in a repository: its `requirements: name:`, else its module
+// name (templates/scripts/part-name.awk). A part renamed that way is renamed in
+// its manifest's copy too, so its pages and its requirements go by one name.
+// @req SITE-0008
+fn assemble_named(tree: string, path: string, section: string) void {
+    if !rho_path_exists(path + "/module.yml") {
+        return
+    }
+    let report: string = "name-" + str_replace(str_replace(path, "/", "-"), ".", "")
+    sh("awk -f applications/docsite/templates/scripts/part-name.awk " + path + "/module.yml", report)
+    let line: string = first_line(rho_read_text("build/reports/" + report + ".txt"))
+    let space: i32 = rho_str_index_of(line, " ")
+    if space <= 0 {
+        return
+    }
+    let name: string = rho_str_slice(line, 0, u32(space))
+    let module_name: string = rho_str_slice(line, u32(space) + 1, u32(rho_strlen(line)) - u32(space) - 1)
+    var rename: string = ""
+    if name != module_name {
+        rename = name
+    }
+    assemble_renamed(tree, name, path, section, rename)
+}
+
 // assemble_registry reads the ecosystem registry: each entry names a sibling
 // repository, which is an application or part of the device side.
+// @req SITE-0002
 fn assemble_registry(tree: string) void {
     if !rho_path_exists(REGISTRY) {
         return

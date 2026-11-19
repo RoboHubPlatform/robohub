@@ -54,5 +54,8 @@ add a header of its own.
 
 `send` answers `1` when the message was written or accepted by the server, `0`
 when a required setting is missing or the transfer failed. The mail is uploaded
-with `curl`; the login is passed through an owner-only file, never on a command
-line.
+with `curl`; the server, the sender, the recipient and the login are given to it
+in an owner-only configuration file, never on a command line, and that file and
+the message are removed after the delivery. A password may hold any character
+but a line break. An `smtp_host` that is not a host name or address, or an
+`smtp_port` that is not digits, is refused.

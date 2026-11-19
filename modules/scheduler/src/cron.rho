@@ -101,6 +101,7 @@ fn scheduler_allows(set: string, value: u32) bool {
 // time; 0 when the expression cannot be read or names no time in a year. As in
 // cron, when both the day of the month and the day of the week are restricted,
 // a day matching either is taken; day of week 7 is Sunday, as 0 is.
+// @req SCHED-0002
 fn scheduler_cron_next(expression: string, now: u32) u32 {
     let minutes: string = scheduler_cron_set(scheduler_field(expression, 0), 0, 59)
     let hours: string = scheduler_cron_set(scheduler_field(expression, 1), 0, 23)

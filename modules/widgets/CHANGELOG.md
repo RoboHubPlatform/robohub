@@ -141,3 +141,11 @@ The live stream of cards (`events.jsonl`) is appended to instead of read and wri
 ## [0.4.1] - 2026-11-15
 
 Every `let` the code assigned to is declared with `var`, as rho 0.19.0 asks (assigning to a `let` is deprecated there and refused in the next minor release). Nothing else changes.
+
+## [0.4.2] - 2026-11-19
+
+Security: only `/widgets/add` checked the form token, so a page on another site could make a signed-in person's browser edit, delete, move, resize or pin a widget, record a value or press a button or switch (behind the generated server's origin check, which this is the second guard to). Every widgets post that changes something now needs the form token — a bearer ticket does not stand in for it, and htmx is answered 403 so nothing is swapped in — and every form the module draws (cards, rows, the edit page) carries it. `POST /api/widgets/{id}/value`, `/api/widgets/{id}/press` and `/widgets/refresh` are for code and take a bearer ticket or the token (`forms_machine_ok`); a cookie alone is 403.
+
+A widget's URL (which may carry a key or a login) was one of curl's arguments, visible to every user of the machine in `ps`. It is now in an owner-only curl configuration file, named afresh for each request and removed after it. Needs forms 0.3.7.
+
+The directory it keeps its data in is made with `mkdir` given the path as one argument (`rho_exec_args`, one argument per line) rather than one string the runtime splits on spaces: a workspace path holding a space made stray directories from the words of the path, one of them relative to wherever the application runs, and on the C backend left the real directory unmade.

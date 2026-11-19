@@ -19,59 +19,97 @@ module robohub.registry
 // it is. The registry does not repeat what a module already says, because a
 // registry that repeats it is a second copy that drifts.
 //
-// The names are reached by their position rather than held in a list. A Rho
-// program has no heap, and a list of strings is a list of pointers to strings
-// that nothing owns — so a registry of thirteen modules is thirteen names and
-// an index, which is what a program of this kind can honestly hold.
+// The registry is the folder registry/modules: one entry per module, named for
+// it. The names are read from there, not written here as well — a list kept in
+// the program beside the folder is a second copy that drifts, and did: the
+// program knew 13 modules while the folder had 17, and keeper, mesh, aquarium
+// and energy were never listed, checked or validated. A Rho program has no heap,
+// so the names are text, one per line, walked a line at a time.
 
-/// The number of modules in the ecosystem.
-const MODULE_COUNT: u32 = 13
+/// Where the registry's entries are.
+const REGISTRY_DIR: string = "registry/modules"
 
-/// The name of the module at a position, or "" when there is none.
-fn module_name(index: u32) string {
-    if index == 0 {
-        return "robohub-common"
+/// What runs a program with one argument per line, and the listing it writes.
+extern fn rho_exec_args(program: string, arguments: string, output_path: string) u32
+
+/// registry_names_in lists the modules a registry folder names: the file name
+/// of each `<name>.yml` entry, one per line, in the order `ls` gives them
+/// (sorted). A folder that is not there names none.
+// @req HUB-0001, HUB-0021
+fn registry_names_in(dir: string) string {
+    let report: string = "build/reports/registry-names.txt"
+    rho_exec_args("mkdir", "-p\nbuild/reports\n", "/dev/null")
+    if rho_exec_args("ls", "-1\n--\n" + dir + "\n", report) != 0 {
+        return ""
     }
-    if index == 1 {
-        return "robohub-core"
+    var out: string = ""
+    var rest: string = rho_read_text(report)
+    while rest != "" {
+        let at: i32 = rho_str_index_of(rest, "\n")
+        var line: string = rest
+        if at < 0 {
+            rest = ""
+        } else {
+            line = rho_str_slice(rest, 0, u32(at))
+            rest = rho_str_slice(rest, u32(at) + 1, u32(rho_strlen(rest)) - u32(at) - 1)
+        }
+        let length: u32 = u32(rho_strlen(line))
+        if length > 4 && rho_str_slice(line, length - 4, 4) == ".yml" {
+            out = out + rho_str_slice(line, 0, length - 4) + "\n"
+        }
     }
-    if index == 2 {
-        return "robohub-devices"
+    return out
+}
+
+/// registry_names is every module of the ecosystem's registry, one per line.
+fn registry_names() string {
+    return registry_names_in(REGISTRY_DIR)
+}
+
+/// name_count is how many names a list of them (one per line) holds.
+fn name_count(names: string) u32 {
+    var count: u32 = 0
+    var i: u32 = 0
+    let n: u32 = u32(rho_strlen(names))
+    while i < n {
+        if rho_str_slice(names, i, 1) == "\n" {
+            count = count + 1
+        }
+        i = i + 1
     }
-    if index == 3 {
-        return "robohub-drivers"
-    }
-    if index == 4 {
-        return "robohub-esp32"
-    }
-    if index == 5 {
-        return "robohub-freertos"
-    }
-    if index == 6 {
-        return "robohub-gateway"
-    }
-    if index == 7 {
-        return "robohub-linux"
-    }
-    if index == 8 {
-        return "robohub-pico"
-    }
-    if index == 9 {
-        return "robohub-stm32"
-    }
-    if index == 10 {
-        return "robohub-telemetry"
-    }
-    if index == 11 {
-        return "robohub-transport"
-    }
-    if index == 12 {
-        return "robohub-avr"
+    return count
+}
+
+/// name_at is the name at a position of a list of them, or "" past its end.
+fn name_at(names: string, index: u32) string {
+    var rest: string = names
+    var i: u32 = 0
+    while rest != "" {
+        let at: i32 = rho_str_index_of(rest, "\n")
+        if at < 0 {
+            return ""
+        }
+        if i == index {
+            return rho_str_slice(rest, 0, u32(at))
+        }
+        rest = rho_str_slice(rest, u32(at) + 1, u32(rho_strlen(rest)) - u32(at) - 1)
+        i = i + 1
     }
     return ""
 }
 
+/// The number of modules in the ecosystem.
+fn module_count() u32 {
+    return name_count(registry_names())
+}
+
+/// The name of the module at a position, or "" when there is none.
+fn module_name(index: u32) string {
+    return name_at(registry_names(), index)
+}
+
 /// The registry entry of a module, as a path relative to the orchestrator.
+// @req HUB-0001
 fn entry_path(name: string) string {
     return "registry/modules/" + name + ".yml"
 }
@@ -87,14 +125,10 @@ fn yaml_value(path: string, key: string) string {
 
 /// Whether the registry names a module.
 fn is_known(name: string) bool {
-    var index: u32 = 0
-    while index < MODULE_COUNT {
-        if module_name(index) == name {
-            return true
-        }
-        index = index + 1
+    if name == "" {
+        return false
     }
-    return false
+    return rho_str_index_of("\n" + registry_names(), "\n" + name + "\n") >= 0
 }
 
 /// A name padded to a width, so a list lines up.

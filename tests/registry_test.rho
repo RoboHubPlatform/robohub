@@ -21,47 +21,94 @@ module robohub.tests.registry
 
 include "../src/registry.rho"
 
+extern fn rho_strlen(s: string) u64
+extern fn rho_read_text(path: string) string
+extern fn rho_path_exists(path: string) bool
+extern fn rho_str_index_of(s: string, needle: string) i32
+extern fn rho_str_slice(s: string, start: u32, length: u32) string
+
 // assert is defined here rather than imported: the standard library's own
 // assertion lives in the toolchain's tree, and a project that is not the
 // toolchain does not have it on the path. A test that cannot assert is a test
 // that only says it ran.
-fn assert(condition: bool) void {
+fn assert(condition: bool, what: string) void {
     if !condition {
-        panic("assertion failed")
+        print("FAIL: " + what + "\n")
+        panic("assertion failed: " + what)
     }
 }
 
-test fn every_module_has_a_name() {
+// The registry is the folder: as many modules as it has entries, every one
+// with a name, keeper, mesh, aquarium and energy among them.
+// @verifies HUB-0021
+test fn every_module_has_a_name() void {
+    let count: u32 = module_count()
+    assert(count >= 17, "the registry has at least the 17 entries of registry/modules")
     var index: u32 = 0
     var named: u32 = 0
-    while index < MODULE_COUNT {
-        if module_name(index) != "" {
+    while index < count {
+        let name: string = module_name(index)
+        if name != "" && rho_path_exists(entry_path(name)) {
             named = named + 1
         }
         index = index + 1
     }
-    assert(named == MODULE_COUNT)
+    assert(named == count, "every name is an entry of the folder")
+    print("[PASS] every_module_has_a_name\n")
 }
 
-test fn a_module_beyond_the_registry_has_no_name() {
-    assert(module_name(MODULE_COUNT) == "")
+// @verifies HUB-0021
+test fn the_applications_are_in_the_registry() void {
+    assert(is_known("robohub-keeper"), "the keeper is known")
+    assert(is_known("robohub-mesh"), "mesh is known")
+    assert(is_known("robohub-aquarium"), "the aquarium is known")
+    assert(is_known("robohub-energy"), "energy is known")
+    print("[PASS] the_applications_are_in_the_registry\n")
 }
 
-test fn a_known_module_is_known() {
-    assert(is_known("robohub-common"))
-    assert(is_known("robohub-avr"))
+test fn a_module_beyond_the_registry_has_no_name() void {
+    assert(module_name(module_count()) == "", "past the end there is no name")
+    print("[PASS] a_module_beyond_the_registry_has_no_name\n")
 }
 
-test fn an_unknown_module_is_not_known() {
-    assert(!is_known("robohub-nowhere"))
-    assert(!is_known(""))
+test fn a_known_module_is_known() void {
+    assert(is_known("robohub-common"), "robohub-common")
+    assert(is_known("robohub-avr"), "robohub-avr")
+    print("[PASS] a_known_module_is_known\n")
 }
 
-test fn an_entry_path_is_the_modules_own_entry() {
-    assert(entry_path("robohub-avr") == "registry/modules/robohub-avr.yml")
+test fn an_unknown_module_is_not_known() void {
+    assert(!is_known("robohub-nowhere"), "a name with no entry")
+    assert(!is_known(""), "no name")
+    assert(!is_known("robohub"), "a prefix of names is not a name")
+    print("[PASS] an_unknown_module_is_not_known\n")
 }
 
-test fn a_padded_name_is_at_least_the_width() {
-    assert(strlen(pad("ab", 6)) == 6)
-    assert(strlen(pad("abcdefgh", 4)) == 8)
+test fn a_folder_that_is_not_there_names_nothing() void {
+    assert(registry_names_in("registry/nowhere") == "", "a missing folder")
+    print("[PASS] a_folder_that_is_not_there_names_nothing\n")
+}
+
+test fn an_entry_path_is_the_modules_own_entry() void {
+    assert(entry_path("robohub-avr") == "registry/modules/robohub-avr.yml", "the entry's path")
+    print("[PASS] an_entry_path_is_the_modules_own_entry\n")
+}
+
+test fn a_padded_name_is_at_least_the_width() void {
+    assert(strlen(pad("ab", 6)) == 6, "padded to the width")
+    assert(strlen(pad("abcdefgh", 4)) == 8, "a longer name is kept whole")
+    print("[PASS] a_padded_name_is_at_least_the_width\n")
+}
+
+// Every test is called: a test fn main does not call is one that never runs.
+fn main() void {
+    every_module_has_a_name()
+    the_applications_are_in_the_registry()
+    a_module_beyond_the_registry_has_no_name()
+    a_known_module_is_known()
+    an_unknown_module_is_not_known()
+    a_folder_that_is_not_there_names_nothing()
+    an_entry_path_is_the_modules_own_entry()
+    a_padded_name_is_at_least_the_width()
+    print("registry tests ok\n")
 }

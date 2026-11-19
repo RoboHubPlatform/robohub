@@ -1,0 +1,52 @@
+# What the MQTT bus provider (robohub-provider-mqtt, a provider of robohub.bus)
+# guarantees to an application that binds it (src/provider.rho), through the
+# RoboHub platform's mqtt port. Written in the R5 backfill from the docs, the
+# changelog and the code; the provider has no tests of its own. Proposed until
+# the maintainer approves them.
+level: NODE
+prefix: PMQTT
+title: MQTT bus provider
+requirements:
+  - id: PMQTT-0001
+    title: The broker the keeper gave the application, unless the binding names one
+    statement: >
+      The provider shall use the `broker`, `user` and `password_file` settings
+      when the binding gives them, and otherwise ROBOHUB_BUS_URL,
+      ROBOHUB_BUS_USER and ROBOHUB_BUS_PASSWORD_FILE, which the keeper starts an
+      application that binds the bus with.
+    rationale: The keeper runs the broker and makes a broker user per application; an application started by hand may name another.
+    satisfies: [SYS-0028]
+    decided_by: [robohub:ADR-0007]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [bus, mqtt, settings]
+
+  - id: PMQTT-0002
+    title: The broker password is read from its file, never from a setting
+    statement: >
+      The broker password shall be read from the file `password_file` names by
+      the mqtt port, and shall never pass through a setting or a command line.
+    rationale: Settings are shown and written by pages; a password in one would be one more copy to leak.
+    satisfies: [SYS-0033]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [bus, mqtt, secrets]
+
+  - id: PMQTT-0003
+    title: Every bus call goes through the platform's mqtt port
+    statement: >
+      publish shall publish at QoS 1 with the retain flag asked for, and follow,
+      follow_lines, relay, latest and topics shall be answered by the RoboHub
+      platform's mqtt port (mqtt_follow, mqtt_follow_lines, mqtt_relay,
+      mqtt_latest, mqtt_topics).
+    rationale: QoS 1 delivers a switch command at least once; one port implements the broker client for every application.
+    satisfies: [SYS-0028]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [bus, mqtt]

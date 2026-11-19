@@ -22,10 +22,12 @@ module appshell
 // modules (host_settings_tabs: `key|label key,` each, a module's form drawn by
 // host_settings_form and kept by host_settings_save), then logging and about.
 // appshell knows no module's settings: each module owns its own form.
+// @req SHELL-0001, SHELL-0006
 fn appshell_settings_tabs() string {
     return "gateway|settings.tab.gateway," + host_settings_tabs() + "logging|settings.tab.logging,about|settings.tab.about"
 }
 
+// @req SHELL-0001
 fn appshell_settings_tab(req: Request) string {
     let tab: string = request_query_param(req, "tab")
     if tab != "" && rho_str_index_of("," + appshell_settings_tabs(), "," + tab + "|") >= 0 {
@@ -34,6 +36,7 @@ fn appshell_settings_tab(req: Request) string {
     return "gateway"
 }
 
+// @req SHELL-0002
 fn appshell_gateway_form(req: Request) string {
     var choice: string = gateway.provider()
     if choice == "" {
@@ -136,6 +139,7 @@ fn appshell_settings_page(req: Request) Response {
     return appshell_settings_page_message(req, message)
 }
 
+// @req SHELL-0002, SHELL-0003
 fn appshell_settings_save(req: Request) Response {
     let body: string = request_body(req)
     let tab: string = appshell_settings_tab(req)

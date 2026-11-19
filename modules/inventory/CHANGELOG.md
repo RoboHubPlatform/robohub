@@ -88,3 +88,9 @@ It lists what other code may use (`provides.exports`, imported as `robohub.inven
 ## [0.4.1] - 2026-11-15
 
 Every `let` the code assigned to is declared with `var`, as rho 0.19.0 asks (assigning to a `let` is deprecated there and refused in the next minor release). Nothing else changes.
+
+## [0.4.2] - 2026-11-19
+
+Security: removing a purchase (`POST /expenses/purchases/delete`) did not check the form token, so a page on another site could make a signed-in person's browser delete purchases. It is refused now without the token, like every other inventory post, and the purchases table draws the token into each delete form.
+
+The directory it keeps its data in is made with `mkdir` given the path as one argument (`rho_exec_args`, one argument per line) rather than one string the runtime splits on spaces: a workspace path holding a space made stray directories from the words of the path, one of them relative to wherever the application runs, and on the C backend left the real directory unmade.

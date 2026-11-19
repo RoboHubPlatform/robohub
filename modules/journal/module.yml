@@ -13,7 +13,7 @@ module:
   type: module
   title: Journal
   category: operations
-  version: 0.2.0
+  version: 0.2.1
   description: >
     What happened, in one table every RoboHub application shares the shape of:
     the time, the level, the kind of thing, its subject, who or what did it and
@@ -54,22 +54,30 @@ deps:
     # Its pages are translated (i18n_t, i18n_vars).
     i18n: ">=0.4.0"
     notifications: ">=0.1.0"
+    # The resolve form carries the form token (forms_csrf_field, forms_csrf_ok).
+    forms: ">=0.3.7"
 
 docs:
   title: Journal
   section: modules
   order: "15"
-  index: docs/index.md
+  index: docs/doc/index.md
   sources:
-    - docs/index.md
+    - docs/doc/index.md
 
 assets:
   - templates
   - db/schema.sql
-  - docs/index.md
+  - docs/doc/index.md
 
 locales:
   - locale: en
     file: locales/en.json
   - locale: ro
     file: locales/ro.json
+
+# Requirements: the prefix of the ids this module allocates, and the repository
+# that holds levels.yml and the system level (rho req).
+requirements:
+  prefix: JRNL
+  parent: robohub

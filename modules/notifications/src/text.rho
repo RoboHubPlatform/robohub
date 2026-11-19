@@ -17,13 +17,14 @@ fn notification_workspace() string {
     return workspace
 }
 
+// @req NOTIF-0006
 fn notification_db_path() string {
     let override: string = getenv("RHO_NOTIFICATIONS_DB")
     if override != "" {
         return override
     }
     let dir: string = notification_workspace() + "/data"
-    rho_exec("mkdir", "-p " + dir, dir + "/mkdir.txt")
+    rho_exec_args("mkdir", "-p\n" + dir + "\n", dir + "/mkdir.txt")
     return dir + "/app.db"
 }
 

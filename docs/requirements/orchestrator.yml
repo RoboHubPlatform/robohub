@@ -1,0 +1,369 @@
+# What the orchestrator itself does towards the system requirements: the
+# registry of the ecosystem's repositories, the `robohub` command that checks
+# them as a whole and runs the toolchain's tools over them, the contracts the
+# keeper reads for plugins and shared modules, and what every repository shares
+# from here — the CI workflow, the branch ruleset, the governance files and the
+# host-test runner. The shared modules, contracts, providers, plugins, protocol
+# and the documentation site nested in this repository keep requirements of
+# their own. Written in the R5 backfill from the documentation, the changelog,
+# the code and the tests; proposed until the maintainer approves them.
+level: NODE
+prefix: HUB
+title: RoboHub Orchestrator
+requirements:
+  # The registry
+  - id: HUB-0001
+    title: One registry entry per repository
+    statement: >
+      The orchestrator shall keep one entry per repository of the ecosystem in
+      registry/modules/<name>.yml, giving the repository's name, its role, its
+      path relative to the orchestrator, its git URL and a one-line summary, and
+      nothing that the repository's own module.yml already says.
+    rationale: The registry is the truth about where a repository is and what it is for; a copy of what its manifest says is a second copy that drifts.
+    satisfies: [SYS-0067]
+    status: proposed
+    verification: inspection
+    decided_by: [robohub:ADR-0002]
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [registry]
+
+  - id: HUB-0002
+    title: A registered module is described by name
+    statement: >
+      `robohub registry show <module>` shall print the module's name, role,
+      path, git URL and summary from its registry entry, and say that no module
+      has that name when the registry does not know it.
+    rationale: Which repository holds what is the question a person asks most often about the ecosystem.
+    satisfies: [SYS-0067]
+    status: proposed
+    verification: test
+    decided_by: [robohub:ADR-0002]
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [registry, cli]
+
+  - id: HUB-0003
+    title: The ecosystem is checked to be whole
+    statement: >
+      `robohub registry check` shall name every registered module that has no
+      module.yml at its registered path, say how many of the registered modules
+      are present, and exit non-zero when any is missing.
+    rationale: A registry that names a repository that is not there sends a reader, or a CI build, looking for something that does not exist; a check that reports a failure and then succeeds is read as a success.
+    satisfies: [SYS-0067]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [registry, cli]
+
+  # Validation
+  - id: HUB-0004
+    title: Registry entries are validated
+    statement: >
+      `robohub validate [dir]` shall report a registry entry, in registry/modules
+      or in the directory given, that has no name, names a module other than its
+      file's, or has no role or no path, and shall then exit non-zero.
+    rationale: An entry without a role says nothing about what the repository is for, and an entry that names another module is a registry that disagrees with itself; the directory is a parameter so the validator can be shown a broken copy.
+    satisfies: [SYS-0067]
+    status: proposed
+    verification: test
+    decided_by: [robohub:ADR-0002]
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [registry, validation]
+
+  - id: HUB-0005
+    title: Every manifest has an identity and a known type
+    statement: >
+      `robohub validate` shall report every module.yml in the registered
+      repositories, outside build/, vendor/, templates/ and .git/, that lacks
+      module.name or module.version, has no module.id, a module.id with
+      whitespace or a slash, or one another manifest already uses, or a
+      module.type outside the ecosystem's list (rho, module, component, plugin,
+      provider, interfaces, platform, platform-board, driver, driver-board,
+      device, runtime, middleware, collection), and shall then exit non-zero.
+    rationale: Registries, lock files and saved plans refer to a module by its id, so two modules with one id cannot both be true; a type nobody agreed on is reported before a build reaches it.
+    satisfies: [SYS-0040, SYS-0067]
+    status: proposed
+    verification: test
+    decided_by: [robohub:ADR-0002]
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [validation, manifests]
+
+  - id: HUB-0006
+    title: Suite manifests and target specs are validated
+    statement: >
+      `robohub validate` shall report a registered repository's tests/tests.yml
+      that has no name, or neither suites nor includes, and a target spec
+      (targets/<name>.json) that has no name or no kind, and shall then exit
+      non-zero.
+    rationale: A suite manifest the runner cannot read is a test that never runs, and a spec without a kind is a board that does not exist.
+    satisfies: [SYS-0067]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [validation, tests]
+
+  - id: HUB-0007
+    title: The rules are published as JSON Schemas
+    statement: >
+      The rules the orchestrator checks registry entries, suite manifests, target
+      specs and board manifests against shall be published as JSON Schemas in
+      schemas/ (registry.v1, suite.v1, target-spec.v1, board.v1).
+    rationale: Anything else — an editor, another tool — can check a file against the same contract without running the orchestrator.
+    satisfies: [SYS-0067]
+    status: proposed
+    verification: inspection
+    decided_by: [robohub:ADR-0002]
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [validation, schemas]
+
+  - id: HUB-0008
+    title: Every sibling manifest matches the toolchain's schema
+    statement: >
+      The orchestrator's tests shall run `rho module validate` over the
+      module.yml of every robohub-* repository checked out beside it, of
+      every board in its boards/ folder, and of every part this repository
+      carries (modules/, contracts/, providers/, plugins/, protocol/,
+      applications/), and fail on the first that does not match.
+    rationale: The toolchain is the authority on what a manifest may say; a board whose manifest is not read is reported as a target that does not exist, which says nothing about why.
+    satisfies: [SYS-0067]
+    status: proposed
+    verification: test
+    decided_by: [robohub:ADR-0001]
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [validation, manifests]
+
+  - id: HUB-0009
+    title: RoboHub dependencies are declared under deps.robohub
+    statement: >
+      For every application, module and plugin manifest in applications/,
+      modules/ and plugins/, the dependency check shall fail when a shared module
+      or plugin that its sources include, its `modules:` list names or its
+      `plugins:` list names is not under deps.robohub, when a RoboHub dependency
+      is declared at the top level of deps, or when a `modules:` or `plugins:`
+      entry repeats a version.
+    rationale: A module that is included but not declared is built from whatever happens to be beside it; the version lives in one place so it cannot disagree with itself.
+    satisfies: [SYS-0067]
+    status: proposed
+    verification: test
+    decided_by: [robohub:ADR-0002]
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [dependencies, manifests]
+
+  # Running the toolchain over the ecosystem
+  - id: HUB-0010
+    title: The tests of every module run from one command
+    statement: >
+      `robohub test [module] [--unit|--smoke]` shall run `rho test` (with the
+      `unit` or `smoke` tag when asked) over every registered module that
+      declares tests/tests.yml or tests.yml, or over the one named, keep each
+      run's output in build/reports/test-<module>.txt, count a module that
+      declares no tests as having none rather than as failed, and print how many
+      modules passed and how many did not.
+    rationale: The orchestrator decides what to run the toolchain's runner over and collects what it said; the runner decides how to run and what a result means.
+    satisfies: [SYS-0067]
+    status: proposed
+    verification: test
+    decided_by: [robohub:ADR-0001]
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [tests, cli]
+
+  - id: HUB-0011
+    title: A module's suites are listed and switched on and off
+    statement: >
+      `robohub test list <module>` shall list a module's suites and whether each
+      is run, and `robohub test disable|enable <module> <name>` shall set that
+      suite's `enabled:` in the manifest that declares it, so that the next run
+      skips a disabled suite and runs it again once it is enabled.
+    rationale: A test that is not run is still a test: it is there, and the listing and the report say it is not run.
+    satisfies: [SYS-0067]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [tests, cli]
+
+  - id: HUB-0012
+    title: A built keeper is run on the loopback interface
+    statement: >
+      `robohub keeper [port]` shall run the keeper built in the robohub-keeper
+      checkout ($ROBOHUB_KEEPER, else ../robohub-keeper) listening on 127.0.0.1
+      at the port given (19090 by default), and say how to build it when it is
+      not built.
+    rationale: A developer runs the keeper beside the orchestrator without installing it as a service, and never on an address the network reaches.
+    satisfies: [SYS-0005, SYS-0032]
+    status: proposed
+    verification: demonstration
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [keeper, cli, network]
+
+  - id: HUB-0013
+    title: Deploying the keeper is the keeper's own script
+    statement: >
+      scripts/deploy-keeper.sh shall run the deploy script of the robohub-keeper
+      checkout ($ROBOHUB_KEEPER, else beside the orchestrator) with
+      ROBOHUB_ROOT set to the orchestrator, and say where to clone the keeper
+      when it is not there.
+    rationale: The keeper lives in its own repository and deploys itself from there; a machine that runs this script from habit still gets the keeper beside the orchestrator.
+    satisfies: [SYS-0002]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [keeper, installation]
+
+  # The contracts the keeper reads
+  - id: HUB-0014
+    title: The plugin registry and its contract
+    statement: >
+      The orchestrator's module.yml shall declare the plugin registry — its
+      database (plugins/registry.yml), the discovery pattern (plugins/*/module.yml),
+      the module and plugin keys a plugin manifest must carry and the transports
+      a plugin may use — and plugins/registry.yml shall hold the installed set,
+      each entry with its name, path and whether it is enabled.
+    rationale: The keeper's plugin page lists and edits the installed set; a plugin whose folder is not in the database is not listed, and an entry whose folder is gone is shown as missing.
+    satisfies: [SYS-0067]
+    status: proposed
+    verification: inspection
+    decided_by: [robohub:ADR-0002, robohub:ADR-0007]
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [plugins, contracts]
+
+  - id: HUB-0015
+    title: The shared-module registry and its contract
+    statement: >
+      The orchestrator's module.yml shall declare the shared-module registry —
+      its database (modules/registry.yml), the discovery pattern
+      (modules/*/module.yml), the keys a module manifest and its `module_app`
+      block must carry, and the instance fields (name, version, route, enabled,
+      config) that only a host application declares — and modules/registry.yml
+      shall hold the installed set, each entry with its name, path and whether
+      it is enabled.
+    rationale: A shared module is compiled into the applications that include it; where it is mounted, whether it is enabled and its settings belong to each host, not to the module.
+    satisfies: [SYS-0067]
+    status: proposed
+    verification: inspection
+    decided_by: [robohub:ADR-0002, robohub:ADR-0005]
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [modules, contracts]
+
+  # What every repository shares from here
+  - id: HUB-0016
+    title: One CI workflow for every repository
+    statement: >
+      The orchestrator shall provide the reusable workflow
+      .github/workflows/robohub-ci.yml that every repository of the ecosystem
+      calls, which checks the repository out beside robohub and the siblings it
+      names, installs the toolchain through rho's check.sh, refuses local paths,
+      checks module ids, runs `rho req check --workspace` (with `--base` on a
+      pull request), builds the named projects for the named targets through
+      `rho build`, and runs `rho test` when tests/tests.yml exists.
+    rationale: A step copied into seventeen repositories is a step fixed in one and not the others; every step goes through the toolchain, so what CI runs is what a person runs.
+    satisfies: [SYS-0040, SYS-0041, SYS-0067]
+    status: proposed
+    verification: inspection
+    decided_by: [robohub:ADR-0001, robohub:ADR-0015]
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [ci, releases, process]
+
+  - id: HUB-0017
+    title: main is protected by one ruleset
+    statement: >
+      The orchestrator shall carry the ruleset that protects main
+      (.github/rulesets/main.json: no deletion and no force-push, changes only by
+      pull request with one code-owner approval, stale approvals dismissed,
+      review threads resolved and the CI check green, repository administrators
+      bypassing) and tools/apply-rulesets.sh, which applies it to every RoboHub
+      repository and rho, showing what it would change unless run with --apply.
+    rationale: The protected branch is the lock behind the maintainer's approval; `rho req check --base` is only the seatbelt.
+    satisfies: [SYS-0041]
+    status: proposed
+    verification: inspection
+    decided_by: [robohub:ADR-0015]
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [process, governance]
+
+  - id: HUB-0018
+    title: The maintainers are named and are the required reviewers
+    statement: >
+      The orchestrator shall name in MAINTAINERS.yml who may approve a
+      requirement or accept an ADR in the ecosystem, and its CODEOWNERS shall
+      make them the required reviewers of every change, and of
+      docs/requirements/, docs/architecture/, every module.yml, MAINTAINERS.yml
+      and .github/ in particular.
+    rationale: The repositories are public and anyone may propose a change; only the maintainer decides, and the forge enforces it.
+    satisfies: [SYS-0041]
+    status: proposed
+    verification: inspection
+    decided_by: [robohub:ADR-0015]
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [process, governance]
+
+  - id: HUB-0019
+    title: The family's levels, system requirements and decisions live here
+    statement: >
+      The orchestrator shall hold the requirement levels of the whole ecosystem
+      (docs/requirements/levels.yml: SYS, NODE, SUB, UNIT), its system
+      requirements and its ecosystem-wide architecture decisions, and declare no
+      parent, so that every other repository and nested module names robohub as
+      its parent.
+    rationale: One root for the family makes ids unique across it and lets a system requirement be traced through every repository that serves it.
+    satisfies: [SYS-0041]
+    status: proposed
+    verification: inspection
+    decided_by: [robohub:ADR-0015]
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [process, traceability]
+
+  - id: HUB-0020
+    title: One host-test runner for the firmware repositories
+    statement: >
+      shared/tests/run-host-tests.sh shall build a module's portable C host tests
+      against robohub-common's interfaces with one compiler, warning set and
+      include layout, taking what is the module's own from its
+      tests/host-tests.plan and the sibling checkouts from the environment
+      (ROBOHUB_COMMON_DIR, ROBOHUB_ORCHESTRATOR_DIR) rather than from paths.
+    rationale: Two repositories carried a copy of the runner and had already begun to differ; a path into another repository belongs to the machine, not to the repository.
+    satisfies: [SYS-0067]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [tests, firmware]
+
+  - id: HUB-0021
+    title: The registry is read, not repeated
+    statement: Every command that goes over the ecosystem — registry list and check, validate, test, lint and docs — shall take its modules from the entries of registry/modules (one <name>.yml per module), or of the registry folder validate is given, rather than from a list kept in the program, so a module added to the registry is listed, checked, validated and run over without a second change.
+    rationale: "The program's own list knew 13 modules while the registry had 17: keeper, mesh, aquarium and energy were never listed, checked or validated."
+    satisfies: [SYS-0067]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [registry]
+
+  - id: HUB-0022
+    title: A run over the ecosystem answers with its exit status
+    statement: robohub test, lint and docs shall exit non-zero when the tool failed for any module they ran over, saying which; only test shall pass over a module that declares no tests (saying so), while lint and docs shall run over every module whether or not it declares tests.
+    rationale: robohub test exited 0 with modules failing, so CI read a failed run as passing, and lint and docs skipped every module without tests.
+    satisfies: [SYS-0067]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [tools, ci]

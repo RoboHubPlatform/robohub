@@ -1,0 +1,234 @@
+# What the scheduler module does for the applications that include it: chores
+# with interval, cron, one-time and usage schedules, their due and overdue
+# states, completion and snoozing, the ties to the inventory, and the pages and
+# API it registers on the host's router. Written in the R5 backfill from the
+# module's documentation, changelog, code and tests; proposed until the
+# maintainer approves them.
+level: NODE
+prefix: SCHED
+title: Scheduler
+requirements:
+  - id: SCHED-0001
+    title: Four kinds of schedule
+    statement: >
+      The scheduler shall keep a chore on one of four schedules — `interval`
+      (every N hours, a day when none is given), `cron` (a five-field
+      expression), `one_time` (a date and time) or `usage` (after N hours of
+      use) — and shall compute its next due time when the chore is added.
+    rationale: Maintenance comes weekly, at set times, once, or after so many hours of running.
+    satisfies: [SYS-0060]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [chores, schedules]
+
+  - id: SCHED-0002
+    title: Cron is read as cron, in local time
+    statement: >
+      A cron chore's next due time shall be the first minute after now, in the
+      machine's local time with the UTC offset in force at that minute, that
+      matches all five fields, where each field may be `*`, a value, a range, a
+      list or a step, day of week 7 is Sunday, and a day matching either day
+      field is taken when both are restricted; an expression that is not five
+      readable fields or matches no minute within 400 days names no time and
+      the chore is refused.
+    rationale: "*/15 that is never due, or a weekday range read as Saturday, is a missed water change."
+    satisfies: [SYS-0060]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [chores, cron]
+
+  - id: SCHED-0003
+    title: A chore is pending, due or overdue
+    statement: >
+      A chore shall be `due` from its due time and `overdue` once its grace
+      period (`grace_hours`) after it has passed, a usage chore `due` once its
+      counted hours reach `usage_hours`, a snoozed chore `pending` until its
+      snooze ends, a done one-time chore `completed` and a disabled chore
+      `disabled`; otherwise it is `pending`.
+    rationale: The page and a badge must say which chores need doing now and which are late.
+    satisfies: [SYS-0060]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [chores, status]
+
+  - id: SCHED-0004
+    title: Completing and snoozing a chore
+    statement: >
+      Completing a chore shall keep the completion with the person's note, start
+      its counted usage again and move its next due time on at once (interval:
+      now plus the interval; cron: the next matching minute; one-time: none), and
+      snoozing a chore by N hours (24 when none is given) shall move only when it
+      shows as due, not its schedule.
+    rationale: The next water change follows from the last one, and "not today" must not rewrite the schedule.
+    satisfies: [SYS-0060]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [chores, completion]
+
+  - id: SCHED-0005
+    title: Chores tied to the inventory
+    statement: >
+      A usage chore with `runtime_of` shall count, through
+      `scheduler_usage_tick()`, only the switch runtime its inventory item gained
+      after the chore was tied to it, and completing a chore with `consumes`
+      shall take `consumes_qty` (1 when none is given) of that item off the
+      shelf as a stock movement whose source is `chore#<id>`.
+    rationale: A filter rinsed every 720 hours of running, and a pad used each time, must not be counted by hand.
+    satisfies: [SYS-0060]
+    decided_by: [robohub:ADR-0013]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [chores, inventory]
+
+  - id: SCHED-0006
+    title: Presets seed chores once
+    statement: >
+      `scheduler_presets(text)` shall add each chore named under `chores:` in the
+      application's presets, by its title, once: only when no chore with that
+      title exists and the presets have never seeded that title before (the
+      seeded titles are recorded in the application's database), so starting the
+      application again does not duplicate a chore, undo a person's changes to
+      its schedule, or bring back a chore the person deleted or renamed.
+    rationale: An application starts with sensible chores, and after that they are the person's.
+    satisfies: [SYS-0060]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [chores, presets]
+
+  - id: SCHED-0007
+    title: An application completes a chore by its title
+    statement: >
+      `scheduler_complete_title(title, note)` shall complete the newest enabled
+      chore with that title exactly as a person completing it would, and answer
+      false when there is none.
+    rationale: A water change logged in the aquarium is the water-change chore done, without asking the person twice.
+    satisfies: [SYS-0060]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [chores, host-contract]
+
+  - id: SCHED-0008
+    title: Pages in the host's shell and a JSON API
+    statement: >
+      The module shall register `GET /scheduler` and the chore forms under
+      `/scheduler/chores/` on the host's router, drawn through the host's
+      `host_shell(req, title, body, scripts)`, and a JSON API under
+      `/api/scheduler/chores` that lists chores with id, title, kind, status,
+      priority, next due and last completed, adds one (201, or 400 with the
+      reason it was not kept), and completes, snoozes or adds usage hours to one
+      by id.
+    rationale: The host owns the layout and the port; the module brings its pages and an API a program can drive.
+    satisfies: [SYS-0060]
+    decided_by: [robohub:ADR-0005]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [host-contract, api, ui]
+
+  - id: SCHED-0009
+    title: Chore forms carry the form token
+    statement: >
+      Every form post under `/scheduler/` — add, complete, snooze, usage, edit
+      and delete — shall be refused unless it carries the application's form
+      token (`forms_csrf_ok`).
+    rationale: The chores page shares the keeper's host with every other application; a cross-site form must not delete a chore.
+    satisfies: [SYS-0034]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [security, csrf]
+
+  - id: SCHED-0010
+    title: Editing keeps the due time, deleting takes the history
+    statement: >
+      Editing a chore shall change its title, schedule, ties and priority
+      without moving its next due time unless its kind, value or interval
+      changed, and shall write the change to the journal; deleting a chore shall
+      remove it with its completions.
+    rationale: A renamed chore is the same chore; a deleted one must leave nothing behind.
+    satisfies: [SYS-0060]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [chores, editing]
+
+  - id: SCHED-0011
+    title: The chores live in the application's own database
+    statement: >
+      The module shall keep its `chores` and `chore_completions` tables, from its
+      own `db/schema.sql`, in the including application's database
+      (`<workspace>/data/app.db`, or `RHO_SCHEDULER_DB`), and shall have no
+      database or port of its own.
+    rationale: Two applications must not share chores, and reinstalling an application must keep them with its other data.
+    satisfies: [SYS-0001, SYS-0016]
+    decided_by: [robohub:ADR-0006]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [data, host-contract]
+
+  - id: SCHED-0012
+    title: Defaults for a new chore are settings
+    statement: >
+      The add-chore form shall start with the grace period `scheduler.grace_hours`
+      (12 by default) and the priority `scheduler.priority` (`normal` by
+      default) from the application's settings, which the module's own settings
+      tab (`scheduler_settings_form`, `scheduler_settings_save`) edits.
+    rationale: An installation where every chore is urgent should not have to say so each time.
+    satisfies: [SYS-0060, SYS-0066]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [settings]
+
+  - id: SCHED-0013
+    title: The scheduler API takes a bearer ticket or the form token
+    statement: POST /api/scheduler/chores and its complete, snooze and usage routes shall be refused with 403, with nothing changed, unless forms_machine_ok holds.
+    rationale: The API is for programs; a post that rides only on a browser's cookie is one a cross-site page could have made.
+    satisfies: [SYS-0034]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [security, csrf]
+
+  - id: SCHED-0014
+    title: Every chore is read, past any one page
+    statement: Every reader of all the chores — the page, GET /api/scheduler/chores, the usage tick — shall read them a page at a time until a page comes back short, and a chore shall be found by its id or title with a query of its own, so no chore past the first 256 is left out or unreachable.
+    rationale: A buffer of 256 rows silently dropped every chore after it from the page, the API and the usage count, and made it impossible to complete or edit.
+    satisfies: [SYS-0060]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [chores, api]
+
+  - id: SCHED-0015
+    title: The API answers what happened
+    statement: POST /api/scheduler/chores/{id}/complete, /snooze and /usage shall answer {"ok":true} only when the action was done, and otherwise the failure's status — 404 for a chore that is not there, 400 for a request that cannot be done, 500 when the database fails — with {"ok":false,"error":...} saying why.
+    rationale: Code that called the API was told ok when nothing had happened.
+    satisfies: [SYS-0060, SYS-0057]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [api]

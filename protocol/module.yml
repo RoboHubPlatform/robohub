@@ -29,3 +29,7 @@ metadata:
     - protocol
     - wire
     - schema
+
+# Requirements: the prefix of the ids this module allocates, and the repository
+# that holds levels.yml and the system level (rho req).
+requirements: { prefix: PROTO, parent: robohub }

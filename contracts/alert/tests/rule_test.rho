@@ -29,6 +29,7 @@ fn check(condition: bool, what: string) void {
     }
 }
 
+// @verifies ALERT-0005
 test fn an_alert_waits_for_the_pending_window() void {
     let rule: AlertRule = alert_rule_new("temp", "Overheat", 28.0, 1.0, 10, 300, 0, 0)
     let first: AlertEvaluation = alert_rule_evaluate(rule, 29.0, 100)
@@ -42,6 +43,7 @@ test fn an_alert_waits_for_the_pending_window() void {
     print("[PASS] an_alert_waits_for_the_pending_window\n")
 }
 
+// @verifies ALERT-0005
 test fn a_transient_spike_returns_to_normal() void {
     let rule: AlertRule = alert_rule_new("temp", "Overheat", 28.0, 1.0, 10, 300, 0, 0)
     let first: AlertEvaluation = alert_rule_evaluate(rule, 29.0, 100)
@@ -51,6 +53,19 @@ test fn a_transient_spike_returns_to_normal() void {
     print("[PASS] a_transient_spike_returns_to_normal\n")
 }
 
+// A value equal to the threshold is not a breach: a rule fires above it.
+// @verifies ALERT-0005
+test fn a_value_at_the_threshold_does_not_fire() void {
+    let rule: AlertRule = alert_rule_new("temp", "Overheat", 28.0, 1.0, 0, 300, 0, 0)
+    let at: AlertEvaluation = alert_rule_evaluate(rule, 28.0, 100)
+    check(!at.fired, "28.0 against a threshold of 28.0 does not fire")
+    check(rho_str_eq(at.rule.state, "normal"), "the rule stays normal at the threshold")
+    let above: AlertEvaluation = alert_rule_evaluate(at.rule, 28.1, 105)
+    check(above.fired, "28.1 against a threshold of 28.0 fires")
+    print("[PASS] a_value_at_the_threshold_does_not_fire\n")
+}
+
+// @verifies ALERT-0006
 test fn hysteresis_keeps_the_alert_until_the_clear_line() void {
     let rule: AlertRule = alert_rule_new("temp", "Overheat", 28.0, 1.0, 0, 300, 0, 0)
     let fired: AlertEvaluation = alert_rule_evaluate(rule, 29.0, 100)
@@ -64,6 +79,7 @@ test fn hysteresis_keeps_the_alert_until_the_clear_line() void {
     print("[PASS] hysteresis_keeps_the_alert_until_the_clear_line\n")
 }
 
+// @verifies ALERT-0007
 test fn a_cooldown_recharges_before_a_new_alert() void {
     let rule: AlertRule = alert_rule_new("temp", "Overheat", 28.0, 1.0, 0, 300, 0, 0)
     let fired: AlertEvaluation = alert_rule_evaluate(rule, 29.0, 100)
@@ -78,6 +94,7 @@ test fn a_cooldown_recharges_before_a_new_alert() void {
     print("[PASS] a_cooldown_recharges_before_a_new_alert\n")
 }
 
+// @verifies ALERT-0008
 test fn the_rate_limit_suppresses_a_second_fire() void {
     let rule: AlertRule = alert_rule_new("temp", "Overheat", 28.0, 1.0, 0, 0, 1, 1000)
     let fired: AlertEvaluation = alert_rule_evaluate(rule, 29.0, 100)
@@ -94,6 +111,7 @@ test fn the_rate_limit_suppresses_a_second_fire() void {
 fn main() void {
     an_alert_waits_for_the_pending_window()
     a_transient_spike_returns_to_normal()
+    a_value_at_the_threshold_does_not_fire()
     hysteresis_keeps_the_alert_until_the_clear_line()
     a_cooldown_recharges_before_a_new_alert()
     the_rate_limit_suppresses_a_second_fire()

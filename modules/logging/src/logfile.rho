@@ -1,0 +1,31 @@
+//
+// @file logfile.rho
+// @brief Where an application's log goes when its settings name no file.
+//
+// @module logging
+// @project robohub
+// @author Aurel Miron
+// @date 2026-11-19
+//
+// SPDX-License-Identifier: MIT
+//
+
+module logging
+
+// log_default_file is the file an application logs to by default, its
+// directory made first. It reads no setting and logs nothing, so it is apart
+// from the policy in logconfig.rho and tested on its own.
+// @req LOG-0002
+fn log_default_file(app: string) string {
+    var base: string = getenv("XDG_STATE_HOME")
+    if base == "" {
+        var home: string = getenv("HOME")
+        if home == "" {
+            home = "."
+        }
+        base = home + "/.local/state"
+    }
+    let dir: string = base + "/robohub/" + app
+    rho_exec_args("mkdir", "-p\n" + dir + "\n", "/dev/null")
+    return dir + "/app.log"
+}

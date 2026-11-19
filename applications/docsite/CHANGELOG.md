@@ -55,3 +55,7 @@ provisioning documentation, and the RoboHub 0.4.0 release notes.
 ## [0.3.8] - 2026-11-14
 
 Its own replace helper is gone for the toolchain's `str_replace` (rho 0.8.3), which it needs.
+
+## [0.3.9] - 2026-11-19
+
+The assembled tree named the parts nested in robohub by their folders (`alert`, `email`, `gateway`) while `rho req` names them by their `requirements: name:` or module name (`robohub-alert`, `robohub-provider-email`, `robohub-gateway-contract`), so the tree's parts were not the repositories' parts and a qualified reference to one did not resolve; and it copied the gateway contract twice (through the contracts folder and again renamed). Each nested part is now one folder named as `rho req` names it (`templates/scripts/part-name.awk`), its manifest renamed when that differs from its module name; `rho req check --workspace` on the tree is clean and finds the same parts as in the repositories (`tests/tree_names.sh`). The program read its tree argument from the wrong position (`rho_arg(1)`, the second argument), so `docsite <tree>` silently used `build/doctree`; it reads `docsite [tree] [site]` now, the site folder included, so a check can leave `build/site` alone.

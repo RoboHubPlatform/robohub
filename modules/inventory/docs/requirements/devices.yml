@@ -1,0 +1,54 @@
+# The Devices page: one page for every application that includes the
+# inventory, where roles are filled and equipment is mapped to gateway sources,
+# with what differs asked of the application through host_devices_* hooks
+# (src/devices.rho). Proposed until the maintainer approves them.
+level: SUB
+prefix: INV-DEV
+title: Devices page
+requirements:
+  - id: INV-DEV-0001
+    title: The application answers the Devices page's hooks
+    statement: >
+      The module shall draw /devices from what the including application answers
+      through host_devices_sections, host_devices_roles, host_devices_categories,
+      host_devices_query, host_devices_intro and host_devices_value, and shall
+      call host_devices_added after it adds an item and host_devices_changed
+      after it changes a mapping.
+    rationale: Aquarium and energy differ in what their equipment is, not in how it is mapped; one page with hooks replaced two copies.
+    satisfies: [INV-0001, INV-0005]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [contract, devices]
+
+  - id: INV-DEV-0002
+    title: A role is filled by one item at a time
+    statement: >
+      Saving a role (a handle the rules name) with an existing item chosen shall
+      give that item the handle, taking it from any other item that had it, and
+      with a new item chosen shall add an equipment item with the handle to the
+      role's category when no item has it; the item's capabilities shall then be
+      bound as posted.
+    rationale: Choosing another heater moves the role to it; the rules keep naming `heater`.
+    satisfies: [INV-0005]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [devices, handles]
+
+  - id: INV-DEV-0003
+    title: Equipment is added only to a category the section offers
+    statement: >
+      Adding an item on the Devices page shall be refused unless its name is given
+      and its category is one host_devices_categories answers for the posted
+      section; an added item shall get a handle made from its name, the next free
+      one (`battery-2`) when that is taken.
+    rationale: The form is not the authority over what a section may hold.
+    satisfies: [INV-0005]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [devices, security]

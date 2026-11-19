@@ -34,6 +34,8 @@ page writes them there) rather than in the manifest: the token is a secret.
 
 The message is `[<level>] <message>`, with the metadata on a second line. The
 token and the chat id must be what Telegram issues (letters, digits, `:`, `-`,
-`_`); anything else is refused. The token is passed to `curl` through an
-owner-only file, never on a command line. `send` answers `1` when the Bot API
+`_`); anything else is refused. The token and the chat id are given to
+`curl` in an owner-only configuration file, and the text in a file of its own,
+both made for one delivery and removed after it; neither is ever on a command
+line. `send` answers `1` when the Bot API
 accepted the message.

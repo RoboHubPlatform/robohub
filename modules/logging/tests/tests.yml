@@ -1,0 +1,6 @@
+# The logging module's own tests: where an application's log goes by default.
+name: logging
+suites:
+  - name: tests/logging_test.rho
+    kind: rho
+    tags: [unit, rho]

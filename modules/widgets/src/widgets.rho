@@ -37,13 +37,14 @@ fn widget_workspace() string {
     return workspace
 }
 
+// @req WIDG-0002
 fn widget_db_path() string {
     let override: string = getenv("RHO_WIDGETS_DB")
     if override != "" {
         return override
     }
     let dir: string = widget_workspace() + "/data"
-    rho_exec("mkdir", "-p " + dir, dir + "/mkdir.txt")
+    rho_exec_args("mkdir", "-p\n" + dir + "\n", dir + "/mkdir.txt")
     return dir + "/app.db"
 }
 
@@ -55,6 +56,7 @@ fn widget_template(name: string) string {
     return rho_asset("widgets", "templates/" + name + ".html")
 }
 
+// @req WIDG-0001
 fn widgets_style() string {
     return widget_template("partials/widgets-style")
 }
@@ -65,6 +67,7 @@ fn widget_now() u32 {
 
 // widget_url_ok is whether a URL a person gave a widget may be fetched: http or
 // https, one line, so it cannot become a second argument or another protocol.
+// @req WIDG-0007
 fn widget_url_ok(url: string) bool {
     if !str_starts_with(url, "http://") && !str_starts_with(url, "https://") {
         return false
@@ -73,11 +76,37 @@ fn widget_url_ok(url: string) bool {
 }
 
 // widget_method is the HTTP method a widget presses with: GET, POST or PUT.
+// @req WIDG-0007
 fn widget_method(method: string) string {
     if str_eq(method, "POST") || str_eq(method, "PUT") {
         return method
     }
     return "GET"
+}
+
+// widget_curl_config writes the address and the method of one request into a
+// curl configuration file only this user can read, named afresh, so the address
+// — which may carry a key or a login — is never on a command line, which any
+// user of the machine can list. "" when it cannot be written. The caller
+// removes it with widget_curl_forget once curl has read it.
+// @req WIDG-0007, WIDG-0014
+fn widget_curl_config(method: string, url: string) string {
+    let id: string = rho_random_hex(8)
+    if id == "" {
+        return ""
+    }
+    let dir: string = widget_workspace() + "/data"
+    rho_exec_args("mkdir", "-p\n" + dir + "\n", dir + "/mkdir.txt")
+    let path: string = dir + "/widget-" + id + ".curl"
+    let quoted: string = "\"" + str_replace(str_replace(url, "\\", "\\\\"), "\"", "\\\"") + "\""
+    if !rho_write_secret(path, "url = " + quoted + "\nrequest = \"" + widget_method(method) + "\"\n") {
+        return ""
+    }
+    return path
+}
+
+fn widget_curl_forget(path: string) void {
+    widgets_ignore_u32(rho_exec_args("rm", "-f\n--\n" + path + "\n", widget_report("curl-forget")))
 }
 
 // widget_curl_args runs curl with one argument per line and no shell. It sends
@@ -87,18 +116,26 @@ fn widget_curl_args(method: string, url: string, timeout: string, report: string
     if !widget_url_ok(url) {
         return 255
     }
-    return rho_exec_args("curl", widget_curl_line(method, url, timeout), report)
+    let config: string = widget_curl_config(method, url)
+    if config == "" {
+        return 255
+    }
+    let code: u32 = rho_exec_args("curl", widget_curl_line(timeout, config), report)
+    widget_curl_forget(config)
+    return code
 }
 
-// widget_curl_line is curl's arguments for one request, one per line.
-fn widget_curl_line(method: string, url: string, timeout: string) string {
-    let args: string = "-fsS\n--proto\n=http,https\n-m\n" + timeout + "\n-X\n" + widget_method(method) + "\n"
-    return args + url + "\n"
+// widget_curl_line is curl's arguments for one request, one per line: the
+// protocols it may use, the time it may take, and the configuration file the
+// address is in.
+// @req WIDG-0007
+fn widget_curl_line(timeout: string, config: string) string {
+    return "-fsS\n--proto\n=http,https\n-m\n" + timeout + "\n-K\n" + config + "\n"
 }
 
 fn widget_report(name: string) string {
     let dir: string = widget_workspace() + "/data"
-    rho_exec("mkdir", "-p " + dir, dir + "/mkdir.txt")
+    rho_exec_args("mkdir", "-p\n" + dir + "\n", dir + "/mkdir.txt")
     return dir + "/" + name + ".txt"
 }
 
@@ -108,7 +145,13 @@ fn widget_curl(url: string, report: string) string {
     if !widget_url_ok(url) {
         return ""
     }
-    return rho_exec_capture("curl", widget_curl_line("GET", url, "3"))
+    let config: string = widget_curl_config("GET", url)
+    if config == "" {
+        return ""
+    }
+    let answer: string = rho_exec_capture("curl", widget_curl_line("3", config))
+    widget_curl_forget(config)
+    return answer
 }
 
 fn widget_epoch_seconds(text: string) u32 {
@@ -122,6 +165,7 @@ fn widget_epoch_seconds(text: string) u32 {
 // widget_mesh_source says whether a widget reads through the gateway: a gateway
 // source (by its stable id), or an inventory item's capability, which inventory
 // resolves to the source it is bound to.
+// @req WIDG-0004
 fn widget_mesh_source(widget: Widgets) bool {
     return str_eq(widget.sourceKind, "mesh") || str_eq(widget.sourceKind, "item") ||
         str_index_of(widget.source, "/mesh/api/") >= 0
@@ -129,6 +173,7 @@ fn widget_mesh_source(widget: Widgets) bool {
 
 // widget_gateway_id is the gateway source a widget reads: its own source, or for
 // an item (`heater.temperature`) the source the item's capability is bound to.
+// @req WIDG-0004
 fn widget_gateway_id(widget: Widgets) string {
     if str_eq(widget.sourceKind, "item") {
         let dot: i32 = str_index_of(widget.source, ".")
@@ -144,6 +189,7 @@ fn widget_gateway_id(widget: Widgets) string {
 // widget_switch switches what a toggle stands for, and answers whether it did:
 // an item through inventory, a gateway source through the gateway, anything
 // else through its hook, as before.
+// @req WIDG-0006
 fn widget_switch(widget: Widgets, state: string) bool {
     if str_eq(widget.sourceKind, "item") {
         let dot: i32 = str_index_of(widget.source, ".")
@@ -168,6 +214,7 @@ fn widget_switch(widget: Widgets, state: string) bool {
 // the positional id Mesh used to give a source (`device.3.switch`) — as the
 // source's stable id (`<node id>.switch`), from the legacy ids the gateway
 // lists. It answers how many widgets it rewrote.
+// @req WIDG-0005
 fn widgets_migrate_sources() u32 {
     let opened: Result[SqlDb, string] = sql_open(widget_db_path())
     if !opened.is_ok {
@@ -285,6 +332,7 @@ fn widget_replace(text: string, needle: string, value: string) string {
             u32(strlen(text)) - u32(at) - u32(strlen(needle)))
 }
 
+// @req WIDG-0006
 fn widget_hook(source: string, state: string) string {
     if str_index_of(source, "{state}") >= 0 {
         return widget_replace(source, "{state}", state)
@@ -307,6 +355,7 @@ fn widgets_ignore_u32(value: u32) void {
 fn widget_ignore_string(value: string) void {
 }
 
+// @req WIDG-0004, WIDG-0011
 fn widget_refresh(widget: Widgets) string {
     if widget_mesh_source(widget) {
         return gateway.source_latest(widget_gateway_id(widget))
@@ -358,6 +407,7 @@ fn widget_refresh(widget: Widgets) string {
     return text
 }
 
+// @req WIDG-0003
 fn widget_chart(values: WidgetValues[100], count: u32, locale: string) string {
     if count < 2 {
         return template_fill(widget_template("cards/chart-empty"), vars("__locale", locale))
@@ -421,6 +471,7 @@ fn widget_chart(values: WidgetValues[100], count: u32, locale: string) string {
     return template_fill(widget_template("cards/chart"), vars("points", str_trim(points)) + vars("__locale", locale))
 }
 
+// @req WIDG-0012
 fn widget_setting(key: string, fallback: string) string {
     let value: string = settings_get("widgets." + key, "")
     if value != "" {
@@ -461,7 +512,7 @@ fn widget_json_number_field(text: string, key: string) string {
 fn widget_write_setting(key: string, value: string) void {
     let workspace: string = app_workspace()
     let dir: string = workspace + "/data"
-    rho_exec("mkdir", "-p " + dir, dir + "/mkdir.txt")
+    rho_exec_args("mkdir", "-p\n" + dir + "\n", dir + "/mkdir.txt")
     rho_write_text(dir + "/" + key, value)
 }
 
@@ -668,6 +719,7 @@ fn widget_round(value: string, decimals: u32) string {
     }
 }
 
+// @req WIDG-0003
 fn widget_table(values: WidgetValues[100], count: u32, rows: u32, unit: string, decimals: u32, locale: string) string {
     var limit: u32 = rows
     if limit == 0 { limit = 10 }
@@ -711,9 +763,11 @@ fn widget_card_controls(id: u32, pinned: u32, kind: string, locale: string) stri
         vars("pinnable", pinnable) +
         vars("pin_value", pin_val) +
         vars("pin_icon", pin_icon) +
-        vars("pinned", pinned_flag))
+        vars("pinned", pinned_flag) +
+        vars("csrf", forms_csrf_field()))
 }
 
+// @req WIDG-0003
 fn widget_card(db: SqlDb, widget: Widgets, locale: string) string {
     let values: WidgetValues[100]
     var count: u32 = 0
@@ -781,7 +835,8 @@ fn widget_card(db: SqlDb, widget: Widgets, locale: string) string {
         return template_fill(widget_template("cards/button"),
             vars("__locale", locale) + vars("locale", locale) +
             vars("id", sid) + vars("size", widget.size) +
-            vars("title", widget.title) + vars("controls", controls))
+            vars("title", widget.title) + vars("controls", controls) +
+            vars("csrf", forms_csrf_field()))
     }
     if str_eq(widget.kind, "toggle") {
         let state: string = widget_toggle_state(db, u32(widget.id))
@@ -795,7 +850,8 @@ fn widget_card(db: SqlDb, widget: Widgets, locale: string) string {
             vars("__locale", locale) + vars("locale", locale) +
             vars("id", sid) + vars("size", widget.size) +
             vars("title", widget.title) + vars("controls", controls) +
-            vars("on_class", on_class) + vars("on", on_flag))
+            vars("on_class", on_class) + vars("on", on_flag) +
+            vars("csrf", forms_csrf_field()))
     }
     if str_eq(widget.kind, "table") {
         return template_fill(widget_template("cards/table-card"),
@@ -894,6 +950,7 @@ fn widget_rows(db: SqlDb, widgets: Widgets[128], count: u32, locale: string) str
             vars("source", widget.sourceKind + " · " + widget.source) +
             vars("latest", latest + " " + widget.unit) +
             vars("method", widget.method) +
+            vars("csrf", forms_csrf_field()) +
             vars("manual", if str_eq(widget.sourceKind, "manual") { "1" } else { "" }) +
             vars("pressable", if str_eq(widget.kind, "button") ||
                 str_eq(widget.kind, "toggle") { "1" } else { "" }))
@@ -906,7 +963,7 @@ fn widget_rows(db: SqlDb, widgets: Widgets[128], count: u32, locale: string) str
 }
 
 fn widgets_docs() string {
-    let text: string = rho_asset("widgets", "docs/index.md")
+    let text: string = rho_asset("widgets", "docs/doc/index.md")
     if text == "" {
         return "No documentation found."
     }
@@ -926,6 +983,7 @@ fn widgets_live_file() string {
 // open by the runtime) and reports whether anything arrived since it was last
 // asked. An application refreshes its widgets when this says so, rather than on
 // a timer, so a reading reaches a card as soon as Mesh has stored it.
+// @req WIDG-0010
 fn widgets_live_changed() bool {
     let path: string = widgets_live_file()
     if !gateway.follow(path) {
@@ -940,6 +998,7 @@ fn widgets_live_changed() bool {
     return true
 }
 
+// @req WIDG-0005, WIDG-0008, WIDG-0010
 fn widgets_refresh_all() u32 {
     // Older sources move to stable gateway ids.
     widgets_ignore_u32(widgets_migrate_sources())
@@ -971,6 +1030,7 @@ fn widgets_refresh_all() u32 {
     return changed
 }
 
+// @req WIDG-0001, WIDG-0009
 fn widgets_page_message(req: Request, message: string) Response {
     widgets_sync_state()
     let opened: Result[SqlDb, string] = sql_open(widget_db_path())
@@ -1028,6 +1088,37 @@ fn widgets_page_message(req: Request, message: string) Response {
     return host_shell(req, i18n_t(req, "widget.title"), body, "")
 }
 
+// widgets_form_ok is whether a post from one of this module's forms carries the
+// form token the page was drawn with. Only the token counts: a bearer ticket
+// does not stand in for it, so these routes answer the forms and nothing else.
+// @req WIDG-0013
+fn widgets_form_ok(req: Request, body: string) bool {
+    return forms_csrf_ok(body)
+}
+
+// widgets_refused answers a post that did not carry the form token: htmx and the
+// dashboard's own calls get 403 and nothing is swapped in; a plain form post gets
+// the manager with the reason.
+// @req WIDG-0013
+fn widgets_refused(req: Request) Response {
+    let message: string = i18n_t(req, "widget.csrf_refused")
+    if str_eq(header_str(req, "HX-Request"), "true") {
+        return html(status_forbidden(), escape_html(message))
+    }
+    if str_eq(form_field(request_body(req), "return"), "dashboard") {
+        return json(status_forbidden(), "{\"ok\":false,\"error\":" + json_string(message) + "}")
+    }
+    return widgets_page_message(req, message)
+}
+
+// widgets_machine_refused answers a post to a route code calls (the API, the
+// refresh) that had neither a bearer ticket nor the form token.
+// @req WIDG-0013
+fn widgets_machine_refused() Response {
+    return json(status_forbidden(),
+        "{\"ok\":false,\"error\":\"a bearer ticket or the form token is required\"}")
+}
+
 fn widgets_cards_endpoint(req: Request) Response {
     return html(status_ok(), widgets_dashboard_cards(true, i18n_locale(req)))
 }
@@ -1038,8 +1129,8 @@ fn widgets_page(req: Request) Response {
 
 fn widgets_add(req: Request) Response {
     let body: string = request_body(req)
-    if !forms_csrf_ok(body) {
-        return widgets_page_message(req, i18n_t(req, "widget.csrf_refused"))
+    if !widgets_form_ok(req, body) {
+        return widgets_refused(req)
     }
     let title: string = str_trim(form_field(body, "title"))
     if strlen(title) == 0 {
@@ -1124,6 +1215,7 @@ fn widget_edit_page(req: Request) Response {
     let widget: Widgets = widgets[index]
     let body: string = template_fill(widget_template("pages/widget-edit"),
         vars("id", int_to_str(u32(widget.id))) +
+        vars("csrf", forms_csrf_field()) +
         vars("title", widget.title) +
         vars("kind", widget.kind) +
         vars("source_kind", widget.sourceKind) +
@@ -1144,6 +1236,9 @@ fn widget_edit_page(req: Request) Response {
 
 fn widgets_edit_save(req: Request) Response {
     let body: string = request_body(req)
+    if !widgets_form_ok(req, body) {
+        return widgets_refused(req)
+    }
     let id: u32 = int_from_str(str_trim(form_field(body, "id")))
     if id == 0 {
         return widgets_page_message(req, "That widget was not found.")
@@ -1189,6 +1284,9 @@ fn widgets_edit_save(req: Request) Response {
 
 fn widgets_delete(req: Request) Response {
     let body: string = request_body(req)
+    if !widgets_form_ok(req, body) {
+        return widgets_refused(req)
+    }
     let id: u32 = int_from_str(str_trim(form_field(body, "id")))
     let opened: Result[SqlDb, string] = sql_open(widget_db_path())
     if !opened.is_ok {
@@ -1214,6 +1312,9 @@ fn widgets_move_response(req: Request) Response {
 
 fn widgets_move(req: Request) Response {
     let body: string = request_body(req)
+    if !widgets_form_ok(req, body) {
+        return widgets_refused(req)
+    }
     let id: u32 = int_from_str(str_trim(form_field(body, "id")))
     let delta_str: string = str_trim(form_field(body, "delta"))
     var delta: i32 = 0
@@ -1274,6 +1375,9 @@ fn widgets_move(req: Request) Response {
 
 fn widgets_resize(req: Request) Response {
     let body: string = request_body(req)
+    if !widgets_form_ok(req, body) {
+        return widgets_refused(req)
+    }
     let id: u32 = int_from_str(str_trim(form_field(body, "id")))
     if id == 0 {
         return widgets_page_message(req, "No such widget.")
@@ -1330,6 +1434,9 @@ fn widgets_resize(req: Request) Response {
 
 fn widgets_pin(req: Request) Response {
     let body: string = request_body(req)
+    if !widgets_form_ok(req, body) {
+        return widgets_refused(req)
+    }
     let id: u32 = int_from_str(str_trim(form_field(body, "id")))
     let pinned: string = str_trim(form_field(body, "pinned"))
     if id == 0 {
@@ -1353,8 +1460,12 @@ fn widgets_pin(req: Request) Response {
     return widgets_page_message(req, "Widget pinned.")
 }
 
+// @req WIDG-0011
 fn widgets_value(req: Request) Response {
     let body: string = request_body(req)
+    if !widgets_form_ok(req, body) {
+        return widgets_refused(req)
+    }
     let id: u32 = int_from_str(str_trim(form_field(body, "id")))
     let value: string = str_trim(form_field(body, "value"))
     if id == 0 || strlen(value) == 0 {
@@ -1372,8 +1483,12 @@ fn widgets_value(req: Request) Response {
     return widgets_page_message(req, "Value recorded.")
 }
 
+// @req WIDG-0006, WIDG-0008
 fn widgets_press(req: Request) Response {
     let body: string = request_body(req)
+    if !widgets_form_ok(req, body) {
+        return widgets_refused(req)
+    }
     let id: u32 = int_from_str(str_trim(form_field(body, "id")))
     let opened: Result[SqlDb, string] = sql_open(widget_db_path())
     if !opened.is_ok {
@@ -1456,6 +1571,7 @@ fn widgets_events_file() string {
 // A stream is appended to, never read back, and starts over every few hundred
 // writes: a follower that finds it shorter than where it was reads it from the
 // top, and every event carries a whole card, so nothing older is needed.
+// @req WIDG-0008
 fn widgets_events_append(file: string, lines: string) void {
     let count_file: string = file + ".count"
     let seen: i64 = i64_from_str(str_trim(rho_read_text(count_file)))
@@ -1475,7 +1591,7 @@ fn widgets_snapshot_file() string {
 fn widget_state_dir() string {
     let workspace: string = app_workspace()
     let dir: string = workspace + "/data"
-    rho_exec("mkdir", "-p " + dir, dir + "/mkdir.txt")
+    rho_exec_args("mkdir", "-p\n" + dir + "\n", dir + "/mkdir.txt")
     return dir
 }
 
@@ -1511,6 +1627,7 @@ fn widget_event_json(event: string, data: string) string {
     return "{\"event\":" + json_string(event) + ",\"data\":" + json_string(data) + "}\n"
 }
 
+// @req WIDG-0008
 fn widget_event(widget_id: u32, state: string) void {
     let file: string = widgets_events_file()
     var lines: string = ""
@@ -1568,6 +1685,7 @@ fn widgets_snapshot_events() void {
     rho_write_text(widgets_snapshot_file(), out)
 }
 
+// @req WIDG-0008, WIDG-0015
 fn widgets_events(req: Request) Response {
     // A reconnect must show the current state, not replay every state the card
     // has ever had. The snapshot is sent before the live file is followed.
@@ -1581,6 +1699,7 @@ fn widget_device_states() string {
 
 // widget_gateway_state reads the state behind a source URL. The provider knows
 // how its own URL answers; the widget only passes the source it stored.
+// @req WIDG-0009
 fn widget_gateway_state(widget: Widgets) string {
     let id: string = widget_gateway_id(widget)
     let state: string = gateway.source_state(id)
@@ -1598,6 +1717,7 @@ fn widget_gateway_state(widget: Widgets) string {
     return ""
 }
 
+// @req WIDG-0009
 fn widgets_sync_state() u32 {
     let states: string = widget_device_states()
     let opened: Result[SqlDb, string] = sql_open(widget_db_path())
@@ -1714,6 +1834,9 @@ fn widget_event_cards() void {
 }
 
 fn widgets_refresh(req: Request) Response {
+    if !forms_machine_ok(req, request_body(req)) {
+        return widgets_machine_refused()
+    }
     let updated: u32 = widgets_sync_state()
     let changed: u32 = widgets_refresh_values()
     if changed > 0 {
@@ -1754,6 +1877,7 @@ fn widget_json(db: SqlDb, widget: Widgets) string {
         ",\"pinned\":" + int_to_str(u32(widget.pinned)) + "}"
 }
 
+// @req WIDG-0011
 fn widgets_api_list(req: Request) Response {
     let opened: Result[SqlDb, string] = sql_open(widget_db_path())
     if !opened.is_ok {
@@ -1781,9 +1905,13 @@ fn widgets_api_list(req: Request) Response {
     return json(status_ok(), out + "]")
 }
 
+// @req WIDG-0011
 fn widgets_api_value(req: Request) Response {
     let id: string = param(req, "id")
     let body: string = request_body(req)
+    if !forms_machine_ok(req, body) {
+        return widgets_machine_refused()
+    }
     let value: string = str_trim(form_field(body, "value"))
     if strlen(id) == 0 || strlen(value) == 0 {
         return json(status_bad_request(), "{\"ok\":false}")
@@ -1800,7 +1928,11 @@ fn widgets_api_value(req: Request) Response {
     return json(status_ok(), "{\"ok\":true}")
 }
 
+// @req WIDG-0006
 fn widgets_api_press(req: Request) Response {
+    if !forms_machine_ok(req, request_body(req)) {
+        return widgets_machine_refused()
+    }
     let id: string = param(req, "id")
     let opened: Result[SqlDb, string] = sql_open(widget_db_path())
     if !opened.is_ok {
@@ -1862,6 +1994,7 @@ fn widgets_api_press(req: Request) Response {
 
 // widgets_settings_form is this module's own settings, as a form posted to action:
 // an application's settings page shows it as one of its tabs.
+// @req WIDG-0012
 fn widgets_settings_form(req: Request, action: string) string {
     var fields: FormField[2]
     fields[0] = FormField{ "refresh_seconds", "text", i18n_t(req, "widgets.settings.refresh"), "",

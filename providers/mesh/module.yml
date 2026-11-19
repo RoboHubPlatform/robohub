@@ -18,7 +18,7 @@ module:
   previous_ids:
     - robohub.providers.mesh
   type: provider
-  version: 0.5.4
+  version: 0.5.5
   description: Serves Mesh projects, sources, gateway state and telemetry to an application, as a provider of the gateway interface.
   maintainer: "Aurel Miron"
   license: "MIT"
@@ -75,3 +75,7 @@ docs:
   index: README.md
   sources:
     - README.md
+
+# Requirements: the prefix of the ids this module allocates, and the repository
+# that holds levels.yml and the system level (rho req).
+requirements: { prefix: PMESH, parent: robohub }

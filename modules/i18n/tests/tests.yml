@@ -1,0 +1,8 @@
+# The i18n module's own tests: the language switch, inside the aquarium.
+name: i18n
+suites:
+  # @verifies I18N-0002, I18N-0003
+  - name: i18n-smoke
+    kind: command
+    tags: [smoke]
+    command: [python3, tests/i18n_smoke.py]

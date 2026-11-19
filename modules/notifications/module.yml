@@ -14,7 +14,7 @@ module:
   type: module
   title: Notifications
   category: ui
-  version: 0.2.2
+  version: 0.2.3
   description: >
     Transient toast notifications with severity levels (info, warning, error)
     that auto-dismiss after a configurable timeout.
@@ -39,17 +39,27 @@ provides:
 
 deps:
   rho-log: ">=0.1.0"
+  robohub:
+    # A push or a dismiss carries a bearer ticket or the form token
+    # (forms_machine_ok).
+    forms: ">=0.3.7"
 
 docs:
   title: Notifications
   section: modules
   order: "35"
-  index: docs/index.md
+  index: docs/doc/index.md
   sources:
-    - docs/index.md
+    - docs/doc/index.md
 
 # What this module reads at run time by name (rho_asset), embedded into every
 # application that includes it, so it never reads its own folder.
 assets:
   - templates
   - db/schema.sql
+
+# Requirements: the prefix of the ids this module allocates, and the repository
+# that holds levels.yml and the system level (rho req).
+requirements:
+  prefix: NOTIF
+  parent: robohub

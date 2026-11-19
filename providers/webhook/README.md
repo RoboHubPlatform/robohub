@@ -32,6 +32,9 @@ bind:
 | `severity_threshold` | everything | The lowest level posted: `INFO`, `WARNING`, `ERROR`, `CRITICAL` |
 | `enabled` | on | `"false"` stops the channel |
 
-The body and the `Authorization` header are passed to `curl` through files (the
-header through an owner-only one), never on a command line. An HTTP error is a
+The address and the `Authorization` header are given to `curl` in an owner-only
+configuration file, and the body in a file of its own; both are made for one
+delivery and removed after it. Nothing of a setting or an alert is on curl's
+command line, which any user of the machine can list. An address that is not
+`http://` or `https://` on one line is refused. An HTTP error is a
 failure: `send` answers `1` only when the endpoint accepted the post.

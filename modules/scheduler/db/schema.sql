@@ -41,3 +41,10 @@ CREATE TABLE IF NOT EXISTS chore_completions (
 );
 
 CREATE INDEX IF NOT EXISTS chore_completions_chore ON chore_completions(chore_id);
+
+-- The preset chores already seeded, by title: a preset is added once, and a
+-- chore the person deleted or renamed stays as they left it.
+CREATE TABLE IF NOT EXISTS chore_presets_seeded (
+    title       TEXT PRIMARY KEY,
+    seeded_at   TEXT NOT NULL DEFAULT (datetime('now'))
+);

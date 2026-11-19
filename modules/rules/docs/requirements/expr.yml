@@ -1,0 +1,117 @@
+# The small fixed grammar a rule's condition is written in, and how it is
+# evaluated (src/expr.rho), unit-tested in tests/rules_test.rho. Proposed until
+# the maintainer approves them.
+level: SUB
+prefix: RULES-EXPR
+title: Conditions
+requirements:
+  - id: RULES-EXPR-0001
+    title: Operands are items, host values, literals and switch words
+    statement: >
+      An operand shall be a quoted text, a number, on/true (1) or off/false (0),
+      a value rules_host_value answers, or else `handle.capability` read through
+      inventory_read; a reading of on, true, off or false shall compare as 1 or 0.
+    rationale: A condition names what the application knows, by the names a person reads on the pages.
+    satisfies: [RULES-0001, RULES-0004]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [conditions]
+
+  - id: RULES-EXPR-0002
+    title: Numbers compare as numbers, in thousandths
+    statement: >
+      Two operands that are both numbers (a decimal point or a decimal comma
+      allowed, a lone `.` or `-` not a number) shall compare as numbers in
+      thousandths with <, <=, >, >=, == and !=, so 24.25 and 24.250 are equal;
+      anything else shall compare as text, with == and != only.
+    rationale: A reading spelled 24,5 by one device and 24.50 by another is one temperature.
+    satisfies: [RULES-0004]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [conditions]
+
+  - id: RULES-EXPR-0003
+    title: and, or, not and brackets, deciding early
+    statement: >
+      Comparisons shall combine with not, and, or and brackets, not binding
+      tightest and or loosest; and and or shall not need the side after the one
+      that decides, so a missing reading there does not matter; an unclosed
+      bracket or a token left over shall be a problem, not an answer.
+    rationale: `heater.temperature < 30 or nothing.here > 1` must hold when the first side does.
+    satisfies: [RULES-0004]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [conditions]
+
+  - id: RULES-EXPR-0004
+    title: Modes and time windows
+    statement: >
+      `mode == name` and `mode != name` shall compare the mode in force without
+      regard to case, and `time between HH:MM and HH:MM` shall hold from the first
+      time up to but not including the second by the machine's clock, a window
+      whose start is after its end crossing midnight; a window not written in
+      HH:MM shall be a problem.
+    rationale: Feeding suspends the filter alarm, and lights run from ten to eight.
+    satisfies: [RULES-0001]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [conditions, modes, time]
+
+  - id: RULES-EXPR-0005
+    title: Durations in seconds, minutes, hours and days
+    statement: >
+      A rule's wait and cooldown and a mode's time shall be read as plain seconds
+      or a number with s, m, h or d, decimals allowed (1.5h is 5400 s, 1d is
+      86400 s), and anything else, a negative duration included, as 0.
+    rationale: A `for: 1.5h` that read as 0 silently made a rule act at once.
+    satisfies: [RULES-0006]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [durations]
+
+  - id: RULES-EXPR-0006
+    title: A condition is checked before it is saved
+    statement: >
+      Adding or editing a rule shall refuse a condition, or a clear condition,
+      that is empty or whose brackets do not match, and an edit shall refuse a
+      wait or cooldown that does not read as a duration, showing the form again
+      with what was typed and why.
+    rationale: A typo must be caught at the form, not found later as a rule that never fires.
+    satisfies: [RULES-0002]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [forms, conditions]
+
+  - id: RULES-EXPR-0007
+    title: Syntax errors survive short-circuiting
+    statement: A problem of the grammar in a condition — a bracket not closed, a comparison or mode or time window written wrong, a condition that ends early, a token left over — shall be a problem on whichever side of and/or it is written, even when the other side decided the answer, and the check of a form shall read every side of the condition for its grammar; only a reading missing or not a number on the undecided side shall not matter.
+    rationale: A rule written wrong on the right of an or that held was accepted and then silently never reported anything.
+    satisfies: [RULES-0004, RULES-0002]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [conditions]
+
+  - id: RULES-EXPR-0008
+    title: Actions are checked before they are saved
+    statement: Adding or editing a rule shall refuse an action list (Then or Otherwise) that holds an action the engine does not know, an action not written in its form (switch <handle> on or off, use <handle>, alert or journal with a level of info, warning, error or critical and a message, mode <name> or mode end), or a mode the application does not define, with a message naming the field; a handle not yet given to an item shall not be refused.
+    rationale: A typo in an action was saved and found only when the rule held and failed.
+    satisfies: [RULES-0002, RULES-0005]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [forms, actions]

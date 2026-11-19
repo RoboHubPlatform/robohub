@@ -1,0 +1,899 @@
+# The system requirements of RoboHub: what the ecosystem does for the person
+# running it, as it is built today. Every repository's NODE requirements serve
+# these. Written in the R5 backfill from the documentation, the changelogs, the
+# code and the tests; all proposed until the maintainer approves them.
+level: SYS
+prefix: SYS
+title: System
+requirements:
+  # Installation and first run
+  - id: SYS-0001
+    title: Runs on the owner's machine, with no cloud service
+    statement: >
+      RoboHub shall run every part a person uses — the keeper, the applications,
+      their data and the gateways' collectors — on machines the person controls,
+      with no third-party service between a board and the application that reads it.
+    rationale: Home automation that stops when an outside service does, or that sends readings to one, is not the person's own.
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [local-first, offline]
+
+  - id: SYS-0002
+    title: The keeper runs as a user service from a release
+    statement: >
+      The keeper shall run as a systemd user service of the person's own account
+      that keeps running without a login session, and shall run a release it was
+      deployed from, so that rebuilding the checkout changes nothing until the
+      next deploy.
+    rationale: A small server must come back after a reboot without anyone signing in, and a half-finished build must never be what runs.
+    status: proposed
+    verification: demonstration
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [installation]
+
+  - id: SYS-0003
+    title: The first sign-in needs only access to the machine
+    statement: >
+      While nobody has an account, the keeper shall sign a person in only with an
+      access token it created readable only by the account it runs as, and its
+      sign-in page shall ask for that token and nothing else.
+    rationale: The first person in is the one who can read a file on the machine; there is no default password to change.
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [installation, first-run, security]
+
+  - id: SYS-0004
+    title: What the machine lacks is said before it matters
+    statement: >
+      The keeper shall report, for each application and each enabled toolchain
+      module, which programs its manifest requires that the machine lacks, before
+      the application is installed and whenever asked, and shall not start an
+      application that lacks a required program.
+    rationale: An application that fails at start because a compiler or a broker is missing wastes the person's time; saying so first does not.
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [installation, dependencies]
+
+  # The keeper: one address, one sign-in
+  - id: SYS-0005
+    title: One address reaches every application
+    statement: >
+      Every application the keeper runs shall be reachable through the keeper's
+      own address, `http://127.0.0.1:19090/app/<name>/`, without the person
+      knowing or opening the application's own port.
+    rationale: One address means one tunnel, one TLS proxy and one bookmark, and keeps one application's cookies away from another.
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [keeper, access]
+
+  - id: SYS-0006
+    title: One sign-in for every application
+    statement: >
+      A person signed in to the keeper shall be signed in to every application
+      they hold a grant for on first opening it, without entering a credential
+      again.
+    rationale: Several applications must not mean several passwords.
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [keeper, sign-in]
+
+  - id: SYS-0007
+    title: Roles limit what a person may do in the keeper
+    statement: >
+      The keeper shall give each person one role: an admin may do everything, an
+      operator may start, stop, restart, build, redeploy and roll back
+      applications, and a viewer may only read; any other action shall be refused
+      for that role.
+    rationale: Someone who restarts a stuck application must not thereby be able to add people or install software.
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [keeper, sign-in, least-privilege]
+
+  - id: SYS-0008
+    title: Grants decide what a person reaches in an application
+    statement: >
+      A person shall reach inside an application only what their grants for that
+      application allow, and a person with no grant for an application shall be
+      told they have no access rather than signed in to it.
+    rationale: The role is about the keeper; access to a tank or a mesh is decided per application.
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [keeper, sign-in, least-privilege]
+
+  - id: SYS-0009
+    title: Signing out ends every application session within a minute
+    statement: >
+      Signing out of the keeper, or an admin signing a person out everywhere,
+      shall end that person's sessions in every application at their first
+      request more than one minute later.
+    rationale: Signing out must mean signed out, including of the applications reached through the keeper.
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [keeper, sign-in, security]
+
+  - id: SYS-0010
+    title: Repeated wrong sign-ins are slowed
+    statement: >
+      After five wrong passwords in a row for one name, or five wrong access
+      tokens in a row, the keeper shall refuse that sign-in for five minutes.
+    rationale: A guessed password must take longer than a person has.
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [keeper, sign-in, security]
+
+  - id: SYS-0011
+    title: A leaked token or key can be replaced at once
+    statement: >
+      An admin shall be able to replace the access token, which signs out every
+      other keeper session, and to rotate the signing key, after which no ticket
+      or token signed with the old key is accepted.
+    rationale: Recovering from a leak must not need a reinstallation.
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [keeper, security, recovery]
+
+  # Applications
+  - id: SYS-0012
+    title: Applications are installed from the registry, the machine or git
+    statement: >
+      An admin shall be able to install an application from the Rho registry by
+      name or name and version, from a folder or checkout already on the
+      machine, or from a git URL.
+    rationale: Published releases, a developer's checkout and a fork are all ways an application arrives.
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [applications, installation]
+
+  - id: SYS-0013
+    title: Each application is supervised and its state shown
+    statement: >
+      Each installed application shall run as a service of its own that is
+      restarted when it fails and started after the applications it depends on,
+      and the keeper shall show its state as one of running, starting, failed,
+      stopped, not built or no service yet.
+    rationale: The person must see at a glance what runs, and a crash must not need them.
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [applications, supervision]
+
+  - id: SYS-0014
+    title: A failed update leaves the working version running
+    statement: >
+      A redeploy whose build fails shall leave the running release in use, a new
+      release that does not start or does not answer its health check shall be
+      replaced by the release that was in use, and an operator shall be able to
+      roll back to the previous release.
+    rationale: Updating must never be the thing that takes the aquarium's heater control away.
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [applications, updates]
+
+  - id: SYS-0015
+    title: Newer published versions are offered
+    statement: >
+      For an application installed from the Rho registry, the keeper shall offer
+      the newer version when the registry has one and, when asked, install it and
+      put it in use while keeping the previous version installed.
+    rationale: Staying current must be one action, and going back must remain possible.
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [applications, updates]
+
+  - id: SYS-0016
+    title: Uninstalling keeps the application's data
+    statement: >
+      Uninstalling an application shall stop it and remove its service, record,
+      releases and secrets, and shall keep its data.
+    rationale: Reinstalling must start the program afresh without losing years of history.
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [applications, data]
+
+  - id: SYS-0017
+    title: Applications are reached from the keeper's menu and switcher
+    statement: >
+      Every application page shall offer a switcher to the other applications the
+      keeper runs, and an admin shall be able to add an application to the
+      keeper's menu.
+    rationale: Moving between Mesh, the aquarium and energy must not need typing addresses.
+    status: proposed
+    verification: demonstration
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [applications, ui]
+
+  - id: SYS-0018
+    title: An application works without hardware
+    statement: >
+      An application that reads devices shall be able to run against a simulator
+      of the devices its presets describe when no mesh is available, and be
+      switched between the simulator and a mesh from its settings.
+    rationale: An application must be tried, developed and kept running when the hardware is not there.
+    status: proposed
+    verification: demonstration
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [applications, offline, simulator]
+
+  # Boards and gateways
+  - id: SYS-0019
+    title: A board is enrolled by being built
+    statement: >
+      A board built by Mesh shall be accepted by its gateway with no credential
+      entered by a person.
+    rationale: Typing keys into boards does not scale and leaks them.
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [boards, enrollment, security]
+
+  - id: SYS-0020
+    title: Only authenticated, fresh frames from a board are accepted
+    statement: >
+      A gateway shall accept a board's readings and answers only from frames
+      authenticated with that board's key and not seen before, and shall drop
+      every other frame, except plain frames on a serial link when an operator
+      has explicitly allowed them.
+    rationale: Readings and commands are not secret, but a forged or replayed one can switch a heater.
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [boards, security]
+
+  - id: SYS-0021
+    title: A board can be revoked without re-keying the mesh
+    statement: >
+      A board revoked in Mesh shall be refused by its gateway, and its sessions
+      dropped, without changing any other board's key or reflashing any board.
+    rationale: Losing one board must not mean rebuilding the whole mesh.
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [boards, security, revocation]
+
+  - id: SYS-0022
+    title: A board's key can be rotated without flashing it
+    statement: >
+      A board's key shall be rotatable from Mesh without flashing the board, and
+      once the board has confirmed the new key its gateway shall refuse the old
+      one.
+    rationale: A key that may have been copied must be retired without a cable.
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [boards, security, key-rotation]
+
+  - id: SYS-0023
+    title: Boards keep reporting across a gateway restart
+    statement: >
+      After a gateway restarts, including after a power loss, every board that
+      held a session shall be reporting again without anyone touching the board
+      or the gateway, and no frame recorded before the restart shall be accepted
+      after it.
+    rationale: A power cut must not need a person, and must not open a window for replayed frames.
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [boards, recovery, security]
+
+  - id: SYS-0024
+    title: Readings outlast a collector that is down
+    statement: >
+      A gateway shall keep the readings it receives while Mesh does not collect
+      them, up to a configured bound, and Mesh shall store each kept reading once
+      when it collects them.
+    rationale: Mesh being restarted or updated must not leave a hole in the history.
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [boards, telemetry, recovery]
+
+  - id: SYS-0025
+    title: Outputs are switched from an application
+    statement: >
+      A switch or rule in an application shall be able to change an output on a
+      board or a network device, and the application shall show the new state
+      only once the device reports it.
+    rationale: A page must never claim a heater is off when it is not.
+    status: proposed
+    verification: demonstration
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [boards, outputs]
+
+  - id: SYS-0026
+    title: A gateway can report through another gateway
+    statement: >
+      A gateway shall be able to run as a relay that reports its boards' readings
+      through a parent gateway, with each relayed board authenticated by its own
+      key.
+    rationale: One machine runs several linked meshes; a far shed reports through the house.
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [boards, relay, topology]
+
+  - id: SYS-0027
+    title: A host node enrolls with a one-time token
+    statement: >
+      A Linux host shall be enrolled as a node with a token issued on the keeper's
+      machine that is valid for one enrollment of the device it names, at the
+      placement it names, for fifteen minutes unless issued for longer.
+    rationale: A node with an identity of its own must prove it was meant, once, and for a short time.
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [enrollment, security]
+
+  - id: SYS-0028
+    title: Network devices report through a local broker
+    statement: >
+      The keeper shall be able to run an MQTT broker for network devices in which
+      every device and every application that binds the bus is a user with its
+      own password and only the topics it was given.
+    rationale: Plugs and inverters that speak MQTT must report locally, and one device must not read or write another's topics.
+    status: proposed
+    verification: demonstration
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [devices, mqtt, least-privilege]
+
+  # Security
+  - id: SYS-0029
+    title: One issuer of credentials
+    statement: >
+      Only the keeper shall hold the key that signs sign-in tickets, sessions and
+      service tokens, and every other part shall verify them with the published
+      public key alone.
+    rationale: One key in one place is one thing to protect and one thing to rotate.
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [security]
+
+  - id: SYS-0030
+    title: Programs call each other with short-lived, narrow tokens
+    statement: >
+      A program calling another shall present a token for that callee's audience,
+      carrying only the scopes it was registered for and valid for at most ten
+      minutes, and a token issued for one gateway shall open no other gateway.
+    rationale: A token captured on the network must be worth one service, for minutes.
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [security, least-privilege]
+
+  - id: SYS-0031
+    title: Applications are isolated from each other and from the keys
+    statement: >
+      An application shall run without the ability to gain privileges, and where
+      the machine's systemd supports it shall be unable to read another
+      application's workspace, the people store, or any key or credential that
+      mints tokens.
+    rationale: All applications run as one user; a fault or a compromise in one must not reach the others or the keeper.
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [security, least-privilege, isolation]
+
+  - id: SYS-0032
+    title: Nothing listens on the network unless opened
+    statement: >
+      The keeper, the applications and the MQTT broker shall listen on the loopback
+      interface only, unless the person explicitly opens one to the network.
+    rationale: A sign-in over plain HTTP, or a broker, must not reach the network by default.
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [security, network]
+
+  - id: SYS-0033
+    title: Secrets stay owner-only and off command lines
+    statement: >
+      Every key, token, password and credential RoboHub keeps on disk shall be
+      readable only by the account that owns it, and no secret shall be passed
+      to another program on its command line.
+    rationale: Any user of the machine can read a command line or a world-readable file.
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [security, secrets]
+
+  - id: SYS-0034
+    title: Forms posted from another origin are refused
+    statement: >
+      The keeper and every application shall refuse a form posted from another
+      origin before acting on it.
+    rationale: The keeper and the applications share a host, which a SameSite cookie does not tell apart.
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [security, web]
+
+  - id: SYS-0035
+    title: Only signed artifacts are deployed
+    statement: >
+      A prebuilt artifact shall be deployed only when its signature verifies
+      against the configured public key, unless the machine is explicitly set to
+      accept unsigned artifacts for development.
+    rationale: Whoever can drop a file in a folder must not thereby run code as the person.
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [security, updates]
+
+  # Alerts, history, documentation, observability, change
+  - id: SYS-0036
+    title: Alerts reach the person on the channels they chose
+    statement: >
+      An application or the keeper shall raise an alert on every channel it
+      binds — a log file, e-mail, Telegram or a webhook — each with its own
+      threshold, and the keeper shall raise one when an application fails to
+      start.
+    rationale: A tank that overheats at night must reach the person, by the channel they read.
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [alerts]
+
+  - id: SYS-0037
+    title: Readings are kept as history
+    statement: >
+      Mesh shall keep every reading under a source identity that survives a
+      reordered plan, as raw readings, minute roll-ups and hourly roll-ups, each
+      for a period the person can configure (by default 14 days, 90 days and five
+      years).
+    rationale: A chart of last winter is part of what the system is for.
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [history, data]
+
+  - id: SYS-0038
+    title: The documentation is served locally
+    statement: >
+      The keeper shall serve the documentation of the whole ecosystem, built from
+      the documentation every module carries, without needing the internet.
+    rationale: The manual must be there when the network is not.
+    status: proposed
+    verification: demonstration
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [documentation, offline]
+
+  - id: SYS-0039
+    title: Every service reports its health and keeps a log
+    statement: >
+      The keeper, every application and every gateway shall answer a liveness
+      probe that needs no sign-in, and the log of each application shall be
+      readable from the keeper.
+    rationale: A person must be able to tell what is wrong without a shell.
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [observability]
+
+  - id: SYS-0040
+    title: Each part is versioned and released apart
+    statement: >
+      Each repository of the ecosystem shall carry its own version and a
+      changelog section for every release, which is published with it.
+    rationale: The gateway on a shed's Pi and the keeper on a desktop are updated at different times; what changed must be said per part.
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [compatibility, releases]
+
+  - id: SYS-0041
+    title: Requirements and decisions are traceable and maintainer-approved
+    statement: >
+      The ecosystem's requirements and architecture decisions shall be linked to
+      the code that implements them and the tests that verify them, readable and
+      checkable from the keeper, and approved only by a maintainer.
+    rationale: For any line of code a tool, not a memory, must answer why it is there and how it is known to work.
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [process, traceability]
+
+  # Added when the node requirements were traced up (R5): boards, applications,
+  # the web surface and the ecosystem as a whole
+  - id: SYS-0042
+    title: The installation is planned in one place
+    statement: >
+      The person shall plan the devices of an installation — gateways, boards, the
+      sensor modules fitted to them, network devices and the link each reaches its
+      parent over — in one place, offered only what each board declares it supports;
+      firmware and gateways shall be built from that plan, and nothing that runs
+      shall change until the person applies it.
+    rationale: A plan kept in heads and on paper drifts from what is flashed; one plan that the builds follow, applied deliberately, does not.
+    status: proposed
+    verification: demonstration
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [planning, boards]
+
+  - id: SYS-0043
+    title: A board can be hardened for production
+    statement: >
+      A board the person sets to production shall, as far as its part allows, boot
+      only firmware signed with the owner's key and keep its firmware and keys from
+      being read out of its flash.
+    rationale: A board left in a shed must not be turned into someone else's by swapping its firmware, nor give up its key to whoever takes it.
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [boards, security, production]
+
+  - id: SYS-0044
+    title: An irreversible device step is taken only when confirmed
+    statement: >
+      A step that cannot be undone on a board — burning eFuses or OTP rows, enabling
+      secure boot or permanent read-out protection — shall be taken only when
+      production is turned on for that board and the person, after being shown every
+      such step, has confirmed it for that board by name.
+    rationale: A mistaken irreversible step bricks a board or locks its owner out; it must never be a side effect.
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [boards, security, production]
+
+  - id: SYS-0045
+    title: Boards run unattended from power-on
+    statement: >
+      A board shall start its work at power-on with nobody present — sampling,
+      reporting and switching at the rates it was built or last configured with —
+      and keep doing so for as long as it has power.
+    rationale: Boards sit in tanks, sheds and cabinets; one that waits for a person after a power cut is not doing its job.
+    status: proposed
+    verification: demonstration
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [boards, firmware]
+
+  - id: SYS-0046
+    title: The same functions on every supported board family
+    statement: >
+      A sensor module, output or link RoboHub supports shall give the same readings
+      and accept the same commands on every supported board family that has the
+      interface it needs — RP2350, ESP32, STM32, AVR and Linux host — whether or not
+      the board runs a real-time kernel.
+    rationale: The person picks a board for its price, radio or pins, not because only one family can read their sensor.
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [boards, firmware, portability]
+
+  - id: SYS-0047
+    title: Readings carry units and a failed read is never a value
+    statement: >
+      Every reading a board or a device reports shall be in a stated unit, and a
+      sensor or device that cannot be read, or answers with something malformed,
+      shall be reported as an error and never as a value.
+    rationale: A heater switched on a garbage temperature, or a chart in unknown units, is worse than no reading.
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [boards, devices, data-quality]
+
+  - id: SYS-0048
+    title: A board reports over whichever link it has
+    statement: >
+      A board shall carry its readings to its gateway, and take its commands from
+      it, over whichever link it is wired or configured for — serial, USB, RS-485,
+      Wi-Fi or Ethernet — with the same messages over each, and shall not send more
+      than the link can carry.
+    rationale: The link is chosen by where the board sits, not by what the firmware can speak.
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [boards, links]
+
+  - id: SYS-0049
+    title: Boards are flashed from the machine RoboHub runs on
+    statement: >
+      A person shall be able to flash a board, or deploy to a host node, from the
+      machine RoboHub runs on, including Linux under WSL, with no vendor IDE and
+      without running as root, and shall be told what to do when the board cannot be
+      reached.
+    rationale: Installing an IDE per board family, or flashing as root, is a barrier and a risk the person should not need.
+    status: proposed
+    verification: demonstration
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [boards, flashing]
+
+  - id: SYS-0050
+    title: A board says what is wrong with it
+    statement: >
+      A board shall report on request, over its own link, which of its hardware
+      answers and what its runtime has counted and logged, and a board that stops
+      shall say why on its console before it does.
+    rationale: A board in a cabinet cannot be watched with a debugger; it must be able to tell the person what is wrong.
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [boards, diagnostics, observability]
+
+  - id: SYS-0051
+    title: Equipment with its own protocol joins like a board
+    statement: >
+      Equipment that speaks its own protocol — such as a Modbus or HTTP inverter, a
+      smart plug or an MQTT device — shall be read and switched locally and appear
+      in the applications with the same readings, history and controls as a board.
+    rationale: An installation mixes RoboHub boards with bought equipment; the person should not have to tell them apart to use them.
+    status: proposed
+    verification: demonstration
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [devices, integration]
+
+  - id: SYS-0052
+    title: Parts released apart speak one wire protocol
+    statement: >
+      Boards, gateways and relays, although built and released from separate
+      repositories, shall speak one wire protocol, and a release whose copy of that
+      protocol differs from the ecosystem's source shall be detected before it is
+      published.
+    rationale: Parts updated at different times must still understand each other; a silent drift in message numbers breaks a mesh in the field.
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [protocol, compatibility]
+
+  - id: SYS-0053
+    title: Applications keep what the person records
+    statement: >
+      An application shall keep what the person records about what it looks after —
+      manual readings and tests, doses, livestock, stock, purchases and their costs
+      — keep a record whole or not at all, and let a record entered by mistake be
+      corrected or removed with its effects undone.
+    rationale: Much of what matters in a tank or a house is measured or bought by hand; it belongs beside the automatic readings.
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [applications, records]
+
+  - id: SYS-0054
+    title: Tracked values are held to target bands
+    statement: >
+      An application shall hold a target band for each value the person tracks,
+      start it from defaults for the kind of thing looked after, let the person
+      change it, and warn when a reading or recorded value falls outside it.
+    rationale: The person needs to know when a value is wrong, not just what it is.
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [applications, targets, alerts]
+
+  - id: SYS-0055
+    title: Applications act by rules the person can read and change
+    statement: >
+      An application shall act on what it looks after only by rules, modes and a
+      policy the person can read, change, switch off and put back to their presets;
+      it shall not act on a value it could not read, shall refuse a policy that does
+      not hold together, and shall record every action it takes and every one that
+      failed.
+    rationale: Automation that cannot be read cannot be trusted with a heater or a battery; one that acts on a missing reading is dangerous.
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [applications, automation]
+
+  - id: SYS-0056
+    title: Applications work out the state of what they look after
+    statement: >
+      An application shall work out, from its readings and records, the state of
+      what it looks after — such as a site's power balance, state of charge and the
+      day's energy and cost — and show it to the person as it changes.
+    rationale: Raw readings answer few questions; the person wants to know whether the battery is charging and what the day cost.
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [applications, data]
+
+  - id: SYS-0057
+    title: Applications offer their values to each other
+    statement: >
+      Each application shall offer the values it works out or records, with their
+      history and its events, read-only and in one shape, to other applications and
+      clients holding a grant for it.
+    rationale: One application's state is another's input — energy's surplus may run the aquarium's lights — without either copying the other's data.
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [applications, integration]
+
+  - id: SYS-0058
+    title: An upgrade carries the installation forward
+    statement: >
+      A new release of an application or module shall carry forward the records,
+      settings and addresses an older release left, without any action by the
+      person, and shall do so once.
+    rationale: An update that loses a year of records or breaks a bookmark is one the person stops installing.
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [applications, updates, data]
+
+  - id: SYS-0059
+    title: Pages stay current without a reload
+    statement: >
+      Every application page shall show changed readings, switch states and messages
+      as they happen, without the person reloading it, and show a switch in the
+      state the device reports.
+    rationale: A page that has to be reloaded to be believed is not a control panel.
+    status: proposed
+    verification: demonstration
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [applications, ui]
+
+  - id: SYS-0060
+    title: Recurring care is scheduled
+    statement: >
+      An application shall keep the person's recurring maintenance chores — every so
+      often, on a calendar, once, or after so many hours of use — show which are due
+      or overdue, and record each completion.
+    rationale: Filters, water changes and inspections are what keeps equipment alive; forgetting them is the usual failure.
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [applications, maintenance]
+
+  - id: SYS-0061
+    title: Each application keeps a journal
+    statement: >
+      Each application shall keep a journal of what happened in it, readable and
+      filterable by the person, in which a warning or an error stays open until the
+      person resolves it.
+    rationale: Looking back at what happened, and seeing which problems are still open, is how a person learns what their installation does.
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [applications, journal, observability]
+
+  - id: SYS-0062
+    title: What a person enters is checked first
+    statement: >
+      The keeper and every application shall check what a person enters before
+      acting on it, change nothing when an entry is not valid, and say which entry
+      is wrong while keeping what the person typed.
+    rationale: A half-applied form, or one that loses what was typed, costs the person time and may leave a policy unsafe.
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [applications, ui, validation]
+
+  - id: SYS-0063
+    title: A request cannot redirect elsewhere or inject content
+    statement: >
+      No page of the keeper or an application shall send a person to another origin,
+      add a response header, or draw markup or script, because of a value a request
+      or a stored entry carries.
+    rationale: Everything is served on one origin; one open redirect or injected script reaches every application the person is signed in to.
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [security, web]
+
+  - id: SYS-0064
+    title: Alert content cannot change its delivery
+    statement: >
+      Neither an alert's content nor a channel's settings shall be able to change
+      where, to whom or with what headers an alert is delivered, and an alert whose
+      channel settings are malformed shall not be sent.
+    rationale: Alert text often carries readings and names from outside; it must not be able to readdress or forge a message.
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [alerts, security]
+
+  - id: SYS-0065
+    title: Pages are in the person's language
+    statement: >
+      The keeper and every application shall show their pages in the language the
+      person chooses — English or Romanian — starting from the browser's, and shall
+      remember the choice across applications.
+    rationale: The household running RoboHub is not all fluent in one language.
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [ui, i18n]
+
+  - id: SYS-0066
+    title: Each application has a settings page
+    statement: >
+      Every application shall have a settings page from which the person changes its
+      runtime settings — where its readings come from, its logging, its alert
+      channels and its modules' options — taking effect without reinstalling the
+      application.
+    rationale: Settings edited in files on the server are settings the person cannot change.
+    status: proposed
+    verification: demonstration
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [applications, settings]
+
+  - id: SYS-0067
+    title: The ecosystem is checked as a whole
+    statement: >
+      The repositories of the ecosystem shall be checkable together, from one place,
+      for parts that are missing, manifests that are not valid and dependencies that
+      are not declared, and their tests shall run from one command.
+    rationale: Many repositories released apart only stay one product if something checks them together.
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [process, compatibility]

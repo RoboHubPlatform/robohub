@@ -16,7 +16,7 @@ module:
   type: plugin
   kind: integration
   title: MQTT (Mosquitto)
-  version: 0.1.0
+  version: 0.1.1
   description: >
     Runs a Mosquitto broker for the machine's applications and devices, with a
     broker user and topic rules for each, and gives applications the bus.
@@ -27,8 +27,19 @@ module:
 
 main: README.md
 
+# A plugin of the toolchain names what it plugs into. This one plugs into no
+# component of the toolchain — there is no hook of rho's it answers, and no
+# command — so it has no `extends:`: it is an integration plugin that only
+# provides data, which the toolchain's plugin contract accepts with `serves:`
+# and `integration.ecosystem` (rho docs/modules/integrations.md, "A plugin that
+# only provides data needs no `extends:`"). What it provides is read by the
+# keeper: the service it runs and the interface it gives applications.
+serves:
+  - robohub
+
 # What the keeper runs, and how it knows it runs.
 integration:
+  ecosystem: robohub
   service:
     name: mqtt
     command: mosquitto
@@ -60,3 +71,9 @@ docs:
   index: README.md
   sources:
     - README.md
+
+# Requirements: the prefix of the ids this module allocates, and the repository
+# that holds levels.yml and the system level (rho req).
+requirements:
+  prefix: MQTTP
+  parent: robohub

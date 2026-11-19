@@ -1,15 +1,28 @@
 # RoboHub Documentation Site
 
 Builds the RoboHub documentation into one static site. It collects the pages
-every part of the ecosystem ships — each part's `docs/` directory, or its README
-when it has none — into one tree, adds a reference table to each shared module's
+every part of the ecosystem ships — each part's `docs/doc/` directory (or
+`docs/`, where a part has not moved its pages there), or its README when it has
+neither — into one tree, adds a reference table to each shared module's
 page and the release history to each part's, and builds the tree with `rho doc`.
 The shape of the site, its sections and their order, is `site.yml`.
+
+Each part's requirements (`docs/requirements/`) and architecture decisions
+(`docs/architecture/`) are carried into the tree beside its pages, and the
+orchestrator's own as a part called `robohub` (the parent the other repositories
+name). With the `rho-doc-req` plugin installed and enabled, `rho doc` writes pages
+from them: each part's requirements and decisions after its own pages, and the
+ecosystem's requirements trace in the Process section, linked from the landing
+page. Without it the site is built as before, and `build/reports/doc.txt` says
+which parts keep requirements it did not show. Test results are not carried, so
+the published pages show no evidence; `rho req trace` reports it where the tests
+ran.
 
 ## Building
 
 From the root of the `robohub` repository, with the other repositories checked
-out beside it:
+out beside it, and a toolchain with `rho-doc` 0.2.5 or later (and `rho-doc-req`
+for the requirements pages):
 
 ```sh
 rho build applications/docsite

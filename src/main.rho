@@ -25,9 +25,11 @@ module robohub.main
 // components, run over each module in turn, because a second implementation of
 // a linter is a linter that reports something else.
 //
-// Every command is a report about the ecosystem and nothing else. Nothing here
-// changes a module, and nothing here writes to a module's tree: a tool that
-// changes what it measures is not a tool that measures.
+// Every command but three is a report about the ecosystem and changes nothing:
+// a tool that changes what it measures is not a tool that measures. The three
+// are `test add`, `test enable` and `test disable`, which a person runs to change
+// which tests a module has, and which rewrite that module's tests/tests.yml —
+// the only file in a module's tree anything here writes.
 
 include "registry.rho"
 include "validate.rho"
@@ -133,12 +135,15 @@ fn registry_command() void {
     print("usage: robohub registry list|show <module>|check\n")
 }
 
+// @req HUB-0021
 fn registry_list() void {
-    print("the robohub ecosystem: " + int_to_str(MODULE_COUNT) + " modules\n")
+    let names: string = registry_names()
+    let count: u32 = name_count(names)
+    print("the robohub ecosystem: " + int_to_str(count) + " modules\n")
     print("\n")
     var index: u32 = 0
-    while index < MODULE_COUNT {
-        let entry: string = entry_path(module_name(index))
+    while index < count {
+        let entry: string = entry_path(name_at(names, index))
         print("  " + pad(yaml_value(entry, "name"), 20) +
               pad(yaml_value(entry, "role"), 14) +
               yaml_value(entry, "summary") + "\n")
@@ -146,6 +151,7 @@ fn registry_list() void {
     }
 }
 
+// @req HUB-0002
 fn registry_show(wanted: string) void {
     if wanted == "" {
         print("robohub registry show: name a module\n")
@@ -169,12 +175,15 @@ fn registry_show(wanted: string) void {
 // A registry that names a module that is not there sends a reader looking for
 // something that does not exist, and a module that is not named is a module
 // nobody is told about.
+// @req HUB-0003, HUB-0021
 fn registry_check() void {
+    let names: string = registry_names()
+    let count: u32 = name_count(names)
     var present: u32 = 0
     var missing: u32 = 0
     var index: u32 = 0
-    while index < MODULE_COUNT {
-        let name: string = module_name(index)
+    while index < count {
+        let name: string = name_at(names, index)
         let entry: string = entry_path(name)
         let path: string = yaml_value(entry, "path")
         if rho_path_exists(path + "/module.yml") {
@@ -186,7 +195,7 @@ fn registry_check() void {
         index = index + 1
     }
     print("robohub registry check: " + int_to_str(present) + " of " +
-          int_to_str(MODULE_COUNT) + " modules are here")
+          int_to_str(count) + " modules are here")
     if missing > 0 {
         print(", " + int_to_str(missing) + " are not")
         print("\n")
@@ -204,6 +213,7 @@ fn registry_check() void {
 // validate` is the authority on what a manifest may say, and it is what the
 // toolchain reads. What is checked here is the ecosystem's own files: the
 // registry, the suite manifests and the target specs.
+// @req HUB-0004, HUB-0005, HUB-0006
 fn validate_command() void {
     // The registry it checks is named, so that a check over a copy of the
     // ecosystem is the same check: a validator that can only look at one
@@ -243,6 +253,7 @@ fn first_line(text: string) Line {
 //
 // The orchestrator drives the toolchain's own runner for the running, and
 // reads the manifest for the listing and the enabling.
+// @req HUB-0010, HUB-0011
 fn test_command() void {
     let first: string = rho_arg(1)
     if first == "list" {
@@ -278,10 +289,13 @@ fn test_command() void {
 }
 
 // test_list says what a module's tests are, and which of them are run.
+// @req HUB-0011
 fn test_list(wanted: string) void {
+    let names: string = registry_names()
+    let count: u32 = name_count(names)
     var index: u32 = 0
-    while index < MODULE_COUNT {
-        let name: string = module_name(index)
+    while index < count {
+        let name: string = name_at(names, index)
         if wanted == "" || wanted == name {
             let path: string = yaml_value(entry_path(name), "path")
             print(name + ":\n")
@@ -314,6 +328,7 @@ fn test_run(wanted: string, name: string) void {
 }
 
 // test_set_state says whether a test is run, in the manifest that declares it.
+// @req HUB-0011
 fn test_set_state(wanted: string, name: string, state: string) void {
     if wanted == "" || name == "" {
         print("usage: robohub test enable|disable <module> <name>\n")
@@ -441,6 +456,7 @@ fn test_add(wanted: string, name: string, program: string, arguments: string) vo
 // stays running and a CLI is a program that says what it came to say and
 // stops. The CLI finds it where it was built and runs it, and says where to
 // look if it is not there.
+// @req HUB-0012
 fn keeper_command() void {
     var port: string = rho_arg(1)
     if port == "" {
@@ -476,15 +492,22 @@ fn keeper_command() void {
 // findings mean. A second linter here would be a linter that reports something
 // else, and a run that says "no findings" from a tool that never ran is worse
 // than a run that failed.
+//
+// `declared` is whether the tool needs the module to declare tests: the test
+// runner does, the linter and the documentation do not — a module with no tests
+// still has code to analyse and pages to build.
+// @req HUB-0010, HUB-0022
 fn run_over(what: string, tool: string, declared: bool) void {
     let wanted: string = rho_arg(1)
+    let names: string = registry_names()
+    let count: u32 = name_count(names)
     var ran: u32 = 0
     var failed: u32 = 0
     var index: u32 = 0
-    while index < MODULE_COUNT {
-        let name: string = module_name(index)
+    while index < count {
+        let name: string = name_at(names, index)
         if wanted == "" || wanted == name {
-            let code: u32 = run_one(what, tool, name)
+            let code: u32 = run_one(what, tool, name, declared)
             if code != 0 {
                 failed = failed + 1
             } else {
@@ -499,6 +522,12 @@ fn run_over(what: string, tool: string, declared: bool) void {
         print(", " + int_to_str(failed) + " did not")
     }
     print("\n")
+    // A run that says modules failed and then succeeds is a run a script or a
+    // CI job reads as passing. The exit status is the answer, so it is the
+    // failure.
+    if failed > 0 {
+        panic("robohub " + what + ": " + int_to_str(failed) + " module(s) failed")
+    }
 }
 
 /// declares_tests reports whether a module declares its tests.
@@ -511,13 +540,15 @@ fn declares_tests(path: string) bool {
 
 /// run_one runs a tool over a module, says what happened, and answers with the
 /// tool's own verdict.
-fn run_one(what: string, tool: string, name: string) u32 {
+// @req HUB-0010, HUB-0022
+fn run_one(what: string, tool: string, name: string, needs_tests: bool) u32 {
     let entry: string = entry_path(name)
     let path: string = yaml_value(entry, "path")
     // A module that declares no tests has no tests to fail. Reporting it as a
     // failure is how a run over an ecosystem starts to look broken when what it
-    // says is that some of it has not been written yet.
-    if !declares_tests(path) {
+    // says is that some of it has not been written yet. Only the test run asks:
+    // the linter and the documentation run over every module.
+    if needs_tests && !declares_tests(path) {
         print("  " + what + ": " + name + " declares no tests\n")
         return 0
     }

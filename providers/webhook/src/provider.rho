@@ -23,6 +23,7 @@ extern fn rho_write_text(path: string, text: string) bool
 extern fn rho_write_secret(path: string, text: string) bool
 extern fn rho_append_text(path: string, text: string) bool
 extern fn rho_bind_config(provider: string, key: string) string
+extern fn rho_random_hex(bytes: u32) string
 
 // state_dir is where this provider keeps what it writes on the way out: the
 // application's workspace when it has one.
@@ -37,46 +38,72 @@ fn report(name: string) string {
     return state_dir() + "/" + name + ".log"
 }
 
-// send posts `level`, `message` and `metadata` as a form, from a file, so the
-// body never passes through an argument.
+// has_break is whether a value holds a line break: in curl's configuration a
+// line break ends one option and starts another.
+fn has_break(value: string) bool {
+    return str_index_of(value, "\n") >= 0 || str_index_of(value, "\r") >= 0
+}
+
+// curl_quoted is a value as a quoted string of curl's configuration file, with
+// its backslashes and double quotes escaped, so it is read back exactly and
+// never ends early. The caller has refused a value with a line break.
+// @req HOOK-0004
+fn curl_quoted(value: string) string {
+    return "\"" + str_replace(str_replace(value, "\\", "\\\\"), "\"", "\\\"") + "\""
+}
+
+// forget removes what a delivery wrote on the way out, once curl has read it.
+fn forget(first: string, second: string) void {
+    let removed: u32 = rho_exec_args("rm", "-f\n--\n" + first + "\n" + second + "\n", report("webhook-cleanup"))
+}
+
+// send posts `level`, `message` and `metadata` as a form, or as JSON when the
+// content type says so. The body is read by curl from a file, so no part of an
+// alert is ever one of its arguments; the address and the Authorization header,
+// which may be secrets, are read from a configuration file only this user can
+// read (-K), so they are never on a command line, which any user of the machine
+// can list. Both files are named afresh for each delivery and removed after it.
+// An HTTP error is a failure (-f), not a delivery.
+// @req HOOK-0001, HOOK-0002, HOOK-0003, HOOK-0004
 fn send(level: string, message: string, metadata: string) u32 {
     let url: string = rho_bind_config("robohub-provider-webhook", "url")
     // An http or https address on one line: anything else would be another
-    // protocol, or an option of curl.
-    if (!str_starts_with(url, "http://") && !str_starts_with(url, "https://")) || str_index_of(url, "\n") >= 0 {
+    // protocol, or another option of curl.
+    if (!str_starts_with(url, "http://") && !str_starts_with(url, "https://")) || has_break(url) {
         return 0
     }
     var content_type: string = rho_bind_config("robohub-provider-webhook", "content_type")
     if content_type == "" {
         content_type = "application/x-www-form-urlencoded"
     }
-    // The body is what the content type says it is: JSON for application/json,
-    // a form otherwise. An HTTP error is a failure (-f), not a delivery.
-    let file: string = state_dir() + "/webhook-body.txt"
+    let authorization: string = rho_bind_config("robohub-provider-webhook", "authorization")
+    if has_break(content_type) || has_break(authorization) {
+        return 0
+    }
     var payload: string = "level=" + str_url_encode(level) + "&message=" + str_url_encode(message) + "&metadata=" + str_url_encode(metadata)
     if str_index_of(content_type, "json") >= 0 {
         payload = "{\"level\":" + json_string(level) + ",\"message\":" + json_string(message) +
             ",\"metadata\":" + json_string(metadata) + "}"
     }
-    if str_index_of(content_type, "\n") >= 0 || !rho_write_text(file, payload) {
-        return 0
-    }
-    var args: string = "-fsS\n-X\nPOST\n-H\nContent-Type: " + content_type + "\n--data-binary\n@" + file + "\n"
-    let authorization: string = rho_bind_config("robohub-provider-webhook", "authorization")
-    // A line break would be another of curl's arguments (one per line).
-    if str_index_of(url, "\n") >= 0 || str_index_of(authorization, "\n") >= 0 || str_index_of(authorization, "\r") >= 0 {
-        return 0
-    }
+    var config_text: string = "url = " + curl_quoted(url) + "\n" +
+        "header = " + curl_quoted("Content-Type: " + content_type) + "\n"
     if authorization != "" {
-        // From an owner-only file (-H @file), never on the command line, where
-        // any user of the machine could read it.
-        let header_file: string = state_dir() + "/webhook-auth.txt"
-        if !rho_write_secret(header_file, "Authorization: " + authorization + "\n") {
-            return 0
-        }
-        args = args + "-H\n@" + header_file + "\n"
+        config_text = config_text + "header = " + curl_quoted("Authorization: " + authorization) + "\n"
     }
-    if rho_exec_args("curl", args + url + "\n", report("webhook")) == 0 {
+    let id: string = rho_random_hex(8)
+    if id == "" {
+        return 0
+    }
+    let dir: string = state_dir()
+    let config: string = dir + "/webhook-" + id + ".curl"
+    let body: string = dir + "/webhook-" + id + ".body"
+    if !rho_write_secret(body, payload) || !rho_write_secret(config, config_text) {
+        forget(config, body)
+        return 0
+    }
+    let code: u32 = rho_exec_args("curl", "-fsS\n-X\nPOST\n--data-binary\n@" + body + "\n-K\n" + config + "\n", report("webhook"))
+    forget(config, body)
+    if code == 0 {
         return 1
     }
     return 0

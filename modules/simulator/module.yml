@@ -13,7 +13,7 @@ module:
   type: module
   title: Simulator
   category: integration
-  version: 0.2.3
+  version: 0.2.4
   description: >
     Simulated devices behind the gateway interface, from an application's
     presets: switches that answer actions, plugs that draw power while on,
@@ -56,9 +56,15 @@ docs:
   title: Simulator
   section: modules
   order: "18"
-  index: docs/index.md
+  index: docs/doc/index.md
   sources:
-    - docs/index.md
+    - docs/doc/index.md
 
 assets:
-  - docs/index.md
+  - docs/doc/index.md
+
+# Requirements: the prefix of the ids this module allocates, and the repository
+# that holds levels.yml and the system level (rho req).
+requirements:
+  prefix: SIM
+  parent: robohub

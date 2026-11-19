@@ -48,3 +48,13 @@ It lists what other code may use (`provides.exports`, imported as `robohub.notif
 ## [0.2.2] - 2026-11-15
 
 Every `let` the code assigned to is declared with `var`, as rho 0.19.0 asks (assigning to a `let` is deprecated there and refused in the next minor release). Nothing else changes.
+
+## [0.2.3] - 2026-11-19
+
+Security: `POST /notifications/push` and `POST /notifications/dismiss` took any post, so a page on another site could put words into the application's toasts or dismiss them through a signed-in person's browser. Both are routes for code, not forms, and take a bearer ticket or the form token now (`forms_machine_ok`); a post with only the session cookie is 403. The module depends on forms (>= 0.3.7).
+
+Fixed: listing, drawing and dismissing bound their parameter at position 1, where the runtime counts from 0, so `/notifications/list`, `/api/notifications` and `/notifications/render` were always empty and a dismiss changed nothing. Found by the new test (`tests/notifications_smoke.py`).
+
+The directory it keeps its data in is made with `mkdir` given the path as one argument (`rho_exec_args`, one argument per line) rather than one string the runtime splits on spaces: a workspace path holding a space made stray directories from the words of the path, one of them relative to wherever the application runs, and on the C backend left the real directory unmade.
+
+The toast hid after 4 s whatever the message said, while a stored message lived its timeout (5 s by default, 10 s for most module toasts): a person saw a message vanish that the list still held. Each live event now carries its timeout and the toast stays up that long (5 s when none is given, the documented default). The live feed (`live.events`) was appended to for as long as the application ran; it starts over after 500 events now, as the widgets' stream does. The embed opened its stream with `new EventSource("/notifications/stream")`, a literal the keeper's proxy does not rewrite, so a page reached at `/app/<name>/` followed the keeper's root rather than its application; the address is in the toast's `data-url` attribute now, which the proxy rewrites onto the prefix.

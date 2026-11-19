@@ -29,7 +29,9 @@ bind:
 | `severity_threshold` | everything | The lowest level written: `INFO`, `WARNING`, `ERROR`, `CRITICAL` |
 | `enabled` | on | `"false"` stops the channel |
 
-Each line is `[<level>] <message> <metadata>`. The file is appended to rather
+Each line is `[<level>] <message> <metadata>`, one line per alert: a line break
+in an alert is written as a space, so it cannot add a line that reads as another
+alert. The file is appended to rather
 than rewritten, which is kinder to flash, and rotated once it passes 1 MB,
 keeping three older files (`.1` to `.3`). `send` answers `1` when the line was
 written.

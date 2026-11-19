@@ -20,7 +20,7 @@ module:
   previous_ids:
     - robohub.contract.alert
   type: module
-  version: 1.1.1
+  version: 1.1.2
   description: >
     The alert interface: an application raises an alert, and every enabled
     channel it binds whose severity threshold the alert meets delivers it.
@@ -52,3 +52,7 @@ provides:
 interface:
   functions:
     send: "(level: string, message: string, metadata: string) u32"
+
+# Requirements: the prefix of the ids this module allocates, and the repository
+# that holds levels.yml and the system level (rho req).
+requirements: { prefix: ALERT, parent: robohub }

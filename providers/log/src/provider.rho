@@ -37,6 +37,7 @@ fn report(name: string) string {
     return state_dir() + "/" + name + ".log"
 }
 
+// @req PLOG-0002
 fn log_path() string {
     let home: string = getenv("HOME")
     var path: string = rho_bind_config("robohub-provider-log", "path")
@@ -68,8 +69,15 @@ fn parent_dir(path: string) string {
     return str_slice(path, 0, u32(last))
 }
 
+// one_line is a value with its line breaks made spaces.
+// @req PLOG-0004
+fn one_line(text: string) string {
+    return str_replace(str_replace(text, "\r", " "), "\n", " ")
+}
+
 // send appends one line. The log is rotated at 1 MB, keeping three old files,
 // and appended to rather than rewritten, which is kinder to flash.
+// @req PLOG-0001, PLOG-0003, PLOG-0004
 fn send(level: string, message: string, metadata: string) u32 {
     let path: string = log_path()
     let dir: string = parent_dir(path)
@@ -89,9 +97,11 @@ fn send(level: string, message: string, metadata: string) u32 {
         let second: u32 = rho_exec_args("mv", "-f\n" + path + ".1\n" + path + ".2\n", report("alert-log-rotate"))
         let first: u32 = rho_exec_args("mv", "-f\n" + path + "\n" + path + ".1\n", report("alert-log-rotate"))
     }
-    var line: string = "[" + level + "] " + message
+    // One alert is one line: a line break in an alert would otherwise write a
+    // line of its own into the log that looks like another alert.
+    var line: string = "[" + one_line(level) + "] " + one_line(message)
     if metadata != "" {
-        line = line + " " + metadata
+        line = line + " " + one_line(metadata)
     }
     if rho_append_text(path, line + "\n") {
         return 1

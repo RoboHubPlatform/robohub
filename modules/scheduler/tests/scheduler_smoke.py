@@ -20,6 +20,9 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "shared" / "tests"))
+import csrf_probe  # noqa: E402
+
 HERE = Path(__file__).resolve()
 MODULE = HERE.parents[1]
 ROBOHUB = MODULE.parents[1]
@@ -131,7 +134,14 @@ def main() -> int:
     binary = build()
     port = free_port()
     base = f"http://127.0.0.1:{port}"
-    with tempfile.TemporaryDirectory(prefix="scheduler-") as workspace:
+    # The workspace's path holds a space, as a person's home or a folder they
+    # chose may: every directory the modules make is made there, whole, and
+    # nothing is made from the path's first word (/tmp/scheduler) or its second
+    # (smoke-…, relative to where the application runs).
+    tmp_first_word = Path(tempfile.gettempdir()) / "scheduler"
+    had_first_word = tmp_first_word.exists()
+    with tempfile.TemporaryDirectory(prefix="scheduler smoke-") as workspace:
+        second_word = HOST / Path(workspace).name.split(" ", 1)[1]
         env = dict(os.environ)
         # The application finds the toolchain (the documentation generator, the
         # components) by its home; the test gives the application a HOME of its own,
@@ -141,15 +151,34 @@ def main() -> int:
         env["ROBOHUB_APP_WORKSPACE"] = workspace
         env["ROBOHUB_APP_MANIFEST"] = str(HOST / "module.yml")
         env["RHO_HTTP_ADDR"] = f"127.0.0.1:{port}"
+        env["XDG_STATE_HOME"] = os.path.join(workspace, "state")
         global TOKEN
         auth_home = env.get("HOME") if env.get("HOME", "").startswith(tempfile.gettempdir()) else tempfile.mkdtemp(prefix="aquarium-home-")
         env["HOME"] = auth_home
         TOKEN = mint_token(auth_home, "aquarium")
-        process = subprocess.Popen([str(binary)], cwd=HOST, env=env,
-                                   stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                                   text=True)
+        def start():
+            return subprocess.Popen([str(binary)], cwd=HOST, env=env,
+                                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                    text=True)
+
+        def stop(proc):
+            proc.terminate()
+            try:
+                proc.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait(timeout=5)
+
+        process = start()
         try:
             wait_for(base)
+            # @verifies SCHED-0011, SET-0001, LOG-0002
+            if not (Path(workspace) / "data" / "settings.conf").parent.is_dir():
+                raise AssertionError("the data directory is not under the workspace whose path holds a space")
+            if not (Path(workspace) / "state" / "robohub" / "aquarium").is_dir():
+                raise AssertionError("the log directory is not under a state directory whose path holds a space")
+            if second_word.exists() or (tmp_first_word.exists() and not had_first_word):
+                raise AssertionError(f"a directory was made from a word of the workspace's path: {second_word} or {tmp_first_word}")
             learn_csrf(base, "/scheduler")
             page = get(base, "/scheduler")
             # The host may seed chores of its own; the test's are found by title.
@@ -187,13 +216,74 @@ def main() -> int:
             if uv["status"] != "due":
                 raise AssertionError(f"usage chore should be due: {uv}")
 
+            # The API is for code: a bearer ticket (or the form token) is needed,
+            # and a post that rides only on the browser's cookie is refused.
+            # @verifies SCHED-0013
+            cookie = csrf_probe.cookie_session(csrf_probe.rho_binary(PROJECTS), auth_home, base, "aquarium")
+            before = csrf_probe.workspace_state(workspace)
+            for path, fields in (("/api/scheduler/chores", {"title": "Forged", "kind": "interval", "interval_hours": "1"}),
+                                 (f"/api/scheduler/chores/{sock_id}/complete", {"note": "Forged"}),
+                                 (f"/api/scheduler/chores/{sock_id}/snooze", {"hours": "999"}),
+                                 (f"/api/scheduler/chores/{uv_id}/usage", {"hours": "1"})):
+                for label, extra in (("no token", {}), ("a wrong token", {"csrf": "c" * 64})):
+                    status, _ = csrf_probe.post(base, path, dict(fields, **extra), cookie=cookie)
+                    if status != 403:
+                        raise AssertionError(f"{path} with only a cookie and {label} was answered {status}")
+            changed = csrf_probe.state_diff(before, csrf_probe.workspace_state(workspace))
+            if changed:
+                raise AssertionError(f"a refused API post changed {changed}")
+            status, _ = csrf_probe.post(base, f"/api/scheduler/chores/{uv_id}/usage",
+                                        {"hours": "1", "csrf": CSRF}, cookie=cookie)
+            if status != 200:
+                raise AssertionError(f"the API with the form token was answered {status}")
+
             db = Path(workspace) / "data" / "app.db"
             if not db.exists():
                 raise AssertionError("the scheduler records are not in the host's main database")
 
+            # An action on a chore that is not there, or that cannot be done, is
+            # answered as the failure it is, never `ok`.
+            # @verifies SCHED-0015
+            def api_post(path, fields):
+                request = urllib.request.Request(base + path, method="POST",
+                    data=urllib.parse.urlencode(fields).encode())
+                request.add_header("Content-Type", "application/x-www-form-urlencoded")
+                try:
+                    with open_url(request, timeout=20) as response:
+                        return response.status, json.loads(response.read().decode())
+                except urllib.error.HTTPError as error:
+                    return error.code, json.loads(error.read().decode())
+            for path, fields, wanted in (("/api/scheduler/chores/987654/complete", {"note": "x"}, 404),
+                                         ("/api/scheduler/chores/987654/snooze", {"hours": "1"}, 404),
+                                         ("/api/scheduler/chores/987654/usage", {"hours": "1"}, 404),
+                                         (f"/api/scheduler/chores/{uv_id}/usage", {"hours": "0"}, 400)):
+                status, answer = api_post(path, fields)
+                if status != wanted or answer.get("ok") is not False or not answer.get("error"):
+                    raise AssertionError(f"{path} {fields} was answered {status} {answer}, wanted {wanted} and the reason")
+
+            # More chores than one page of 256: every one is listed, on the page
+            # and by the API, and the last one can be acted on.
+            # @verifies SCHED-0014
+            import sqlite3
+            far = 4000000000
+            with sqlite3.connect(db) as conn:
+                conn.executemany("INSERT INTO chores (title, schedule_kind, interval_hours, next_due_epoch) VALUES (?, 'interval', 24, ?)",
+                                 [(f"Bulk chore {i:03d}", far + i) for i in range(300)])
+            listed = json.loads(get(base, "/api/scheduler/chores"))
+            bulk = [c for c in listed if c["title"].startswith("Bulk chore ")]
+            if len(bulk) != 300 or len({c["id"] for c in listed}) != len(listed):
+                raise AssertionError(f"the API listed {len(bulk)} of 300 bulk chores ({len(listed)} in all, ids unique: {len({c['id'] for c in listed}) == len(listed)})")
+            last = [c for c in bulk if c["title"] == "Bulk chore 299"][0]
+            status, answer = api_post(f"/api/scheduler/chores/{last['id']}/complete", {"note": "the 300th"})
+            if status != 200 or not answer.get("ok"):
+                raise AssertionError(f"the last chore past 256 could not be completed: {status} {answer}")
+            assert_contains(get(base, "/scheduler"), ["Bulk chore 000", "Bulk chore 299", "the 300th"], "the page past 256 chores")
+            assert_contains(get(base, f"/scheduler/chores/edit?id={last['id']}"), ["Bulk chore 299"], "the edit page of a chore past 256")
+            with sqlite3.connect(db) as conn:
+                conn.execute("DELETE FROM chores WHERE title LIKE 'Bulk chore %'")
+
             # A chore that uses an inventory item takes it off the shelf when it
             # is done, and says so on its row.
-            import sqlite3
             get(base, "/expenses")
             with sqlite3.connect(db) as conn:
                 conn.execute("INSERT INTO items (name, unit, quantity_milli, kind, handle) VALUES ('Filter pads', 'pcs', 3000, 'part', 'filter-pads')")
@@ -267,13 +357,34 @@ def main() -> int:
             except urllib.error.HTTPError as error:
                 if error.code != 400 or "names no time" not in error.read().decode():
                     raise AssertionError(f"a cron naming no time was answered {error.code}")
+
+            # A preset chore the person deletes stays deleted: the next start
+            # does not seed it again, and one they rename is not added back
+            # under its old title.
+            # @verifies SCHED-0006
+            with sqlite3.connect(db) as conn:
+                water = conn.execute("SELECT id FROM chores WHERE title='Water change'").fetchone()
+                glass = conn.execute("SELECT id FROM chores WHERE title='Clean the glass'").fetchone()
+            if not water or not glass:
+                raise AssertionError("the aquarium's preset chores were not seeded")
+            assert_contains(form("/scheduler/chores/delete", {"id": str(water[0])}), ["Chore deleted"], "a deleted preset chore")
+            form(f"/scheduler/chores/edit?id={glass[0]}", {"title": "Clean the front glass", "kind": "interval",
+                                                           "interval_hours": "336", "priority": "low"})
+            stop(process)
+            process = start()
+            wait_for(base)
+            with sqlite3.connect(db) as conn:
+                titles = [r[0] for r in conn.execute("SELECT title FROM chores")]
+            if "Water change" in titles:
+                raise AssertionError("a preset chore the person deleted came back at the next start")
+            if "Clean the glass" in titles or "Clean the front glass" not in titles:
+                raise AssertionError(f"a renamed preset chore was added back under its old title: {titles}")
+            if "Test the water" not in titles:
+                raise AssertionError(f"a preset chore the person kept is gone: {titles}")
         finally:
-            process.terminate()
-            try:
-                process.wait(timeout=10)
-            except subprocess.TimeoutExpired:
-                process.kill()
-                process.wait(timeout=5)
+            stop(process)
+    if second_word.exists() or (tmp_first_word.exists() and not had_first_word):
+        raise AssertionError(f"a directory was made from a word of the workspace's path: {second_word} or {tmp_first_word}")
     return 0
 
 

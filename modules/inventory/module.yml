@@ -14,7 +14,7 @@ module:
   type: module
   title: Inventory & expenses
   category: inventory
-  version: 0.4.1
+  version: 0.4.2
   description: >
     Everything an installation has, in one place: consumables, parts and the
     equipment itself, in the categories the application defines; stock, reorder
@@ -82,16 +82,16 @@ docs:
   title: Inventory & expenses
   section: modules
   order: "10"
-  index: docs/index.md
+  index: docs/doc/index.md
   sources:
-    - docs/index.md
+    - docs/doc/index.md
 
 # What this module reads at run time by name (rho_asset), embedded into every
 # application that includes it, so it never reads its own folder.
 assets:
   - templates
   - db/schema.sql
-  - docs/index.md
+  - docs/doc/index.md
 
 # Its translations, merged into every application that includes it.
 locales:
@@ -99,3 +99,8 @@ locales:
     file: locales/en.json
   - locale: ro
     file: locales/ro.json
+
+# Requirements: the prefix of the ids this module allocates, and the repository
+# that holds levels.yml and the system level (rho req). A module nested in
+# robohub is a member of the family of its own, named by its module name.
+requirements: { prefix: INV, parent: robohub }

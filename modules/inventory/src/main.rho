@@ -33,11 +33,15 @@ import robohub.gateway
 
 // The runtime functions this module calls.
 extern fn rho_exec(program: string, arguments: string, output_path: string) u32
+// One argument per line, nothing in one interpreted: a path with a space in it
+// is one argument.
+extern fn rho_exec_args(program: string, arguments: string, output_path: string) u32
 // The clock and a program's output, from the runtime rather than through a file.
 extern fn rho_now_s() u32
 extern fn rho_local_date() string
 extern fn rho_read_text(path: string) string
 
+// @req INV-0001
 route GET  "/expenses"                  => inventory_page
 route GET  "/api/expenses/count"         => inventory_count
 route GET  "/expenses/items/edit"       => inventory_edit_page

@@ -1,0 +1,51 @@
+# What settings promises the applications that include it: one key-value store
+# of runtime settings per application, kept in its own workspace. Written in
+# the R5 backfill from the module's documentation, changelog and code; proposed
+# until the maintainer approves them.
+level: NODE
+prefix: SET
+title: Settings store
+requirements:
+  - id: SET-0001
+    title: Each application keeps its settings in its own workspace
+    statement: >
+      The store shall be `<workspace>/data/settings.conf`, where the
+      workspace is app_workspace() — the one the supervisor gives the
+      application (RHO_APP_WORKSPACE or ROBOHUB_APP_WORKSPACE), else
+      `~/.rho/apps/<app>` — so two applications never read or write each
+      other's settings.
+    rationale: Applications run as one user; one's settings must neither leak into nor be overwritten by another's.
+    satisfies: [SYS-0016, SYS-0031, SYS-0066]
+    decided_by: [robohub:ADR-0006]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [data, isolation]
+
+  - id: SET-0002
+    title: A key is read, replaced or listed by its name
+    statement: >
+      settings_get(key, fallback) shall return the text after the first
+      `=` of the line whose name is key, or fallback when there is none;
+      settings_set shall replace that line or append one, keeping the
+      other lines; settings_list(prefix) shall return every `key=value`
+      line whose key starts with prefix.
+    rationale: Every module an application includes shares one store under its own prefix (`log.`, `inventory.`, ...).
+    satisfies: [SYS-0016, SYS-0066]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [data, settings]
+
+  - id: SET-0003
+    title: A setting cannot add another
+    statement: settings_set shall write nothing for an empty key, a key holding `=`, or a key or value holding a line break or carriage return (settings_valid says which), and settings_get shall read only a line whose name before the first `=` is exactly the key, the first such line.
+    rationale: The store is one key=value per line; a value with a line break would add a key of its own (log.file, a provider's address).
+    satisfies: [SYS-0016, SYS-0063]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [security, data]

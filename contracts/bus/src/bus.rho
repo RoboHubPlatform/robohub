@@ -20,6 +20,7 @@ module robohub.bus
 // generated from the application's binding.
 
 // provider is the bound bus that answers: the first enabled one.
+// @req BUS-0001
 fn provider() string {
     var rest: string = bound_providers()
     while rest != "" {
@@ -44,6 +45,7 @@ fn config(key: string) string {
 
 // publish sends a message to a topic; retain keeps it as the topic's last word
 // for whoever subscribes later. It answers whether the broker took it.
+// @req BUS-0002
 fn publish(topic: string, payload: string, retain: bool) bool {
     return publish_to(provider(), topic, payload, retain)
 }
@@ -56,12 +58,14 @@ fn follow(filter: string, events_path: string) bool {
 
 // follow_lines follows a topic filter and appends every payload to lines_path
 // as it came, one per line: the other end of relay.
+// @req BUS-0003
 fn follow_lines(filter: string, lines_path: string) bool {
     return follow_lines_to(provider(), filter, lines_path)
 }
 
 // relay publishes every line appended to lines_path to topic, from now on, in
 // the background: a file of lines carried across the broker unchanged.
+// @req BUS-0003
 fn relay(lines_path: string, topic: string) bool {
     return relay_to(provider(), lines_path, topic)
 }

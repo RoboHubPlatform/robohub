@@ -18,6 +18,7 @@ module journal
 
 include "journal.rho"
 include "notifications"
+include "forms"
 
 import std.sql
 import std.web.http

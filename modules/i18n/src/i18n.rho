@@ -67,6 +67,7 @@ fn i18n_cookie(req: Request, name: string) string {
 
 // i18n_accept picks the first supported tag from Accept-Language. A regional
 // tag falls back to its primary language: ro-RO is ro.
+// @req I18N-0001
 fn i18n_accept(req: Request) string {
     if !has_header(req, "Accept-Language") {
         return ""
@@ -97,6 +98,7 @@ fn i18n_accept(req: Request) string {
     return ""
 }
 
+// @req I18N-0001
 fn i18n_locale(req: Request) string {
     let cookie: string = str_lower(i18n_cookie(req, "locale"))
     if i18n_supported(cookie) {
@@ -127,6 +129,7 @@ fn i18n_switcher(req: Request) string {
 
 // i18n_vars is what a page helper adds to a template fill. It carries the
 // chosen language and the switcher, so every full page and fragment agrees.
+// @req I18N-0004
 fn i18n_vars(req: Request) string {
     let locale: string = i18n_locale(req)
     return vars("__locale", locale) +
@@ -136,6 +139,7 @@ fn i18n_vars(req: Request) string {
 
 // i18n_t translates a key outside a template, for a notice or an error. The
 // key is internal, so it is quoted rather than pasted into the template.
+// @req I18N-0004
 fn i18n_t(req: Request, key: string) string {
     return template_fill("{{t " + json_string(key) + "}}", i18n_vars(req))
 }
@@ -143,6 +147,7 @@ fn i18n_t(req: Request, key: string) string {
 // i18n_safe_next is where the language switch returns to: a path on this
 // origin and nothing else. A backslash is a slash to a browser (`/\evil.com` is
 // another host), and a line break would start another response header.
+// @req I18N-0003
 fn i18n_safe_next(value: string) string {
     if value == "" { return "/" }
     if !i18n_starts(value, "/") { return "/" }
@@ -151,7 +156,9 @@ fn i18n_safe_next(value: string) string {
     let forbidden: string = "\\\"'<> \r\n\t"
     var i: u32 = 0
     while i < u32(strlen(value)) {
-        if str_index_of(forbidden, str_slice(value, i, 1)) >= 0 {
+        let ch: string = str_slice(value, i, 1)
+        let code: u32 = u32(str_at(ch, 0))
+        if str_index_of(forbidden, ch) >= 0 || code < 32 || code == 127 {
             return "/"
         }
         i = i + 1
@@ -159,6 +166,7 @@ fn i18n_safe_next(value: string) string {
     return value
 }
 
+// @req I18N-0002
 fn i18n_switch(req: Request) Response {
     let body: string = request_body(req)
     var code: string = str_lower(str_trim(forms_parse(body, "locale")))
@@ -217,6 +225,7 @@ fn i18n_phrases_script(catalog: string) string {
 // i18n_phrases is a page — whole or a fragment — in the request's language, from
 // the catalog in `folder` (phrases.<locale>.txt). A whole page also carries the
 // catalog for what it receives later.
+// @req I18N-0005
 fn i18n_phrases(req: Request, html_text: string, folder: string) string {
     let locale: string = i18n_locale(req)
     if locale == "" || locale == "en" || str_index_of(locale, "/") >= 0 || str_index_of(locale, ".") >= 0 {

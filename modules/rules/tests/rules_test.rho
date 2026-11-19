@@ -50,6 +50,7 @@ fn problem(condition: string) string {
     return rules_evaluate(condition, "", 600).problem
 }
 
+// @verifies RULES-EXPR-0001
 test fn conditions_are_cut_into_tokens() void {
     check(rules_token_count(rules_tokens("heater.temperature<24.5")) == 3, "an operator without spaces")
     check(str_eq(rules_token(rules_tokens("a >= 2"), 1), ">="), "a two-character operator")
@@ -59,6 +60,7 @@ test fn conditions_are_cut_into_tokens() void {
     print("[PASS] conditions_are_cut_into_tokens\n")
 }
 
+// @verifies RULES-EXPR-0002, RULES-EXPR-0004, RULES-EXPR-0005
 test fn numbers_and_durations() void {
     check(rules_number("24.5").milli == 24500, "a decimal")
     check(rules_number("24,5").milli == 24500, "a decimal comma")
@@ -76,6 +78,7 @@ test fn numbers_and_durations() void {
     print("[PASS] numbers_and_durations\n")
 }
 
+// @verifies RULES-EXPR-0001, RULES-EXPR-0002
 test fn readings_are_compared_as_numbers() void {
     check(holds("heater.temperature < 24.5"), "an item's reading below a literal")
     check(holds("heater.temperature < band.temperature.on"), "a reading against a host value")
@@ -88,6 +91,7 @@ test fn readings_are_compared_as_numbers() void {
     print("[PASS] readings_are_compared_as_numbers\n")
 }
 
+// @verifies RULES-EXPR-0003
 test fn and_or_not_and_brackets() void {
     check(holds("heater.temperature < 30 and aquarium.nitrate > 10"), "and")
     check(holds("heater.temperature > 30 or aquarium.nitrate > 10"), "or")
@@ -98,6 +102,7 @@ test fn and_or_not_and_brackets() void {
     print("[PASS] and_or_not_and_brackets\n")
 }
 
+// @verifies RULES-0004, RULES-EXPR-0003
 test fn a_missing_reading_is_no_answer() void {
     check(str_eq(problem("nothing.here > 1"), "no reading for nothing.here"), "a reading that is not there")
     check(!holds("not nothing.here > 1"), "not of a missing reading does not hold")
@@ -109,6 +114,7 @@ test fn a_missing_reading_is_no_answer() void {
     print("[PASS] a_missing_reading_is_no_answer\n")
 }
 
+// @verifies RULES-EXPR-0004
 test fn modes_and_time_windows() void {
     check(rules_evaluate("mode == feeding", "feeding", 600).holds, "the mode in force")
     check(rules_evaluate("mode != feeding", "", 600).holds, "no mode in force")
@@ -120,11 +126,49 @@ test fn modes_and_time_windows() void {
     print("[PASS] modes_and_time_windows\n")
 }
 
+// @verifies RULES-EXPR-0006
 test fn a_form_is_checked_without_readings() void {
     check(rules_check("heater.temperature < 24.5") == "", "a condition in the grammar")
     check(rules_check("") != "", "an empty condition")
     check(rules_check("a < 1)") != "", "a bracket closed that was not opened")
     print("[PASS] a_form_is_checked_without_readings\n")
+}
+
+// @verifies RULES-EXPR-0007
+test fn a_side_written_wrong_is_wrong_either_way() void {
+    // The left side decides, and the right side is not written in the grammar:
+    // the condition is still a problem, never a silent answer.
+    check(str_eq(problem("heater.temperature < 30 or (aquarium.nitrate > 10"), "a bracket is not closed"), "or: a bracket left open on the right")
+    check(str_eq(problem("heater.temperature < 30 or not"), "the condition ends where a value was expected"), "or: a right side that ends early")
+    check(str_eq(problem("heater.temperature > 30 and mode feeding"), "a mode is compared with == or !=: `mode == feeding`"), "and: a mode written wrong on the right")
+    check(str_eq(problem("heater.temperature > 30 and time between 9 and 11"), "a time window is written `time between 10:00 and 20:00`"), "and: a time window written wrong on the right")
+    check(!holds("heater.temperature < 30 or (aquarium.nitrate > 10"), "a condition written wrong does not hold")
+    // A reading missing on the side that did not decide still does not matter.
+    check(holds("heater.temperature < 30 or nothing.here > 1"), "true or a missing reading is still true")
+    print("[PASS] a_side_written_wrong_is_wrong_either_way\n")
+}
+
+// @verifies RULES-EXPR-0006, RULES-EXPR-0007
+test fn a_form_is_checked_on_every_side() void {
+    check(rules_check("heater.temperature < 30 or not") != "", "a right side that ends early")
+    check(rules_check("heater.temperature < 30 or nitrate") != "", "a right side with no comparison")
+    check(rules_check("a > 1 and mode feeding") != "", "a mode written wrong")
+    check(rules_check("a > 1 b") != "", "a token left over")
+    check(rules_check("nothing.here > 1 or mode == feeding and time between 10:00 and 20:00") == "", "a condition in the grammar, no reading taken")
+    print("[PASS] a_form_is_checked_on_every_side\n")
+}
+
+// @verifies RULES-EXPR-0008
+test fn actions_are_checked_as_written() void {
+    check(rules_actions_check("switch heater on; alert warning \"too warm\"") == "", "a switch and an alert")
+    check(rules_actions_check("use feeder; journal info \"fed\"; mode feeding; mode end") == "", "use, journal and modes")
+    check(rules_actions_check("") == "", "no actions")
+    check(str_eq(rules_actions_check("switch heater on; blink light"), "unknown action `blink light`"), "an unknown action")
+    check(rules_actions_check("switch heater up") != "", "a switch neither on nor off")
+    check(rules_actions_check("alert loud \"x\"") != "", "a level that is not one")
+    check(rules_actions_check("journal info") != "", "a journal entry with no message")
+    check(rules_actions_check("mode") != "", "a mode with no name")
+    print("[PASS] actions_are_checked_as_written\n")
 }
 
 fn main() void {
@@ -135,5 +179,8 @@ fn main() void {
     a_missing_reading_is_no_answer()
     modes_and_time_windows()
     a_form_is_checked_without_readings()
+    a_side_written_wrong_is_wrong_either_way()
+    a_form_is_checked_on_every_side()
+    actions_are_checked_as_written()
     print("rules grammar tests ok\n")
 }

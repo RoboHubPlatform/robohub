@@ -20,6 +20,9 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "shared" / "tests"))
+import csrf_probe  # noqa: E402
+
 HERE = Path(__file__).resolve()
 MODULE = HERE.parents[1]
 ROBOHUB = MODULE.parents[1]
@@ -113,6 +116,41 @@ def assert_contains(haystack: str, needles: list, label: str) -> None:
     for needle in needles:
         if needle not in haystack:
             raise AssertionError(f"{label} does not contain {needle!r}")
+
+
+# @verifies INV-0007
+def forged_posts_are_refused(base: str, home: str, workspace: str, category: str) -> None:
+    """Every inventory post refuses a body without the form token, or with a wrong one.
+
+    Each body is one the route would act on with the token, so nothing changing
+    is the token's doing and not a body the route ignores.
+    """
+    cookie = csrf_probe.cookie_session(csrf_probe.rho_binary(PROJECTS), home, base, "aquarium")
+    posts = [
+        ("/expenses/items/add", {"name": "Forged", "category_id": category, "unit": "kg", "quantity": "1"}),
+        ("/expenses/items/edit", {"id": "1", "name": "Forged", "category_id": category, "unit": "kg"}),
+        ("/expenses/items/consume", {"item_id": "1", "quantity": "0.1"}),
+        ("/expenses/purchases/add", {"item_id": "1", "quantity": "1", "unit_price": "1", "category_id": category}),
+        ("/expenses/purchases/delete", {"id": "1"}),
+        ("/expenses/categories/add", {"category": "Forged"}),
+        ("/expenses/categories/rename", {"id": category, "name": "Forged"}),
+        ("/expenses/categories/delete", {"id": category}),
+        ("/expenses/items/delete", {"id": "1"}),
+        ("/expenses/items/bind", {"id": "1", "handle": "forged"}),
+        ("/expenses/items/switch", {"id": "1", "state": "on"}),
+        ("/devices", {"role": "forged", "device": "x"}),
+        ("/devices/add", {"name": "Forged", "category": category}),
+    ]
+    before = csrf_probe.workspace_state(workspace)
+    for path, fields in posts:
+        for label, extra in (("no token", {}), ("a wrong token", {"csrf": "f" * 64})):
+            for how, auth in (("a cookie", {"cookie": cookie}), ("a bearer ticket", {"bearer": TOKEN})):
+                status, _ = csrf_probe.post(base, path, dict(fields, **extra), **auth)
+                if status >= 500:
+                    raise AssertionError(f"{path} with {label} and {how} failed with {status}")
+                changed = csrf_probe.state_diff(before, csrf_probe.workspace_state(workspace))
+                if changed:
+                    raise AssertionError(f"{path} with {label} and {how} changed {changed}")
 
 
 def build() -> Path:
@@ -223,6 +261,8 @@ def main() -> int:
             db = Path(workspace) / "data" / "app.db"
             if not db.exists():
                 raise AssertionError("the module database is not in the application workspace")
+
+            forged_posts_are_refused(base, auth_home, workspace, consumables)
 
             assert_contains(post(base, "/expenses/purchases/delete", {"id": "1"}),
                             ["Purchase removed"], "delete purchase")

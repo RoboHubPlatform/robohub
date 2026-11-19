@@ -1,5 +1,6 @@
 name: appapi
 suites:
+  # @verifies APPAPI-0001, APPAPI-0004, APPAPI-0005, APPAPI-0007, JRNL-0005
   - name: appapi-smoke
     kind: command
     tags: [smoke]

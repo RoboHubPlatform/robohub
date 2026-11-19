@@ -1,0 +1,17 @@
+//
+// @file notifications_test.rho
+// @brief The suite's entry point; the smoke test tests.yml declares does the checking.
+//
+// @module notifications
+// @project robohub
+// @author Aurel Miron
+// @date 2026-11-19
+//
+// SPDX-License-Identifier: MIT
+//
+
+module notifications.tests
+
+fn main() void {
+    print("notifications smoke suite is declared in tests.yml\n")
+}

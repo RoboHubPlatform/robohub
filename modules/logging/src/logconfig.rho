@@ -41,20 +41,6 @@ fn log_level_name(level: u32) string {
     return "info"
 }
 
-fn log_default_file(app: string) string {
-    var base: string = getenv("XDG_STATE_HOME")
-    if base == "" {
-        var home: string = getenv("HOME")
-        if home == "" {
-            home = "."
-        }
-        base = home + "/.local/state"
-    }
-    let dir: string = base + "/robohub/" + app
-    rho_exec("mkdir", "-p " + dir, "/dev/null")
-    return dir + "/app.log"
-}
-
 fn log_setting(key: string, fallback: string) string {
     let value: string = settings_get("log." + key, fallback)
     if value == "" {
@@ -77,6 +63,7 @@ fn log_parse_u32(text: string, fallback: u32) u32 {
 
 // log_file_is_read from another application's settings file, which the keeper
 // uses for its Applications page. The app itself calls log_file_for_app.
+// @req LOG-0004
 fn log_file_in_settings_file(path: string, app: string) string {
     if !rho_path_exists(path) {
         return log_default_file(app)
@@ -114,6 +101,7 @@ fn log_file_for_app(app: string) string {
 
 // log_config_apply turns the stored settings into the host's log policy. It is
 // called at startup and after the Logging form is saved.
+// @req LOG-0001
 fn log_config_apply(app: string) void {
     let level: u32 = log_level_index(log_setting("level", "info"))
     var format: string = log_setting("format", "text")
@@ -164,6 +152,7 @@ fn log_settings_form(app: string, action: string, locale: string) string {
     return forms_open(fields, 6, action, "Save logging", locale)
 }
 
+// @req LOG-0003
 fn log_settings_save(app: string, body: string) bool {
     if !forms_csrf_ok(body) {
         return false

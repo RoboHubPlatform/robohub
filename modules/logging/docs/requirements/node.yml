@@ -1,0 +1,68 @@
+# What logging promises the applications that include it: one logging policy
+# per application, chosen on its settings page and applied to all it logs. Written in
+# the R5 backfill from the module's documentation, changelog and code; proposed
+# until the maintainer approves them.
+level: NODE
+prefix: LOG
+title: Logging
+requirements:
+  - id: LOG-0001
+    title: The stored policy is applied to everything the program logs
+    statement: >
+      log_config_apply(app) shall hand the host's logemit port the
+      stored `log.level` (`info` when unset or unknown), `log.format`
+      (`text` unless `json`), `log.file`, `log.max_bytes` (5242880),
+      `log.keep` (5) and `log.stderr` (on unless `0`), so every module
+      that logs through rho.log writes with the same policy.
+    rationale: One application, one log, at one level, whatever modules it includes.
+    satisfies: [SYS-0039, SYS-0066]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [observability, logging]
+
+  - id: LOG-0002
+    title: The default log file is under the user's state directory
+    statement: >
+      With no `log.file` stored, an application shall log to
+      `$XDG_STATE_HOME/robohub/<app>/app.log`, or
+      `~/.local/state/robohub/<app>/app.log` when XDG_STATE_HOME is
+      unset, creating the directory when needed.
+    rationale: Each application's log is in a place the keeper and a person know without asking.
+    satisfies: [SYS-0039]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [observability, logging]
+
+  - id: LOG-0003
+    title: The logging form is checked before it is stored and applied
+    statement: >
+      log_settings_save shall store nothing and return false when the
+      form's CSRF field fails or a field does not validate; otherwise it
+      shall store only a known level and format, store the file (the
+      default when empty), size, kept count and stderr choice, and apply
+      them at once.
+    rationale: A level a person picks takes effect without a restart, and a forged or malformed form changes nothing.
+    satisfies: [SYS-0039, SYS-0034, SYS-0062]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [observability, security, settings]
+
+  - id: LOG-0004
+    title: Another application's log file can be found from its settings
+    statement: >
+      log_file_in_settings_file(path, app) shall return the `log.file`
+      value of the settings file at path, and the application's default
+      file when the file is missing or holds no value.
+    rationale: The keeper shows each application's log without the application running.
+    satisfies: [SYS-0039]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [observability, keeper]

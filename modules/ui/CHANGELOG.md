@@ -38,3 +38,7 @@ The bar's own words — the Applications, Theme and Language headings, the theme
 ## [0.2.0] - 2026-11-14
 
 It lists what other code may use (`provides.exports`, imported as `robohub.ui`). An application that includes it still reaches everything, and a build (rho 0.8.3) names each call to a function outside the list. The list is what the applications and modules of the ecosystem call; anything else is the module's own and may change without notice.
+
+## [0.2.1] - 2026-11-19
+
+Security: the theme switch's return address (`/ui/theme?back=`) refused a line break but not a tab, and a browser drops a tab from an address before it reads it, so `back=/%09/evil.example` sent a person to another site. Every control character is refused now, and the person's menu URL-encodes `back` in the link it draws. Tested in `tests/ui_smoke.py`.

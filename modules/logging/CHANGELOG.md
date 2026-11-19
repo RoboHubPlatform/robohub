@@ -28,3 +28,7 @@ Trimming, URL escapes, form fields and decimals come from the toolchain (rho 0.7
 ## [0.2.4] - 2026-11-15
 
 Every `let` the code assigned to is declared with `var`, as rho 0.19.0 asks (assigning to a `let` is deprecated there and refused in the next minor release). Nothing else changes.
+
+## [0.2.5] - 2026-11-19
+
+The default log directory (`$XDG_STATE_HOME/robohub/<app>`) is made with `mkdir` given the path as one argument (`rho_exec_args`, one argument per line) rather than one string the runtime splits on spaces: a state directory or home holding a space left the directory unmade — so nothing could be logged to the file — and made stray directories from the words of the path. `log_default_file` moved to `src/logfile.rho`, which has a test of its own (`tests/logging_test.rho`).

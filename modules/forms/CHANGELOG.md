@@ -47,3 +47,9 @@ Its data is kept where `app_workspace()` says (rho 0.8.0) — the application's 
 ## [0.3.6] - 2026-11-15
 
 Every `let` the code assigned to is declared with `var`, as rho 0.19.0 asks (assigning to a `let` is deprecated there and refused in the next minor release). Nothing else changes.
+
+## [0.3.7] - 2026-11-19
+
+`forms_machine_ok(req, body)` is the check for a route that code calls rather than a form a person submits: it accepts a post with an `Authorization: Bearer` header or the form token, and refuses one that rides on the browser's session cookie alone — the only kind of post a page on another site can make a browser send. widgets, notifications and scheduler use it for their API routes.
+
+The directory it keeps its data in is made with `mkdir` given the path as one argument (`rho_exec_args`, one argument per line) rather than one string the runtime splits on spaces: a workspace path holding a space made stray directories from the words of the path, one of them relative to wherever the application runs, and on the C backend left the real directory unmade.

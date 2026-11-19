@@ -57,3 +57,7 @@ Its data is kept where `app_workspace()` says (rho 0.8.0) — the application's 
 ## [0.2.0] - 2026-11-14
 
 It lists what other code may use (`provides.exports`, imported as `robohub.rules`). An application that includes it still reaches everything, and a build (rho 0.8.3) names each call to a function outside the list. The list is what the applications and modules of the ecosystem call; anything else is the module's own and may change without notice.
+
+## [0.2.1] - 2026-11-19
+
+A side of `and`/`or` written wrong is a problem even when the other side decides the answer. The decided side's problem was cleared whatever it was, so `t < 30 or (n > 10` or `t < 30 or not` was accepted by the form (which only counted brackets) and then held silently whenever `t < 30`, never reporting the mistake. Only a reading that is missing or not a number on the undecided side is still ignored; a problem of the grammar is kept, and the form now reads every side of the condition, and the clear condition when a rule is added. A rule's actions are checked when it is added or edited: an unknown action (`blink light`), an action not in its form (`switch heater up`, an alert level that is not info/warning/error/critical) or a mode the application does not define is refused with the field it was typed in (`Then: …`, `Otherwise: …`) instead of being saved and failing each time the rule held. A handle no item has yet is still accepted.

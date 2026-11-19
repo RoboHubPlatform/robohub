@@ -65,6 +65,7 @@ fn inventory_ends_with(text: string, suffix: string) bool {
 }
 
 // inventory_capability_name is a capability without its optional mark.
+// @req INV-AUTO-0001
 fn inventory_capability_name(capability: string) string {
     let name: string = str_trim(capability)
     if inventory_ends_with(name, "?") {
@@ -79,6 +80,7 @@ fn inventory_capability_optional(capability: string) bool {
 
 // inventory_capability_access is what an item does with a capability: it drives
 // a switch or a button, and reads everything else.
+// @req INV-AUTO-0001
 fn inventory_capability_access(capability: string) string {
     let name: string = inventory_capability_name(capability)
     if str_eq(name, "switch") || str_eq(name, "press") {
@@ -204,12 +206,14 @@ fn inventory_controller(bindings: ListBindingsRow[512], count: u32, source: stri
 
 // inventory_automated says whether the application binds a gateway, which is
 // whether an item can be connected to anything.
+// @req INV-0006
 fn inventory_automated() bool {
     return gateway.provider() != ""
 }
 
 // inventory_resolve is the gateway source an item's capability is bound to, the
 // item named by its handle (or its id); "" when it is not bound.
+// @req INV-0005, INV-AUTO-0003
 fn inventory_resolve(ref: string, capability: string) string {
     let opened: Result[SqlDb, string] = sql_open(inventory_db_path())
     if !opened.is_ok {
@@ -233,6 +237,7 @@ fn inventory_resolve(ref: string, capability: string) string {
 
 // inventory_read is the newest reading of an item's capability, through the
 // gateway: `inventory_read("heater", "temperature")`.
+// @req INV-AUTO-0003
 fn inventory_read(ref: string, capability: string) string {
     let source: string = inventory_resolve(ref, capability)
     if source == "" {
@@ -243,6 +248,7 @@ fn inventory_read(ref: string, capability: string) string {
 
 // inventory_switch turns an item's switch on or off through the gateway, and
 // logs who asked: a person, a rule, a mode.
+// @req INV-AUTO-0003, INV-0006, INV-0009
 fn inventory_switch(ref: string, on: bool, actor: string) bool {
     let source: string = inventory_resolve(ref, "switch")
     if source == "" {
@@ -265,6 +271,7 @@ fn inventory_switch(ref: string, on: bool, actor: string) bool {
 
 // inventory_consume takes stock off an item — a dose, a test, a filter pad —
 // and records why and for what (`dose#42`). Quantity is in thousandths.
+// @req INV-STOCK-0003
 fn inventory_consume(ref: string, quantity_milli: u32, reason: string, for_ref: string) bool {
     if quantity_milli == 0 {
         return false
@@ -321,6 +328,7 @@ fn inventory_return(ref: string, quantity_milli: u32, reason: string, for_ref: s
 // inventory_use is one use of an item that uses another category — a feeder's
 // press — which takes its portion from the first item in that category with any
 // stock left.
+// @req INV-AUTO-0004
 fn inventory_use(ref: string, actor: string) bool {
     let opened: Result[SqlDb, string] = sql_open(inventory_db_path())
     if !opened.is_ok {
@@ -404,6 +412,7 @@ fn inventory_item_name(ref: string) string {
 // inventory_assign_handle gives an item a handle, taking it from any other item
 // that had it: a role (`heater`) is filled by one item at a time. It answers
 // whether the item exists.
+// @req INV-DEV-0002
 fn inventory_assign_handle(id: u32, handle: string) bool {
     let clean: string = inventory_handle(handle)
     if id == 0 || clean == "" {
@@ -472,6 +481,7 @@ fn inventory_item_id(ref: string) u32 {
 // inventory_bind binds (or, with no source, unbinds) one capability of an item,
 // refusing a source another item already controls. It answers "" when done,
 // what went wrong otherwise.
+// @req INV-AUTO-0002
 fn inventory_bind(id: u32, capability: string, source: string) string {
     let opened: Result[SqlDb, string] = sql_open(inventory_db_path())
     if !opened.is_ok {
@@ -515,6 +525,7 @@ fn inventory_bind(id: u32, capability: string, source: string) string {
 // A category is added when it is missing; what a preset says about it is kept
 // current, because the application, not the person, decides what a filter is.
 // It answers how many categories the presets named.
+// @req INV-STOCK-0007
 fn inventory_presets(text: string) u32 {
     if str_trim(text) == "" {
         return 0
@@ -569,6 +580,7 @@ fn inventory_presets(text: string) u32 {
 // inventory_on_seconds is how long a switch was on over a series of one-minute
 // buckets: each bucket's average is the share of that minute it was on, and a
 // minute with no reading counts as off.
+// @req INV-AUTO-0005
 fn inventory_on_seconds(series: string) u32 {
     var total_milli: u32 = 0
     var rest: string = series
@@ -601,6 +613,7 @@ fn inventory_on_seconds(series: string) u32 {
 // its switch was on since it was last counted, from the gateway's history. An
 // application calls it from its background work; an item is counted once an
 // hour, and first over the past week.
+// @req INV-AUTO-0005
 fn inventory_runtime_tick() u32 {
     if !inventory_automated() {
         return 0
@@ -823,6 +836,7 @@ fn inventory_automation_message(req: Request, id: u32, message: string) Response
     return host_shell(req, row.name, body, toast_js)
 }
 
+// @req INV-0007, INV-AUTO-0001, INV-AUTO-0002, INV-0009
 fn inventory_items_bind(req: Request) Response {
     let body: string = request_body(req)
     let id: u32 = int_from_str(str_trim(form_field(body, "id")))
@@ -868,6 +882,7 @@ fn inventory_items_bind(req: Request) Response {
     return inventory_automation_message(req, id, i18n_t(req, "inventory.bound"))
 }
 
+// @req INV-0007
 fn inventory_items_switch(req: Request) Response {
     let body: string = request_body(req)
     let id: u32 = int_from_str(str_trim(form_field(body, "id")))

@@ -1,0 +1,98 @@
+# What ui promises the applications that include it: the RoboHub look, the top bar with
+# the switcher and the person's menu, and the theme. Written in
+# the R5 backfill from the module's documentation, changelog and code; proposed
+# until the maintainer approves them.
+level: NODE
+prefix: UI
+title: RoboHub UI
+requirements:
+  - id: UI-0001
+    title: The look is served by the application itself
+    statement: >
+      The module shall serve its stylesheet at GET /ui/robohub.css and
+      its script at GET /ui/robohub.js from the program's embedded
+      assets, cached for 300 s, and ui_head() shall link both with a
+      version in their address.
+    rationale: Every application looks the same with no external asset, and a release's look is not hidden behind an old cache.
+    satisfies: [SYS-0017, SYS-0001]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [ui, offline]
+
+  - id: UI-0002
+    title: A theme chosen once holds on every application of the host
+    statement: >
+      GET /ui/theme shall keep `set` (`light` or `system`, anything else
+      `dark`) in the `rh_theme` cookie with Path=/, Max-Age=31536000 and
+      SameSite=Lax, and redirect to `back` only when it is a path on
+      this host (else `/`); ui_theme shall read the cookie and be `dark`
+      without one.
+    rationale: A cookie belongs to the host, so one choice reaches the keeper and every application; the return address must stay on the host.
+    satisfies: [SYS-0017, SYS-0063]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [ui, security]
+
+  - id: UI-0003
+    title: The switcher lists the keeper's applications and opens them through it
+    statement: >
+      ui_topbar_remote_in shall draw a switcher that holds the way back
+      to the keeper and that the page's script fills from the keeper's
+      /api/v1/switcher on the given port, linking an application to the
+      keeper's origin at its `path` when the answer gives one and to its
+      own port otherwise; ui_topbar_in shall draw the list it is given
+      (`name|title|port|route|state` lines) with the current one marked.
+    rationale: Moving between applications is one click, and through the keeper an application's own port is never visited.
+    satisfies: [SYS-0017, SYS-0005]
+    decided_by: [robohub:ADR-0004]
+    status: proposed
+    verification: demonstration
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [ui, switcher]
+
+  - id: UI-0004
+    title: Application states are shown as a dot and a word
+    statement: >
+      The switcher shall show `running` and `keeper` with the ok dot,
+      `starting` and `not-built` with the warn dot, `failed` with the
+      bad dot and any other state with the off dot, with the state's
+      word in the request's language (English or Romanian) and a state
+      without a word shown as it is.
+    rationale: Whether an application runs is seen at a glance from any application.
+    satisfies: [SYS-0013, SYS-0065]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [ui, supervision]
+
+  - id: UI-0005
+    title: The person's menu escapes what it shows
+    statement: >
+      ui_person shall show the person's initial and name, the role when
+      given, the theme choice when asked, the application's links and
+      its sign-out last, with every name, role and label HTML-escaped
+      and the theme links returning only to a path on this host.
+    rationale: A name comes from an account; it must not become markup on every page.
+    satisfies: [SYS-0017, SYS-0063]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [ui, security]
+
+  - id: UI-0006
+    title: The theme switch's return address cannot leave the host
+    statement: ui_local_path shall refuse a path that does not start with one `/` or holds a backslash, quote, angle bracket, space or control character (a tab and a line break among them), and the person's menu shall draw `back` URL-encoded and escaped.
+    rationale: A browser drops a tab from an address before it reads it, so /<tab>/evil.example is another site; a line break would start another header.
+    satisfies: [SYS-0063]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [security, web]

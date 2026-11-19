@@ -1,0 +1,107 @@
+# Stock, purchases, categories and handles: the inventory's records
+# (src/inventory.rho, db/). Proposed until the maintainer approves them.
+level: SUB
+prefix: INV-STOCK
+title: Stock and expenses
+requirements:
+  - id: INV-STOCK-0001
+    title: Money in cents, quantities in thousandths
+    statement: >
+      The module shall keep money as integer cents and quantities as integer
+      thousandths, read a decimal comma as a decimal point, reckon a purchase's
+      total in 64 bits, and show a stock taken below zero as a negative number.
+    rationale: A total must not depend on floating-point spelling, and 100 units at 500.00 overflowed 32 bits.
+    satisfies: [INV-0004]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [stock, expenses]
+
+  - id: INV-STOCK-0002
+    title: A purchase adds spending, stock and a movement
+    statement: >
+      Recording a purchase of an item shall add one expense line (quantity, unit
+      price, total, store, date, comment), increase the item's stock by the
+      quantity (1 when none is given) and record a purchase movement; removing a
+      purchase shall remove the expense line and leave the stock as it is.
+    rationale: Spending and stock arriving are one event; undoing a mistyped purchase must not silently change what is on the shelf.
+    satisfies: [INV-0004]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [stock, expenses]
+
+  - id: INV-STOCK-0003
+    title: Removal from stock and the reorder list
+    statement: >
+      Removing stock, through the page or inventory_consume, shall lower the
+      item's quantity and record a negative movement with its reason, and an item
+      whose reorder level is above zero and whose quantity is at or below it
+      shall be listed as needing reorder.
+    rationale: The person must see what to buy before it runs out.
+    satisfies: [INV-0004]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [stock]
+
+  - id: INV-STOCK-0004
+    title: Handles are clean and unique
+    statement: >
+      An item's handle shall be kept in lower case with letters, digits and single
+      dashes, a space or an underscore read as a dash and leading and trailing
+      dashes dropped, and adding or editing an item with a handle another item
+      has shall be refused.
+    rationale: A handle is what rules and cards name; two items with one handle would make every one of them ambiguous.
+    satisfies: [INV-0005]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [equipment, handles]
+
+  - id: INV-STOCK-0005
+    title: A preset category is the application's
+    statement: >
+      A category the application's presets keep (origin preset) shall be neither
+      renamed nor deleted from the page; a category a person added may be
+      renamed, and deleted only while no item is in it, the purchases that named
+      it keeping their amounts.
+    rationale: The application reads its preset categories by name; renaming one would break it.
+    satisfies: [INV-0004]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [categories]
+
+  - id: INV-STOCK-0006
+    title: Deleting an item keeps its purchases
+    statement: >
+      Deleting an item shall delete its bindings and stock movements with it and
+      keep its purchases in the expenses, no longer naming the item.
+    rationale: What was spent stays spent when the heater is thrown away.
+    satisfies: [INV-0004]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [stock, expenses]
+
+  - id: INV-STOCK-0007
+    title: Categories are seeded from the application's presets
+    statement: >
+      inventory_presets(text) shall add every category its categories map names
+      that is missing, keep each preset category's kind, capabilities and the
+      category it uses as the presets say, mark it as a preset, and answer how
+      many categories the presets named.
+    rationale: The application, not the person, decides what a filter is and what it can be bound to.
+    satisfies: [INV-0005]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [categories, presets, contract]

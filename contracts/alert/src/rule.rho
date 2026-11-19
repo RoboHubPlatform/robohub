@@ -135,6 +135,7 @@ fn alert_rule_message(rule: AlertRule) string {
 }
 
 // alert_rule_evaluate advances one rule by one sample. `now` is seconds.
+// @req ALERT-0005, ALERT-0006, ALERT-0007
 fn alert_rule_evaluate(rule: AlertRule, value: f64, now: u32) AlertEvaluation {
     var next: AlertRule = rule
     var fired: bool = false
@@ -180,6 +181,7 @@ fn alert_rule_evaluate(rule: AlertRule, value: f64, now: u32) AlertEvaluation {
 // alert_rule_trigger fires unless the rolling window is full. A suppressed
 // trigger still leaves the rule in the triggered state, so it does not re-fire
 // until the condition clears and a new pending window begins.
+// @req ALERT-0008
 fn alert_rule_trigger(rule: AlertRule, now: u32, value: f64) AlertRule {
     var next: AlertRule = rule
     next.fire_times = alert_rule_prune(next, now)

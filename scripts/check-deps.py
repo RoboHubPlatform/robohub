@@ -60,6 +60,7 @@ def included_modules(module_dir, self_name):
     return used
 
 
+# @req HUB-0009
 for manifest in MANIFESTS:
     data = yaml.safe_load(manifest.read_text()) or {}
     name = module_name(data, manifest)

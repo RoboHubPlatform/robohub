@@ -3,6 +3,7 @@ suites:
   - name: tests/rules_test.rho
     kind: rho
     tags: [unit, rho]
+  # @verifies RULES-0001, RULES-0002, RULES-0003, RULES-0004, RULES-0005, RULES-0006, RULES-EXPR-0006, RULES-ENG-0001, RULES-ENG-0002, RULES-ENG-0003, RULES-ENG-0004, RULES-ENG-0005, RULES-ENG-0006
   - name: rules-smoke
     kind: command
     tags: [smoke]

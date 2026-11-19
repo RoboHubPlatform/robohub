@@ -27,3 +27,8 @@ sections:
   - name: devices
     title: Devices & firmware
     pages: [robohub-gateway, robohub-devices, robohub-drivers, robohub-common, robohub-core, robohub-transport, robohub-telemetry, robohub-esp32, robohub-pico, robohub-stm32, robohub-avr, robohub-linux, robohub-freertos]
+  # The process, and the requirements and decisions of the ecosystem as a whole:
+  # the robohub part's generated pages follow the process page.
+  - name: process
+    title: Process
+    pages: [process/index, robohub]

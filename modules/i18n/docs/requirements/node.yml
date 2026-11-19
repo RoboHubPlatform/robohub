@@ -1,0 +1,83 @@
+# What i18n promises the applications that include it: the language a request is
+# answered in, the switch between languages, and whole-label translation. Written in
+# the R5 backfill from the module's documentation, changelog and code; proposed
+# until the maintainer approves them.
+level: NODE
+prefix: I18N
+title: Internationalisation
+requirements:
+  - id: I18N-0001
+    title: The language is the cookie's, else the browser's, else English
+    statement: >
+      i18n_locale shall answer a request in the language its `locale`
+      cookie names when that is a supported one (`en`, `ro`), else in
+      the first tag of Accept-Language when it or its primary language
+      (`ro-RO` is `ro`) is supported, else in `en`.
+    rationale: A person reads the applications in their language without choosing it on every page.
+    satisfies: [SYS-0065]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [i18n, ui]
+
+  - id: I18N-0002
+    title: Choosing a language keeps it for a year
+    statement: >
+      POST /i18n/locale shall set the `locale` cookie to the posted
+      language (`en` when it is not supported) with Path=/, Max-
+      Age=31536000 and SameSite=Lax, and redirect to the posted `next`
+      with both a Location and an HX-Redirect header.
+    rationale: The choice must hold across applications on the host and across visits, from a plain form or an HTMX one.
+    satisfies: [SYS-0065]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [i18n, ui]
+
+  - id: I18N-0003
+    title: The language switch returns only to a path on this origin
+    statement: >
+      i18n_safe_next shall return `next` only when it is a path that starts with one `/`, contains no `://`, and holds no backslash, quote, angle bracket, space or control character (a tab and a line break among them), and `/` otherwise.
+    rationale: A redirect target taken from a form must not send a person to another host or start another response header.
+    satisfies: [SYS-0063]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [security, web]
+
+  - id: I18N-0004
+    title: Pages and fragments carry the request's language
+    statement: >
+      i18n_vars shall add the request's language (as `__locale` and
+      `locale`) and the language switcher to a template fill, and i18n_t
+      shall translate one key in that language, so the template engine's
+      catalogs — the included modules' first, the application's last —
+      decide the words.
+    rationale: Every page, fragment and notice of one request agrees on its language.
+    satisfies: [SYS-0065]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [i18n]
+
+  - id: I18N-0005
+    title: Whole labels are translated once, and only where they are whole
+    statement: >
+      i18n_phrases shall replace an English label from
+      `phrases.<locale>.txt` only where it is the whole text between two
+      tags, a placeholder or a title, shall never translate a
+      translation again, shall leave a page unchanged for `en`, for a
+      locale containing `/` or `.`, or without a catalog, and shall add
+      the catalog to a whole page so content arriving later is
+      translated in the browser.
+    rationale: Mesh and the keeper write labels in English; translating them must not touch a word inside a name or a sentence.
+    satisfies: [SYS-0065]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [i18n]

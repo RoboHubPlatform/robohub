@@ -1,0 +1,64 @@
+# What the log channel (robohub-provider-log, a provider of robohub.alert)
+# guarantees to an application that binds it (src/provider.rho). Written in the
+# R5 backfill from the README, the changelog and the code; the provider has no
+# tests of its own. Proposed until the maintainer approves them.
+level: NODE
+prefix: PLOG
+title: Log alert channel
+requirements:
+  - id: PLOG-0001
+    title: An alert is one line appended to a file
+    statement: >
+      send(level, message, metadata) shall append one line `[<level>] <message>`,
+      followed by a space and the metadata when there is any, to the file its
+      `path` setting names, and answer 1 when the line was written and 0
+      otherwise.
+    rationale: A file on the machine is the channel that works with no network and no account.
+    satisfies: [SYS-0036]
+    decided_by: [robohub:ADR-0007]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [alerts, log]
+
+  - id: PLOG-0002
+    title: The log's path is the application's unless it says otherwise
+    statement: >
+      The log shall be `~/.rho/alerts.log` when `path` is empty, `path` under
+      the home directory when it starts with `~/`, `path` as given when it is
+      absolute, and `path` inside the application's workspace otherwise,
+      creating the folder it is in.
+    rationale: A path that names no folder of its own is the application's, so two applications never share one log.
+    satisfies: [SYS-0036]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [alerts, log]
+
+  - id: PLOG-0003
+    title: The log is rotated at 1 MiB, keeping three old files
+    statement: >
+      Before appending, when the log is larger than 1048576 bytes it shall be
+      moved to `<path>.1`, `<path>.1` to `<path>.2` and `<path>.2` to `<path>.3`,
+      so at most three old files are kept, and lines shall be appended rather
+      than the file rewritten.
+    rationale: Appending is kinder to flash, and rotation keeps a log on a small board from filling it.
+    satisfies: [SYS-0036]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [alerts, log, storage]
+
+  - id: PLOG-0004
+    title: One alert is one line of the log
+    statement: The log provider shall write an alert's level, message and metadata with their line breaks made spaces, so one alert is always one line.
+    rationale: A line break in an alert would write a line that reads as another alert.
+    satisfies: [SYS-0064]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [security, alerts]

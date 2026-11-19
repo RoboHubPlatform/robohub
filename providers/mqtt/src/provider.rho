@@ -29,6 +29,7 @@ extern fn mqtt_latest(topic: string) string
 extern fn mqtt_topics(prefix: string) string
 
 // mqtt_setting is a setting from the binding, or the keeper's word for it.
+// @req PMQTT-0001
 fn mqtt_setting(key: string, env: string) string {
     let bound: string = rho_bind_config("robohub-provider-mqtt", key)
     if bound != "" {
@@ -45,10 +46,12 @@ fn mqtt_user() string {
     return mqtt_setting("user", "ROBOHUB_BUS_USER")
 }
 
+// @req PMQTT-0002
 fn mqtt_password_file() string {
     return mqtt_setting("password_file", "ROBOHUB_BUS_PASSWORD_FILE")
 }
 
+// @req PMQTT-0003
 fn publish(topic: string, payload: string, retain: bool) bool {
     return mqtt_publish(mqtt_broker(), mqtt_user(), mqtt_password_file(), topic, payload, 1, retain)
 }

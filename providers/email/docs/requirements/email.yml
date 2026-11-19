@@ -1,0 +1,96 @@
+# What the e-mail channel (robohub-provider-email, a provider of robohub.alert)
+# guarantees to an application that binds it (src/provider.rho). Written in the
+# R5 backfill from the README, the changelog and the code; the provider has no
+# tests of its own. Proposed until the maintainer approves them.
+level: NODE
+prefix: EMAIL
+title: E-mail alert channel
+requirements:
+  - id: EMAIL-0001
+    title: An alert is a mail to the configured address, kept locally or sent by SMTP
+    statement: >
+      send(level, message, metadata) shall answer 0 and send nothing when
+      `to_address` is empty; with `mode` `local` (the default) it shall append
+      the mail to `alerts/email-outbox.eml` in the application's workspace, with
+      `mode` `smtp` it shall upload it to `smtp_host` on `smtp_port` (587 by
+      default) through curl, and with any other mode or no `smtp_host` it shall
+      send nothing; it shall answer 1 only when the mail was written or curl
+      succeeded.
+    rationale: A machine with no mail server still shows what would have gone out; one with a server sends it, and a failed send is reported as one.
+    satisfies: [SYS-0036]
+    decided_by: [robohub:ADR-0007]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [alerts, email]
+
+  - id: EMAIL-0002
+    title: The SMTP connection is encrypted as configured
+    statement: >
+      With `smtp_security` `ssl` or `smtps` the provider shall connect with
+      implicit TLS (smtps://), and with `starttls` or `tls` it shall require TLS
+      (curl --ssl-reqd), so the mail is not sent unencrypted.
+    rationale: A mail server's password and the alert must not cross the network in the clear when the person asked for encryption.
+    satisfies: [SYS-0036]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [alerts, email, security]
+
+  - id: EMAIL-0003
+    title: The subject and body are templates of the alert
+    statement: >
+      The subject shall be `subject_template` (by default
+      `[RoboHub {app}] {level}: {rule}`) and the body `body_template` (by default
+      `{message} ({app})`), with `{level}`, `{message}`, `{metadata}`, `{app}` and
+      `{rule}` replaced, where `{rule}` is the rule the metadata names
+      (`"rule":"…"`), else the metadata, else `alert`, and `{app}` is the `app`
+      setting (by default RoboHub).
+    rationale: A person reads the subject line first; it must say which application and which rule.
+    satisfies: [SYS-0036]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [alerts, email]
+
+  - id: EMAIL-0004
+    title: An alert cannot add a header to its mail
+    statement: >
+      Every line break in the from and to addresses and in the rendered subject
+      shall be replaced by a space before the mail is written.
+    rationale: A message or a rule name with a line break would otherwise start a header of its own, such as Bcc.
+    satisfies: [SYS-0036, SYS-0064]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [alerts, email, security]
+
+  - id: EMAIL-0005
+    title: The SMTP password never reaches a command line
+    statement: >
+      With `smtp_user` set, the user and password shall reach curl only through
+      a configuration file written readable by the owner alone, and an alert
+      shall not be sent when the user or password holds a double quote, a
+      backslash or a line break, or that file cannot be written.
+    rationale: Any user of the machine can list a command line; a quote or line break would end the configuration line and inject another.
+    satisfies: [SYS-0033]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [alerts, email, secrets]
+
+  - id: EMAIL-0006
+    title: The server, the addresses and the login are never on curl's command line
+    statement: In smtp mode the server URL, sender, recipient and login shall be given to curl in a configuration file only the owner can read, quoted so a password may hold any character but a line break, named afresh with the message for each delivery and both removed after it; a server that is not a host name or address, or a port that is not digits, is refused.
+    rationale: A login and the people an alert goes to are not for other users of the machine.
+    satisfies: [SYS-0033, SYS-0064]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [security, secrets]

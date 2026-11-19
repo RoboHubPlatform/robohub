@@ -31,6 +31,7 @@ extern fn rho_local_clock() string
 extern fn rho_read_text(path: string) string
 extern fn rho_write_text(path: string, text: string) bool
 
+// @req RULES-0002
 route GET  "/rules"        => rules_page
 route POST "/rules/add"    => rules_add
 route POST "/rules/change" => rules_change

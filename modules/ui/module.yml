@@ -12,7 +12,7 @@ module:
   type: module
   title: RoboHub UI
   category: ui
-  version: 0.2.0
+  version: 0.2.1
   description: >
     The RoboHub look: design tokens for a dark and a light theme, the shared
     components and the top bar with the app switcher, for every RoboHub
@@ -42,9 +42,9 @@ docs:
   title: RoboHub UI
   section: modules
   order: "36"
-  index: docs/index.md
+  index: docs/doc/index.md
   sources:
-    - docs/index.md
+    - docs/doc/index.md
 
 # Read at run time by name (rho_asset), embedded into every application that
 # includes the module.
@@ -57,3 +57,9 @@ locales:
     file: locales/en.json
   - locale: ro
     file: locales/ro.json
+
+# Requirements: the prefix of the ids this module allocates, and the repository
+# that holds levels.yml and the system level (rho req).
+requirements:
+  prefix: UI
+  parent: robohub

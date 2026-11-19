@@ -1,0 +1,31 @@
+# A program that raises one alert through the channels it binds, for the
+# providers' tests: the setting under test is put in the workspace's bind.conf,
+# and a curl of the test's own on PATH records what it was run with.
+module:
+  name: robohub-provider-harness
+  id: robohub.app.provider-harness
+  type: rho
+  version: 0.1.0
+
+main: src/main.rho
+
+build:
+  language: go
+  targets:
+    - go-server
+
+deps:
+  robohub:
+    robohub-alert: ">=1.1.0"
+    robohub-provider-webhook: ">=0.2.0"
+    robohub-provider-telegram: ">=0.2.0"
+    robohub-provider-email: ">=0.2.0"
+    robohub-provider-log: ">=0.2.0"
+
+bind:
+  robohub.alert:
+    providers:
+      - robohub-provider-webhook
+      - robohub-provider-telegram
+      - robohub-provider-email
+      - robohub-provider-log

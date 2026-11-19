@@ -1,0 +1,130 @@
+# What the appapi module does for the applications that include it: the
+# read-only REST API every RoboHub application offers in one shape — its values
+# (derived from presets, computed by the application, or readings it passes on)
+# with their history, and its journal — so another application, the keeper or a
+# client reads an application rather than treating it as a gateway. Written in
+# the R5 backfill from the module's documentation, changelog, code and smoke
+# test; proposed until the maintainer approves them.
+level: NODE
+prefix: APPAPI
+title: Application API
+requirements:
+  - id: APPAPI-0001
+    title: One read-only API in every application
+    statement: >
+      The module shall register only `GET` routes on the including application's
+      router — `/api/v1/values`, `/api/v1/values/{id}`,
+      `/api/v1/values/{id}/history` and `/api/v1/events` — answering the value
+      list as `{"application":<name>,"values":[{"id","value","unit","label","kind","updated_at"}]}`,
+      one value in the same shape, and 404 for a value that does not exist.
+    rationale: Whatever reads an application reads every application the same way, and needs only the application's read grant.
+    satisfies: [SYS-0008, SYS-0057]
+    decided_by: [robohub:ADR-0012]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [api, read-only, host-contract]
+
+  - id: APPAPI-0002
+    title: Values derived from the presets
+    statement: >
+      For each value under `values:` in the application's `presets/api.yml`,
+      `appapi_tick()` shall compute `fn` over its `from` — `latest` or `export`
+      of an inventory item's capability, `avg`, `min`, `max` or `integral` (in
+      value-hours) of that capability's gateway history over `window`, or
+      `since` as days, to a thousandth, since the newest journal entry of a kind
+      — and keep it as `derived` (`export` for `fn: export`); a value with
+      nothing to read from shall not be kept.
+    rationale: A 24-hour average water temperature, or the days since the water change, is what other applications and rules want, not raw readings.
+    satisfies: [SYS-0057]
+    decided_by: [robohub:ADR-0012, robohub:ADR-0013]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [derived, presets]
+
+  - id: APPAPI-0003
+    title: What the application computes itself is published
+    statement: >
+      `appapi_publish(id, value, unit, label)` shall keep a value the
+      application computes under its id as `published`, and keep a point of its
+      history when the value is a number.
+    rationale: Energy's site balance or a tank's stocking level is the application's own result and is offered the same way.
+    satisfies: [SYS-0057]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [published, host-contract]
+
+  - id: APPAPI-0004
+    title: Thirty days of history, in the gateway's shape
+    statement: >
+      `GET /api/v1/values/{id}/history?from=&to=` shall answer the value's
+      points between two times in Unix milliseconds (the last day by default)
+      as `{"ok":true,"points":[{"t":ms,"v":value}]}`, the newest 5000 of the
+      window, each to the nearest thousandth, and `appapi_tick()` shall drop
+      points older than 30 days.
+    rationale: A chart reads an application's values as it reads a gateway's sources.
+    satisfies: [SYS-0057]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [history, api]
+
+  - id: APPAPI-0005
+    title: The application's events are its journal
+    statement: >
+      `GET /api/v1/events?since=&level=&kind=` shall answer what the journal
+      module's API answers for the same query.
+    rationale: What happened in an application is offered beside what it measures, read-only.
+    satisfies: [SYS-0039, SYS-0057]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [events, api]
+
+  - id: APPAPI-0006
+    title: A rule reads a value by its id
+    statement: >
+      `appapi_value(id)` shall answer a value's newest text, looked up by its
+      id, or the empty text when there is none, so that a host answers
+      `rules_host_value` with it.
+    rationale: A rule that names `aquarium.days_since_water_change` must read the same value the API offers.
+    satisfies: [SYS-0057]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [host-contract, rules]
+
+  - id: APPAPI-0007
+    title: The values live in the application's own database
+    statement: >
+      The module shall keep `appapi_values`, `appapi_history` and
+      `appapi_derived`, from its own `db/schema.sql`, in the including
+      application's database (`<workspace>/data/app.db`, or `RHO_APPAPI_DB`),
+      and need no host hook.
+    rationale: Each application offers its own values, kept with its other data.
+    satisfies: [SYS-0001, SYS-0016]
+    decided_by: [robohub:ADR-0006]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [data, host-contract]
+
+  - id: APPAPI-0008
+    title: Every value is listed and found, past any page
+    statement: GET /api/v1/values shall list every value and the background tick shall work out every derived definition, each read a page at a time until a page comes back short, and GET /api/v1/values/{id} shall find a value by its own query, so no value or definition past the first 256 is left out.
+    rationale: A buffer of 256 rows silently dropped every value after it from the list, the lookup by id and the tick.
+    satisfies: [SYS-0057]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [api, values]

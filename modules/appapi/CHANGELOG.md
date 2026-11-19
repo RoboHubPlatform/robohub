@@ -32,3 +32,7 @@ Its data is kept where `app_workspace()` says (rho 0.8.0) — the application's 
 ## [0.2.0] - 2026-11-14
 
 It lists what other code may use (`provides.exports`, imported as `robohub.appapi`). An application that includes it still reaches everything, and a build (rho 0.8.3) names each call to a function outside the list. The list is what the applications and modules of the ecosystem call; anything else is the module's own and may change without notice.
+
+## [0.2.1] - 2026-11-19
+
+`GET /api/v1/values`, `GET /api/v1/values/{id}` and the background tick read at most 256 rows, so an application with more values or derived definitions silently left the rest out: missing from the list, answered 404 by id, and never worked out. The list and the tick read a page at a time now (`list_appapi_values_page`, `list_appapi_derived_page`), and a value by its id is read by its own query (`find_appapi_value`).

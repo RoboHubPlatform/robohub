@@ -9,6 +9,7 @@
   "journal.subject": "About",
   "journal.message": "What happened",
   "journal.resolve": "Resolve",
+  "journal.csrf_refused": "Refused: the form token did not match.",
   "journal.empty": "Nothing recorded in this period.",
   "journal.all_levels": "All levels",
   "journal.day": "Last day",

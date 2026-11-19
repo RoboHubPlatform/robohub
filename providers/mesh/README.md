@@ -56,7 +56,7 @@ only ever sent to Mesh's own address, never to a URL a person stored.
 | `telemetry_status()` | `GET /mesh/api/projects/{project}/telemetry/status` |
 | `follow(path)` | the project's live feed, into `path`: the broker topic `mesh/{project}/telemetry` Mesh relays, or `GET /mesh/api/projects/{project}/telemetry/stream` |
 | `transport()` | which of the two `follow` uses: `bus`, `http` or `none` |
-| `action(source, state)` | `POST /mesh/api/projects/{project}/sources/{id}/action?state=on\|off` |
+| `action(source, state)` | `POST /mesh/api/projects/{project}/sources/{id}/action?state=on\|off`, with no body and a bearer ticket for `mesh:{project}`; true only on Mesh's `200` (confirmed) |
 | `register_client`, `client_heartbeat`, `publish` | `POST /mesh/api/clients/...` |
 
 Both transports write the same lines, so an application reads one file either
@@ -65,6 +65,14 @@ read `mesh/+/telemetry` (its manifest's `bus.subscribe`).
 
 A source may be named by ID, by the value or action URL a widget stored, or by a
 URL carrying `source=`. The provider extracts the same ID for all three.
+
+Switching an output needs a grant to change the mesh. The provider asks the issuer
+for a ticket with the scope `mesh:{project}`, which is that grant, and sends it as
+a bearer. That is why Mesh does not ask it for a form token: since Mesh 0.20.2 an
+action is a `POST` only, a `GET` is `405`, and a browser session needs the form
+token. A state other than `on` or `off` is refused before anything is sent. Mesh's
+`202` (the device has not confirmed the state yet) is answered `false`, like a
+failure, so a page does not show a switch the device has not reported.
 
 Fetch failures are written to the host application log under the `gateway.mesh`
 subject.

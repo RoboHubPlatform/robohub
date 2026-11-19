@@ -15,8 +15,8 @@ Home, aquarium and energy automation that runs on your own machine, built with
   boards; the firmware lives in the platform, driver and device repositories.
 
 The documentation for all of it is built into one site from this repository:
-start with [docs/index.md](docs/index.md), and
-[docs/start/install.md](docs/start/install.md) to run it.
+start with [docs/doc/index.md](docs/doc/index.md), and
+[docs/doc/start/install.md](docs/doc/start/install.md) to run it.
 
 ## What is in this repository
 
@@ -31,7 +31,7 @@ start with [docs/index.md](docs/index.md), and
 | `schemas/` | JSON Schemas for the ecosystem's files (boards, target specs, the registry, test suites) |
 | `shared/` | The host-test runner and CI configuration every repository uses |
 | `applications/docsite` | The program that builds the documentation site |
-| `docs/` | The ecosystem's own pages: overview, getting started, architecture, writing an application |
+| `docs/doc/` | The ecosystem's own pages: overview, getting started, architecture, writing an application |
 | `src/` | The `robohub` command |
 
 ## The `robohub` command

@@ -7,14 +7,22 @@
 # makes most often.
 name: robohub
 suites:
+  # The registry's own rules, as a program: the names are the folder's entries.
+  # @verifies HUB-0021
+  - name: tests/registry_test.rho
+    kind: rho
+    tags: [unit, fast]
+  # @verifies HUB-0003
   - name: the ecosystem is whole
     kind: command
     command: ["./build/robohub", "registry", "check"]
     tags: [unit, fast]
+  # @verifies HUB-0002
   - name: one module is described
     kind: command
     command: ["./build/robohub", "registry", "show", "robohub-avr"]
     tags: [unit, fast]
+  # @verifies HUB-0005, HUB-0006
   - name: the ecosystem matches its schemas
     kind: command
     command: ["./build/robohub", "validate"]
@@ -23,18 +31,27 @@ suites:
   # A manifest that does not match the schema is not read: a board whose
   # manifest is not read is a board that does not exist, and a build that asks
   # for it is told that no such target is there.
+  # @verifies HUB-0004
   - name: the validator catches what it is for
     kind: command
     command: ["sh", "tests/validate-catches.sh"]
     tags: [unit, fast]
+  # @verifies HUB-0010, HUB-0011
   - name: the registry says what the module has
     kind: command
     command: ["sh", "tests/registry-tests.sh"]
     tags: [unit, fast]
+  # @verifies HUB-0010, HUB-0022
+  - name: a run over the ecosystem answers with its exit status
+    kind: command
+    command: ["sh", "tests/run-over.sh"]
+    tags: [unit, fast]
+  # @verifies HUB-0009
   - name: dependencies are declared
     kind: command
     command: ["python3", "scripts/check-deps.py"]
     tags: [unit, fast]
+  # @verifies HUB-0008
   - name: every manifest matches the toolchain's schema
     kind: command
     command: ["sh", "tests/validate-manifests.sh"]

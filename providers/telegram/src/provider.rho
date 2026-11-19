@@ -23,6 +23,7 @@ extern fn rho_write_text(path: string, text: string) bool
 extern fn rho_write_secret(path: string, text: string) bool
 extern fn rho_append_text(path: string, text: string) bool
 extern fn rho_bind_config(provider: string, key: string) string
+extern fn rho_random_hex(bytes: u32) string
 
 // state_dir is where this provider keeps what it writes on the way out: the
 // application's workspace when it has one.
@@ -40,6 +41,7 @@ fn report(name: string) string {
 // telegram_word_ok is whether a token or chat id is what Telegram issues:
 // letters, digits, colon, dash and underscore — nothing that could end a line
 // of curl's configuration.
+// @req TELEG-0002
 fn telegram_word_ok(value: string) bool {
     if value == "" {
         return false
@@ -54,10 +56,18 @@ fn telegram_word_ok(value: string) bool {
     return true
 }
 
+// forget removes what a delivery wrote on the way out, once curl has read it.
+fn forget(first: string, second: string) void {
+    let removed: u32 = rho_exec_args("rm", "-f\n--\n" + first + "\n" + second + "\n", report("telegram-cleanup"))
+}
+
 // send posts one alert. The text goes through a file, so a message of several
-// lines stays one message (curl's arguments are one per line), and the bot
-// token through a configuration file only this user can read, so it is never
-// on a command line. An HTTP error is a failure (-f).
+// lines stays one message (curl's arguments are one per line) and no part of
+// it is ever an argument. The bot token and the chat id go through a
+// configuration file only this user can read (-K), so neither is ever on a
+// command line, which any user of the machine can list. Both files are named
+// afresh for each delivery and removed after it. An HTTP error is a failure (-f).
+// @req TELEG-0001, TELEG-0003, TELEG-0004
 fn send(level: string, message: string, metadata: string) u32 {
     let token: string = rho_bind_config("robohub-provider-telegram", "bot_token")
     let chat: string = rho_bind_config("robohub-provider-telegram", "chat_id")
@@ -68,16 +78,24 @@ fn send(level: string, message: string, metadata: string) u32 {
     if metadata != "" {
         text = text + "\n" + metadata
     }
-    let dir: string = state_dir()
-    let config: string = dir + "/telegram.curl"
-    let body: string = dir + "/telegram-text.txt"
-    if !rho_write_secret(config, "url = \"https://api.telegram.org/bot" + token + "/sendMessage\"\n") ||
-        !rho_write_text(body, text) {
+    let id: string = rho_random_hex(8)
+    if id == "" {
         return 0
     }
-    let args: string = "-fsS\n-K\n" + config + "\n-X\nPOST\n" +
-        "--data-urlencode\nchat_id=" + chat + "\n--data-urlencode\ntext@" + body + "\n"
-    if rho_exec_args("curl", args, report("telegram")) == 0 {
+    let dir: string = state_dir()
+    let config: string = dir + "/telegram-" + id + ".curl"
+    let body: string = dir + "/telegram-" + id + ".txt"
+    // telegram_word_ok has left nothing in either value that a quoted string
+    // of curl's configuration would have to escape.
+    if !rho_write_secret(config, "url = \"https://api.telegram.org/bot" + token + "/sendMessage\"\n" +
+        "data-urlencode = \"chat_id=" + chat + "\"\n") || !rho_write_secret(body, text) {
+        forget(config, body)
+        return 0
+    }
+    let args: string = "-fsS\n-K\n" + config + "\n-X\nPOST\n--data-urlencode\ntext@" + body + "\n"
+    let code: u32 = rho_exec_args("curl", args, report("telegram"))
+    forget(config, body)
+    if code == 0 {
         return 1
     }
     return 0

@@ -1,0 +1,55 @@
+# What robohub-mqtt promises the applications that include it: a Mosquitto
+# broker the keeper runs for the machine's devices and applications, and the
+# bus applications reach it through. Written in
+# the R5 backfill from the module's documentation, changelog and code; proposed
+# until the maintainer approves them.
+level: NODE
+prefix: MQTTP
+title: robohub-mqtt
+requirements:
+  - id: MQTTP-0001
+    title: The broker is a service of its own that the doctor can check
+    statement: >
+      The plugin shall declare an integration service `mqtt` that runs
+      `mosquitto -c {config}` on port 1884, probed over TCP, and shall
+      declare `mosquitto` and `mosquitto_passwd` as the executables it
+      needs from the machine, with their apt, brew and dnf packages.
+    rationale: The broker runs beside any system Mosquitto on 1883, and a missing program is said before the broker is started.
+    satisfies: [SYS-0028, SYS-0004]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [mqtt, dependencies]
+
+  - id: MQTTP-0002
+    title: Nobody connects to the broker without a user
+    statement: >
+      The broker configuration the plugin gives the keeper shall refuse
+      anonymous clients and read its users from a password file and
+      their topics from an ACL file, on the one listener address and
+      port the keeper fills in.
+    rationale: One device must not read or write another's topics, and a client with no user reaches nothing.
+    satisfies: [SYS-0028, SYS-0032]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [mqtt, security, least-privilege]
+
+  - id: MQTTP-0003
+    title: Applications reach the broker as the bus
+    statement: >
+      The plugin shall declare that it provides `robohub.bus` through
+      robohub-provider-mqtt, so an application that binds the bus to
+      that provider reaches the broker, with the topics its manifest's
+      `bus:` block names, through the interface rather than a broker
+      address of its own.
+    rationale: An application names an interface; which broker serves it is the keeper's business.
+    satisfies: [SYS-0028]
+    decided_by: [robohub:ADR-0007]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [mqtt, contract]

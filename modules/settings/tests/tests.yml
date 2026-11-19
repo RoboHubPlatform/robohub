@@ -1,0 +1,6 @@
+# The settings store's own tests: what it keeps, and what it refuses to keep.
+name: settings
+suites:
+  - name: tests/settings_test.rho
+    kind: rho
+    tags: [unit, rho]

@@ -1,0 +1,109 @@
+# What appshell promises the applications that include it: the settings and docs
+# pages, the top bar and the rail pieces, and the host hooks it asks for. Written in
+# the R5 backfill from the module's documentation, changelog and code; proposed
+# until the maintainer approves them.
+level: NODE
+prefix: SHELL
+title: Application shell
+requirements:
+  - id: SHELL-0001
+    title: The settings page is the gateway's, the modules', logging and about
+    statement: >
+      GET /settings shall show one tab at a time, chosen by `?tab=`:
+      `gateway` first, then the tabs the application lists in
+      host_settings_tabs() (`key|label key,` each), then `logging` and
+      `about`; a tab not in that list shall show `gateway`. A module's
+      tab shall be drawn only by host_settings_form and saved only by
+      host_settings_save, so appshell knows no module's settings.
+    rationale: Every application draws the same settings page, and each module keeps its own form.
+    satisfies: [SYS-0066]
+    decided_by: [robohub:ADR-0005]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [settings, ui]
+
+  - id: SHELL-0002
+    title: The gateway tab chooses where readings come from
+    statement: >
+      The gateway tab shall offer the source of readings (robohub-
+      provider-mesh or the simulator), Mesh's project from the projects
+      Mesh lists, and the transport `auto`, `bus` or `http`, and saving
+      it shall store them as the gateway provider's own settings through
+      robohub.gateway, take no Mesh address or token from the form, and
+      write a change of source to the journal.
+    rationale: Switching between the simulator and a mesh is a setting, and the keeper alone hands out where Mesh is and how it is read.
+    satisfies: [SYS-0018]
+    decided_by: [robohub:ADR-0007, robohub:ADR-0003]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [settings, simulator, gateway]
+
+  - id: SHELL-0003
+    title: A settings form without its CSRF field changes nothing
+    statement: >
+      POST /settings shall check the form's CSRF field before acting
+      and, when the check fails, save nothing and show the tab again
+      with the expired-form message.
+    rationale: Settings decide where readings come from; a form posted from another origin must not change them.
+    satisfies: [SYS-0034]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [security, web, settings]
+
+  - id: SHELL-0004
+    title: The docs page is the application's own documentation
+    statement: >
+      GET /docs shall show the application's `docs/doc/index.md` read
+      from its embedded assets (`docs/index.md` when there is none),
+      escaped as text inside the application's layout, and say that no
+      documentation was found when neither exists.
+    rationale: The manual of the application travels inside its binary and is there without the network.
+    satisfies: [SYS-0038]
+    status: proposed
+    verification: demonstration
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [documentation, offline]
+
+  - id: SHELL-0005
+    title: The top bar is the keeper's switcher, the source, the mode and the person
+    statement: >
+      appshell_topbar shall draw the RoboHub top bar with the switcher
+      filled from the keeper on RHO_KEEPER_PORT, the middle the
+      application passes, and the person named by X-Rho-Subject with
+      sign-out at the keeper's /logout; appshell_middle shall show where
+      readings come from, the rules mode in force, and a button posting
+      to /rules/mode, with the CSRF field, that starts the application's
+      quick mode or ends the mode in force.
+    rationale: Every application shows the same bar, so moving between them and seeing whether readings are simulated needs no learning.
+    satisfies: [SYS-0017, SYS-0018]
+    decided_by: [robohub:ADR-0004]
+    status: proposed
+    verification: demonstration
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [ui, switcher]
+
+  - id: SHELL-0006
+    title: The shell asks the application only through host hooks
+    statement: >
+      appshell shall reach the application that includes it only through
+      host_app(), host_app_title(), host_shell(req, title, body,
+      scripts), host_settings_tabs(), host_settings_form(req, tab,
+      action) and host_settings_save(req, tab, body), and shall serve
+      the routes GET /settings, POST /settings and GET /docs on the
+      application's router.
+    rationale: A shared module is reused by declaring a few hooks, not by editing it per application.
+    satisfies: [SYS-0017, SYS-0066]
+    decided_by: [robohub:ADR-0005]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [contract]

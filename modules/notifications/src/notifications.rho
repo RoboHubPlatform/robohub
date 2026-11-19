@@ -66,6 +66,7 @@ fn notification_insert(db: SqlDb, message: string, level: string, now: u32, expi
     return status != 0
 }
 
+// @req NOTIF-0001
 fn notification_push_level_locale(message: string, level: string, timeout: u32, locale: string) u32 {
     let now: u32 = notification_now()
     var t: u32 = timeout
@@ -77,7 +78,9 @@ fn notification_push_level_locale(message: string, level: string, timeout: u32, 
     let stored: bool = notification_insert(db, message, level, now, expires)
     sql_close(db)
     if !stored { return 0 }
-    notification_live_event_locale(level, message, locale)
+    // The toast stays up as long as the message is kept: the event carries
+    // the same timeout the store was given.
+    notification_live_append(notification_event_json(level, message, locale, t))
     return 1
 }
 
@@ -95,17 +98,44 @@ fn notification_push_level(message: string, level: string, timeout: u32) u32 {
 // EventSource on hears it.
 fn notification_live_path() string {
     let dir: string = notification_workspace() + "/data"
-    rho_exec("mkdir", "-p " + dir, dir + "/mkdir.txt")
+    rho_exec_args("mkdir", "-p\n" + dir + "\n", dir + "/mkdir.txt")
     return dir + "/live.events"
+}
+
+// notification_event_json is one event of the live feed: its kind, message,
+// language and how many seconds its toast stays up.
+fn notification_event_json(kind: string, message: string, locale: string, timeout: u32) string {
+    return "{\"kind\":" + json_string(kind) + ",\"message\":" + json_string(message) +
+        ",\"locale\":" + json_string(locale) + ",\"timeout\":" + int_to_str(timeout) + "}\n"
+}
+
+// The live feed is appended to, never read back, and starts over every
+// NOTIFICATION_LIVE_LINES events, as the widgets' stream does: a follower that
+// finds it shorter than where it was reads it from the top, and an event is a
+// toast of the moment, so nothing older is needed. Without this it grew by a
+// line for every toast for as long as the application ran.
+const NOTIFICATION_LIVE_LINES: u32 = 500
+
+// @req NOTIF-0002, NOTIF-0008
+fn notification_live_append(line: string) void {
+    let path: string = notification_live_path()
+    let count_file: string = path + ".count"
+    let seen: u32 = int_from_str(str_trim(rho_read_text(count_file)))
+    if !rho_path_exists(count_file) || seen >= NOTIFICATION_LIVE_LINES {
+        rho_write_text(path, line)
+        rho_write_text(count_file, "1")
+        return
+    }
+    rho_append_text(path, line)
+    rho_write_text(count_file, int_to_str(seen + 1))
 }
 
 // notification_live_event appends one event to the live feed, and nothing to
 // the store, so it is a page-to-page message rather than another saved
-// notification.
+// notification. Its toast stays up for the default time.
+// @req NOTIF-0002
 fn notification_live_event_locale(kind: string, message: string, locale: string) void {
-    rho_append_text(notification_live_path(),
-        "{\"kind\":" + json_string(kind) + ",\"message\":" + json_string(message) +
-        ",\"locale\":" + json_string(locale) + "}\n")
+    notification_live_append(notification_event_json(kind, message, locale, NOTIFICATION_DEFAULT_TIMEOUT))
 }
 
 fn notification_live_event(kind: string, message: string) void {
@@ -115,6 +145,7 @@ fn notification_live_event(kind: string, message: string) void {
 // notification_events streams the live feed as Server-Sent Events. The feed
 // file is made first so an empty stream still holds the connection open until
 // the first event arrives.
+// @req NOTIF-0002
 fn notification_events(req: Request) Response {
     rho_append_text(notification_live_path(), "")
     return sse_file(notification_live_path(), 1000)
@@ -130,12 +161,28 @@ fn notification_template(name: string) string {
     return rho_asset("notifications", "templates/" + name + ".html")
 }
 
+// @req NOTIF-0003
 fn notification_embed() string {
     return notification_template("embed")
 }
 
+// notifications_refused answers a push or a dismiss that carried neither a bearer
+// ticket nor the form token.
+// @req NOTIF-0007
+fn notifications_refused() Response {
+    return json(403, "{\"ok\":false,\"error\":\"a bearer ticket or the form token is required\"}")
+}
+
+// notifications_push stores a message a program asks for. It is a route for
+// code, not for a form, so it takes a bearer ticket (or the form token, from a
+// page script that has one); a post that rides only on the browser's cookie is
+// one another site could have made, and is refused.
+// @req NOTIF-0004, NOTIF-0007
 fn notifications_push(req: Request) Response {
     let body: string = request_body(req)
+    if !forms_machine_ok(req, body) {
+        return notifications_refused()
+    }
     let message: string = form_field(body, "message")
     if message == "" {
         return json(400, "{\"ok\":false,\"error\":\"message is required\"}")
@@ -166,7 +213,7 @@ fn notifications_list(req: Request) Response {
         sql_close(db)
         return json(500, "{\"ok\":false}")
     }
-    sql_bind(stmt, 1, int_value(i64(now)))
+    sql_bind(stmt, 0, int_value(i64(now)))
     var more: u32 = 1
     var out: string = "["
     var first: bool = true
@@ -205,8 +252,12 @@ fn notifications_list(req: Request) Response {
     return Response{ 200, out, "application/json", "" }
 }
 
+// @req NOTIF-0007
 fn notifications_dismiss(req: Request) Response {
     let body: string = request_body(req)
+    if !forms_machine_ok(req, body) {
+        return notifications_refused()
+    }
     let id_str: string = form_field(body, "id")
     if id_str == "" {
         return json(400, "{\"ok\":false,\"error\":\"id is required\"}")
@@ -222,7 +273,7 @@ fn notifications_dismiss(req: Request) Response {
         sql_close(db)
         return json(500, "{\"ok\":false}")
     }
-    sql_bind(stmt, 1, int_value(i64(int_from_str(id_str))))
+    sql_bind(stmt, 0, int_value(i64(int_from_str(id_str))))
     var more: u32 = 0
     let more_slice3: Slice[u32] = Slice[u32]{ Ptr[u32](&more), 1 }
     sql_run(stmt, more_slice3.ptr)
@@ -231,6 +282,7 @@ fn notifications_dismiss(req: Request) Response {
     return json(200, "{\"ok\":true}")
 }
 
+// @req NOTIF-0005
 fn notifications_render(req: Request) Response {
     let opened: Result[SqlDb, string] = notification_open_db()
     if !opened.is_ok { return Response{ 200, "", "text/html", "" } }
@@ -244,7 +296,7 @@ fn notifications_render(req: Request) Response {
         sql_close(db)
         return Response{ 200, "", "text/html", "" }
     }
-    sql_bind(stmt, 1, int_value(i64(now)))
+    sql_bind(stmt, 0, int_value(i64(now)))
     var more: u32 = 1
     var out: string = ""
     while more == 1 {

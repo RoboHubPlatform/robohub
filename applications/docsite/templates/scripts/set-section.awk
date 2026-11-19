@@ -1,10 +1,10 @@
 # set-section.awk — rewrite a module manifest's `docs:` block for the site.
 #
 # The site decides where a module's pages appear, and they are always read from
-# the docs/ folder the assembler filled. So the block keeps what the module says
-# about itself (its title, its order) and loses where it said its pages were:
-# `section`, `index` and `sources` are replaced by the site's section and
-# docs/index.md. A manifest without a `docs:` block is given one.
+# the docs/doc/ folder the assembler filled. So the block keeps what the module
+# says about itself (its title, its order) and loses where it said its pages
+# were: `section`, `index` and `sources` are replaced by the site's section and
+# docs/doc/index.md. A manifest without a `docs:` block is given one.
 #
 # With -v name=<name>, the module is renamed in the copy: two parts of the
 # ecosystem may share a name (a contract and the repository that implements it),
@@ -15,7 +15,7 @@
 function close_block() {
     if (in_docs) {
         print "  section: " section
-        print "  index: docs/index.md"
+        print "  index: docs/doc/index.md"
         in_docs = 0
     }
 }
@@ -63,6 +63,6 @@ END {
         print ""
         print "docs:"
         print "  section: " section
-        print "  index: docs/index.md"
+        print "  index: docs/doc/index.md"
     }
 }

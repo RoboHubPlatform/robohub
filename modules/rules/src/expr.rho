@@ -26,7 +26,11 @@ module rules
 // acts on a value it could not read.
 
 /// The context a condition is read in: its tokens, where the reading is, the
-/// mode in force and the clock, and the first problem met.
+/// mode in force and the clock, and the first problem met. `syntax` is that
+/// problem again when it is one of grammar rather than of a reading: a side of
+/// `and`/`or` that the other side decided may lack a reading, but never be
+/// written wrong. `checking` reads the grammar only, with no reading taken, for
+/// a form.
 struct RulesCursor {
     tokens: string
     count: u32
@@ -34,6 +38,8 @@ struct RulesCursor {
     mode: string
     minutes: u32
     problem: string
+    syntax: string
+    checking: bool
 }
 
 /* -------------------------------------------------------------------------- */
@@ -140,6 +146,7 @@ fn rules_number(text: string) RulesNumber {
 }
 
 // rules_normal is a value as a condition compares it: on/true are 1, off/false 0.
+// @req RULES-EXPR-0001
 fn rules_normal(value: string) string {
     let lower: string = str_lower(str_trim(value))
     if str_eq(lower, "on") || str_eq(lower, "true") {
@@ -153,6 +160,7 @@ fn rules_normal(value: string) string {
 
 // rules_value is what an operand stands for: a literal, or a reading — the
 // host's own values first, then an inventory item's capability by handle.
+// @req RULES-EXPR-0001, RULES-0001
 fn rules_value(token: string) string {
     let n: u32 = u32(strlen(token))
     if n >= 2 && str_eq(str_slice(token, 0, 1), "\"") {
@@ -179,6 +187,7 @@ fn rules_value(token: string) string {
     return ""
 }
 
+// @req RULES-EXPR-0002
 fn rules_compare(left: string, operator: string, right: string) bool {
     let a: RulesNumber = rules_number(left)
     let b: RulesNumber = rules_number(right)
@@ -217,6 +226,7 @@ fn rules_minutes(text: string) u32 {
 
 // rules_seconds is a duration as a rule's `for` and `cooldown` write it, in
 // seconds; 0 when it is not one.
+// @req RULES-EXPR-0005
 fn rules_seconds(text: string) u32 {
     let value: string = str_lower(str_trim(text))
     if value == "" {
@@ -261,19 +271,33 @@ fn rules_fail(c: RulesCursor, problem: string) RulesTruth {
     return RulesTruth{ next, false }
 }
 
+// rules_syntax is a problem of the grammar: it is kept whichever side decided.
+// @req RULES-EXPR-0007
+fn rules_syntax(c: RulesCursor, problem: string) RulesTruth {
+    var next: RulesCursor = c
+    if next.syntax == "" {
+        next.syntax = problem
+    }
+    if next.problem == "" {
+        next.problem = problem
+    }
+    return RulesTruth{ next, false }
+}
+
+// @req RULES-0004, RULES-EXPR-0004
 fn rules_atom(c: RulesCursor) RulesTruth {
     var cur: RulesCursor = c
     let first: string = rules_peek(cur)
     let lower: string = str_lower(first)
     if first == "" {
-        return rules_fail(cur, "the condition ends where a value was expected")
+        return rules_syntax(cur, "the condition ends where a value was expected")
     }
     if str_eq(lower, "time") && str_eq(str_lower(rules_token(cur.tokens, cur.pos + 1)), "between") {
         let from: u32 = rules_minutes(rules_token(cur.tokens, cur.pos + 2))
         let joiner: string = str_lower(rules_token(cur.tokens, cur.pos + 3))
         let to: u32 = rules_minutes(rules_token(cur.tokens, cur.pos + 4))
         if from == 9999 || to == 9999 || !str_eq(joiner, "and") {
-            return rules_fail(cur, "a time window is written `time between 10:00 and 20:00`")
+            return rules_syntax(cur, "a time window is written `time between 10:00 and 20:00`")
         }
         cur.pos = cur.pos + 5
         var inside: bool = cur.minutes >= from && cur.minutes < to
@@ -286,7 +310,7 @@ fn rules_atom(c: RulesCursor) RulesTruth {
         let operator: string = rules_token(cur.tokens, cur.pos + 1)
         let name: string = rules_token(cur.tokens, cur.pos + 2)
         if (!str_eq(operator, "==") && !str_eq(operator, "!=")) || name == "" {
-            return rules_fail(cur, "a mode is compared with == or !=: `mode == feeding`")
+            return rules_syntax(cur, "a mode is compared with == or !=: `mode == feeding`")
         }
         cur.pos = cur.pos + 3
         let same: bool = str_eq(str_lower(cur.mode), str_lower(name))
@@ -298,9 +322,14 @@ fn rules_atom(c: RulesCursor) RulesTruth {
     let operator: string = rules_token(cur.tokens, cur.pos + 1)
     let second: string = rules_token(cur.tokens, cur.pos + 2)
     if !rules_is_comparison(operator) || second == "" {
-        return rules_fail(cur, "expected a comparison after " + first)
+        return rules_syntax(cur, "expected a comparison after " + first)
     }
     cur.pos = cur.pos + 3
+    if cur.checking {
+        // A form is checked for its grammar only: what an operand reads is
+        // known when the rule runs.
+        return RulesTruth{ cur, true }
+    }
     let left: string = rules_value(first)
     let right: string = rules_value(second)
     if left == "" {
@@ -323,6 +352,7 @@ fn rules_atom(c: RulesCursor) RulesTruth {
     return RulesTruth{ cur, rules_compare(left, operator, right) }
 }
 
+// @req RULES-EXPR-0003
 fn rules_unary(c: RulesCursor) RulesTruth {
     var cur: RulesCursor = c
     let token: string = rules_peek(cur)
@@ -336,7 +366,7 @@ fn rules_unary(c: RulesCursor) RulesTruth {
         let inner: RulesTruth = rules_or(cur)
         var after: RulesCursor = inner.cursor
         if !str_eq(rules_peek(after), ")") {
-            return rules_fail(after, "a bracket is not closed")
+            return rules_syntax(after, "a bracket is not closed")
         }
         after.pos = after.pos + 1
         return RulesTruth{ after, inner.truth }
@@ -344,6 +374,7 @@ fn rules_unary(c: RulesCursor) RulesTruth {
     return rules_atom(cur)
 }
 
+// @req RULES-EXPR-0003
 fn rules_and(c: RulesCursor) RulesTruth {
     var result: RulesTruth = rules_unary(c)
     while str_eq(str_lower(rules_peek(result.cursor)), "and") {
@@ -354,14 +385,15 @@ fn rules_and(c: RulesCursor) RulesTruth {
         var after: RulesCursor = right.cursor
         if decided {
             // false and anything is false: a reading missing on the right
-            // does not matter.
-            after.problem = ""
+            // does not matter. A right side written wrong does: it is kept.
+            after.problem = after.syntax
         }
         result = RulesTruth{ after, result.truth && right.truth }
     }
     return result
 }
 
+// @req RULES-EXPR-0003
 fn rules_or(c: RulesCursor) RulesTruth {
     var result: RulesTruth = rules_and(c)
     while str_eq(str_lower(rules_peek(result.cursor)), "or") {
@@ -371,8 +403,9 @@ fn rules_or(c: RulesCursor) RulesTruth {
         let right: RulesTruth = rules_and(cur)
         var after: RulesCursor = right.cursor
         if decided {
-            // true or anything is true.
-            after.problem = ""
+            // true or anything is true; but a right side written wrong is
+            // still wrong.
+            after.problem = after.syntax
         }
         result = RulesTruth{ after, result.truth || right.truth }
     }
@@ -389,13 +422,14 @@ struct RulesVerdict {
 // rules_evaluate reads a condition in a mode and at a time of day (minutes since
 // midnight). A condition that cannot be read, or reads a value that is not
 // there, does not hold.
+// @req RULES-0004, RULES-EXPR-0007
 fn rules_evaluate(condition: string, mode: string, minutes: u32) RulesVerdict {
     let tokens: string = rules_tokens(condition)
     let count: u32 = rules_token_count(tokens)
     if count == 0 {
         return RulesVerdict{ false, "the condition is empty" }
     }
-    let start: RulesCursor = RulesCursor{ tokens, count, 0, mode, minutes, "" }
+    let start: RulesCursor = RulesCursor{ tokens, count, 0, mode, minutes, "", "", false }
     let result: RulesTruth = rules_or(start)
     if result.cursor.problem != "" {
         return RulesVerdict{ false, result.cursor.problem }
@@ -408,6 +442,7 @@ fn rules_evaluate(condition: string, mode: string, minutes: u32) RulesVerdict {
 
 // rules_check reads a condition without any reading, for a form: "" when it is
 // written in the grammar, what is wrong otherwise.
+// @req RULES-EXPR-0006
 fn rules_check(condition: string) string {
     let tokens: string = rules_tokens(condition)
     let count: u32 = rules_token_count(tokens)
@@ -430,6 +465,130 @@ fn rules_check(condition: string) string {
     }
     if depth != 0 {
         return "a bracket is not closed"
+    }
+    // Then the whole grammar, every side of every and/or, with no reading
+    // taken: `a > 1 or not` is refused here, not found later as a rule that
+    // never says anything.
+    let start: RulesCursor = RulesCursor{ tokens, count, 0, "", 0, "", "", true }
+    let result: RulesTruth = rules_or(start)
+    if result.cursor.problem != "" {
+        return result.cursor.problem
+    }
+    if result.cursor.pos < count {
+        return "unexpected " + rules_token(tokens, result.cursor.pos)
+    }
+    return ""
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Actions, as written                                                       */
+/* -------------------------------------------------------------------------- */
+
+// rules_first_word is the first word of a text, split on the first space, and
+// rules_after_word the rest.
+fn rules_first_word(text: string) string {
+    let at: i32 = str_index_of(text, " ")
+    if at < 0 {
+        return text
+    }
+    return str_slice(text, 0, u32(at))
+}
+
+fn rules_after_word(text: string) string {
+    let at: i32 = str_index_of(text, " ")
+    if at < 0 {
+        return ""
+    }
+    return str_trim(str_slice(text, u32(at) + 1, u32(strlen(text)) - u32(at) - 1))
+}
+
+fn rules_unquote(text: string) string {
+    let value: string = str_trim(text)
+    let n: u32 = u32(strlen(value))
+    if n >= 2 && str_eq(str_slice(value, 0, 1), "\"") && str_eq(str_slice(value, n - 1, 1), "\"") {
+        return str_slice(value, 1, n - 2)
+    }
+    return value
+}
+
+fn rules_is_level(level: string) bool {
+    return str_eq(level, "info") || str_eq(level, "warning") || str_eq(level, "error") || str_eq(level, "critical")
+}
+
+// rules_action_check reads one action as it is written, without doing it: ""
+// when it is one the engine knows, what is wrong otherwise. Whether an item's
+// handle is filled yet is not asked — a rule may name a role before an item
+// takes it — but a mode's name is, by the caller, against the modes there are.
+// @req RULES-EXPR-0008
+fn rules_action_check(action: string) string {
+    let verb: string = str_lower(rules_first_word(action))
+    let rest: string = rules_after_word(action)
+    if str_eq(verb, "switch") {
+        let handle: string = rules_first_word(rest)
+        let state: string = str_lower(rules_after_word(rest))
+        if handle == "" || (!str_eq(state, "on") && !str_eq(state, "off")) {
+            return "a switch is written `switch <handle> on|off`: " + action
+        }
+        return ""
+    }
+    if str_eq(verb, "use") {
+        if str_trim(rest) == "" || str_index_of(str_trim(rest), " ") >= 0 {
+            return "a use is written `use <handle>`: " + action
+        }
+        return ""
+    }
+    if str_eq(verb, "alert") || str_eq(verb, "journal") {
+        let level: string = str_lower(rules_first_word(rest))
+        let message: string = rules_unquote(rules_after_word(rest))
+        if !rules_is_level(level) || message == "" {
+            return "an " + verb + " is written `" + verb + " info|warning|error|critical \"message\"`: " + action
+        }
+        return ""
+    }
+    if str_eq(verb, "mode") {
+        if str_trim(rest) == "" {
+            return "a mode is written `mode <name>` or `mode end`: " + action
+        }
+        return ""
+    }
+    return "unknown action `" + action + "`"
+}
+
+// rules_action_list is the actions of a list, separated by `;`, one per line,
+// trimmed, the empty ones left out.
+fn rules_action_list(actions: string) string {
+    var out: string = ""
+    var rest: string = actions
+    while rest != "" {
+        let at: i32 = str_index_of(rest, ";")
+        var one: string = rest
+        if at < 0 {
+            rest = ""
+        } else {
+            one = str_slice(rest, 0, u32(at))
+            rest = str_slice(rest, u32(at) + 1, u32(strlen(rest)) - u32(at) - 1)
+        }
+        let action: string = str_trim(one)
+        if action != "" {
+            out = out + action + "\n"
+        }
+    }
+    return out
+}
+
+// rules_actions_check reads a list of actions without doing any: the first
+// problem, or "".
+// @req RULES-EXPR-0008
+fn rules_actions_check(actions: string) string {
+    let list: string = rules_action_list(actions)
+    let count: u32 = rules_token_count(list)
+    var i: u32 = 0
+    while i < count {
+        let problem: string = rules_action_check(rules_token(list, i))
+        if problem != "" {
+            return problem
+        }
+        i = i + 1
     }
     return ""
 }

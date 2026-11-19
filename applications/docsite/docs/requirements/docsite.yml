@@ -1,0 +1,130 @@
+# What the documentation site does towards the system requirements: it collects
+# the pages every part of the ecosystem ships into one tree, with each part's
+# requirements and decisions beside them, and builds it with `rho doc` into a
+# static site that needs no network (src/main.rho, site.yml, templates/).
+# Written in the R5 backfill from the documentation, the changelog and the code;
+# the application has no tests. Proposed until the maintainer approves them.
+level: NODE
+prefix: SITE
+title: Documentation site
+requirements:
+  - id: SITE-0001
+    title: One site from the pages every part ships
+    statement: >
+      The docsite shall collect into one tree the pages of the orchestrator, of
+      every repository the registry lists (from ../<name>), of every shared
+      module, contract, provider and plugin in robohub, of the protocol, of
+      Mesh's plugins and of the device integrations in robohub-devices — each
+      part's docs/doc/ (or docs/), or its README when it has neither — and build
+      the tree with `rho doc` into build/site/.
+    rationale: The manual of the ecosystem is the documentation each part carries with its code, read in one place.
+    satisfies: [SYS-0038]
+    status: proposed
+    verification: demonstration
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [documentation]
+
+  - id: SITE-0002
+    title: A part's section follows from where it lives
+    statement: >
+      The docsite shall place the keeper, Mesh, Aquarium and Energy under
+      Applications, every other registered repository and the device
+      integrations under Devices & firmware, the shared modules under Build an
+      application, and the providers, contracts, plugins, protocol and Mesh's
+      plugins under Integrations, in the sections and order site.yml names, and
+      the orchestrator's own pages one section per subfolder of its docs/doc/.
+    rationale: A reader moves from an application to the modules it is built from, the interfaces they use and the devices behind them without leaving the site.
+    satisfies: [SYS-0038]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [documentation, navigation]
+
+  - id: SITE-0003
+    title: A shared module's page ends with its reference
+    statement: >
+      The page of every shared module shall end with a reference generated when
+      the site is built from the module's manifest and sources: the names it
+      exports (provides.exports), the routes it registers on the host's router,
+      and the host hooks (host_* or <module>_host_*) it calls and the including
+      application has to define.
+    rationale: Read from what the module declares, the reference cannot drift from the code an application builds against.
+    satisfies: [SYS-0038]
+    status: proposed
+    verification: demonstration
+    decided_by: [robohub:ADR-0005]
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [documentation, modules]
+
+  - id: SITE-0004
+    title: Every part's page carries its release history
+    statement: >
+      The page of every part that has a CHANGELOG.md, and the overview for the
+      orchestrator, shall end with a Release history section built from it, and
+      the landing page shall show the orchestrator's version and its releases.
+    rationale: Each part is released apart; what changed in which version must be readable where the part is described.
+    satisfies: [SYS-0040, SYS-0038]
+    status: proposed
+    verification: demonstration
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [documentation, releases]
+
+  - id: SITE-0005
+    title: Requirements and decisions travel with each part
+    statement: >
+      The docsite shall copy each part's docs/requirements/ and
+      docs/architecture/ beside its pages in the tree, and the orchestrator's,
+      with its MAINTAINERS.yml, as a part called robohub in the process section,
+      without test results, and the landing page shall link the requirements
+      trace when the build wrote it.
+    rationale: rho doc writes the requirements, decision and trace pages from the same files rho req checks, so the site and the check cannot disagree; evidence belongs where the tests ran.
+    satisfies: [SYS-0041, SYS-0038]
+    status: proposed
+    verification: demonstration
+    decided_by: [robohub:ADR-0015]
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [documentation, process, traceability]
+
+  - id: SITE-0006
+    title: A removed part leaves the site
+    statement: >
+      Each build shall empty the tree and the site before assembling them, so a
+      part that was renamed or removed is not left behind in the site.
+    rationale: A page for a module that no longer exists sends a reader to code that is not there.
+    satisfies: [SYS-0038]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [documentation]
+
+  - id: SITE-0007
+    title: The site is static and served without the network
+    statement: >
+      The built site shall be static files that any static file server serves
+      with no network access, and the container image shall carry the built
+      site and serve it with Python's HTTP server on port 8080 inside the
+      container, published on 127.0.0.1:8090 by its deploy target.
+    rationale: The manual must be there when the network is not, and is reached on this machine only unless the person opens it.
+    satisfies: [SYS-0038, SYS-0032]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [documentation, offline, deploy]
+
+  - id: SITE-0008
+    title: Parts are named in the tree as rho req names them
+    statement: The assembled tree shall name each part nested in the robohub repository (modules, providers, contracts, plugins, the protocol) by its requirements name when it declares one, else by its module name — the names rho req gives them in the repositories — copy each part once, and rename a part's manifest when that name differs from its module name, so that rho req check on the tree finds every requirement once and resolves qualified references and parents as it does in the workspace.
+    rationale: The tree named nested parts by directory (alert, email, gateway) while rho req names them robohub-alert, robohub-provider-email, robohub-gateway-contract, and copied the gateway contract twice.
+    satisfies: [SYS-0038, SYS-0041]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [site, requirements]

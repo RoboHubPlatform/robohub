@@ -14,7 +14,7 @@ module:
   type: module
   title: Rules & modes
   category: automation
-  version: 0.2.0
+  version: 0.2.1
   description: >
     The automation engine every RoboHub application shares: rules in a small
     fixed grammar (comparisons, and/or/not, durations, time windows, modes),
@@ -60,17 +60,22 @@ docs:
   title: Rules & modes
   section: modules
   order: "16"
-  index: docs/index.md
+  index: docs/doc/index.md
   sources:
-    - docs/index.md
+    - docs/doc/index.md
 
 assets:
   - templates
   - db/schema.sql
-  - docs/index.md
+  - docs/doc/index.md
 
 locales:
   - locale: en
     file: locales/en.json
   - locale: ro
     file: locales/ro.json
+
+# Requirements: the prefix of the ids this module allocates, and the repository
+# that holds levels.yml and the system level (rho req). A module nested in
+# robohub is a member of the family of its own, named by its module name.
+requirements: { prefix: RULES, parent: robohub }

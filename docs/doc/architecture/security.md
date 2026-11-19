@@ -1,0 +1,214 @@
+# Security
+
+Everything runs as your user on one machine, so the boundaries that matter are
+between people, between programs, and between the machine and the network. This
+page says what each one is and where it is enforced.
+
+## What is open to the network
+
+| What | Listens on | To reach it from elsewhere |
+|---|---|---|
+| Keeper | `127.0.0.1:19090` | an SSH tunnel, or a TLS reverse proxy (`KEEPER_LISTEN` opens it, for use behind one) |
+| Applications | `127.0.0.1:<port>` | through the keeper, at `/app/<name>/`; an application listens on the network only when its manifest says `deploy.listen: lan` |
+| MQTT broker | `127.0.0.1:1884` | an admin opens it to the network for devices; nobody connects without a broker user |
+| A gateway | its REST and uplink ports | Mesh's tokens; HTTPS when the mesh names a certificate (`gateway_tls_cert`, `gateway_tls_key`), and Mesh then records and calls its `https://` address |
+| The keeper's node endpoints | `/api/enroll`, `/api/nodes/verify` | no session: the token or credential is the authentication; a budget of calls per client |
+| Mesh's node-key endpoint | `/mesh/api/nodes/key`, through the keeper | a host node's keeper credential, checked with the keeper; ten calls a minute per client |
+
+## Signing in
+
+The keeper is the only issuer. It holds one ES256 (P-256) signing key and
+publishes the public key at `/auth/public-key`; nothing else reads its key.
+
+- **People.** `~/.rho/keeper/users.yml`, owner-only, kept by `rho auth`, which
+  hashes passwords with PBKDF2. The keeper hands a password over in a private
+  file it removes at once, never on a command line. Five wrong attempts in a
+  row close the sign-in for that name for five minutes.
+- **The access token** in `~/.rho/auth/master.token` is the admin's way in on
+  the first run and afterwards. Changing it asks for the current one and signs
+  out every other session.
+- **Tickets.** Signing in to an application sends the browser to the keeper and
+  back with a ticket: signed with the keeper's key, for that application's
+  audience and redirect address, used once, valid for thirty seconds, carrying
+  the person's name and only their grants for that application.
+- **Application sessions.** The application verifies the ticket with the public
+  key and keeps a session of its own in a cookie named for it
+  (`rho_session_<app>`), valid for at most eight hours. It asks the keeper at
+  most once a minute whether the keeper session it came from is still open, so
+  signing out of the keeper — or *Sign out everywhere* — ends it. A keeper that
+  cannot be reached signs nobody out.
+- **Rotating the key** (*Recovery token → Rotate the signing key*) stops every
+  ticket and token signed with the old key at once; applications fetch the new
+  public key when they first see it used.
+
+## Roles, grants and scopes
+
+A person's **role** — admin, operator or viewer — is what they may do in the
+keeper. Their **grants** are scopes for each application: `mesh:*`,
+`mesh:greenhouse`, `mesh:read`, `aquarium:read`. An admin's tickets carry `*`.
+
+Programs calling each other use **service tokens**. The keeper registers each
+application as a client for the services its manifest calls (`deploy.calls`),
+and starts it with a client id and the path of its secret
+(`RHO_CLIENT_ID`, `RHO_CLIENT_SECRET_FILE`). The runtime exchanges the
+credential for a token:
+
+```text
+POST /auth/service-token   client_id, client_secret, audience, scopes
+→ { token, expires_in }    ES256, for that audience and those scopes, at most ten minutes
+```
+
+and keeps it until 80 % of its lifetime has passed. The callee verifies it
+offline with the public key.
+
+| Caller → callee | Audience | Scope |
+|---|---|---|
+| An application → Mesh | `mesh` | `mesh:<project>` — the mesh it reads |
+| Mesh → a gateway | `gateway` | `gateway:<project>:*` — that gateway only |
+| A collector → a gateway's outbox | `gateway` | `gateway:<id>:read,gateway:<id>:ack` — reads and acknowledges, commands nothing |
+| A client → an application's read-only API (appapi) | `<app>` | `<app>:read` |
+| An application → the keeper's API | `keeper` | `keeper:read` |
+
+**Per-gateway scopes.** A gateway knows its own id (`GATEWAY_ID`, the mesh's
+name) and accepts `gateway:<id>:read` for telemetry, the outbox and diagnostics,
+`gateway:<id>:ack` for acknowledging the outbox (`POST /api/v1/telemetry/ack`,
+which moves the caller's cursor and lets the gateway delete records, so it is a
+change rather than a read), and `gateway:<id>:command` for switching, commands
+and devices; `gateway:<id>:*`, `gateway:*` and `*` hold all three. A collector
+is given `read` and `ack` and nothing that commands. No application is a mesh's
+gateway: Energy stopped being one on 2026-11-13 (ADR-0012), and applications
+pass on what they derive through their read-only `appapi` instead. Mesh may be issued `gateway:*`,
+but asks each gateway's token for `gateway:<project>:*`, so a token captured on
+the network opens that gateway and no other, for minutes. There is no static
+gateway token.
+
+**Every relying party** — the keeper, each application, each gateway — is
+generated with Rho's auth middleware, which removes `X-Rho-Subject`,
+`X-Rho-Scopes` and `X-Rho-Aud` from every request before anything else and sets
+them only from a token it verified; refuses a token for another audience; and
+refuses a token whose id is in the revocation list `rho auth revoke --jti`
+writes.
+
+## The proxy
+
+The keeper serves each application at `/app/<name>/` (the `app_proxy`
+middleware), on loopback to its port. Cookies are scoped by host, not by port,
+so applications on ports of their own would each receive every other one's
+cookies — the keeper's admin session among them. Behind the proxy:
+
+- the keeper's own cookie (`keeper_session`) is never forwarded;
+- an application's cookies are rewritten to its own path;
+- links, redirects and cookie paths are rewritten onto the prefix, and
+  `X-Forwarded-Prefix`, `-Host` and `-Proto` tell the application where it is
+  reached;
+- event streams are relayed as they are written.
+
+The proxy does not sign anyone in; each application does, through the keeper,
+as above. Forms posted from another origin are refused by every application
+(`same_origin`), because the keeper and the applications are the same host,
+which a `SameSite` cookie does not tell apart.
+
+## Isolation between applications
+
+All applications run as the same user, so the keeper isolates them with
+systemd. Every unit it writes has `NoNewPrivileges=yes`. Where the machine's
+systemd can give a user service a private view of the file system — the keeper
+tries once and remembers (`~/.rho/keeper/isolation.txt`) — an application also
+gets:
+
+- `~/.rho/keeper` as an empty, read-only folder, with only its own workspace
+  and its own releases put back;
+- the signing key, the access token, the client credentials and the client
+  registry made inaccessible.
+
+So an application cannot read another application's workspace, the people
+store, or anything that mints tokens. Integrations, such as the MQTT broker,
+run their own program with `NoNewPrivileges` only.
+
+Each application also gets a random secret of its own (`RHO_APP_SECRET`), the
+seed of its forms' CSRF tokens.
+
+## Secrets on disk
+
+| Secret | Where | Mode |
+|---|---|---|
+| Signing key, access token, client credentials | `~/.rho/auth/` | owner-only |
+| The keeper's state: sessions, people, catalogue, jobs | `~/.rho/keeper/` | folder `0700` |
+| An application's environment, including its client secret path | `~/.rho/keeper/workspaces/<name>/app.env` | owner-only |
+| An application's broker password | its workspace | owner-only |
+| Broker users | hashed by `mosquitto_passwd` from an owner-only file | — |
+| Mesh's tree: plans, gateway keys, boards' build folders | `~/.rho/mesh/` | folders `0700`, files `0600`; closed again when Mesh starts |
+| A gateway's key and node manifest | `<mesh>/gateway.key`, `<mesh>/nodes.txt`, and the same beside the gateway (`GATEWAY_KEY_FILE`) | `0600`; created under `umask 077` on the gateway's host before anything is written |
+| A board's key | `src/robohub_secret.h` and the image built from it (`.elf`, `.uf2`) in Mesh's build folder | `0600`, never in a repository |
+| A board's rotated key | the board's keystore (`robohub/keystore.h`: two A/B slots in a reserved flash, EEPROM or NVS region); on a Linux host node its key file (`RH_SECURE_KEY_FILE`, `<epoch>:<hex>`) | host files `0600`, replaced atomically |
+| What happened to each board's key | `rekey.txt` beside the gateway's key, and with its sessions | `0600` |
+| Enrollment tokens | `~/.rho/keeper/enrollment.tokens` | `0600`, changed under a lock, replaced whole |
+| Node records | `~/.rho/keeper/nodes/` | `0700` / `0600`; the credential kept only as a salted hash |
+| A host node's identity, credential and board key | `~/.rho/identity/` (`credential`, `board.key`, `board.env`) | `0700` / `0600` |
+
+Secrets never pass through a report file or a command line: every program the
+keeper runs gets its arguments one per line, so a name or a URL is exactly one
+argument, and a value with a line break or a leading `-` is refused.
+
+## Boards and gateways
+
+Frames between a board and its gateway are authenticated, fresh and bounded in
+time, but not encrypted: readings and commands are not secret, but they must not
+be forged or replayed. A gateway admits the boards its node manifest lists, takes
+a board's readings only for its own placement and an announce only from a relay
+for its own areas, and a board revoked in Mesh is refused without re-keying the
+mesh. A board's key can be rotated from Mesh without flashing it (REKEY): once the
+board confirms the new key, the old one opens no session — the way to retire a
+key that may have been copied. There is no forward secrecy: whoever holds the old
+key and recorded the REKEY frame can unwrap the new one. A Linux host node gets
+its board key from Mesh with its keeper credential, and rewrites its key file when
+it is rotated.
+See {ref}`architecture/enrollment` for the keys, the manifest and enrollment, and
+{ref}`secure telemetry <architecture/secure-telemetry>` for the frame.
+
+## Updates
+
+A signed artifact placed in `~/.rho/keeper/incoming/` is used by **Redeploy**
+only when it verifies against `ROBOHUB_ARTIFACT_PUBKEY` (Ed25519); a failed health
+check after the switch restores the previous version.
+`ROBOHUB_ARTIFACT_ALLOW_UNSIGNED=1` accepts a checksum alone, for a development
+machine.
+
+## Production builds
+
+A board flashed for development can be read out and re-flashed by anyone with
+a cable: its flash holds the device key in the clear. A production build closes
+that, at the cost of steps that cannot be undone — so none of them is ever a
+default.
+
+**Opt-in, in two places.** `CONFIG_RH_PRODUCTION=y` (the
+`production/production.conf` fragment each platform ships; off by default)
+builds with the platform's preset. Building burns nothing. The irreversible
+steps run only from `rho flash --production`, which prints every step in order —
+the exact command, the full contents of any file it burns, and `[IRREVERSIBLE]`
+against each one, including what the image itself does at its first boot — and
+continues only when the board's name is typed. `--dry-run` prints the same and
+runs nothing. Mesh shows a per-board "production build" toggle, off by default.
+
+| Platform | What the preset does | Irreversible |
+|---|---|---|
+| ESP32 | secure boot v2 (RSA-3072, signed bootloader and app), flash encryption in release mode, NVS encryption (keys in an encrypted `nvs_keys` partition) | yes — the first boot burns the flash-encryption key, the key digest and the download/JTAG disables into eFuses |
+| RP2350 (Pico 2W) | a signed image and the OTP rows that enable secure boot for its key | yes — `picotool otp load` writes BOOTKEY0, KEY_VALID and SECURE_BOOT_ENABLE |
+| STM32 | read-out protection level 1, set after flashing | no — going back to level 0 mass-erases the flash. Level 2 is irreversible and is never run by the toolchain |
+| AVR, Linux | no production mode | — |
+
+Keep the signing key. A board that has burned its hash boots only what that key
+signed.
+
+**Where the device key lives.** A rotated key (REKEY) is stored by the
+platform's keystore (`robohub/keystore.h` in robohub-common): two A/B slots,
+each a record with a CRC32 and a sequence number, written to the slot not
+holding the newest key and read back before it counts, so a power loss mid-write
+keeps the previous key. On a Pico it is the last two flash sectors (the link
+fails if an image reaches them); on an ESP32, NVS namespace `rh_keys`, which only
+the production preset encrypts; on an STM32, two reserved bank-2 sectors on the
+boards whose memory map sets them aside (others keep the compiled-in key and
+answer REKEY "cannot rotate"); on an AVR, EEPROM below the nonce counter; on a
+Linux host, a 0600 file replaced atomically. Without production protection
+(flash encryption, read-out protection) the stored key is as readable as the
+compiled-in one. The RP2350's OTP is a planned home for it.

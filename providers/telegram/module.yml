@@ -7,7 +7,7 @@ module:
   previous_ids:
     - robohub.providers.telegram
   type: provider
-  version: 0.2.2
+  version: 0.2.3
   description: Posts an alert to a Telegram chat through the bot API.
   maintainer: "Aurel Miron"
   license: "MIT"
@@ -41,3 +41,7 @@ docs:
   index: README.md
   sources:
     - README.md
+
+# Requirements: the prefix of the ids this module allocates, and the repository
+# that holds levels.yml and the system level (rho req).
+requirements: { prefix: TELEG, parent: robohub }

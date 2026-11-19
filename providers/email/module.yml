@@ -7,7 +7,7 @@ module:
   previous_ids:
     - robohub.providers.email
   type: provider
-  version: 0.2.3
+  version: 0.2.4
   description: Sends an alert by local outbox or SMTP.
   maintainer: "Aurel Miron"
   license: "MIT"
@@ -50,3 +50,7 @@ docs:
   index: README.md
   sources:
     - README.md
+
+# Requirements: the prefix of the ids this module allocates, and the repository
+# that holds levels.yml and the system level (rho req).
+requirements: { prefix: EMAIL, parent: robohub }

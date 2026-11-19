@@ -20,6 +20,9 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "shared" / "tests"))
+import csrf_probe  # noqa: E402
+
 HERE = Path(__file__).resolve()
 MODULE = HERE.parents[1]
 ROBOHUB = MODULE.parents[1]
@@ -181,6 +184,20 @@ def main() -> int:
                 raise AssertionError(f"the API: {api}")
             with sqlite3.connect(db) as conn:
                 warning_id = conn.execute("SELECT id FROM journal_entries WHERE message LIKE 'NO3 28%'").fetchone()[0]
+            # A resolve another site made the browser send is refused: no form
+            # token, a wrong one, and a bearer ticket without one all leave the
+            # warning open.
+            # @verifies JRNL-0009
+            cookie = csrf_probe.cookie_session(csrf_probe.rho_binary(PROJECTS), auth_home, base, "aquarium")
+            for label, extra in (("no token", {}), ("a wrong token", {"csrf": "a" * 64})):
+                for how, auth in (("a cookie", {"cookie": cookie}), ("a bearer ticket", {"bearer": TOKEN})):
+                    status, _ = csrf_probe.post(base, "/journal/resolve",
+                                                dict({"id": str(warning_id)}, **extra), **auth)
+                    api = json.loads(get(base, "/api/journal?kind=test"))
+                    if api["entries"][0]["resolved_at"] != 0:
+                        raise AssertionError(f"a resolve with {label} and {how} was acted on ({status})")
+            # The page draws the token into its resolve form, so the person's own works.
+            learn_csrf(base, "/journal")
             post(base, "/journal/resolve", {"id": str(warning_id)})
             api = json.loads(get(base, "/api/journal?kind=test"))
             if api["entries"][0]["resolved_at"] == 0:

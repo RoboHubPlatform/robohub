@@ -19,6 +19,7 @@ module notifications
 
 include "text.rho"
 include "notifications.rho"
+include "forms"
 
 import std.sql
 import std.web.http
@@ -26,11 +27,17 @@ import std.web.template
 
 // The runtime functions this module calls.
 extern fn rho_exec(program: string, arguments: string, output_path: string) u32
+// One argument per line, nothing in one interpreted: a path with a space in it
+// is one argument.
+extern fn rho_exec_args(program: string, arguments: string, output_path: string) u32
 // The clock and a program's output, from the runtime rather than through a file.
 extern fn rho_now_s() u32
 extern fn rho_read_text(path: string) string
 extern fn rho_append_text(path: string, text: string) bool
+extern fn rho_write_text(path: string, text: string) bool
+extern fn rho_path_exists(path: string) bool
 
+// @req NOTIF-0004
 route POST "/notifications/push"         => notifications_push
 route GET  "/notifications/list"         => notifications_list
 route POST "/notifications/dismiss"      => notifications_dismiss

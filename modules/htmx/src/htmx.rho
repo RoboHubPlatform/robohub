@@ -27,6 +27,7 @@ extern fn rho_asset(module: string, path: string) string
 
 // htmx_asset_name admits only the two names the module carries, so a request
 // for /assets/../../... cannot read a file outside the asset directory.
+// @req HTMX-0002
 fn htmx_asset_name(name: string) bool {
     if str_eq(name, "htmx.min.js") {
         return true
@@ -44,6 +45,7 @@ fn htmx_asset_text(name: string) string {
     return rho_asset("htmx", "assets/" + name)
 }
 
+// @req HTMX-0001, HTMX-0002
 fn htmx_asset(name: string) Response {
     let body: string = htmx_asset_text(name)
     if body == "" {
@@ -59,6 +61,7 @@ fn htmx_asset_route(req: Request) Response {
 
 // htmx_head is the pair of script tags a layout places in <head>. Deferring
 // both keeps their order: HTMX defines the extension point the SSE file uses.
+// @req HTMX-0001
 fn htmx_head() string {
     return "<script src=\"/assets/htmx.min.js\" defer></script>\n" +
         "<script src=\"/assets/sse.min.js\" defer></script>"
@@ -66,17 +69,20 @@ fn htmx_head() string {
 
 // htmx_is_request is whether the request came from HTMX, so a handler can
 // answer with a fragment and let a normal form submit keep its redirect.
+// @req HTMX-0003
 fn htmx_is_request(req: Request) bool {
     return str_eq(header_str(req, "HX-Request"), "true")
 }
 
 // htmx_redirect asks HTMX to change the page instead of swapping a redirect
 // body into a target.
+// @req HTMX-0003
 fn htmx_redirect(location: string) Response {
     return with_headers(redirect(location), "HX-Redirect: " + location)
 }
 
 // htmx_trigger asks HTMX to dispatch a client event after a successful swap.
+// @req HTMX-0003
 fn htmx_trigger(resp: Response, event: string) Response {
     return with_headers(resp, "HX-Trigger: " + event)
 }

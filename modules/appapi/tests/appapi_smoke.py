@@ -8,6 +8,7 @@ workspace rather than in the module folder.
 """
 
 import html
+import json
 import os
 import re
 import socket
@@ -99,6 +100,21 @@ def get(base: str, path: str) -> str:
         return response.read().decode("utf-8", "replace")
 
 
+def get_values(base: str) -> dict:
+    """Every value, by id. The test's 300 derived definitions make the
+    background tick write for a while; a read that meets it may be told the
+    database is busy (SQLITE_BUSY), which is about the database, not about what
+    the API lists, so it is read again."""
+    for _ in range(10):
+        try:
+            return {v["id"]: v for v in json.loads(get(base, "/api/v1/values"))["values"]}
+        except urllib.error.HTTPError as error:
+            if error.code != 500 or b"locked" not in error.read():
+                raise
+            time.sleep(0.5)
+    raise AssertionError("the values could not be read: the database stayed busy")
+
+
 def post(base: str, path: str, fields: dict) -> str:
     if CSRF and "csrf" not in fields:
         fields = dict(fields, csrf=CSRF)
@@ -168,6 +184,13 @@ def main() -> int:
             conn.execute("INSERT INTO appapi_derived (id, source, fn, window_s, unit, label) VALUES ('nothing_bound', 'heater.temperature', 'avg', 86400, '°C', '')")
             conn.execute("INSERT INTO appapi_values (id, value, unit, label, kind, updated_at) VALUES ('stocking', '0.8', 'cm/L', 'Stocking level', 'published', ?)", (now,))
             conn.executemany("INSERT INTO appapi_history (id, at, value) VALUES ('stocking', ?, ?)", [(now - 7200, 0.6), (now - 3600, 0.7), (now - 40 * 86400, 0.1)])
+            # More than a page of 256: published values and derived definitions
+            # that sort before the ones the checks below read, so a reader that
+            # stops at 256 misses those as well as these.
+            conn.executemany("INSERT INTO appapi_values (id, value, unit, label, kind, updated_at) VALUES (?, ?, '', '', 'published', ?)",
+                             [(f"bulk_{i:03d}", str(i), now) for i in range(300)])
+            conn.executemany("INSERT INTO appapi_derived (id, source, fn, window_s, unit, label) VALUES (?, 'water_change', 'since', 0, 'd', '')",
+                             [(f"a_bulk_since_{i:03d}", ) for i in range(300)])
         process = subprocess.Popen([str(binary)], cwd=HOST, env=env,
                                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
         try:
@@ -175,7 +198,7 @@ def main() -> int:
             values = {}
             deadline = time.time() + 30
             while time.time() < deadline:
-                values = {v["id"]: v for v in json.loads(get(base, "/api/v1/values"))["values"]}
+                values = get_values(base)
                 if "days_since_water_change" in values:
                     break
                 time.sleep(1)
@@ -186,6 +209,17 @@ def main() -> int:
                 raise AssertionError(f"days since the water change: {values['days_since_water_change']}")
             if "nothing_bound" in values:
                 raise AssertionError("a value with nothing to read from was invented")
+            # @verifies APPAPI-0008
+            deadline = time.time() + 30
+            while time.time() < deadline and "a_bulk_since_299" not in values:
+                values = get_values(base)
+                time.sleep(1)
+            bulk = [k for k in values if k.startswith("bulk_")]
+            derived = [k for k in values if k.startswith("a_bulk_since_")]
+            if len(bulk) != 300 or len(derived) != 300 or "stocking" not in values:
+                raise AssertionError(f"past 256: {len(bulk)} of 300 published values, {len(derived)} of 300 derived, stocking listed: {'stocking' in values}")
+            if json.loads(get(base, "/api/v1/values/bulk_299"))["value"] != "299":
+                raise AssertionError("a value past the 256th was not found by its id")
             one = json.loads(get(base, "/api/v1/values/stocking"))
             if one["value"] != "0.8" or one["unit"] != "cm/L":
                 raise AssertionError(f"one value: {one}")

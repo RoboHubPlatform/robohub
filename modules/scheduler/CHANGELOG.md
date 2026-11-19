@@ -80,3 +80,9 @@ It lists what other code may use (`provides.exports`, imported as `robohub.sched
 ## [0.3.1] - 2026-11-15
 
 Every `let` the code assigned to is declared with `var`, as rho 0.19.0 asks (assigning to a `let` is deprecated there and refused in the next minor release). Nothing else changes.
+
+## [0.3.2] - 2026-11-19
+
+Security: the chore API (`POST /api/scheduler/chores` and its complete, snooze and usage routes) took any post, so a page on another site could add, complete or snooze chores through a signed-in person's browser. It takes a bearer ticket or the form token now (`forms_machine_ok`); a post with only the session cookie is 403. Needs forms 0.3.7.
+
+The complete, snooze and usage API routes answered `{"ok":true}` whatever happened — a chore that is not there, a usage update with no hours, a database that failed — so a program was told a chore was done when nothing had changed. They answer the failure now: 404, 400 or 500 with `{"ok":false,"error":…}`. Every reader of all the chores (the page, `GET /api/scheduler/chores`, the usage tick) read at most 256 rows, so chores past the 256th were silently missing from the page and the API, never counted, and could not be completed, edited or found by title; they are read a page at a time now (`list_chores_page`), and one chore is found by its own query (`get_chore`, `newest_enabled_chore`). A preset chore the person deleted came back at the next start, and one they renamed was added again under its old title: the presets' titles are recorded once seeded (`chore_presets_seeded`) and never seeded again. The data directory is made with `mkdir` given the path as one argument (`rho_exec_args`): a workspace path with a space in it made stray directories from its words (one of them relative to where the application runs).

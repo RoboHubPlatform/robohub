@@ -12,6 +12,7 @@
 
 module logging
 
+include "logfile.rho"
 include "logconfig.rho"
 
 // The settings it keeps the policy in, and the form it edits it with: declared
@@ -21,5 +22,8 @@ import robohub.forms
 
 // The runtime functions this module calls.
 extern fn rho_exec(program: string, arguments: string, output_path: string) u32
+// One argument per line, nothing in one interpreted: a path with a space in it
+// is one argument.
+extern fn rho_exec_args(program: string, arguments: string, output_path: string) u32
 extern fn rho_read_text(path: string) string
 extern fn rho_path_exists(path: string) bool

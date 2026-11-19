@@ -1,0 +1,118 @@
+# What the rules module does for the applications that include it: the
+# automation engine they share — its contract to them (the hooks it asks for,
+# the routes it registers, where it keeps its rules) and what it guarantees about
+# when a rule acts. Written in the R5 backfill from the documentation, the
+# changelog, the code and the tests; proposed until the maintainer approves them.
+level: NODE
+prefix: RULES
+title: Rules & modes
+requirements:
+  - id: RULES-0001
+    title: What an application gives the engine
+    statement: >
+      The module shall need from the including application only host_shell(req,
+      title, body, scripts) to draw its page, rules_host_value(ref) for the
+      application's own values a condition may name ("" for one it does not
+      know), rules_presets(text) called with its presets at startup, and
+      rules_tick() called from its background work; it shall offer rules_mode()
+      for the mode in force.
+    rationale: The engine is the same in every application; what a value means and when it is evaluated are the application's.
+    satisfies: [SYS-0055]
+    decided_by: [robohub:ADR-0005]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [contract]
+
+  - id: RULES-0002
+    title: Pages and the API on the host's router
+    statement: >
+      The module shall register GET /rules (the page), POST /rules/add,
+      /rules/change, /rules/edit and /rules/mode, GET /rules/edit, and GET
+      /api/rules (every rule's name, enabled flag, condition, state, last firing,
+      problem and origin, the mode in force and when it ends, as JSON) on the
+      including application's router, with no port of its own.
+    rationale: A person sees and changes the rules in the application, and a page or a test reads their state from one answer.
+    satisfies: [SYS-0005, SYS-0017]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [contract, pages, api]
+
+  - id: RULES-0003
+    title: The rules are the including application's
+    statement: >
+      The module shall keep rules, the presets' own copy of them, modes and the
+      mode in force in the including application's database,
+      <workspace>/data/app.db where the workspace is app_workspace() (or the file
+      RHO_RULES_DB names), so no application sees another's rules.
+    rationale: The aquarium's heater rules are not energy's.
+    satisfies: [SYS-0031, SYS-0016]
+    decided_by: [robohub:ADR-0006]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [data, isolation]
+
+  - id: RULES-0004
+    title: A rule never acts on a value it could not read
+    statement: >
+      A condition that names a reading which is not there, or orders (<, <=, >,
+      >=) a reading that is not a number, shall be no answer: the rule shall not
+      act on it, under `not` either, and shall show which reading was missing.
+    rationale: A heater must not be switched on because a probe said "unavailable".
+    satisfies: [SYS-0055]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [safety, conditions]
+
+  - id: RULES-0005
+    title: Rules act on items, alerts, the journal and modes
+    statement: >
+      A rule's or a mode's actions shall switch an inventory item through the
+      gateway, use an item, write to the journal, raise an alert on every channel
+      the application binds to robohub.alert (in the journal as well), and start
+      or end a mode; an item is always named by its handle.
+    rationale: Automation in every application is these few things, done the same way.
+    satisfies: [SYS-0025, SYS-0036, SYS-0055]
+    decided_by: [robohub:ADR-0007, robohub:ADR-0013]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [actions, alerts]
+
+  - id: RULES-0006
+    title: Rules and modes are seeded from the application's presets
+    statement: >
+      rules_presets(text) shall add every rule and mode its rules and modes maps
+      name that is missing, keep each preset rule (origin preset) and preset mode
+      as the presets say, record what the presets say of each rule for Back to
+      the preset, never change a rule a person added or edited, and leave whether
+      a rule is enabled to the person.
+    rationale: An update can improve the application's rules without undoing what the person changed.
+    satisfies: [SYS-0055]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [presets]
+
+  - id: RULES-0007
+    title: Changes carry the form token
+    statement: >
+      Adding, enabling, disabling, deleting and editing a rule and starting or
+      ending a mode from the page shall be refused, with nothing changed, unless
+      the post carries the application's form token (forms_csrf_ok).
+    rationale: The applications share the keeper's origin; the token is a second guard over the generated server's origin check.
+    satisfies: [SYS-0034]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [security, web]

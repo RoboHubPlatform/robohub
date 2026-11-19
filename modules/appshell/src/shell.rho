@@ -75,8 +75,9 @@ fn appshell_count(n: u32, css: string) string {
     return "<span class=\"n" + css + "\">" + int_to_str(n) + "</span>"
 }
 
-// appshell_rail_system is the rail's last group: the open journal, the
-// dashboard, settings and docs, which every application has.
+// appshell_rail_tail is the rail's last group: settings and docs, which every
+// application has. The journal and the dashboard are the application's own
+// places, drawn by its rail before this group.
 fn appshell_rail_tail(req: Request) string {
     return "<h6>" + i18n_t(req, "nav.group.system") + "</h6>" +
         appshell_rail_link(req, "/settings", "⚑", i18n_t(req, "nav.settings"), "", false) +
@@ -103,6 +104,7 @@ fn appshell_gateway_label(req: Request) string {
 // appshell_middle is the top bar's middle: where readings come from, the mode in
 // force, and a button that starts the application's quick mode (`feeding`,
 // `load-shed`) or ends the mode in force.
+// @req SHELL-0005
 fn appshell_middle(req: Request, quick_mode: string, quick_label: string) string {
     let mode: string = rules_mode()
     var mode_label: string = i18n_t(req, "top.auto")
@@ -123,6 +125,7 @@ fn appshell_middle(req: Request, quick_mode: string, quick_label: string) string
 
 // appshell_topbar is the RoboHub top bar for the application: the switcher of
 // the keeper's applications, the middle, and the person signed in.
+// @req SHELL-0005
 fn appshell_topbar(req: Request, middle: string) string {
     let keeper_port: string = getenv("RHO_KEEPER_PORT")
     var who: string = header_str(req, "X-Rho-Subject")
@@ -138,9 +141,14 @@ fn appshell_topbar(req: Request, middle: string) string {
         ui_person(req, who, "", ui_language(i18n_locale(req), request_path(req)), signout, true), i18n_locale(req))
 }
 
-// appshell_docs is the application's own documentation page, its docs/index.md.
+// appshell_docs is the application's own documentation page, its docs/doc/index.md.
+// An application that still keeps its pages directly in docs/ shows docs/index.md.
+// @req SHELL-0004
 fn appshell_docs(req: Request) Response {
-    var content: string = rho_asset(host_app(), "docs/index.md")
+    var content: string = rho_asset(host_app(), "docs/doc/index.md")
+    if content == "" {
+        content = rho_asset(host_app(), "docs/index.md")
+    }
     if content == "" {
         content = "No documentation found."
     }

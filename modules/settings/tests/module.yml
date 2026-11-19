@@ -1,0 +1,14 @@
+# The settings store's tests are a small C program of their own: the store is
+# plain text in a workspace, and the C backend reads the workspace the same way.
+module:
+  name: settings-tests
+  id: robohub.app.settings-tests
+  type: rho
+  version: 0.1.0
+
+main: settings_test.rho
+
+build:
+  language: c
+  targets:
+    - c

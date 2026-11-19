@@ -46,12 +46,21 @@ struct Problem {
 }
 
 /// The check runs over the ecosystem and says what it found.
+// @req HUB-0021
 fn validate(registry_dir: string, modules_root: string) u32 {
+    // The modules are the ones the registry checked names, every entry of it:
+    // a module added to the registry is validated without a second list to
+    // remember.
+    let names: string = registry_names_in(registry_dir)
     var problems: u32 = 0
-    problems = problems + check_registry(registry_dir)
-    problems = problems + check_manifests(modules_root)
-    problems = problems + check_suites(modules_root)
-    problems = problems + check_specs(modules_root)
+    if names == "" {
+        print("  " + registry_dir + ": the registry names no module\n")
+        problems = problems + 1
+    }
+    problems = problems + check_registry(registry_dir, names)
+    problems = problems + check_manifests(modules_root, names)
+    problems = problems + check_suites(modules_root, names)
+    problems = problems + check_specs(modules_root, names)
     if problems == 0 {
         print("robohub validate: every file matches its schema\n")
         return 0
@@ -61,11 +70,12 @@ fn validate(registry_dir: string, modules_root: string) u32 {
 }
 
 /// check_registry checks the registry: every entry says what an entry says.
-fn check_registry(registry_dir: string) u32 {
+// @req HUB-0004
+fn check_registry(registry_dir: string, names: string) u32 {
     var problems: u32 = 0
     var index: u32 = 0
-    while index < MODULE_COUNT {
-        let name: string = module_name(index)
+    while index < name_count(names) {
+        let name: string = name_at(names, index)
         let entry: string = registry_dir + "/" + name + ".yml"
         if yaml.kind(entry, "name") == "missing" {
             print("  " + entry + ": no name\n")
@@ -90,11 +100,12 @@ fn check_registry(registry_dir: string) u32 {
 }
 
 /// check_suites checks the suite manifests of every module that has one.
-fn check_suites(modules_root: string) u32 {
+// @req HUB-0006
+fn check_suites(modules_root: string, names: string) u32 {
     var problems: u32 = 0
     var index: u32 = 0
-    while index < MODULE_COUNT {
-        let name: string = module_name(index)
+    while index < name_count(names) {
+        let name: string = name_at(names, index)
         let manifest: string = modules_root + "/" + name + "/tests/tests.yml"
         if rho_path_exists(manifest) {
             if yaml.kind(manifest, "name") == "missing" {
@@ -119,11 +130,12 @@ fn check_suites(modules_root: string) u32 {
 /// A spec is JSON, and the language has no JSON reader yet; what is checked
 /// here is what a flat read can see — that a spec says what a spec says. The
 /// rest of it is the toolchain's own validation, which is the authority.
-fn check_specs(modules_root: string) u32 {
+// @req HUB-0006
+fn check_specs(modules_root: string, names: string) u32 {
     var problems: u32 = 0
     var index: u32 = 0
-    while index < MODULE_COUNT {
-        let name: string = module_name(index)
+    while index < name_count(names) {
+        let name: string = name_at(names, index)
         let spec: string = modules_root + "/" + name + "/targets/" + name + ".json"
         if rho_path_exists(spec) {
             if yaml.kind(spec, "name") == "missing" {
@@ -149,12 +161,13 @@ fn check_specs(modules_root: string) u32 {
 /// toolchain applies when a module is validated or published; this check is the
 /// ecosystem's own gate over identity and vocabulary, so a manifest whose type
 /// nobody agreed on is reported before a build reaches it.
-fn check_manifests(modules_root: string) u32 {
+// @req HUB-0005
+fn check_manifests(modules_root: string, names: string) u32 {
     var problems: u32 = 0
     var seen_ids: string = ""
     var index: u32 = 0
-    while index < MODULE_COUNT {
-        let name: string = module_name(index)
+    while index < name_count(names) {
+        let name: string = name_at(names, index)
         let report: string = "build/reports/find-manifests-" + name + ".txt"
         let code: u32 = rho_exec("find", modules_root + "/" + name + " -type f -name module.yml", report)
         if code == 0 {

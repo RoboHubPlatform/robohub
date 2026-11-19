@@ -14,7 +14,7 @@ module:
   type: module
   title: Application API
   category: integration
-  version: 0.2.0
+  version: 0.2.1
   description: >
     The read-only REST API every RoboHub application offers in the same shape:
     its values (derived from presets, computed by the application, or exported
@@ -56,10 +56,16 @@ docs:
   title: Application API
   section: modules
   order: "17"
-  index: docs/index.md
+  index: docs/doc/index.md
   sources:
-    - docs/index.md
+    - docs/doc/index.md
 
 assets:
   - db/schema.sql
-  - docs/index.md
+  - docs/doc/index.md
+
+# Requirements: the prefix of the ids this module allocates, and the repository
+# that holds levels.yml and the system level (rho req).
+requirements:
+  prefix: APPAPI
+  parent: robohub

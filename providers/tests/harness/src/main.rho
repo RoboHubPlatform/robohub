@@ -1,0 +1,28 @@
+//
+// @file main.rho
+// @brief Raises one alert, as asked, through every channel the program binds.
+//
+// @module harness
+// @project robohub
+// @author Aurel Miron
+// @date 2026-11-19
+//
+// SPDX-License-Identifier: MIT
+//
+
+module harness
+
+import std.web.http
+import robohub.alert
+
+// The providers' code is built for the server backend, so the harness is a
+// server of one route: `GET /raise?level=…&message=…&metadata=…` raises the
+// alert and answers how many channels accepted it. Which channels are on, and
+// their settings, is the workspace's bind.conf.
+route GET "/raise" => harness_raise
+
+fn harness_raise(req: Request) Response {
+    let sent: u32 = alert.raise(request_query_param(req, "level"),
+        request_query_param(req, "message"), request_query_param(req, "metadata"))
+    return text(200, int_to_str(sent))
+}

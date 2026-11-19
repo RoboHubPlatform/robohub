@@ -1,0 +1,151 @@
+# What the inventory module does for the applications that include it: its
+# contract to them (the routes it registers, the hooks it asks for, where it keeps
+# its records) and what it guarantees about stock, spending and equipment.
+# Written in the R5 backfill from the documentation, the changelog, the code and
+# the smoke test; proposed until the maintainer approves them.
+level: NODE
+prefix: INV
+title: Inventory & expenses
+requirements:
+  - id: INV-0001
+    title: Pages on the host's router, inside the host's shell
+    statement: >
+      The module shall register its pages on the router of the application that
+      includes it — /expenses and the routes under it, /api/expenses/count,
+      /devices and /devices/add — own no port of its own, and render every page's
+      content through the application's host_shell(req, title, body, scripts),
+      so the application's header, footer and menu surround it.
+    rationale: A module is part of an application, reached at the application's address with the application's navigation, not a second program.
+    satisfies: [SYS-0005, SYS-0017]
+    decided_by: [robohub:ADR-0005]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [contract, pages]
+
+  - id: INV-0002
+    title: The records are the including application's
+    statement: >
+      The module shall keep its categories, items, bindings, purchases and stock
+      movements in the including application's database,
+      <workspace>/data/app.db where the workspace is app_workspace() (or the
+      file RHO_INVENTORY_DB names), and never in the module's own folder, so two
+      applications that include it never share records.
+    rationale: Aquarium and energy both include the inventory; one's equipment must not appear in the other.
+    satisfies: [SYS-0031, SYS-0016]
+    decided_by: [robohub:ADR-0006]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [data, isolation]
+
+  - id: INV-0003
+    title: An older database is upgraded in place
+    statement: >
+      On opening the database the module shall apply its own schema, in which a
+      column added in a later version is both in its table's CREATE and in an
+      ALTER TABLE ... ADD COLUMN after it, so a database made by an older version
+      gains the new columns and keeps its rows.
+    rationale: Updating an application must not cost the person their stock records.
+    satisfies: [SYS-0016, SYS-0058]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [data, upgrade]
+
+  - id: INV-0004
+    title: Stock and spending are recorded together
+    statement: >
+      The module shall record items with a quantity on hand and a reorder level,
+      purchases that add both the spending and the stock, and every change to
+      the stock as a signed movement saying why, and shall show what is on hand,
+      what has reached its reorder level, and the purchases with their total.
+    rationale: What is on the shelf and what it cost are one record, so neither drifts from the other.
+    satisfies: [SYS-0053]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [stock, expenses]
+
+  - id: INV-0005
+    title: Equipment is named by its handle, not by its device
+    statement: >
+      An equipment item's capabilities shall be bound to gateway sources in the
+      inventory, and the application and other modules shall read, switch, use
+      and count the runtime of an item through the functions the module exports
+      (inventory_resolve, inventory_read, inventory_switch, inventory_use,
+      inventory_runtime_seconds, ...) by the item's handle and a capability,
+      never by a device or a source.
+    rationale: Replacing a smart plug must be one binding changed, not every rule, card and chore that names the heater.
+    satisfies: [SYS-0025]
+    decided_by: [robohub:ADR-0013, robohub:ADR-0007]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [equipment, automation, contract]
+
+  - id: INV-0006
+    title: An inventory without a gateway
+    statement: >
+      When the including application binds no provider to the robohub.gateway
+      interface, the module shall keep every stock and expense function, show no
+      Automation tab, and answer inventory_resolve and inventory_read with "" and
+      inventory_switch with false.
+    rationale: An application with no boards still has a shelf; the gateway is an interface, never a dependency on a provider.
+    satisfies: [SYS-0018]
+    decided_by: [robohub:ADR-0007]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [automation, interfaces]
+
+  - id: INV-0007
+    title: Changes carry the form token
+    statement: >
+      Adding, editing, consuming, deleting and purchasing items, deleting a
+      purchase, adding, renaming and deleting categories, binding and switching capabilities, and saving and
+      adding on the Devices page shall be refused, with nothing changed, unless
+      the post carries the application's form token (forms_csrf_ok).
+    rationale: The applications share the keeper's origin, which a SameSite cookie does not tell apart; the token is a second guard over the generated server's origin check.
+    satisfies: [SYS-0034]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [security, web]
+
+  - id: INV-0008
+    title: The module's settings are the application's
+    statement: >
+      The module shall read inventory.currency (RON by default; RON, EUR or USD),
+      inventory.default_unit and inventory.reorder from the including
+      application's settings store, falling back to the module's config map under
+      app_modules in the application's manifest, and shall offer them as a
+      settings tab through inventory_settings_form and inventory_settings_save.
+    rationale: Two applications including the module may want different currencies; the module reads nothing from beside itself.
+    satisfies: [SYS-0031, SYS-0066]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [settings, contract]
+
+  - id: INV-0009
+    title: Saves, deletions, bindings and switches are logged
+    statement: >
+      The module shall write each item saved or deleted, each capability bound
+      and each switch done or failed (with who asked) to the application log
+      under the inventory subject.
+    rationale: When a heater switched at night, the log must say whether a person, a rule or a mode asked.
+    satisfies: [SYS-0039]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [observability]

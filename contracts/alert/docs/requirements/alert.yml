@@ -1,0 +1,129 @@
+# What the alert interface (robohub-alert, import robohub.alert) guarantees to
+# the applications and shared modules that raise alerts, and to the channel
+# providers that deliver them (src/alert.rho), and what its alert state machine
+# does with a stream of readings (src/rule.rho). Written in the R5 backfill from
+# the documentation, the changelog, the code and the rule tests; proposed until
+# the maintainer approves them.
+level: NODE
+prefix: ALERT
+title: Alert interface
+requirements:
+  - id: ALERT-0001
+    title: An alert reaches every enabled channel whose threshold it meets
+    statement: >
+      alert.raise(level, message, metadata) shall call send(level, message,
+      metadata) on every provider the application binds to robohub.alert whose
+      `enabled` setting is not "false" and whose `severity_threshold` the level
+      meets, and shall answer the sum of what those channels answered (the
+      number that accepted it); with no channel bound it shall answer 0.
+    rationale: An application raises an alert once; which channels carry it is the person's choice, made in the binding and the settings, not in the code.
+    satisfies: [SYS-0036]
+    decided_by: [robohub:ADR-0007]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [alerts, interface]
+
+  - id: ALERT-0002
+    title: Severities are ranked by name in any case
+    statement: >
+      A channel's severity threshold shall be met by a level that ranks at or
+      above it in the order INFO < WARNING < ERROR < CRITICAL, compared without
+      regard to case or surrounding space; a level the interface does not know
+      shall rank with INFO, and an empty threshold shall be met by every level.
+    rationale: The rules module raises `warning`; a channel set to WARNING dropped every one of those alerts until the comparison ignored case (1.1.1).
+    satisfies: [SYS-0036]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [alerts, severity]
+
+  - id: ALERT-0003
+    title: A channel can be tested whatever its settings
+    statement: >
+      alert.test(provider, message) shall send the message through the named
+      channel at level INFO with metadata "test", whether or not the channel is
+      enabled and whatever its threshold, and answer what the channel answered.
+    rationale: A settings page must be able to show that a channel works before the person relies on it.
+    satisfies: [SYS-0036]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [alerts, settings]
+
+  - id: ALERT-0004
+    title: A channel's settings change on a running installation
+    statement: >
+      alert.providers() shall list the bound channels one per line,
+      alert.config(provider, key) shall answer a channel's setting as the
+      binding resolves it, and alert.configure(provider, key, value) shall
+      change it in the application's bind.conf, so it holds without a rebuild.
+    rationale: The person sets the e-mail address or turns a channel off from a page, not by editing a manifest and rebuilding.
+    satisfies: [SYS-0036, SYS-0066]
+    decided_by: [robohub:ADR-0007]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [alerts, settings]
+
+  - id: ALERT-0005
+    title: A rule fires only after its pending window
+    statement: >
+      An alert rule shall fire only when a value above its threshold has held
+      for at least pending_seconds since the first such sample (at once when
+      pending_seconds is 0), and a sample at or below the threshold during that
+      window shall return the rule to normal without firing.
+    rationale: A single noisy reading must not wake anyone at night.
+    satisfies: [SYS-0036]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [alerts, rules]
+
+  - id: ALERT-0006
+    title: A fired rule holds until the clear line
+    statement: >
+      A rule that fired shall stay triggered, and not fire again, until a value
+      falls below its threshold less its hysteresis, which shall clear it and
+      start its cooldown.
+    rationale: A reading hovering at the threshold must be one alert, not one per sample.
+    satisfies: [SYS-0036]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [alerts, rules]
+
+  - id: ALERT-0007
+    title: A cleared rule recharges for its cooldown
+    statement: >
+      A cleared rule shall neither fire nor become pending until cooldown_seconds
+      have passed since it cleared; after that a value above the threshold shall
+      start a new pending window and any other value shall return it to normal.
+    rationale: A condition that flaps must not become a stream of messages.
+    satisfies: [SYS-0036]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [alerts, rules]
+
+  - id: ALERT-0008
+    title: A rule fires at most max_per_window times in its window
+    statement: >
+      With max_per_window greater than 0, a rule shall fire at most
+      max_per_window times in any rolling window of window_seconds; a trigger
+      past that limit shall not fire but shall leave the rule triggered, so it
+      fires again only after it has cleared and a new pending window has passed.
+    rationale: A rate limit bounds how many messages one bad night can send, without losing track of the condition.
+    satisfies: [SYS-0036]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [alerts, rules, rate-limit]

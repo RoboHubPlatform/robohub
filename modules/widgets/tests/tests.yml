@@ -1,10 +1,17 @@
 name: widgets
 suites:
+  # @verifies WIDG-0001, WIDG-0002, WIDG-0003, WIDG-0006, WIDG-0011, WIDG-0013, WIDG-0014
   - name: widgets-smoke
     kind: command
     tags: [smoke]
     command: [python3, tests/widgets_smoke.py]
+  # @verifies WIDG-0004, WIDG-0005, WIDG-0006
   - name: widgets-gateway-smoke
     kind: command
     tags: [smoke]
     command: [python3, tests/widgets_gateway_smoke.py]
+  # @verifies WIDG-0008, WIDG-0015
+  - name: widgets-stream-smoke
+    kind: command
+    tags: [smoke]
+    command: [python3, tests/widgets_stream_smoke.py]

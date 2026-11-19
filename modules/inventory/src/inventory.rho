@@ -49,6 +49,7 @@ fn inventory_template(name: string) string {
     return rho_asset("inventory", "templates/" + name + ".html")
 }
 
+// @req INV-0002
 fn inventory_db_path() string {
     let override: string = getenv("RHO_INVENTORY_DB")
     if override != "" {
@@ -59,10 +60,11 @@ fn inventory_db_path() string {
     // two databases, and a module update never moves one out from under the
     // other.
     let dir: string = inventory_workspace() + "/data"
-    rho_exec("mkdir", "-p " + dir, dir + "/mkdir.txt")
+    rho_exec_args("mkdir", "-p\n" + dir + "\n", dir + "/mkdir.txt")
     return dir + "/app.db"
 }
 
+// @req INV-0003
 fn inventory_schema() string {
     return rho_asset("inventory", "db/schema.sql")
 }
@@ -118,6 +120,7 @@ fn inventory_host_config(key: string) string {
     return ""
 }
 
+// @req INV-0008
 fn inventory_setting(key: string, fallback: string) string {
     // The host application owns the module's settings, so two applications
     // including this module can give it different values. Nothing is read from
@@ -167,6 +170,7 @@ fn inventory_date() string {
 fn inventory_ignore(value: Result[u32, SqlError]) void {
 }
 
+// @req INV-STOCK-0001
 fn inventory_money(cents: i64) string {
     var value: i64 = cents
     var sign: string = ""
@@ -185,6 +189,7 @@ fn inventory_money(cents: i64) string {
 
 // inventory_quantity writes thousandths as a quantity: a stock taken below zero
 // is shown as a negative number, not as four billion.
+// @req INV-STOCK-0001
 fn inventory_quantity(milli: i64) string {
     var value: i64 = milli
     var sign: string = ""
@@ -354,11 +359,13 @@ fn inventory_low_rows(rows: LowStockItemsRow[128], count: u32) string {
 
 fn inventory_expense_rows(rows: ListExpensesRow[512], count: u32) string {
     var out: string = ""
+    let csrf: string = forms_csrf_field()
     var i: u32 = 0
     while i < count {
         let row: ListExpensesRow = rows[i]
         let html: string = template_fill(inventory_template("rows/expense-row"),
             vars("id", int_to_str(u32(row.id))) +
+            vars("csrf", csrf) +
             vars("item", row.item) +
             vars("category", row.category) +
             vars("quantity", inventory_quantity(row.quantityMilli)) +
@@ -415,6 +422,7 @@ fn inventory_kind(chosen: string, category_id: string, categories: Categories[64
 
 // inventory_handle is a handle as an item is named by elsewhere: lower case,
 // letters, digits and dashes, a space or an underscore read as a dash.
+// @req INV-STOCK-0004
 fn inventory_handle(text: string) string {
     let lower: string = "abcdefghijklmnopqrstuvwxyz"
     let upper: string = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -441,6 +449,7 @@ fn inventory_handle(text: string) string {
 }
 
 // inventory_handle_taken says whether another item than `except` has a handle.
+// @req INV-STOCK-0004
 fn inventory_handle_taken(db: SqlDb, handle: string, except: u32) bool {
     if handle == "" {
         return false
@@ -487,7 +496,7 @@ fn inventory_total(db: SqlDb) i64 {
 /* -------------------------------------------------------------------------- */
 
 fn inventory_docs() string {
-    let text: string = rho_asset("inventory", "docs/index.md")
+    let text: string = rho_asset("inventory", "docs/doc/index.md")
     if text == "" {
         return "No documentation found."
     }
@@ -541,6 +550,7 @@ fn inventory_count(req: Request) Response {
     return html(status_ok(), "{\"count\":" + int_to_str(n) + "}")
 }
 
+// @req INV-0001, INV-0004
 fn inventory_page_message(req: Request, message: string) Response {
     let opened: Result[SqlDb, string] = sql_open(inventory_db_path())
     if !opened.is_ok {
@@ -760,6 +770,7 @@ fn inventory_edit_page(req: Request) Response {
 /*  Actions                                                                   */
 /* -------------------------------------------------------------------------- */
 
+// @req INV-0007, INV-STOCK-0004
 fn inventory_items_add(req: Request) Response {
     let body: string = request_body(req)
     if !forms_csrf_ok(body) {
@@ -812,6 +823,7 @@ fn inventory_items_add(req: Request) Response {
     return inventory_page_message(req, "Item added.")
 }
 
+// @req INV-0007, INV-0009
 fn inventory_items_edit_save(req: Request) Response {
     let body: string = request_body(req)
     if !forms_csrf_ok(body) {
@@ -857,6 +869,7 @@ fn inventory_items_edit_save(req: Request) Response {
     return inventory_page_message(req, "Item saved.")
 }
 
+// @req INV-0007, INV-STOCK-0003
 fn inventory_items_consume(req: Request) Response {
     let body: string = request_body(req)
     if !forms_csrf_ok(body) {
@@ -889,6 +902,7 @@ fn inventory_items_consume(req: Request) Response {
     return inventory_page_message(req, "Stock removed.")
 }
 
+// @req INV-0007, INV-STOCK-0001, INV-STOCK-0002
 fn inventory_expenses_add(req: Request) Response {
     let body: string = request_body(req)
     if !forms_csrf_ok(body) {
@@ -955,8 +969,14 @@ fn inventory_expenses_add(req: Request) Response {
     return inventory_page_message(req, "Purchase recorded and stock increased.")
 }
 
+// @req INV-STOCK-0002, INV-0007
 fn inventory_expenses_delete(req: Request) Response {
     let body: string = request_body(req)
+    // A purchase is removed only from the page that listed it: the form token
+    // proves the post is not one another site made the browser send.
+    if !forms_csrf_ok(body) {
+        return inventory_page_message(req, i18n_t(req, "inventory.csrf_refused"))
+    }
     let id: u32 = int_from_str(str_trim(form_field(body, "id")))
     if id == 0 {
         return inventory_page_message(req, "That purchase was not found.")
@@ -975,6 +995,7 @@ fn inventory_expenses_delete(req: Request) Response {
     return inventory_page_message(req, "Purchase removed. Stock was not adjusted.")
 }
 
+// @req INV-0007
 fn inventory_categories_add(req: Request) Response {
     let body: string = request_body(req)
     if !forms_csrf_ok(body) {
@@ -1005,6 +1026,7 @@ fn inventory_back(message: string) Response {
 
 // inventory_items_delete deletes an item with its bindings and stock history;
 // the purchases of it stay in the expenses, no longer naming it.
+// @req INV-0007, INV-STOCK-0006, INV-0009
 fn inventory_items_delete(req: Request) Response {
     let body: string = request_body(req)
     if !forms_csrf_ok(body) {
@@ -1030,6 +1052,7 @@ fn inventory_items_delete(req: Request) Response {
     return inventory_back(one.row.name + ": " + i18n_t(req, "inventory.item_deleted"))
 }
 
+// @req INV-0007, INV-STOCK-0005
 fn inventory_categories_rename(req: Request) Response {
     let body: string = request_body(req)
     if !forms_csrf_ok(body) {
@@ -1050,6 +1073,7 @@ fn inventory_categories_rename(req: Request) Response {
     return inventory_back(name + ": " + i18n_t(req, "inventory.category_renamed"))
 }
 
+// @req INV-0007, INV-STOCK-0005
 fn inventory_categories_delete(req: Request) Response {
     let body: string = request_body(req)
     if !forms_csrf_ok(body) {
@@ -1074,6 +1098,7 @@ fn inventory_categories_delete(req: Request) Response {
 
 // inventory_settings_form is this module's own settings, as a form posted to action:
 // an application's settings page shows it as one of its tabs.
+// @req INV-0008
 fn inventory_settings_form(req: Request, action: string) string {
     var fields: FormField[3]
     fields[0] = FormField{ "currency", "select", i18n_t(req, "inventory.settings.currency"), "",

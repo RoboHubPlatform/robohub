@@ -31,4 +31,18 @@ for module in "$ROOT"/../robohub-*/; do
     done
 done
 
+# And the parts this repository carries itself: its shared modules, contracts,
+# providers, plugins, the protocol and its applications. A plugin whose manifest
+# the toolchain refuses is one `rho module publish` refuses too.
+# @verifies HUB-0008
+for part in "$ROOT"/modules/*/ "$ROOT"/contracts/*/ "$ROOT"/providers/*/ "$ROOT"/plugins/*/ \
+    "$ROOT"/protocol/ "$ROOT"/applications/*/; do
+    if [ -f "$part/module.yml" ]; then
+        rho module validate "$part" >/dev/null || {
+            echo "${part#$ROOT/}: its manifest does not match the schema" >&2
+            exit 1
+        }
+    fi
+done
+
 echo "every manifest matches the toolchain's schema"

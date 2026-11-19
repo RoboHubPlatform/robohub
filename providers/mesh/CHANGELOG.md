@@ -64,3 +64,9 @@ Its data is kept where `app_workspace()` says (rho 0.8.0) — the application's 
 ## [0.5.4] - 2026-11-14
 
 `token` is no longer listed among its settings: it never read one (every request carries a service token from the issuer). A `bind.conf` that still has the line is unaffected; the line is ignored.
+
+## [0.5.5] - 2026-11-19
+
+The directory a request's answer is written to (`<workspace>/data`) is made with `mkdir` given the path as one argument (`rho_exec_args`, one argument per line) rather than one string the runtime splits on spaces: a path holding a space made stray directories from its words and left the real one unmade.
+
+Mesh 0.20.2 made a source's action a `POST` that needs a control grant (a `GET` with only a read grant switched an output, on when no state was given, so any page could do it with an image link in a signed-in browser). The provider already switched with a `POST`, `state` in the query and a bearer ticket for `mesh:<project>`, which is that grant, so it works unchanged. The README says so, PMESH-0005 states it, and the provider has its first test: `tests/provider_smoke.py` builds a harness that binds it and switches an output against a stand-in Mesh and token issuer. It checks the method, path, state, empty body, bearer ticket and requested scope; that only a 200 counts as done (a 202, 4xx or 5xx is false); that a bad state sends nothing; and that a stored action URL is switched by its id.

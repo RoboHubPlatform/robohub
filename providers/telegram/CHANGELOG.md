@@ -20,3 +20,7 @@ An alert of several lines is one message again: the text goes to curl through a 
 ## [0.2.2] - 2026-11-14
 
 Its data is kept where `app_workspace()` says (rho 0.8.0) — the application's workspace, else `~/.rho/apps/<app>` — so two applications started by hand no longer share this module's records. Needs rho 0.8.0.
+
+## [0.2.3] - 2026-11-19
+
+Security: the chat id was one of curl's arguments, visible to every user of the machine. The bot token and the chat id are now both in the owner-only configuration file, which is named afresh for each delivery and removed after it with the text. Tested with a curl of the test's own (`providers/tests/provider_smoke.py telegram`).

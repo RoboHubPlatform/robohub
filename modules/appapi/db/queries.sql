@@ -1,6 +1,18 @@
 -- name: list_appapi_values
 SELECT id, value, unit, label, kind, updated_at FROM appapi_values ORDER BY id;
 
+-- The values a page at a time, by id: a reader goes page after page until one
+-- comes back short, so none past the 256th is left out. The offset is wrapped
+-- in COALESCE, which lets rho-sql's engine describe the row (a bare parameter
+-- there does not).
+-- name: list_appapi_values_page
+SELECT id, value, unit, label, kind, updated_at FROM appapi_values ORDER BY id
+LIMIT 256 OFFSET COALESCE(:offset, 0);
+
+-- One value's whole row, by its id: what GET /api/v1/values/{id} answers.
+-- name: find_appapi_value
+SELECT id, value, unit, label, kind, updated_at FROM appapi_values WHERE id = :id;
+
 -- One value, by its id: what a rule or a dashboard card reads.
 -- name: get_appapi_value
 SELECT value FROM appapi_values WHERE id = :id;
@@ -27,6 +39,11 @@ DELETE FROM appapi_history WHERE at < :before;
 
 -- name: list_appapi_derived
 SELECT id, source, fn, window_s, unit, label FROM appapi_derived ORDER BY id;
+
+-- The derived definitions a page at a time, as list_appapi_values_page.
+-- name: list_appapi_derived_page
+SELECT id, source, fn, window_s, unit, label FROM appapi_derived ORDER BY id
+LIMIT 256 OFFSET COALESCE(:offset, 0);
 
 -- name: put_appapi_derived
 INSERT OR REPLACE INTO appapi_derived (id, source, fn, window_s, unit, label)

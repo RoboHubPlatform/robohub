@@ -82,3 +82,7 @@ metadata:
     - interface
     - gateway
     - mesh
+
+# Requirements: the prefix of the ids this module allocates, and the repository
+# that holds levels.yml and the system level (rho req).
+requirements: { name: robohub-gateway-contract, prefix: GWC, parent: robohub }

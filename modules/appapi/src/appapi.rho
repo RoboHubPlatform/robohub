@@ -31,6 +31,7 @@ const APPAPI_KEEP: u32 = 2592000
 /*  Where it is                                                               */
 /* -------------------------------------------------------------------------- */
 
+// @req APPAPI-0007
 fn appapi_db_path() string {
     let override: string = getenv("RHO_APPAPI_DB")
     if override != "" {
@@ -117,12 +118,14 @@ fn appapi_store(id: string, value: string, unit: string, label: string, kind: st
 // appapi_publish offers a value the application computes itself — energy's
 // site balance, a tank's stocking level — under an id other applications read
 // it by. Its history is kept.
+// @req APPAPI-0003
 fn appapi_publish(id: string, value: string, unit: string, label: string) bool {
     return appapi_store(id, value, unit, label, "published")
 }
 
 // appapi_value is a value's newest text, or "": what a rule asks for when it
 // names a derived value (`aquarium.days_since_water_change`).
+// @req APPAPI-0006
 fn appapi_value(id: string) string {
     let opened: Result[SqlDb, string] = appapi_open()
     if !opened.is_ok {
@@ -201,6 +204,7 @@ fn appapi_summary(series: string) AppapiSummary {
 }
 
 // appapi_derive computes one derived value now, or "" when it cannot be read.
+// @req APPAPI-0002
 fn appapi_derive(source: string, function: string, window: u32, now: u32) string {
     if str_eq(function, "since") {
         let dot: i32 = str_index_of(source, ".")
@@ -254,6 +258,7 @@ fn appapi_derive(source: string, function: string, window: u32, now: u32) string
 // appapi_tick computes every derived and exported value and keeps it, and
 // drops history older than 30 days. A host calls it from its background work,
 // about once a minute. It answers how many values it kept.
+// @req APPAPI-0002, APPAPI-0004, APPAPI-0008
 fn appapi_tick() u32 {
     let now: u32 = appapi_now()
     if now == 0 {
@@ -263,29 +268,42 @@ fn appapi_tick() u32 {
     if !opened.is_ok {
         return 0
     }
-    let derived: AppapiDerived[256]
-    let slice: Slice[AppapiDerived] = Slice[AppapiDerived]{ Ptr[AppapiDerived](&derived[0]), APPAPI_CAPACITY }
-    let listed: Result[u32, SqlError] = ListAppapiDerived(opened.ok, slice, APPAPI_CAPACITY)
     if now > APPAPI_KEEP {
         appapi_ignore(PruneAppapiPoints(i64(now - APPAPI_KEEP), opened.ok))
     }
     sql_close(opened.ok)
-    if !listed.is_ok {
-        return 0
-    }
+    // The definitions a page at a time, each page read with the database
+    // closed again before its values are worked out and kept: none past the
+    // 256th is left out.
+    let derived: AppapiDerived[256]
+    let slice: Slice[AppapiDerived] = Slice[AppapiDerived]{ Ptr[AppapiDerived](&derived[0]), APPAPI_CAPACITY }
     var kept: u32 = 0
-    var i: u32 = 0
-    while i < listed.ok {
-        let one: AppapiDerived = derived[i]
-        let value: string = appapi_derive(one.source, one.fnValue, u32(one.windowS), now)
-        var kind: string = "derived"
-        if str_eq(one.fnValue, "export") {
-            kind = "export"
+    var offset: u32 = 0
+    while true {
+        let page: Result[SqlDb, string] = appapi_open()
+        if !page.is_ok {
+            return kept
         }
-        if value != "" && appapi_store(one.id, value, one.unit, one.label, kind) {
-            kept = kept + 1
+        let listed: Result[u32, SqlError] = ListAppapiDerivedPage(int_to_str(offset), page.ok, slice, APPAPI_CAPACITY)
+        sql_close(page.ok)
+        if !listed.is_ok {
+            return kept
         }
-        i = i + 1
+        var i: u32 = 0
+        while i < listed.ok {
+            let one: AppapiDerived = derived[i]
+            let value: string = appapi_derive(one.source, one.fnValue, u32(one.windowS), now)
+            var kind: string = "derived"
+            if str_eq(one.fnValue, "export") {
+                kind = "export"
+            }
+            if value != "" && appapi_store(one.id, value, one.unit, one.label, kind) {
+                kept = kept + 1
+            }
+            i = i + 1
+        }
+        if listed.ok < APPAPI_CAPACITY { break }
+        offset = offset + listed.ok
     }
     return kept
 }
@@ -376,48 +394,53 @@ fn appapi_value_json(value: AppapiValues) string {
         ",\"updated_at\":" + int_to_str(u32(value.updatedAt)) + "}"
 }
 
+// @req APPAPI-0001, APPAPI-0008
 fn appapi_values_api(req: Request) Response {
     let opened: Result[SqlDb, string] = appapi_open()
     if !opened.is_ok {
         return json(status_internal(), "{\"error\":" + json_string(opened.err) + "}")
     }
+    // Every value, a page at a time: none past the 256th is left out.
     let values: AppapiValues[256]
     let slice: Slice[AppapiValues] = Slice[AppapiValues]{ Ptr[AppapiValues](&values[0]), APPAPI_CAPACITY }
-    let listed: Result[u32, SqlError] = ListAppapiValues(opened.ok, slice, APPAPI_CAPACITY)
-    sql_close(opened.ok)
-    if !listed.is_ok {
-        return json(status_internal(), "{\"error\":" + json_string(listed.err.message) + "}")
-    }
     var out: string = ""
-    var i: u32 = 0
-    while i < listed.ok {
-        if out != "" {
-            out = out + ","
+    var offset: u32 = 0
+    while true {
+        let listed: Result[u32, SqlError] = ListAppapiValuesPage(int_to_str(offset), opened.ok, slice, APPAPI_CAPACITY)
+        if !listed.is_ok {
+            sql_close(opened.ok)
+            return json(status_internal(), "{\"error\":" + json_string(listed.err.message) + "}")
         }
-        out = out + appapi_value_json(values[i])
-        i = i + 1
+        var i: u32 = 0
+        while i < listed.ok {
+            if out != "" {
+                out = out + ","
+            }
+            out = out + appapi_value_json(values[i])
+            i = i + 1
+        }
+        if listed.ok < APPAPI_CAPACITY { break }
+        offset = offset + listed.ok
     }
+    sql_close(opened.ok)
     return json(status_ok(), "{\"application\":" + json_string(getenv("RHO_APP_NAME")) + ",\"values\":[" + out + "]}")
 }
 
+// @req APPAPI-0001, APPAPI-0008
 fn appapi_value_api(req: Request) Response {
     let id: string = param(req, "id")
     let opened: Result[SqlDb, string] = appapi_open()
     if !opened.is_ok {
         return json(status_internal(), "{\"error\":" + json_string(opened.err) + "}")
     }
-    let values: AppapiValues[256]
-    let slice: Slice[AppapiValues] = Slice[AppapiValues]{ Ptr[AppapiValues](&values[0]), APPAPI_CAPACITY }
-    let listed: Result[u32, SqlError] = ListAppapiValues(opened.ok, slice, APPAPI_CAPACITY)
+    // The value by its own query, not looked for in a list: a value past the
+    // 256th is found as well as the first.
+    let values: AppapiValues[1]
+    let slice: Slice[AppapiValues] = Slice[AppapiValues]{ Ptr[AppapiValues](&values[0]), 1 }
+    let got: Result[u32, SqlError] = FindAppapiValue(id, opened.ok, slice, 1)
     sql_close(opened.ok)
-    if listed.is_ok {
-        var i: u32 = 0
-        while i < listed.ok {
-            if str_eq(values[i].id, id) {
-                return json(status_ok(), appapi_value_json(values[i]))
-            }
-            i = i + 1
-        }
+    if got.is_ok && got.ok > 0 {
+        return json(status_ok(), appapi_value_json(values[0]))
     }
     return json(status_not_found(), "{\"error\":\"no such value\"}")
 }
@@ -425,6 +448,7 @@ fn appapi_value_api(req: Request) Response {
 // appapi_history_api is a value's history, in the gateway's own shape:
 // `{"ok":true,"points":[{"t":ms,"v":value}]}`; from and to are Unix
 // milliseconds, the last day by default.
+// @req APPAPI-0004
 fn appapi_history_api(req: Request) Response {
     let id: string = param(req, "id")
     let now: u32 = appapi_now()
@@ -472,6 +496,7 @@ fn appapi_history_api(req: Request) Response {
 
 // appapi_events_api is the application's journal, read-only: what the journal
 // module serves, under the API's path.
+// @req APPAPI-0005
 fn appapi_events_api(req: Request) Response {
     return journal_api(req)
 }

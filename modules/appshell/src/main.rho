@@ -20,6 +20,7 @@ import robohub.gateway
 
 extern fn rho_asset(module: string, path: string) string
 
+// @req SHELL-0006
 route GET  "/settings" => appshell_settings_page
 route POST "/settings" => appshell_settings_save
 route GET  "/docs"     => appshell_docs

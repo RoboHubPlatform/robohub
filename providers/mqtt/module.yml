@@ -46,3 +46,7 @@ metadata:
     - provider
     - bus
     - mqtt
+
+# Requirements: the prefix of the ids this module allocates, and the repository
+# that holds levels.yml and the system level (rho req).
+requirements: { prefix: PMQTT, parent: robohub }

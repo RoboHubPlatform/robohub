@@ -14,7 +14,7 @@ module:
   type: module
   title: RoboHub application shell
   category: ui
-  version: 0.2.0
+  version: 0.2.1
   description: >
     The shell, settings and docs pages every RoboHub application on the gateway
     shares, so aquarium, energy and those after them draw them once.
@@ -53,12 +53,18 @@ docs:
   title: RoboHub application shell
   section: modules
   order: "37"
-  index: docs/index.md
+  index: docs/doc/index.md
   sources:
-    - docs/index.md
+    - docs/doc/index.md
 
 locales:
   - locale: en
     file: locales/en.json
   - locale: ro
     file: locales/ro.json
+
+# Requirements: the prefix of the ids this module allocates, and the repository
+# that holds levels.yml and the system level (rho req).
+requirements:
+  prefix: SHELL
+  parent: robohub

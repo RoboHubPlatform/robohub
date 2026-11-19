@@ -1,0 +1,62 @@
+# What the Telegram channel (robohub-provider-telegram, a provider of
+# robohub.alert) guarantees to an application that binds it (src/provider.rho).
+# Written in the R5 backfill from the README, the changelog and the code; the
+# provider has no tests of its own. Proposed until the maintainer approves them.
+level: NODE
+prefix: TELEG
+title: Telegram alert channel
+requirements:
+  - id: TELEG-0001
+    title: An alert is one message to the configured chat
+    statement: >
+      send(level, message, metadata) shall post `[<level>] <message>`, followed by
+      a line break and the metadata when there is any, as one message to
+      `chat_id` through the Bot API's sendMessage with `bot_token`, and answer 1
+      only when the request succeeded (an HTTP error is a failure).
+    rationale: An alert of several lines must stay one message; until 0.2.1 a line break split curl's argument and every alert with metadata failed.
+    satisfies: [SYS-0036]
+    decided_by: [robohub:ADR-0007]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [alerts, telegram]
+
+  - id: TELEG-0002
+    title: Only a token and chat id shaped as Telegram issues them are used
+    statement: >
+      An alert shall not be sent, and send shall answer 0, unless `bot_token` and
+      `chat_id` are both non-empty and made only of letters, digits, `:`, `_`
+      and `-`.
+    rationale: Anything else could end a line of curl's configuration and add an option of its own.
+    satisfies: [SYS-0036, SYS-0064]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [alerts, telegram, security]
+
+  - id: TELEG-0003
+    title: The bot token never reaches a command line
+    statement: >
+      The bot token shall reach curl only through a configuration file written
+      readable by the owner alone, and the message text through a file, never as
+      an argument.
+    rationale: Whoever holds the token can post as the bot; any user of the machine can list a command line.
+    satisfies: [SYS-0033]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [alerts, telegram, secrets]
+
+  - id: TELEG-0004
+    title: The bot token and the chat id are never on curl's command line
+    statement: The bot token and the chat id shall be given to curl in a configuration file only the owner can read, named afresh for each delivery and removed after it, and the text from a file of its own; a token or chat id that is not letters, digits, colon, dash and underscore is refused.
+    rationale: The token lets anyone speak as the bot, and any user of the machine can list a command line.
+    satisfies: [SYS-0033, SYS-0064]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [security, secrets]

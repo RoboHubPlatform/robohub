@@ -31,6 +31,7 @@ const JOURNAL_KEEP: u32 = 7776000
 /*  Where it is                                                               */
 /* -------------------------------------------------------------------------- */
 
+// @req JRNL-0008
 fn journal_db_path() string {
     let override: string = getenv("RHO_JOURNAL_DB")
     if override != "" {
@@ -68,6 +69,7 @@ fn journal_level(level: string) string {
 // journal_write records one thing that happened and answers whether it was
 // kept. A warning or an error is also a notification, so a person sees it now
 // and can read it later.
+// @req JRNL-0001, JRNL-0002
 fn journal_write(level: string, kind: string, subject: string, actor: string, message: string) bool {
     let written_level: string = journal_level(level)
     let opened: Result[SqlDb, string] = sql_open(journal_db_path())
@@ -108,6 +110,7 @@ fn journal_error(kind: string, subject: string, actor: string, message: string) 
 
 // journal_open_count is how many warnings and errors have not been resolved:
 // what a badge shows.
+// @req JRNL-0003
 fn journal_open_count() u32 {
     let opened: Result[SqlDb, string] = sql_open(journal_db_path())
     if !opened.is_ok {
@@ -129,6 +132,7 @@ fn journal_open_count() u32 {
 // journal_last_at is when the newest entry of a kind (and, when given, about a
 // subject) was written, in Unix seconds; 0 when there is none. "How long since
 // the last water change" is this.
+// @req JRNL-0005
 fn journal_last_at(kind: string, subject: string) u32 {
     let opened: Result[SqlDb, string] = sql_open(journal_db_path())
     if !opened.is_ok {
@@ -147,6 +151,7 @@ fn journal_last_at(kind: string, subject: string) u32 {
 }
 
 // journal_resolve closes an entry that needed attention.
+// @req JRNL-0003
 fn journal_resolve(id: u32) bool {
     let opened: Result[SqlDb, string] = sql_open(journal_db_path())
     if !opened.is_ok {
@@ -161,6 +166,7 @@ fn journal_resolve(id: u32) bool {
 
 // journal_prune drops what is older than three months and needs nothing more.
 // A host calls it from its background work, now and then.
+// @req JRNL-0006
 fn journal_prune() u32 {
     let now: u32 = journal_now()
     if now <= JOURNAL_KEEP {
@@ -219,6 +225,7 @@ fn journal_two(value: i64) string {
 // calendar's own arithmetic (days since 1970 to a date). The offset is the one in
 // force at that moment, not today's: an entry from last winter is not an hour
 // off in summer. The offset passed is the old way of saying it and is not read.
+// @req JRNL-0007
 fn journal_time(at: i64, offset: i64) string {
     let local: i64 = at + rho_utc_offset_at(at)
     let days: i64 = local / 86400
@@ -253,6 +260,7 @@ fn journal_json(row: JournalEntries) string {
         ",\"resolved_at\":" + int_to_str(u32(row.resolvedAt)) + "}"
 }
 
+// @req JRNL-0004
 fn journal_api(req: Request) Response {
     let opened: Result[SqlDb, string] = sql_open(journal_db_path())
     if !opened.is_ok {
@@ -291,6 +299,7 @@ fn journal_option(value: string, label: string, selected: string) string {
     return out + ">" + escape_html(label) + "</option>"
 }
 
+// @req JRNL-0004
 fn journal_page(req: Request) Response {
     let level: string = request_query_param(req, "level")
     let kind: string = request_query_param(req, "kind")
@@ -322,6 +331,7 @@ fn journal_page(req: Request) Response {
         var action: string = ""
         if !str_eq(row.level, "info") && row.resolvedAt == 0 {
             action = "<form method=\"post\" action=\"/journal/resolve\" class=\"inline\">" +
+                forms_csrf_field() +
                 "<input type=\"hidden\" name=\"id\" value=\"" + int_to_str(u32(row.id)) + "\">" +
                 "<button>" + escape_html(i18n_t(req, "journal.resolve")) + "</button></form>"
         }
@@ -356,8 +366,16 @@ fn journal_page(req: Request) Response {
     return host_shell(req, i18n_t(req, "journal.title"), body, "")
 }
 
+// journal_resolve_form resolves an entry from the journal page's own form, and
+// only from it: a post without the form token is one another site could have
+// made the browser send, and the entry stays open.
+// @req JRNL-0009
 fn journal_resolve_form(req: Request) Response {
-    let id: u32 = int_from_str(str_trim(form_field(request_body(req), "id")))
+    let body: string = request_body(req)
+    if !forms_csrf_ok(body) {
+        return html(status_forbidden(), escape_html(i18n_t(req, "journal.csrf_refused")))
+    }
+    let id: u32 = int_from_str(str_trim(form_field(body, "id")))
     if id > 0 {
         journal_resolve(id)
     }

@@ -1,0 +1,29 @@
+//
+// @file main.rho
+// @brief Switches one output through the Mesh provider, as asked.
+//
+// @module harness
+// @project robohub
+// @author Aurel Miron
+// @date 2026-11-19
+//
+// SPDX-License-Identifier: MIT
+//
+
+module harness
+
+import std.web.http
+import robohub.gateway
+
+// The provider's code is built for the server backend, so the harness is a
+// server of one route: `GET /switch?source=…&state=…` asks the gateway to switch
+// the source and answers what gateway.action answered. Where Mesh is, and the
+// service credential the token comes with, are the process's environment.
+route GET "/switch" => harness_switch
+
+fn harness_switch(req: Request) Response {
+    if gateway.action(request_query_param(req, "source"), request_query_param(req, "state")) {
+        return text(200, "true")
+    }
+    return text(200, "false")
+}

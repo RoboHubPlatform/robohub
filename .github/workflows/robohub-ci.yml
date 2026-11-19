@@ -82,6 +82,9 @@ jobs:
         with:
           path: ws/${{ github.event.repository.name }}
           submodules: recursive
+          # The whole history: `rho req check --base` reads who committed an
+          # approval between the pull request's base and its head.
+          fetch-depth: 0
 
       # The toolchain. A platform is not built by cmake: it is built by rho, for a
       # board, from an application — a board cannot be compiled on its own and
@@ -94,13 +97,16 @@ jobs:
           path: ws/rho
           token: ${{ secrets.RHO_TOKEN || github.token }}
 
+      # robohub is always beside the repository: it holds the requirement levels,
+      # the system requirements and MAINTAINERS.yml every other repository's
+      # requirements are checked against.
       - name: Check out the sibling repositories
-        if: inputs.siblings != ''
         env:
           TOKEN: ${{ secrets.ROBOHUB_TOKEN || github.token }}
         run: |
-          for sibling in ${{ inputs.siblings }}; do
+          for sibling in robohub ${{ inputs.siblings }}; do
             [ "${sibling}" = "${{ github.event.repository.name }}" ] && continue
+            [ -d "${ROBOHUB_WORKSPACE}/${sibling}" ] && continue
             git clone --depth 1 \
               "https://x-access-token:${TOKEN}@github.com/RoboHubPlatform/${sibling}.git" \
               "${ROBOHUB_WORKSPACE}/${sibling}"
@@ -129,7 +135,7 @@ jobs:
         run: |
           ./scripts/check.sh publish rho-test rho-test-ctest rho-test-junit \
             rho-target rho-cimport rho-kconfig rho-doc \
-            rho-auth rho-sql rho-sql-sqlite rho-robohub \
+            rho-auth rho-sql rho-sql-sqlite rho-robohub rho-req \
             ${{ (inputs.machine || inputs.machine_install != '') && 'rho-keeper' || '' }} ${{ inputs.components }}
           echo "$HOME/.rho/bin" >> "$GITHUB_PATH"
 
@@ -168,6 +174,19 @@ jobs:
       # both be true.
       - name: Module ids
         run: rho module ids "${SELF}"
+
+      # Requirements, architecture decisions and the tags that link code and
+      # tests to them are checked on every run, against the whole workspace. A
+      # pull request is also checked for who approved what: an approval committed
+      # by anyone not in robohub's MAINTAINERS.yml is refused.
+      - name: Requirements and decisions
+        working-directory: ws/${{ github.event.repository.name }}
+        run: |
+          base=""
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            base="--base origin/${{ github.base_ref }}"
+          fi
+          rho req check . --workspace ${base}
 
       - name: Build
         if: inputs.build != ''

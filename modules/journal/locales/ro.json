@@ -9,6 +9,7 @@
   "journal.subject": "Despre",
   "journal.message": "Ce s-a întâmplat",
   "journal.resolve": "Rezolvă",
+  "journal.csrf_refused": "Refuzat: tokenul formularului nu corespunde.",
   "journal.empty": "Nimic înregistrat în această perioadă.",
   "journal.all_levels": "Toate nivelurile",
   "journal.day": "Ultima zi",

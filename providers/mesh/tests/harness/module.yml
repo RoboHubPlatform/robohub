@@ -1,0 +1,33 @@
+# A program that switches one output through the Mesh provider, for the
+# provider's tests: the test runs a stand-in Mesh and token issuer, and reads
+# what the provider sent it.
+module:
+  name: robohub-provider-mesh-harness
+  id: robohub.app.provider-mesh-harness
+  type: rho
+  version: 0.1.0
+
+platform: robohub
+
+main: src/main.rho
+
+build:
+  language: go
+  targets:
+    - go-server
+
+deps:
+  rho-log: ">=0.1.2"
+  robohub:
+    robohub-gateway: ">=1.1.0"
+    robohub-provider-mesh: ">=0.5.5"
+
+bind:
+  robohub.gateway:
+    providers:
+      - robohub-provider-mesh
+    config:
+      robohub-provider-mesh:
+        url: ""
+        project: "Bench"
+        transport: http

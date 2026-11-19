@@ -12,7 +12,7 @@ module:
   type: module
   title: Internationalisation
   category: ui
-  version: 0.4.4
+  version: 0.4.5
   description: >
     Locale negotiation from a cookie or Accept-Language, a language switcher,
     and the helper that carries the active locale into a Rho template.
@@ -43,9 +43,9 @@ docs:
   title: Internationalisation
   section: modules
   order: "31"
-  index: docs/index.md
+  index: docs/doc/index.md
   sources:
-    - docs/index.md
+    - docs/doc/index.md
 
 # What this module reads at run time by name (rho_asset), embedded into every
 # application that includes it, so it never reads its own folder.
@@ -58,3 +58,9 @@ locales:
     file: locales/en.json
   - locale: ro
     file: locales/ro.json
+
+# Requirements: the prefix of the ids this module allocates, and the repository
+# that holds levels.yml and the system level (rho req).
+requirements:
+  prefix: I18N
+  parent: robohub

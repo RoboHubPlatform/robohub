@@ -13,7 +13,7 @@ module:
   type: module
   title: Scheduler
   category: maintenance
-  version: 0.3.1
+  version: 0.3.2
   description: >
     A chore scheduler for maintenance tasks: interval, cron, one-time and
     usage-based schedules, due and overdue states, completion notes and
@@ -53,23 +53,23 @@ deps:
     i18n: ">=0.4.0"
     settings: ">=0.1.0"
     notifications: ">=0.1.0"
-    forms: ">=0.1.0"
+    forms: ">=0.3.7"
     inventory: ">=0.2.0"
 
 docs:
   title: Scheduler
   section: modules
   order: "20"
-  index: docs/index.md
+  index: docs/doc/index.md
   sources:
-    - docs/index.md
+    - docs/doc/index.md
 
 # What this module reads at run time by name (rho_asset), embedded into every
 # application that includes it, so it never reads its own folder.
 assets:
   - templates
   - db/schema.sql
-  - docs/index.md
+  - docs/doc/index.md
 
 # Its translations, merged into every application that includes it.
 locales:
@@ -77,3 +77,9 @@ locales:
     file: locales/en.json
   - locale: ro
     file: locales/ro.json
+
+# Requirements: the prefix of the ids this module allocates, and the repository
+# that holds levels.yml and the system level (rho req).
+requirements:
+  prefix: SCHED
+  parent: robohub

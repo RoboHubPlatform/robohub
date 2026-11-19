@@ -24,6 +24,7 @@ include "rule.rho"
 extern fn rho_str_index_of(s: string, needle: string) i32
 
 // raise delivers an alert and answers how many channels accepted it.
+// @req ALERT-0001
 fn raise(level: string, message: string, metadata: string) u32 {
     var sent: u32 = 0
     var rest: string = bound_providers()
@@ -40,6 +41,7 @@ fn raise(level: string, message: string, metadata: string) u32 {
 
 // test sends a message through one channel, whatever its settings, so a
 // settings page can show that the channel works.
+// @req ALERT-0003
 fn test(provider: string, message: string) u32 {
     return send_to(provider, "INFO", message, "test")
 }
@@ -57,6 +59,7 @@ fn enabled(provider: string) bool {
 
 // config is one of a channel's settings; configure changes it on the running
 // installation.
+// @req ALERT-0004
 fn config(provider: string, key: string) string {
     return bind_config(provider, key)
 }
@@ -67,6 +70,7 @@ fn configure(provider: string, key: string, value: string) bool {
 
 // severity_rank orders the levels; a level is read in any case, so a rule that
 // raises "warning" passes a channel that wants WARNING.
+// @req ALERT-0002
 fn severity_rank(raw: string) u32 {
     let level: string = str_upper(str_trim(raw))
     if level == "CRITICAL" {

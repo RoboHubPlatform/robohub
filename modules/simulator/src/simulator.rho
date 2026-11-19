@@ -26,6 +26,9 @@ import rho.log
 // cannot tell it from a mesh.
 
 extern fn rho_exec(program: string, arguments: string, output_path: string) u32
+// One argument per line, nothing in one interpreted: a path with a space in it
+// is one argument.
+extern fn rho_exec_args(program: string, arguments: string, output_path: string) u32
 // The clock and a program's output, from the runtime rather than through a file.
 extern fn rho_now_s() u32
 extern fn rho_local_clock() string
@@ -44,11 +47,12 @@ const SIM_KEEP: u32 = 604800
 /*  Files                                                                     */
 /* -------------------------------------------------------------------------- */
 
+// @req SIM-0009
 fn sim_dir() string {
     let workspace: string = app_workspace()
     let dir: string = workspace + "/data/simulator"
     if !rho_path_exists(dir + "/history") {
-        rho_exec("mkdir", "-p " + dir + "/history", "/dev/null")
+        rho_exec_args("mkdir", "-p\n" + dir + "/history" + "\n", "/dev/null")
     }
     return dir
 }
@@ -225,6 +229,7 @@ fn sim_history_file(id: string) string {
 }
 
 // sim_record writes a value to a source's history and to every followed feed.
+// @req SIM-0007
 fn sim_record(line: string, value: string, now: u32) void {
     let id: string = str_field(line, "|", 0)
     var milli: i64 = 0
@@ -267,6 +272,7 @@ fn sim_is_on(value: string) bool {
 }
 
 // sim_next is a source's next value after `seconds`, by its model.
+// @req SIM-0003
 fn sim_next(line: string, current: string, seconds: u32, minutes: u32) string {
     let model: string = str_field(line, "|", 6)
     let params: string = str_field(line, "|", 7)
@@ -403,6 +409,7 @@ fn sim_clock(text: string) u32 {
 // presets reads the application's presets/sim.yml — under `devices:`, each
 // device with a `label` and its `sources:`, each source with a `model` and the
 // model's settings — and keeps the sources. It answers how many.
+// @req SIM-0002
 fn presets(text: string) u32 {
     if str_trim(text) == "" {
         return 0
@@ -465,6 +472,7 @@ fn presets(text: string) u32 {
 // tick moves every simulated source on by its model, keeps its value, writes
 // its history and feeds the followers. The application calls it from its
 // background work, every few seconds; a source moves at most once a second.
+// @req SIM-0005
 fn tick() u32 {
     rho_lock("simulator")
     let now: u32 = sim_now()
@@ -510,6 +518,7 @@ fn tick() u32 {
 }
 
 // sim_prune drops history older than a week.
+// @req SIM-0006
 fn sim_prune(now: u32) void {
     if now <= SIM_KEEP {
         return
@@ -557,6 +566,7 @@ fn sim_board_id(board: string) string {
 
 // nodes is the simulated tree: a gateway, the boards the presets name, and every
 // device under its board.
+// @req SIM-0008
 fn nodes() string {
     var out: string = "{\"id\":\"gateway\",\"name\":\"Simulator\",\"kind\":\"gateway\",\"parent\":\"\",\"board\":\"\",\"state\":\"online\"}"
     let devices: string = rho_read_text(sim_dir() + "/devices.txt")
@@ -603,6 +613,7 @@ fn device_states() string {
 }
 
 // sources are the simulated sources, in the shape Mesh lists its own.
+// @req SIM-0001
 fn sources() string {
     var out: string = ""
     var rest: string = sim_sources_text()
@@ -633,6 +644,7 @@ fn sources() string {
 }
 
 // follow feeds a file with every tick's values, in Mesh's stream format.
+// @req SIM-0007
 fn follow(path: string) bool {
     if path == "" {
         return false
@@ -650,6 +662,7 @@ fn transport() string {
 }
 
 // action switches a simulated switch on or off, at once.
+// @req SIM-0004
 fn action(source: string, state: string) bool {
     let line: string = sim_source_line(source)
     if line == "" || !str_eq(str_field(line, "|", 6), "state") || (!str_eq(state, "on") && !str_eq(state, "off")) {
@@ -697,6 +710,7 @@ fn source_latest(source: string) string {
 
 // source_history is a source's history between two times (Unix milliseconds),
 // raw or averaged into steps, in the gateway's shape.
+// @req SIM-0006
 fn source_history(source: string, from_ms: string, to_ms: string, step_ms: string) string {
     let from: i64 = sim_parse_i64(from_ms) / 1000
     var to: i64 = sim_parse_i64(to_ms) / 1000

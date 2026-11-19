@@ -11,7 +11,7 @@ module:
   previous_ids:
     - robohub.modules.logging
   type: module
-  version: 0.2.4
+  version: 0.2.5
   title: Logging
   description: >
     Per-application logging policy: level, text or JSON, a rotating file under
@@ -43,6 +43,12 @@ docs:
   title: Logging
   section: modules
   order: "46"
-  index: docs/index.md
+  index: docs/doc/index.md
   sources:
-    - docs/index.md
+    - docs/doc/index.md
+
+# Requirements: the prefix of the ids this module allocates, and the repository
+# that holds levels.yml and the system level (rho req).
+requirements:
+  prefix: LOG
+  parent: robohub

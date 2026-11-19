@@ -1,0 +1,129 @@
+# What the forms module does for the applications and modules that include it:
+# a form declared as data, drawn, read back, validated and handed over by one
+# engine, and the form token every post is checked against. Written in the R5
+# backfill from the module's documentation, changelog and code; proposed until
+# the maintainer approves them.
+level: NODE
+prefix: FORMS
+title: Forms
+requirements:
+  - id: FORMS-0001
+    title: A form is drawn from its fields
+    statement: >
+      `forms_open(fields, count, action, submit, locale)` shall draw a form that
+      posts to `action` with each `FormField` drawn by its kind — `text`,
+      `password`, `number`, `select`, `textarea`, `toggle` or `hidden`, hidden
+      fields first — with its label, required mark, hint, placeholder, options,
+      value, error and input mode, the form token, and a submit button labelled
+      `submit` or, when that is empty, the translation of `forms.save` for the
+      locale.
+    rationale: Every form in every application looks and behaves the same, and a change to how forms are drawn is made once.
+    satisfies: [SYS-0062]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [forms, host-contract]
+
+  - id: FORMS-0002
+    title: A submit is read back into the same fields
+    statement: >
+      `forms_read(fields, count, body)` shall write each field's URL-decoded
+      submitted value into the caller's own array, so that a form drawn
+      again after a failed validation shows what the person typed and each
+      field's error.
+    rationale: A person who made one mistake must not type the whole form again.
+    satisfies: [SYS-0062]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [forms]
+
+  - id: FORMS-0003
+    title: Fields are validated by their rules
+    statement: >
+      `forms_validate(fields, count)` shall fail a required field that is empty
+      and a field whose value does not pass its pattern — `ip` (four octets of
+      at most 255), `number` (an optional leading sign, digits and at most one
+      point), `host` (no space, line break, slash or angle bracket), `email`,
+      `url` (`http://` or `https://`) or `plain` (no angle bracket) — writing
+      the error into that field, accept a pattern it does not know, and answer
+      whether every field passed.
+    rationale: What a person enters is checked before it is acted on, the same way everywhere.
+    satisfies: [SYS-0062]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [forms, validation]
+
+  - id: FORMS-0004
+    title: A drawn value cannot inject markup
+    statement: >
+      Every label, value, placeholder, hint, error and option a form draws shall
+      be escaped for HTML.
+    rationale: A field's value is what a person or a device typed, drawn back into a page of the keeper's origin.
+    satisfies: [SYS-0063]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [security, escaping]
+
+  - id: FORMS-0005
+    title: The form token is 256 random bits kept owner-only
+    statement: >
+      The application's form token shall be 64 hexadecimal characters from the
+      runtime's random source, made on first use and kept owner-only in
+      `<workspace>/data/csrf.txt`; a stored token of any other form shall be
+      replaced, and when no random value can be had the token shall be empty
+      and every submit refused.
+    rationale: A token anyone can work out, such as one made from a path and a time, protects nothing.
+    satisfies: [SYS-0034, SYS-0033]
+    decided_by: [ADR-0001]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [security, csrf, secrets]
+
+  - id: FORMS-0006
+    title: A post without the form token is refused
+    statement: >
+      Every form `forms_open` draws shall carry the token in a hidden `csrf`
+      field (`forms_csrf_field()` for a form drawn by hand), and
+      `forms_csrf_ok(body)` shall answer true only when the posted `csrf` equals
+      the token, comparing every character whatever the first difference.
+    rationale: A page on another origin cannot read the token from the person's page, so it cannot forge a post that carries it.
+    satisfies: [SYS-0034]
+    decided_by: [ADR-0001]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [security, csrf]
+
+  - id: FORMS-0007
+    title: One style for every form
+    statement: >
+      `forms_style()` shall give the stylesheet the engine's controls are drawn
+      with, which an application puts in its layout once.
+    rationale: Forms from different modules look the same on one page.
+    satisfies: [SYS-0017]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [forms, ui]
+
+  - id: FORMS-0008
+    title: A route for code takes a bearer ticket or the form token
+    statement: "forms_machine_ok(req, body) shall be true when the request carries an `Authorization: Bearer` header or the posted `csrf` equals the form token, and false for a post that has only the browser's session cookie."
+    rationale: A page on another site can make a browser post with its cookie, but cannot make it send an Authorization header or read the token; a route code calls must refuse what such a page can send.
+    satisfies: [SYS-0034, SYS-0030]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [security, csrf]

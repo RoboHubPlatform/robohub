@@ -45,13 +45,16 @@ fn scheduler_workspace() string {
     return workspace
 }
 
+// @req SCHED-0011
 fn scheduler_db_path() string {
     let override: string = getenv("RHO_SCHEDULER_DB")
     if override != "" {
         return override
     }
     let dir: string = scheduler_workspace() + "/data"
-    rho_exec("mkdir", "-p " + dir, dir + "/mkdir.txt")
+    // One argument per line (rho_exec_args): a workspace path with a space in
+    // it is one path, not two.
+    rho_exec_args("mkdir", "-p\n" + dir + "\n", "/dev/null")
     return dir + "/app.db"
 }
 
@@ -82,6 +85,7 @@ fn scheduler_epoch(text: string) u32 {
     return int_from_str(str_trim(rho_exec_capture("date", "-d\n" + text + "\n+%s\n")))
 }
 
+// @req SCHED-0001
 fn scheduler_next_due(kind: string, value: string, interval_hours: u32, now: u32) u32 {
     if str_eq(kind, "interval") {
         if interval_hours == 0 {
@@ -98,6 +102,7 @@ fn scheduler_next_due(kind: string, value: string, interval_hours: u32, now: u32
     return 0
 }
 
+// @req SCHED-0003
 fn scheduler_status(chore: Chores, now: u32) string {
     if chore.enabled == 0 {
         return "disabled"
@@ -230,9 +235,6 @@ fn scheduler_rows(req: Request, chores: Chores[256], count: u32, now: u32) strin
         out = out + html + "\n"
         i = i + 1
     }
-    if out == "" {
-        out = "<tr><td colspan=\"5\">No chores scheduled.</td></tr>"
-    }
     return out
 }
 
@@ -255,7 +257,7 @@ fn scheduler_completion_rows(rows: ListCompletionsRow[64], count: u32) string {
 }
 
 fn scheduler_docs() string {
-    let text: string = rho_asset("scheduler", "docs/index.md")
+    let text: string = rho_asset("scheduler", "docs/doc/index.md")
     if text == "" {
         return "No documentation found."
     }
@@ -270,13 +272,20 @@ fn scheduler_page_message(req: Request, message: string) Response {
     }
     let db: SqlDb = opened.ok
     sql_apply(db, scheduler_schema())
+    let now: u32 = scheduler_now()
     let chores: Chores[256]
     let chore_slice: Slice[Chores] = Slice[Chores]{
         Ptr[Chores](&chores[0]), SCHEDULER_CHORE_CAPACITY }
-    let listed: Result[u32, SqlError] = ListChores(db, chore_slice, SCHEDULER_CHORE_CAPACITY)
-    var count: u32 = 0
-    if listed.is_ok {
-        count = listed.ok
+    var rows: string = ""
+    var offset: u32 = 0
+    while true {
+        let count: u32 = scheduler_chore_page(db, offset, chore_slice)
+        rows = rows + scheduler_rows(req, chores, count, now)
+        if count < SCHEDULER_CHORE_CAPACITY { break }
+        offset = offset + count
+    }
+    if rows == "" {
+        rows = "<tr><td colspan=\"5\">No chores scheduled.</td></tr>"
     }
     let completions: ListCompletionsRow[64]
     let completion_slice: Slice[ListCompletionsRow] = Slice[ListCompletionsRow]{
@@ -288,7 +297,6 @@ fn scheduler_page_message(req: Request, message: string) Response {
         completion_count = listed_completions.ok
     }
     sql_close(db)
-    let now: u32 = scheduler_now()
     var notice: string = ""
     if message != "" {
         notice = template_fill(scheduler_template("parts/notice"), vars("message", message))
@@ -328,7 +336,7 @@ fn scheduler_page_message(req: Request, message: string) Response {
         vars("tabs_class", settings_get("ui.tabs", "vertical")) +
         vars("add_form", add_form) +
         vars("notice", notice) +
-        vars("rows", scheduler_rows(req, chores, count, now)) +
+        vars("rows", rows) +
         vars("completions", scheduler_completion_rows(completions, completion_count)) +
         vars("docs", scheduler_docs()) +
         vars("notifications", notification_embed()))
@@ -348,15 +356,57 @@ fn scheduler_keeper_link() string {
         "\">← Keeper</a>"
 }
 
-fn scheduler_find(chores: Chores[256], count: u32, id: u32) i32 {
-    var i: u32 = 0
-    while i < count {
-        if u32(chores[i].id) == id {
-            return i32(i)
-        }
-        i = i + 1
+// scheduler_chore_page reads one page of the chores, from offset, into out,
+// and answers how many it read: a page shorter than SCHEDULER_CHORE_CAPACITY is
+// the last. Every reader of all the chores goes page by page, so none is left
+// out past the 256th.
+// @req SCHED-0014
+fn scheduler_chore_page(db: SqlDb, offset: u32, out: Slice[Chores]) u32 {
+    let listed: Result[u32, SqlError] = ListChoresPage(int_to_str(offset), db, out, SCHEDULER_CHORE_CAPACITY)
+    if !listed.is_ok {
+        return 0
     }
-    return -1
+    return listed.ok
+}
+
+/// One chore by its id, and whether there is one.
+struct SchedulerOne {
+    found: bool
+    chore: Chores
+}
+
+fn scheduler_one(db: SqlDb, id: u32) SchedulerOne {
+    let rows: Chores[1]
+    let slice: Slice[Chores] = Slice[Chores]{ Ptr[Chores](&rows[0]), 1 }
+    if id == 0 {
+        return SchedulerOne{ false, rows[0] }
+    }
+    let got: Result[u32, SqlError] = GetChore(i64(id), db, slice, 1)
+    if !got.is_ok || got.ok == 0 {
+        return SchedulerOne{ false, rows[0] }
+    }
+    return SchedulerOne{ true, rows[0] }
+}
+
+/// What an action on a chore came to: the HTTP status the API answers with
+/// (200 when it was done) and, when it was not, why.
+struct SchedulerOutcome {
+    status: u32
+    problem: string
+}
+
+fn scheduler_done() SchedulerOutcome {
+    return SchedulerOutcome{ status_ok(), "" }
+}
+
+// scheduler_api_outcome is an outcome as the API answers it: `{"ok":true}`, or
+// the failure's status with `{"ok":false,"error":...}`.
+// @req SCHED-0015
+fn scheduler_api_outcome(outcome: SchedulerOutcome) Response {
+    if outcome.problem == "" {
+        return json(status_ok(), "{\"ok\":true}")
+    }
+    return json(outcome.status, "{\"ok\":false,\"error\":" + json_string(outcome.problem) + "}")
 }
 
 /* -------------------------------------------------------------------------- */
@@ -426,6 +476,7 @@ fn scheduler_add_chore(req: Request, body: string) string {
     return ""
 }
 
+// @req SCHED-0009
 fn scheduler_chores_add(req: Request) Response {
     let body: string = request_body(req)
     if !forms_csrf_ok(body) {
@@ -453,20 +504,12 @@ fn scheduler_chore_edit_page(req: Request) Response {
         return scheduler_back(i18n_t(req, "scheduler.not_found"))
     }
     sql_apply(opened.ok, scheduler_schema())
-    let chores: Chores[256]
-    let slice: Slice[Chores] = Slice[Chores]{ Ptr[Chores](&chores[0]), SCHEDULER_CHORE_CAPACITY }
-    let listed: Result[u32, SqlError] = ListChores(opened.ok, slice, SCHEDULER_CHORE_CAPACITY)
+    let one: SchedulerOne = scheduler_one(opened.ok, id)
     sql_close(opened.ok)
-    var count: u32 = 0
-    if listed.is_ok {
-        count = listed.ok
-    }
-    let at: i32 = scheduler_find(chores, count, id)
-    if at < 0 {
+    if !one.found {
         return scheduler_back(i18n_t(req, "scheduler.not_found"))
     }
-    let index: u32 = u32(at)
-    let c: Chores = chores[index]
+    let c: Chores = one.chore
     let kinds: string = "interval|" + i18n_t(req, "scheduler.every_hours") +
         ",cron|" + i18n_t(req, "scheduler.cron") +
         ",one_time|" + i18n_t(req, "scheduler.one_time") +
@@ -496,6 +539,7 @@ fn scheduler_chore_edit_page(req: Request) Response {
 
 // scheduler_chore_edit_save changes a chore. Its next due time is worked out
 // again only when its schedule changed: renaming a chore does not move it.
+// @req SCHED-0009, SCHED-0010
 fn scheduler_chore_edit_save(req: Request) Response {
     let body: string = request_body(req)
     if !forms_csrf_ok(body) {
@@ -512,20 +556,12 @@ fn scheduler_chore_edit_save(req: Request) Response {
     }
     let db: SqlDb = opened.ok
     sql_apply(db, scheduler_schema())
-    let chores: Chores[256]
-    let slice: Slice[Chores] = Slice[Chores]{ Ptr[Chores](&chores[0]), SCHEDULER_CHORE_CAPACITY }
-    let listed: Result[u32, SqlError] = ListChores(db, slice, SCHEDULER_CHORE_CAPACITY)
-    var count: u32 = 0
-    if listed.is_ok {
-        count = listed.ok
-    }
-    let at: i32 = scheduler_find(chores, count, id)
-    if at < 0 {
+    let one: SchedulerOne = scheduler_one(db, id)
+    if !one.found {
         sql_close(db)
         return scheduler_back(i18n_t(req, "scheduler.not_found"))
     }
-    let index: u32 = u32(at)
-    let c: Chores = chores[index]
+    let c: Chores = one.chore
     let kind: string = form_field(body, "kind")
     let value: string = str_trim(form_field(body, "value"))
     let interval_hours: u32 = int_from_str(str_trim(form_field(body, "interval_hours")))
@@ -558,6 +594,7 @@ fn scheduler_chore_edit_save(req: Request) Response {
     return scheduler_back(title + ": " + i18n_t(req, "scheduler.saved"))
 }
 
+// @req SCHED-0009, SCHED-0010
 fn scheduler_chore_delete(req: Request) Response {
     let body: string = request_body(req)
     if !forms_csrf_ok(body) {
@@ -587,13 +624,10 @@ fn scheduler_chores_complete(req: Request) Response {
 }
 
 fn scheduler_complete_body(req: Request, body: string) Response {
-    let id: u32 = int_from_str(str_trim(form_field(body, "id")))
-    if id == 0 {
-        return scheduler_page_message(req, "That chore was not found.")
-    }
-    let problem: string = scheduler_complete(id, str_trim(form_field(body, "note")))
-    if problem != "" {
-        return scheduler_page_message(req, problem)
+    let outcome: SchedulerOutcome = scheduler_complete_outcome(int_from_str(str_trim(form_field(body, "id"))),
+        str_trim(form_field(body, "note")))
+    if outcome.problem != "" {
+        return scheduler_page_message(req, outcome.problem)
     }
     return scheduler_page_message(req, "Chore completed.")
 }
@@ -601,27 +635,28 @@ fn scheduler_complete_body(req: Request, body: string) Response {
 // scheduler_complete completes one chore: its next due time moves on, its usage
 // starts again, the completion is kept with its note, and what it uses is taken
 // off the inventory. It answers "" when done, what went wrong otherwise.
+// @req SCHED-0004, SCHED-0005
 fn scheduler_complete(id: u32, note: string) string {
+    return scheduler_complete_outcome(id, note).problem
+}
+
+// @req SCHED-0004, SCHED-0005, SCHED-0015
+fn scheduler_complete_outcome(id: u32, note: string) SchedulerOutcome {
+    if id == 0 {
+        return SchedulerOutcome{ status_not_found(), "That chore was not found." }
+    }
     let opened: Result[SqlDb, string] = sql_open(scheduler_db_path())
     if !opened.is_ok {
-        return "The database could not be opened: " + opened.err
+        return SchedulerOutcome{ status_internal(), "The database could not be opened: " + opened.err }
     }
     let db: SqlDb = opened.ok
     sql_apply(db, scheduler_schema())
-    let chores: Chores[256]
-    let slice: Slice[Chores] = Slice[Chores]{ Ptr[Chores](&chores[0]), SCHEDULER_CHORE_CAPACITY }
-    let listed: Result[u32, SqlError] = ListChores(db, slice, SCHEDULER_CHORE_CAPACITY)
-    var count: u32 = 0
-    if listed.is_ok {
-        count = listed.ok
-    }
-    let at: i32 = scheduler_find(chores, count, id)
-    if at < 0 {
+    let one: SchedulerOne = scheduler_one(db, id)
+    if !one.found {
         sql_close(db)
-        return "That chore was not found."
+        return SchedulerOutcome{ status_not_found(), "That chore was not found." }
     }
-    let index: u32 = u32(at)
-    let chore: Chores = chores[index]
+    let chore: Chores = one.chore
     let now: u32 = scheduler_now()
     var next: u32 = 0
     if str_eq(chore.scheduleKind, "interval") {
@@ -636,7 +671,7 @@ fn scheduler_complete(id: u32, note: string) string {
     }
     sql_close(db)
     if !updated.is_ok {
-        return "The chore could not be completed: " + updated.err.message
+        return SchedulerOutcome{ status_internal(), "The chore could not be completed: " + updated.err.message }
     }
     // A chore that uses something takes it off the inventory as it is done.
     if chore.consumes != "" && chore.consumesMilli > 0 {
@@ -646,7 +681,7 @@ fn scheduler_complete(id: u32, note: string) string {
         }
     }
     info("scheduler", "chore completed")
-    return ""
+    return scheduler_done()
 }
 
 fn scheduler_chores_snooze(req: Request) Response {
@@ -657,15 +692,28 @@ fn scheduler_chores_snooze(req: Request) Response {
     return scheduler_snooze_body(req, body)
 }
 
+// @req SCHED-0004
 fn scheduler_snooze_body(req: Request, body: string) Response {
+    let outcome: SchedulerOutcome = scheduler_snooze(body)
+    if outcome.problem != "" {
+        return scheduler_page_message(req, outcome.problem)
+    }
+    return scheduler_page_message(req, "Chore snoozed.")
+}
+
+// @req SCHED-0004, SCHED-0015
+fn scheduler_snooze(body: string) SchedulerOutcome {
     let id: u32 = int_from_str(str_trim(form_field(body, "id")))
     var hours: u32 = int_from_str(str_trim(form_field(body, "hours")))
     if hours == 0 {
         hours = 24
     }
+    if id == 0 {
+        return SchedulerOutcome{ status_not_found(), "That chore was not found." }
+    }
     let opened: Result[SqlDb, string] = sql_open(scheduler_db_path())
     if !opened.is_ok {
-        return scheduler_page_message(req, "The database could not be opened: " + opened.err)
+        return SchedulerOutcome{ status_internal(), "The database could not be opened: " + opened.err }
     }
     let db: SqlDb = opened.ok
     sql_apply(db, scheduler_schema())
@@ -673,9 +721,12 @@ fn scheduler_snooze_body(req: Request, body: string) Response {
         i64(scheduler_now() + hours * 3600), i64(id), db)
     sql_close(db)
     if !updated.is_ok {
-        return scheduler_page_message(req, "The chore could not be snoozed: " + updated.err.message)
+        return SchedulerOutcome{ status_internal(), "The chore could not be snoozed: " + updated.err.message }
     }
-    return scheduler_page_message(req, "Chore snoozed.")
+    if updated.ok == 0 {
+        return SchedulerOutcome{ status_not_found(), "That chore was not found." }
+    }
+    return scheduler_done()
 }
 
 fn scheduler_chores_usage(req: Request) Response {
@@ -687,14 +738,23 @@ fn scheduler_chores_usage(req: Request) Response {
 }
 
 fn scheduler_usage_body(req: Request, body: string) Response {
+    let outcome: SchedulerOutcome = scheduler_usage(body)
+    if outcome.problem != "" {
+        return scheduler_page_message(req, outcome.problem)
+    }
+    return scheduler_page_message(req, "Runtime added.")
+}
+
+// @req SCHED-0005, SCHED-0015
+fn scheduler_usage(body: string) SchedulerOutcome {
     let id: u32 = int_from_str(str_trim(form_field(body, "id")))
     let hours: u32 = int_from_str(str_trim(form_field(body, "hours")))
     if id == 0 || hours == 0 {
-        return scheduler_page_message(req, "A usage update needs a chore and hours.")
+        return SchedulerOutcome{ status_bad_request(), "A usage update needs a chore and hours." }
     }
     let opened: Result[SqlDb, string] = sql_open(scheduler_db_path())
     if !opened.is_ok {
-        return scheduler_page_message(req, "The database could not be opened: " + opened.err)
+        return SchedulerOutcome{ status_internal(), "The database could not be opened: " + opened.err }
     }
     let db: SqlDb = opened.ok
     sql_apply(db, scheduler_schema())
@@ -702,9 +762,12 @@ fn scheduler_usage_body(req: Request, body: string) Response {
         i64(id), db)
     sql_close(db)
     if !updated.is_ok {
-        return scheduler_page_message(req, "The usage could not be added: " + updated.err.message)
+        return SchedulerOutcome{ status_internal(), "The usage could not be added: " + updated.err.message }
     }
-    return scheduler_page_message(req, "Runtime added.")
+    if updated.ok == 0 {
+        return SchedulerOutcome{ status_not_found(), "That chore was not found." }
+    }
+    return scheduler_done()
 }
 
 /* -------------------------------------------------------------------------- */
@@ -731,27 +794,41 @@ fn scheduler_api_list(req: Request) Response {
     sql_apply(db, scheduler_schema())
     let chores: Chores[256]
     let slice: Slice[Chores] = Slice[Chores]{ Ptr[Chores](&chores[0]), SCHEDULER_CHORE_CAPACITY }
-    let listed: Result[u32, SqlError] = ListChores(db, slice, SCHEDULER_CHORE_CAPACITY)
-    var count: u32 = 0
-    if listed.is_ok {
-        count = listed.ok
+    let now: u32 = scheduler_now()
+    var out: string = ""
+    var offset: u32 = 0
+    while true {
+        let count: u32 = scheduler_chore_page(db, offset, slice)
+        var i: u32 = 0
+        while i < count {
+            if out != "" {
+                out = out + ","
+            }
+            out = out + scheduler_json_chore(chores[i], now)
+            i = i + 1
+        }
+        if count < SCHEDULER_CHORE_CAPACITY { break }
+        offset = offset + count
     }
     sql_close(db)
-    let now: u32 = scheduler_now()
-    var out: string = "["
-    var i: u32 = 0
-    while i < count {
-        if i > 0 {
-            out = out + ","
-        }
-        out = out + scheduler_json_chore(chores[i], now)
-        i = i + 1
-    }
-    return json(status_ok(), out + "]")
+    return json(status_ok(), "[" + out + "]")
 }
 
+// scheduler_api_refused answers an API post that carried neither a bearer ticket
+// nor the form token: the API is for code, and a post that rides only on the
+// browser's session cookie is one another site could have made.
+// @req SCHED-0013
+fn scheduler_api_refused() Response {
+    return json(status_forbidden(),
+        "{\"ok\":false,\"error\":\"a bearer ticket or the form token is required\"}")
+}
+
+// @req SCHED-0008, SCHED-0013
 fn scheduler_api_add(req: Request) Response {
     let body: string = request_body(req)
+    if !forms_machine_ok(req, body) {
+        return scheduler_api_refused()
+    }
     if strlen(str_trim(form_field(body, "title"))) == 0 {
         return json(status_bad_request(), "{\"ok\":false}")
     }
@@ -764,31 +841,46 @@ fn scheduler_api_add(req: Request) Response {
     return json(status_created(), "{\"ok\":true}")
 }
 
+// @req SCHED-0013, SCHED-0015
 fn scheduler_api_complete(req: Request) Response {
+    if !forms_machine_ok(req, request_body(req)) {
+        return scheduler_api_refused()
+    }
     let id: string = param(req, "id")
     if strlen(id) == 0 {
         return json(status_bad_request(), "{\"ok\":false}")
     }
-    scheduler_ignore_response(scheduler_complete_body(req, request_body(req) + "&id=" + id))
-    return json(status_ok(), "{\"ok\":true}")
+    // The answer is what happened: a chore that is not there is 404, a
+    // failure is its status and why, never `ok`.
+    return scheduler_api_outcome(scheduler_complete_outcome(int_from_str(id), str_trim(form_field(request_body(req), "note"))))
 }
 
+// @req SCHED-0013, SCHED-0015
 fn scheduler_api_snooze(req: Request) Response {
+    if !forms_machine_ok(req, request_body(req)) {
+        return scheduler_api_refused()
+    }
     let id: string = param(req, "id")
     if strlen(id) == 0 {
         return json(status_bad_request(), "{\"ok\":false}")
     }
-    scheduler_ignore_response(scheduler_snooze_body(req, request_body(req) + "&id=" + id))
-    return json(status_ok(), "{\"ok\":true}")
+    // The answer is what happened: a chore that is not there is 404, a
+    // failure is its status and why, never `ok`.
+    return scheduler_api_outcome(scheduler_snooze(request_body(req) + "&id=" + id))
 }
 
+// @req SCHED-0013, SCHED-0015
 fn scheduler_api_usage(req: Request) Response {
+    if !forms_machine_ok(req, request_body(req)) {
+        return scheduler_api_refused()
+    }
     let id: string = param(req, "id")
     if strlen(id) == 0 {
         return json(status_bad_request(), "{\"ok\":false}")
     }
-    scheduler_ignore_response(scheduler_usage_body(req, request_body(req) + "&id=" + id))
-    return json(status_ok(), "{\"ok\":true}")
+    // The answer is what happened: a chore that is not there is 404, a
+    // failure is its status and why, never `ok`.
+    return scheduler_api_outcome(scheduler_usage(request_body(req) + "&id=" + id))
 }
 
 /* -------------------------------------------------------------------------- */
@@ -800,6 +892,7 @@ fn scheduler_api_usage(req: Request) Response {
 // become its maintenance chore's hours. Runtime from before a chore was tied to
 // the item is not counted. A host calls it from its background work, after the
 // inventory has counted runtime.
+// @req SCHED-0005
 fn scheduler_usage_tick() u32 {
     let opened: Result[SqlDb, string] = sql_open(scheduler_db_path())
     if !opened.is_ok {
@@ -809,11 +902,12 @@ fn scheduler_usage_tick() u32 {
     sql_apply(db, scheduler_schema())
     let chores: Chores[256]
     let slice: Slice[Chores] = Slice[Chores]{ Ptr[Chores](&chores[0]), SCHEDULER_CHORE_CAPACITY }
-    let listed: Result[u32, SqlError] = ListChores(db, slice, SCHEDULER_CHORE_CAPACITY)
     var added: u32 = 0
-    if listed.is_ok {
+    var offset: u32 = 0
+    while true {
+        let count: u32 = scheduler_chore_page(db, offset, slice)
         var i: u32 = 0
-        while i < listed.ok {
+        while i < count {
             let chore: Chores = chores[i]
             if chore.runtimeOf != "" {
                 let seconds: u32 = inventory_runtime_seconds(chore.runtimeOf)
@@ -828,6 +922,8 @@ fn scheduler_usage_tick() u32 {
             }
             i = i + 1
         }
+        if count < SCHEDULER_CHORE_CAPACITY { break }
+        offset = offset + count
     }
     sql_close(db)
     return added
@@ -837,8 +933,10 @@ fn scheduler_usage_tick() u32 {
 // presets/schedule.yml: under `chores:`, each by a name, with its `title`,
 // `kind` (interval, cron, date, usage), `value`, `interval_hours`,
 // `usage_hours`, `grace_hours`, `priority`, `runtime_of`, `consumes` and
-// `consumes_qty`. A chore is added once, by its title; after that it is the
-// person's. It answers how many chores the presets named.
+// `consumes_qty`. A chore is added once, by its title, ever: its title is
+// recorded in chore_presets_seeded, so once the person deletes or renames it,
+// it is not added again. It answers how many chores the presets named.
+// @req SCHED-0006
 fn scheduler_presets(text: string) u32 {
     if str_trim(text) == "" {
         return 0
@@ -889,6 +987,9 @@ fn scheduler_presets(text: string) u32 {
             scheduler_unquote(yaml.value(path, base + "usage_hours")),
             scheduler_unquote(yaml.value(path, base + "grace_hours")), priority,
             int_to_str(scheduler_next_due(kind, value, interval_hours, now)), db)
+        // Seeded or there already, the preset is not seeded again: a chore the
+        // person deletes stays deleted.
+        scheduler_ignore_result(MarkChorePresetSeeded(title, db))
         if seeded.is_ok && seeded.ok > 0 {
             let consumes: string = scheduler_unquote(yaml.value(path, base + "consumes"))
             var quantity: u32 = scheduler_milli(scheduler_unquote(yaml.value(path, base + "consumes_qty")))
@@ -918,6 +1019,7 @@ fn scheduler_unquote(text: string) string {
 // again, what it uses is taken off the inventory), and answers whether there was
 // one. An application calls it when what it records is the chore itself: a water
 // change logged is the water-change chore done.
+// @req SCHED-0007
 fn scheduler_complete_title(title: string, note: string) bool {
     let opened: Result[SqlDb, string] = sql_open(scheduler_db_path())
     if !opened.is_ok {
@@ -925,18 +1027,12 @@ fn scheduler_complete_title(title: string, note: string) bool {
     }
     let db: SqlDb = opened.ok
     sql_apply(db, scheduler_schema())
-    let chores: Chores[256]
-    let slice: Slice[Chores] = Slice[Chores]{ Ptr[Chores](&chores[0]), SCHEDULER_CHORE_CAPACITY }
-    let listed: Result[u32, SqlError] = ListChores(db, slice, SCHEDULER_CHORE_CAPACITY)
+    let rows: Chores[1]
+    let slice: Slice[Chores] = Slice[Chores]{ Ptr[Chores](&rows[0]), 1 }
+    let got: Result[u32, SqlError] = NewestEnabledChore(title, db, slice, 1)
     var best: i64 = 0
-    if listed.is_ok {
-        var i: u32 = 0
-        while i < listed.ok {
-            if chores[i].enabled != 0 && str_eq(chores[i].title, title) && chores[i].id > best {
-                best = chores[i].id
-            }
-            i = i + 1
-        }
+    if got.is_ok && got.ok > 0 {
+        best = rows[0].id
     }
     sql_close(db)
     if best == 0 {
@@ -947,6 +1043,7 @@ fn scheduler_complete_title(title: string, note: string) bool {
 
 // scheduler_settings_form is this module's own settings, as a form posted to action:
 // an application's settings page shows it as one of its tabs.
+// @req SCHED-0012
 fn scheduler_settings_form(req: Request, action: string) string {
     var fields: FormField[2]
     fields[0] = FormField{ "priority", "text", i18n_t(req, "scheduler.settings.priority"), "",

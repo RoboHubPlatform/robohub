@@ -1,0 +1,10 @@
+# The provider's tests: a harness binds it and switches an output through a
+# stand-in Mesh and token issuer, which record what the provider sent
+# (tests/provider_smoke.py).
+name: robohub-provider-mesh
+suites:
+  # @verifies PMESH-0002, PMESH-0005, PMESH-0006
+  - name: provider-smoke
+    kind: command
+    tags: [smoke, security]
+    command: [python3, tests/provider_smoke.py]

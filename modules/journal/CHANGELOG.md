@@ -27,3 +27,7 @@ Its data is kept where `app_workspace()` says (rho 0.8.0) — the application's 
 ## [0.2.0] - 2026-11-14
 
 It lists what other code may use (`provides.exports`, imported as `robohub.journal`). An application that includes it still reaches everything, and a build (rho 0.8.3) names each call to a function outside the list. The list is what the applications and modules of the ecosystem call; anything else is the module's own and may change without notice.
+
+## [0.2.1] - 2026-11-19
+
+Security: `POST /journal/resolve` did not check the form token, so a page on another site could close the warnings a signed-in person had not seen. It is refused with 403 now without the token, and the journal draws the token into each resolve form. The module depends on forms (>= 0.3.7).

@@ -37,6 +37,9 @@ extern fn rho_http_body(method: string, url: string, body: string, content_type:
 extern fn rho_sse_follow(url: string, audience: string, scopes: string, path: string) bool
 extern fn rho_bind_config(provider: string, key: string) string
 extern fn rho_exec(program: string, arguments: string, output_path: string) u32
+// One argument per line, nothing in one interpreted: a path with a space in it
+// is one argument.
+extern fn rho_exec_args(program: string, arguments: string, output_path: string) u32
 extern fn rho_read_text(path: string) string
 extern fn rho_path_exists(path: string) bool
 extern fn mqtt_follow_lines(broker: string, user: string, password_file: string, filter: string, lines_path: string) bool
@@ -52,7 +55,7 @@ fn mesh_setting(key: string) string {
 fn mesh_report(name: string) string {
     let dir: string = app_workspace() + "/data"
     if !rho_path_exists(dir) {
-        rho_exec("mkdir", "-p " + dir, "/dev/null")
+        rho_exec_args("mkdir", "-p\n" + dir + "\n", "/dev/null")
     }
     return dir + "/" + name + ".log"
 }
@@ -63,6 +66,7 @@ fn mesh_report(name: string) string {
 // user the keeper made for the application; over HTTP it is Mesh's stream, with
 // the application's service token. Both write the same lines. A page never
 // connects to Mesh itself.
+// @req PMESH-0004
 fn follow(path: string) bool {
     let base: string = mesh_base()
     let project: string = mesh_project()
@@ -92,6 +96,7 @@ fn mesh_bus_available() bool {
 // there is no project. The `transport` setting is `auto` (bus when there is a
 // broker, http otherwise), `bus` (bus, or nothing: a choice of the broker that
 // is not there is not quietly replaced) or `http`.
+// @req PMESH-0004
 fn transport() string {
     if mesh_project() == "" {
         return "none"
@@ -112,6 +117,7 @@ fn transport() string {
     return "http"
 }
 
+// @req PMESH-0001
 fn mesh_base() string {
     // The supervisor that started the application says where Mesh is; a
     // setting is the fallback for an application started by hand.
@@ -133,6 +139,7 @@ fn mesh_project() string {
 // mesh_audience is the audience a request to `url` carries a token
 // for: Mesh's, when the address is Mesh's, and none otherwise. A source a user
 // stored can name any address, and a token is only ever sent to its audience.
+// @req PMESH-0002
 fn mesh_audience(url: string) string {
     let base: string = mesh_base()
     if base != "" && (str_eq(url, base) || str_starts_with(url, base + "/")) {
@@ -148,6 +155,7 @@ fn mesh_scope() string {
 // mesh_fetch is what a Mesh URL answers, or "" when it does not answer with a
 // success. The answer is returned, not written to a file: a page and the
 // background loop asking at once must not read each other's reading.
+// @req PMESH-0007
 fn mesh_fetch(url: string, name: string) string {
     return rho_http_body("GET", url, "", "", mesh_audience(url), mesh_scope())
 }
@@ -198,6 +206,7 @@ fn nodes() string {
 // is a second way to a device beside Mesh, with no token and no scope. A device's
 // state is a source's value, which source_state reads through Mesh, so
 // this answers nothing and a caller falls back to that.
+// @req PMESH-0003
 fn device_states() string {
     return ""
 }
@@ -218,6 +227,7 @@ fn source_state(source: string) string {
 // mesh_source_id accepts the forms a caller may have stored: the
 // source ID sources returned, a value or action URL, or a URL with a
 // `source=` query. All three name the same series.
+// @req PMESH-0006
 fn mesh_source_id(source: string) string {
     let marker: i32 = str_index_of(source, "source=")
     if marker >= 0 {
@@ -302,6 +312,7 @@ fn mesh_post(path: string, body: string, name: string) string {
 
 // action switches an output source on or off. The source is named the way
 // sources() names it, or by a URL a caller stored; the provider owns the path.
+// @req PMESH-0005
 fn action(source: string, state: string) bool {
     let base: string = mesh_base()
     let project: string = mesh_project()

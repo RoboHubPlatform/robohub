@@ -29,3 +29,7 @@ Its data is kept where `app_workspace()` says (rho 0.8.0) — the application's 
 ## [0.2.3] - 2026-11-14
 
 A `path` that does not start with `/` or `~/` is in the application's workspace, so two applications never write one log.
+
+## [0.2.4] - 2026-11-19
+
+Security: a line break in an alert wrote a line of its own into the log that read as another alert. An alert's level, message and metadata have their line breaks made spaces, so one alert is one line.

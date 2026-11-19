@@ -1,0 +1,237 @@
+# What the widgets module does for the applications that include it: the
+# dashboard cards, where they read from, how they switch, how they stay live,
+# and what an application must give the module. Written in the R5 backfill from
+# the documentation, the changelog, the code and the smoke tests; proposed until
+# the maintainer approves them.
+level: NODE
+prefix: WIDG
+title: Widgets
+requirements:
+  - id: WIDG-0001
+    title: Pages on the host's router, inside the host's shell
+    statement: >
+      The module shall register the manager (/widgets), the card routes
+      (/widgets/cards, /widgets/card/{id}), its form posts under /widgets/, the
+      event stream /widgets/events and the JSON API under /api/widgets on the
+      including application's router, own no port of its own, and draw its pages
+      through the application's host_shell(req, title, body, scripts), with the
+      cards' style from widgets_style() for the application's layout.
+    rationale: A dashboard is part of the application, at its address and in its layout, and a card looks the same in every application.
+    satisfies: [SYS-0005, SYS-0017]
+    decided_by: [robohub:ADR-0005]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [contract, pages]
+
+  - id: WIDG-0002
+    title: Widgets are the including application's
+    statement: >
+      The module shall keep its widgets and their stored values in the including
+      application's database, <workspace>/data/app.db where the workspace is
+      app_workspace() (or the file RHO_WIDGETS_DB names), and its event stream and
+      state files under <workspace>/data, never in the module's own folder.
+    rationale: Two applications including the module must not share a dashboard.
+    satisfies: [SYS-0031, SYS-0016]
+    decided_by: [robohub:ADR-0006]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [data, isolation]
+
+  - id: WIDG-0003
+    title: Six kinds of card
+    statement: >
+      A widget shall be drawn as one of six kinds: a number (the latest value with
+      its unit), a chart (a sparkline of the latest values, a gateway source's
+      history for a gateway source), a table (the latest values, the widget's
+      point count being the rows), a status badge (an ok:, warn:, bad: or info:
+      prefix choosing the badge class), a button and a switch (on or off).
+    rationale: These are the cards the applications' dashboards are made of.
+    satisfies: [SYS-0025, SYS-0059]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [cards]
+
+  - id: WIDG-0004
+    title: A reading from the gateway goes through the gateway interface
+    statement: >
+      A widget whose source is a gateway source (its stable id) or an inventory
+      item's capability (`handle.capability`) shall read its value, its history
+      and its state through the robohub.gateway interface the application binds,
+      the item resolved by the inventory to the source its capability is bound
+      to, and never by the gateway's address.
+    rationale: The gateway asks for a token on every route; the module holds none, and a card must follow a plug that is replaced without being edited.
+    satisfies: [SYS-0025, SYS-0030]
+    decided_by: [robohub:ADR-0007, robohub:ADR-0013]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [sources, gateway]
+
+  - id: WIDG-0005
+    title: Older sources move to stable ids
+    statement: >
+      widgets_migrate_sources(), which widgets_refresh_all() calls, shall rewrite
+      a widget that stores a Mesh source URL or a positional id (`device.3.switch`)
+      to the source's stable id from the legacy ids gateway.sources() lists,
+      asking the gateway only while such a widget remains and not again within a
+      minute when its listing did not have it.
+    rationale: Widgets made before stable ids keep working through an update without being edited.
+    satisfies: [SYS-0058]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [sources, upgrade]
+
+  - id: WIDG-0006
+    title: A press switches through the inventory or the gateway
+    statement: >
+      Pressing a switch shall switch its source to the other state — an item
+      through inventory_switch, a gateway source through gateway.action — and a
+      URL hook shall be called with {state} replaced by on or off (or ?state=
+      appended); the switch shall record and show the new state only when the
+      switch was done, and every press shall be written to the journal.
+    rationale: A card must not claim a heater is on when the plug refused, and who pressed what must be on record.
+    satisfies: [SYS-0025]
+    decided_by: [robohub:ADR-0013]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [switching, journal]
+
+  - id: WIDG-0007
+    title: A URL source carries no credential and no option
+    statement: >
+      A URL widget shall be fetched or called only when its URL is http:// or
+      https:// on one line, with curl run with its arguments one per line and no
+      shell, restricted to http and https, with the method GET, POST or PUT and
+      no credential of any kind.
+    rationale: A URL typed into a widget may point anywhere; it must not become a curl option (`-o`, `--data @file`) or receive the gateway's token.
+    satisfies: [SYS-0033]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [security, sources]
+
+  - id: WIDG-0008
+    title: Cards stay live without a reload
+    statement: >
+      The module shall emit every changed card, whole and once per locale, on the
+      /widgets/events Server-Sent Event stream — after a press, after
+      widgets_refresh_all() finds a new value, and when a switch's reported state
+      differs from the card's — start a connection from a snapshot of every card
+      rather than a replay, and start the stream's file over every 500 writes.
+    rationale: A plug switched elsewhere must change its card on every open dashboard, and a stream that only grows held a CPU busy after days.
+    satisfies: [SYS-0025, SYS-0059]
+    decided_by: [robohub:ADR-0009]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [live, sse]
+
+  - id: WIDG-0009
+    title: A page shows the switch state the gateway reports
+    statement: >
+      Before a widget page is drawn the module shall read the state of every
+      switch widget from the gateway (gateway.source_state, else its latest value
+      read as on/off) and correct each card whose stored state differs.
+    rationale: A plug switched outside the page must be right on the first paint.
+    satisfies: [SYS-0025, SYS-0059]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [switching, live]
+
+  - id: WIDG-0010
+    title: The application refreshes the cards from its background work
+    statement: >
+      The module shall offer widgets_refresh_all(), which reads every widget's
+      source once, stores a URL's or an application value's answer that changed,
+      emits each card whose value changed and answers how many did, and
+      widgets_live_changed(), which follows the gateway's
+      live stream and answers whether anything arrived since it was last asked,
+      for the application to call from its background work.
+    rationale: A reading reaches a card when Mesh has stored it, without the application knowing how a card is drawn.
+    satisfies: [SYS-0059]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [contract, live]
+
+  - id: WIDG-0011
+    title: Manual and application values are stored with their time
+    statement: >
+      A manual widget's value posted on its edit page or to
+      POST /api/widgets/{id}/value, and a URL's or an application value's
+      (appapi_value) answer when it differs from the last, shall be stored with
+      the time it was recorded, and GET /api/widgets shall answer every widget
+      with its latest value.
+    rationale: A chart of a manual or derived value needs its history.
+    satisfies: [SYS-0053]
+    decided_by: [robohub:ADR-0012]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [values, api]
+
+  - id: WIDG-0012
+    title: The module's settings are the application's
+    statement: >
+      The module shall read widgets.refresh_seconds (10 by default), how often a
+      card reloads itself, and widgets.points (24 by default), a new widget's
+      point count, from the including application's settings store, and offer
+      them as a settings tab through widgets_settings_form and
+      widgets_settings_save.
+    rationale: Each application tunes its own dashboard.
+    satisfies: [SYS-0031, SYS-0066]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [settings, contract]
+
+  - id: WIDG-0013
+    title: Every widgets post that changes something carries the form token
+    statement: Adding, editing, deleting, moving, resizing, pinning, recording a value and pressing shall be refused, with nothing changed, unless the post carries the application's form token (a bearer ticket does not stand in for it; htmx gets 403); POST /api/widgets/{id}/value, /api/widgets/{id}/press and /widgets/refresh shall be refused with 403 unless forms_machine_ok holds; every form the module draws shall carry the token.
+    rationale: The dashboard shares the keeper's host with every other application; a cross-site page must not press a switch or delete a widget.
+    satisfies: [SYS-0034]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [security, csrf]
+
+  - id: WIDG-0014
+    title: A hook's address is never on curl's command line
+    statement: A widget's URL shall be given to curl in a configuration file only the owner can read (-K), named afresh for each request and removed after it, and never as one of curl's arguments.
+    rationale: A hook's address may carry a key or a login, and any user of the machine can list a command line.
+    satisfies: [SYS-0033]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [security, secrets]
+
+  - id: WIDG-0015
+    title: The widgets stream is only for a person signed in to this application
+    statement: GET /widgets/events shall not be opened without a session or ticket for this application, and shall send only the events kept in this application's workspace.
+    rationale: A card carries what a widget shows; another application or an anonymous page must not follow it.
+    satisfies: [SYS-0034, SYS-0031]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [security, web]

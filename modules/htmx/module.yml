@@ -38,11 +38,17 @@ docs:
   title: HTMX
   section: modules
   order: "30"
-  index: docs/index.md
+  index: docs/doc/index.md
   sources:
-    - docs/index.md
+    - docs/doc/index.md
 
 # What this module reads at run time by name (rho_asset), embedded into every
 # application that includes it, so it never reads its own folder.
 assets:
   - assets
+
+# Requirements: the prefix of the ids this module allocates, and the repository
+# that holds levels.yml and the system level (rho req).
+requirements:
+  prefix: HTMX
+  parent: robohub

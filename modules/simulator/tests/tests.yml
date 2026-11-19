@@ -1,5 +1,6 @@
 name: simulator
 suites:
+  # @verifies SIM-0001, SIM-0002, SIM-0004, SIM-0009
   - name: simulator-smoke
     kind: command
     tags: [smoke]

@@ -1,0 +1,8 @@
+# The ui module's own tests: the routes it registers, inside the aquarium.
+name: ui
+suites:
+  # @verifies UI-0002, UI-0006
+  - name: ui-smoke
+    kind: command
+    tags: [smoke]
+    command: [python3, tests/ui_smoke.py]

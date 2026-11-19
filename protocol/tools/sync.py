@@ -58,6 +58,7 @@ def differs(a, b):
     return not (os.path.exists(b) and filecmp.cmp(a, b, shallow=False))
 
 
+# @req PROTO-0002, PROTO-0003
 def main(argv):
     check = "--check" in argv
     root = workspace()

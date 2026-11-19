@@ -13,7 +13,7 @@ module:
   type: module
   title: Widgets
   category: dashboard
-  version: 0.4.1
+  version: 0.4.2
   description: >
     Dashboard widgets with a configurable source: a number, a chart of recent
     values, or a button that calls a hook or API.
@@ -51,7 +51,7 @@ deps:
     i18n: ">=0.4.0"
     settings: ">=0.1.0"
     notifications: ">=0.1.0"
-    forms: ">=0.1.0"
+    forms: ">=0.3.7"
     robohub-gateway: ">=1.1.0"
     # A widget reads an inventory item by handle, an application value
     # (appapi) and writes presses to the journal.
@@ -63,16 +63,16 @@ docs:
   title: Widgets
   section: modules
   order: "30"
-  index: docs/index.md
+  index: docs/doc/index.md
   sources:
-    - docs/index.md
+    - docs/doc/index.md
 
 # What this module reads at run time by name (rho_asset), embedded into every
 # application that includes it, so it never reads its own folder.
 assets:
   - templates
   - db/schema.sql
-  - docs/index.md
+  - docs/doc/index.md
 
 # Its translations, merged into every application that includes it.
 locales:
@@ -80,3 +80,8 @@ locales:
     file: locales/en.json
   - locale: ro
     file: locales/ro.json
+
+# Requirements: the prefix of the ids this module allocates, and the repository
+# that holds levels.yml and the system level (rho req). A module nested in
+# robohub is a member of the family of its own, named by its module name.
+requirements: { prefix: WIDG, parent: robohub }

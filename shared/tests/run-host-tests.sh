@@ -22,6 +22,7 @@
 # SPDX-License-Identifier: MIT
 set -eu
 
+# @req HUB-0020
 : "${ROBOHUB_COMMON_DIR:?set ROBOHUB_COMMON_DIR to the robohub-common checkout}"
 
 HERE=$(cd "$(dirname "$0")" && pwd)

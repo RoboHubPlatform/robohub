@@ -12,15 +12,17 @@
 
 module settings
 
+// @req SET-0001
 fn settings_file() string {
     // The application's own workspace (app_workspace: what its supervisor
     // says, else ~/.rho/apps/<app>): two applications never share settings.
     let workspace: string = app_workspace()
     let dir: string = workspace + "/data"
-    rho_exec("mkdir", "-p " + dir, dir + "/mkdir.txt")
+    rho_exec_args("mkdir", "-p\n" + dir + "\n", dir + "/mkdir.txt")
     return dir + "/settings.conf"
 }
 
+// @req SET-0002
 fn settings_get(key: string, fallback: string) string {
     var rest: string = rho_read_text(settings_file())
     while rest != "" {
@@ -44,7 +46,28 @@ fn settings_get(key: string, fallback: string) string {
     return fallback
 }
 
+// settings_valid is whether a key and a value can be kept as one line of the
+// store and read back as themselves: a key that is not empty and holds no `=`,
+// and neither holding a line break. A line break would end the line and start
+// another, so a value could add a key of its own (`EUR\nlog.file=…`); an `=` in
+// a key would make the line read as another key.
+// @req SET-0003
+fn settings_valid(key: string, value: string) bool {
+    if key == "" || str_index_of(key, "=") >= 0 {
+        return false
+    }
+    let both: string = key + value
+    return str_index_of(both, "\n") < 0 && str_index_of(both, "\r") < 0
+}
+
+// settings_set keeps a value under a key, replacing the line the key had. A key
+// or a value settings_valid refuses is not written, and the store stays as it
+// was: a setting that cannot be read back as itself is not kept at all.
+// @req SET-0002, SET-0003
 fn settings_set(key: string, value: string) void {
+    if !settings_valid(key, value) {
+        return
+    }
     let path: string = settings_file()
     let prefix: string = key + "="
     let text: string = rho_read_text(path)
@@ -76,6 +99,7 @@ fn settings_set(key: string, value: string) void {
 
 // settings_list returns the `key=value` lines under a namespace, so a host can
 // render a generic editor for a module that has no parent settings page.
+// @req SET-0002
 fn settings_list(prefix: string) string {
     var out: string = ""
     var rest: string = rho_read_text(settings_file())

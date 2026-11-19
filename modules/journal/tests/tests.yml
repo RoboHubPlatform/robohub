@@ -1,5 +1,6 @@
 name: journal
 suites:
+  # @verifies JRNL-0004, JRNL-0008, JRNL-0009
   - name: journal-smoke
     kind: command
     tags: [smoke]

@@ -21,3 +21,10 @@ The settings page knows no module's settings: its tabs are the gateway, the ones
 ## [0.2.0] - 2026-11-14
 
 It lists what other code may use (`provides.exports`, imported as `robohub.appshell`). An application that includes it still reaches everything, and a build (rho 0.8.3) names each call to a function outside the list. The list is what the applications and modules of the ecosystem call; anything else is the module's own and may change without notice.
+
+## [0.2.1] - 2026-11-19
+
+Documentation only: the comment on `appshell_rail_tail` said the rail's last
+group holds the open journal and the dashboard; it holds settings and docs, and
+each application draws its journal and dashboard itself, before that group. The
+comment and the reference page now say so.

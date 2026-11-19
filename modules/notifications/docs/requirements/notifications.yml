@@ -1,0 +1,145 @@
+# What the notifications module does for the applications that include it: the
+# application's own toasts, kept for a few seconds, and the live feed that
+# carries a change made anywhere in the application to every page of it that is
+# open. Written in the R5 backfill from the module's documentation, changelog
+# and code; proposed until the maintainer approves them.
+level: NODE
+prefix: NOTIF
+title: Notifications
+requirements:
+  - id: NOTIF-0001
+    title: A pushed message is kept until it expires
+    statement: >
+      `notification_push_level_locale(message, level, timeout, locale)` and
+      `notification_push_level` shall keep the message with its level and the
+      time it expires — `timeout` seconds from now, 5 when the timeout is 0 —
+      and append it, with its locale, to the application's live feed.
+    rationale: Every module says "saved" or "failed" the same way, and the message is gone a few seconds later.
+    satisfies: [SYS-0059]
+    decided_by: [robohub:ADR-0009]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [toasts, host-contract]
+
+  - id: NOTIF-0002
+    title: A live event reaches every open page
+    statement: >
+      `notification_live_event(kind, message)` shall append an event to the live
+      feed and keep nothing, and `GET /notifications/stream` shall stream the
+      feed's events to every page that follows it as Server-Sent Events.
+    rationale: A change made on one page must show on every other open page of the application without a reload.
+    satisfies: [SYS-0059]
+    decided_by: [robohub:ADR-0009]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [live, sse]
+
+  - id: NOTIF-0003
+    title: The embed shows events and passes them on
+    statement: >
+      `notification_embed()` shall draw a toast and follow the live feed, showing
+      each event as a toast of its level and dispatching it on the window as a
+      `rho:event` whose detail is the event, and shall show no event whose
+      locale is set and differs from the page's language.
+    rationale: A page that cares about a change reloads its own data without knowing where the change came from, in the person's language.
+    satisfies: [SYS-0059]
+    decided_by: [robohub:ADR-0009]
+    status: proposed
+    verification: demonstration
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [toasts, ui, i18n]
+
+  - id: NOTIF-0004
+    title: Routes to push, list, dismiss and draw messages
+    statement: >
+      The module shall register `POST /notifications/push` (400 without a
+      `message`), `GET /notifications/list` and `GET /api/notifications` (the
+      messages neither dismissed nor expired, newest first, as JSON),
+      `POST /notifications/dismiss` (400 without an `id`) and
+      `GET /notifications/render` (the same messages as HTML) on the including
+      application's router, and need no host hook.
+    rationale: A page and a program both reach the application's messages.
+    satisfies: [SYS-0059]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [api, host-contract]
+
+  - id: NOTIF-0005
+    title: A message cannot inject markup
+    statement: >
+      The level and the text of a message shall be escaped wherever they are
+      drawn into HTML, and written as JSON strings wherever they are answered as
+      JSON.
+    rationale: A message carries text a person or a device typed, such as an item's name.
+    satisfies: [SYS-0063]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [security, escaping]
+
+  - id: NOTIF-0006
+    title: Messages live in the application's own workspace
+    statement: >
+      The module shall keep its `notifications` table in the including
+      application's database (`<workspace>/data/app.db`, or
+      `RHO_NOTIFICATIONS_DB`) and its live feed in `<workspace>/data/live.events`.
+    rationale: Two applications must not show each other's messages.
+    satisfies: [SYS-0001]
+    decided_by: [robohub:ADR-0006]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [data, host-contract]
+
+  - id: NOTIF-0007
+    title: A push or a dismiss takes a bearer ticket or the form token
+    statement: "POST /notifications/push and POST /notifications/dismiss shall be refused with 403, storing or dismissing nothing, unless forms_machine_ok holds: a bearer ticket, or the form token from a page script."
+    rationale: Both are routes for code, not forms; a cross-site page must not put words into the application's toasts or hide them.
+    satisfies: [SYS-0034]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [security, csrf]
+
+  - id: NOTIF-0008
+    title: The live feed is bounded
+    statement: The live feed file shall start over after 500 events rather than grow for as long as the application runs, a follower that finds it shorter than where it was reading it again from the top.
+    rationale: The feed grew by a line for every toast and every live event, without end.
+    satisfies: [SYS-0059]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [live, sse, storage]
+
+  - id: NOTIF-0009
+    title: A toast stays up as long as its message is kept
+    statement: Each event of the live feed shall carry its timeout in seconds — the pushed message's timeout, 5 when it is 0 and for a live event — and the embed's toast shall stay up for that long, 5 seconds when an event or a page script names none.
+    rationale: The toast hid after 4 s while a stored message lived 5 s or the 10 s its caller asked for.
+    satisfies: [SYS-0059]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [toasts, ui]
+
+  - id: NOTIF-0010
+    title: The stream is reached under the keeper's prefix
+    statement: The embed shall name the stream's address in an attribute the keeper's app proxy rewrites onto /app/<name>/ (data-url), not in a script literal, so a page reached through the keeper follows its own application's feed.
+    rationale: An EventSource opened at the absolute /notifications/stream reached the keeper's origin root, not the application behind /app/<name>/.
+    satisfies: [SYS-0059, SYS-0005]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [live, sse, proxy]

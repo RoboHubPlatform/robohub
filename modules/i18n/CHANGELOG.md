@@ -43,3 +43,7 @@ Copies of helpers the toolchain now provides (`i64_to_str`, `str_lower`, `str_fi
 ## [0.4.4] - 2026-11-14
 
 `i18n_safe_next` is exported: an application that redirects back after a language switch uses it, and a build said it was not promised. The copy of a replace-all helper is gone for the toolchain's `str_replace` (rho 0.8.3), which this module needs.
+
+## [0.4.5] - 2026-11-19
+
+Security: the language switch's return address refuses every control character, not only a tab and a line break, and is tested from outside (`tests/i18n_smoke.py`): another site, a backslash, a tab, a line break or a control character all return to `/`, and an unknown language never reaches the cookie.
