@@ -910,3 +910,20 @@ requirements:
     verification: demonstration
     changed: 2026-11-19
     tags: [portability, backup]
+
+  - id: SYS-0069
+    title: Zigbee devices join through a coordinator the installation runs
+    statement: >
+      The person shall be able to add Zigbee devices — such as a Zigbee smart
+      plug — to an installation through a Zigbee coordinator, a USB radio plugged
+      into a machine of that installation that can host it, and read and switch
+      them through the local broker with the same readings, history and controls
+      as any other network device, with no vendor hub and no cloud service.
+    rationale: Much bought equipment speaks Zigbee rather than Wi-Fi; a coordinator the installation runs keeps it local (SYS-0001) and makes it one more kind of network device (SYS-0028, SYS-0051) rather than a separate system with its own app.
+    satisfies: []
+    decided_by: [ADR-0017]
+    status: approved
+    verification: demonstration
+    owner: maintainer
+    changed: 2026-11-20
+    tags: [devices, zigbee, integration]

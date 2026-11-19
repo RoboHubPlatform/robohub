@@ -1,0 +1,93 @@
+#
+# robohub-zigbee2mqtt — Zigbee for RoboHub: the Zigbee2MQTT program Mesh runs
+# for a Zigbee coordinator, what it needs from the machine, and the
+# configuration Mesh writes for it (robohub ADR-0017).
+#
+# A data-only plugin, like robohub-mqtt: it names the program, the version
+# RoboHub pins, how it is installed and the template its configuration is
+# written from. The keeper does not run it; Mesh does, once per coordinator, on
+# the board the coordinator is plugged into.
+#
+module:
+  name: robohub-zigbee2mqtt
+  id: robohub.plugin.zigbee2mqtt
+  type: plugin
+  # No `kind: integration`: the keeper offers every plugin of that kind on its
+  # Applications page as a service it runs (integration.service), and this one
+  # is not the keeper's to run. Mesh finds it through its registry entry
+  # (registry/modules/robohub-zigbee2mqtt.yml).
+  title: Zigbee (Zigbee2MQTT)
+  version: 0.1.0
+  description: >
+    The Zigbee2MQTT program, pinned, with what it needs from the machine and the
+    configuration template Mesh writes for each Zigbee coordinator.
+  maintainer: "Aurel Miron"
+  author: "Aurel Miron"
+  license: "MIT"
+  created: "2026-11-20"
+
+main: README.md
+
+# A plugin of the toolchain names what it plugs into. This one plugs into no
+# component of the toolchain, so it has no `extends:`: it only provides data,
+# which the toolchain's plugin contract accepts with `serves:` and
+# `integration.ecosystem` (rho docs/modules/integrations.md, "A plugin that only
+# provides data needs no `extends:`"). It declares no `integration.service`:
+# what it provides is read by Mesh.
+serves:
+  - robohub
+
+integration:
+  ecosystem: robohub
+
+# The one Zigbee2MQTT RoboHub runs (Z2MP-0001). An upgrade is a change of these
+# lines, with a release note, checked against the topics Mesh reads: 2.0 changed
+# topics and configuration without a compatibility mode, so the version never
+# moves by itself. On a host Mesh installs `source` into
+# ~/.rho/toolchains/zigbee2mqtt/<version> and runs it with Node.js of a major in
+# `node_major`; on a board that runs containers it runs `image`. `config` is the
+# template Mesh fills for each coordinator.
+zigbee2mqtt:
+  version: "2.14.3"
+  source: "https://github.com/Koenkk/zigbee2mqtt/archive/refs/tags/2.14.3.tar.gz"
+  image: "ghcr.io/koenkk/zigbee2mqtt:2.14.3"
+  node_major: [22, 24]
+  config: templates/configuration.yaml
+
+# What Zigbee2MQTT needs from the machine (Z2MP-0002): Node.js of a major 2.14.3
+# supports — its `engines` is ^22.2.0 || ^24 — so `rho doctor` reports an older
+# distribution Node.js before a coordinator fails to start, and `rho keeper
+# sync` fetches the official Node.js 24 LTS release into ~/.rho/toolchains/.
+# The archive is the x86-64 Linux one, with the digest nodejs.org publishes in
+# SHASUMS256.txt; on another machine the package managers' recipes apply.
+system_deps:
+  executables:
+    - name: node
+      description: runs Zigbee2MQTT for a Zigbee coordinator
+      version: "^22.2 || ^24"
+      version_flag: "--version"
+      version_pattern: 'v([0-9][^\s]*)'
+      fetch:
+        url: "https://nodejs.org/dist/v24.22.3/node-v24.22.3-linux-x64.tar.xz"
+        sha256: 4f2b175a6d53a5c617a80dba2676238a0688cef28c6da4eba35c7d844e66fcfb
+        archive: tar.xz
+        dir: node-v24.22.3-linux-x64
+        binary: bin/node
+        version: "24.22.3"
+      install:
+        apt: nodejs
+        brew: node
+        manual: "https://nodejs.org/en/download"
+
+docs:
+  title: robohub-zigbee2mqtt
+  section: plugins
+  index: README.md
+  sources:
+    - README.md
+
+# Requirements: the prefix of the ids this module allocates, and the repository
+# that holds levels.yml and the system level (rho req).
+requirements:
+  prefix: Z2MP
+  parent: robohub

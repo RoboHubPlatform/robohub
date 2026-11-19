@@ -58,9 +58,9 @@ fn validate(registry_dir: string, modules_root: string) u32 {
         problems = problems + 1
     }
     problems = problems + check_registry(registry_dir, names)
-    problems = problems + check_manifests(modules_root, names)
-    problems = problems + check_suites(modules_root, names)
-    problems = problems + check_specs(modules_root, names)
+    problems = problems + check_manifests(registry_dir, modules_root, names)
+    problems = problems + check_suites(registry_dir, modules_root, names)
+    problems = problems + check_specs(registry_dir, modules_root, names)
     if problems == 0 {
         print("robohub validate: every file matches its schema\n")
         return 0
@@ -99,14 +99,27 @@ fn check_registry(registry_dir: string, names: string) u32 {
     return problems
 }
 
+/// module_dir is where a module the registry names is checked out: the path its
+/// entry gives, when a module is there, and otherwise the folder of its name
+/// under the modules' root. Most modules are a repository beside the
+/// orchestrator, where the two are the same; a plugin this repository carries
+/// (robohub-zigbee2mqtt, under plugins/) is only where its entry says.
+fn module_dir(registry_dir: string, modules_root: string, name: string) string {
+    let path: string = yaml.value(registry_dir + "/" + name + ".yml", "path")
+    if path != "" && rho_path_exists(path + "/module.yml") {
+        return path
+    }
+    return modules_root + "/" + name
+}
+
 /// check_suites checks the suite manifests of every module that has one.
 // @req HUB-0006
-fn check_suites(modules_root: string, names: string) u32 {
+fn check_suites(registry_dir: string, modules_root: string, names: string) u32 {
     var problems: u32 = 0
     var index: u32 = 0
     while index < name_count(names) {
         let name: string = name_at(names, index)
-        let manifest: string = modules_root + "/" + name + "/tests/tests.yml"
+        let manifest: string = module_dir(registry_dir, modules_root, name) + "/tests/tests.yml"
         if rho_path_exists(manifest) {
             if yaml.kind(manifest, "name") == "missing" {
                 print("  " + manifest + ": no name\n")
@@ -131,12 +144,12 @@ fn check_suites(modules_root: string, names: string) u32 {
 /// here is what a flat read can see — that a spec says what a spec says. The
 /// rest of it is the toolchain's own validation, which is the authority.
 // @req HUB-0006
-fn check_specs(modules_root: string, names: string) u32 {
+fn check_specs(registry_dir: string, modules_root: string, names: string) u32 {
     var problems: u32 = 0
     var index: u32 = 0
     while index < name_count(names) {
         let name: string = name_at(names, index)
-        let spec: string = modules_root + "/" + name + "/targets/" + name + ".json"
+        let spec: string = module_dir(registry_dir, modules_root, name) + "/targets/" + name + ".json"
         if rho_path_exists(spec) {
             if yaml.kind(spec, "name") == "missing" {
                 print("  " + spec + ": no name\n")
@@ -162,14 +175,14 @@ fn check_specs(modules_root: string, names: string) u32 {
 /// ecosystem's own gate over identity and vocabulary, so a manifest whose type
 /// nobody agreed on is reported before a build reaches it.
 // @req HUB-0005
-fn check_manifests(modules_root: string, names: string) u32 {
+fn check_manifests(registry_dir: string, modules_root: string, names: string) u32 {
     var problems: u32 = 0
     var seen_ids: string = ""
     var index: u32 = 0
     while index < name_count(names) {
         let name: string = name_at(names, index)
         let report: string = "build/reports/find-manifests-" + name + ".txt"
-        let code: u32 = rho_exec("find", modules_root + "/" + name + " -type f -name module.yml", report)
+        let code: u32 = rho_exec("find", module_dir(registry_dir, modules_root, name) + " -type f -name module.yml", report)
         if code == 0 {
             var rest: string = rho_read_text(report)
             while rest != "" {

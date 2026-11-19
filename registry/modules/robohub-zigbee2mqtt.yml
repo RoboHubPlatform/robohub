@@ -1,0 +1,12 @@
+# robohub-zigbee2mqtt — plugin.
+#
+# What the orchestrator knows about this module. The module's own manifest is
+# the truth about what it is; this is the truth about where it is and what it
+# is for in the ecosystem. It lives in this repository, under plugins/; Mesh
+# finds it here (registry_entry) as it finds robohub-devices, and the keeper
+# does not run it.
+name: robohub-zigbee2mqtt
+role: plugin
+path: plugins/robohub-zigbee2mqtt
+git: https://github.com/RoboHubPlatform/robohub
+summary: The Zigbee2MQTT program Mesh runs for a Zigbee coordinator, pinned, with what it needs from the machine and its configuration template.

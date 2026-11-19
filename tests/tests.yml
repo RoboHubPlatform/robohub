@@ -46,6 +46,13 @@ suites:
     kind: command
     command: ["sh", "tests/run-over.sh"]
     tags: [unit, fast]
+  # The robohub-zigbee2mqtt plugin's configuration template carries no secret
+  # and leaves nothing open (Z2MP-0003, tagged in the plugin's own
+  # tests/tests.yml, which declares the same script as its suite).
+  - name: the zigbee2mqtt template carries no secret
+    kind: command
+    command: ["python3", "plugins/robohub-zigbee2mqtt/tests/check_template.py"]
+    tags: [unit, fast]
   # @verifies HUB-0009
   - name: dependencies are declared
     kind: command

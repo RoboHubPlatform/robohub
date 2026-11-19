@@ -1,0 +1,12 @@
+# robohub-zigbee2mqtt's tests. The plugin has no code: what is tested is the
+# configuration template Mesh writes for every coordinator, which is published
+# with the plugin and so must carry no secret and leave nothing open. The
+# orchestrator's own tests.yml runs the same script, so `rho test .` at the
+# repository's root runs it too.
+name: robohub-zigbee2mqtt
+suites:
+  # @verifies Z2MP-0003
+  - name: template
+    kind: command
+    tags: [unit, fast]
+    command: [python3, tests/check_template.py]

@@ -1,0 +1,57 @@
+# What robohub-zigbee2mqtt gives Mesh: the Zigbee2MQTT program a coordinator is
+# driven by, pinned, what it needs from the machine, and the template its
+# configuration is written from. Proposed, with robohub ADR-0017, for the
+# maintainer to decide before any code is written.
+level: NODE
+prefix: Z2MP
+title: robohub-zigbee2mqtt
+requirements:
+  - id: Z2MP-0001
+    title: One Zigbee2MQTT version is pinned for every coordinator
+    statement: >
+      The plugin shall declare the Zigbee2MQTT version RoboHub runs (2.14.3 at
+      first), the release source it is installed from on a host, and the
+      container image `ghcr.io/koenkk/zigbee2mqtt` at the same version for a
+      board that runs containers, and an upgrade shall be a change of this one
+      version with a release note.
+    rationale: Zigbee2MQTT's 2.0 changed its topics and configuration without a compatibility mode; a version that moves by itself could break every coordinator at once, so it moves only when the maintainer moves it.
+    satisfies: [SYS-0069]
+    decided_by: [robohub:ADR-0017]
+    status: approved
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-20
+    tags: [zigbee, versions]
+
+  - id: Z2MP-0002
+    title: What Zigbee2MQTT needs from the machine is declared
+    statement: >
+      The plugin shall declare in `system_deps` Node.js of the major versions the
+      pinned Zigbee2MQTT supports (22 or 24 for 2.14.3), with a fetch of the
+      official Node.js release into `~/.rho/toolchains/` and its apt and brew
+      packages, so `rho doctor` reports it and `rho keeper sync` installs it.
+    rationale: Distribution Node.js packages are often older than Zigbee2MQTT supports; the doctor must say so before a coordinator fails to start (SYS-0004).
+    satisfies: [SYS-0069, SYS-0004]
+    decided_by: [robohub:ADR-0017]
+    status: approved
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-20
+    tags: [zigbee, dependencies]
+
+  - id: Z2MP-0003
+    title: The configuration template carries no secret and leaves nothing open
+    statement: >
+      The plugin's configuration template shall name the broker's address, user,
+      base topic, serial port, adapter and channel as placeholders Mesh fills, the
+      broker password and the network key only as `!secret` references, the
+      network key, PAN id and extended PAN id as `GENERATE`, device availability
+      enabled, and the web frontend and Home Assistant discovery disabled.
+    rationale: A template is published; a secret in it would be published with it, Zigbee2MQTT's built-in network key is the same everywhere, and nothing Mesh does not use should listen.
+    satisfies: [SYS-0069, SYS-0032, SYS-0033]
+    decided_by: [robohub:ADR-0017]
+    status: approved
+    verification: test
+    owner: maintainer
+    changed: 2026-11-20
+    tags: [zigbee, configuration, security]

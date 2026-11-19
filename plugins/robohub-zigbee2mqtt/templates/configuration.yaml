@@ -1,0 +1,34 @@
+# Written by RoboHub Mesh for coordinator {coordinator} of mesh {mesh}, from
+# robohub-zigbee2mqtt's template; Mesh writes it again when the coordinator's
+# placement or broker user changes. Zigbee2MQTT rewrites it too: it replaces
+# GENERATE with the PAN ids it made, and those are kept.
+#
+# No secret is written here. The broker password and the network key are
+# `!secret` references to secret.yaml beside this file, which Mesh writes
+# owner-only (`password: <the broker password>`, `network_key: GENERATE`) and
+# into which Zigbee2MQTT writes the key it generates.
+#
+# `version` is the configuration file's own version: 5 for Zigbee2MQTT 2.14.3
+# (settings.ts CURRENT_VERSION); an older one is migrated, and rewritten, on start.
+version: 5
+mqtt:
+  server: "{server}"
+  user: "{user}"
+  password: "!secret password"
+  base_topic: "{base_topic}"
+  client_id: "{user}"
+serial:
+  port: "{serial_port}"
+  adapter: {adapter}
+advanced:
+  network_key: "!secret network_key"
+  pan_id: GENERATE
+  ext_pan_id: GENERATE
+  channel: {channel}
+  log_output: [console]
+availability:
+  enabled: true
+frontend:
+  enabled: false
+homeassistant:
+  enabled: false

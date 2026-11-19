@@ -180,3 +180,27 @@ The registry is read from `registry/modules`, not from a list in the program: th
 Documentation now says what the code does: the history Mesh keeps is 14 days raw, 90 days of minute roll-ups, 1825 of hourly roll-ups and 365 of faults (the reading guide said thirty days, 180 days and five years); the security pages no longer list Energy as a mesh's gateway (it stopped being one on 2026-11-13, ADR-0012), list the gateway's `gateway:<id>:ack` scope beside read and command, and say that the outbox deletes a record once every consumer has acknowledged it and drops the oldest only past `OUTBOX_MAX_ROWS`, not by age; the first-run guide says the access token is made when the sign-in page is first asked for and the signing keys on the first sign-in, not on the keeper's first start. robohub-alert 1.1.2 (a rule fires above its threshold, not when a value reaches it) and appshell 0.2.1 (the rail's system group is settings and docs) are documentation releases.
 
 docsite 0.3.9, appapi 0.2.1, rules 0.2.1, logging 0.2.5, simulator 0.2.4, provider-mesh 0.5.5; scheduler 0.3.2, notifications 0.2.3, settings 0.2.3, forms 0.3.7, inventory 0.4.2, widgets 0.4.2 (already being released today) carry the rest of today's fixes — see their own changelogs.
+
+## [0.4.3] - 2026-11-20
+
+A new plugin, **robohub-zigbee2mqtt** 0.1.0 (ADR-0017, Z2MP-0001..0003): the
+Zigbee2MQTT program RoboHub Mesh runs for each Zigbee coordinator, pinned at
+2.14.3 (source tarball and container image), the Node.js it needs in
+`system_deps` (`^22.2 || ^24`, fetched as Node.js 24.22.3 LTS), and the
+configuration template Mesh fills — no secret in it (`!secret` references only),
+the network key and PAN ids generated, availability on, frontend and Home
+Assistant off, configuration version 5. It is data only and the keeper does not
+run it: it declares no `module.kind: integration` (the keeper offers every plugin
+of that kind as a service to run) and is not in `plugins/registry.yml` (the
+keeper's list of plugins it manages); Mesh finds it through a new registry entry,
+`registry/modules/robohub-zigbee2mqtt.yml`, with the new role `plugin`.
+
+`schemas/registry.v1.json` allows the role `plugin`. `robohub validate` checked
+a module's manifests, suites and specs in `../<name>`, which for a plugin carried
+in this repository is not where it is: it found nothing there and said nothing.
+It now looks where the entry's `path` says when a module is there, and in
+`../<name>` otherwise, so the plugin's manifest and suite are checked like any
+other module's. New suite: the plugin's template check
+(`plugins/robohub-zigbee2mqtt/tests/check_template.py`), also declared in the
+plugin's own `tests/tests.yml`.
+

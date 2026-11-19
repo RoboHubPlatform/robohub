@@ -23,7 +23,7 @@ module:
   previous_ids:
     - robohub
   type: rho
-  version: 0.4.2
+  version: 0.4.3
   description: >
     The orchestrator of the RoboHub ecosystem: a registry of its modules, and
     the tools that run over all of them — static analysis, unit tests, software
