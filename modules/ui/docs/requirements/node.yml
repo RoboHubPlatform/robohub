@@ -38,7 +38,7 @@ requirements:
     tags: [ui, security]
 
   - id: UI-0003
-    title: The switcher lists the keeper's applications and opens them through it
+    title: The switcher lists the keeper's applications and opens them
     statement: >
       ui_topbar_remote_in shall draw a switcher that holds the way back
       to the keeper and that the page's script fills from the keeper's
@@ -46,9 +46,9 @@ requirements:
       keeper's origin at its `path` when the answer gives one and to its
       own port otherwise; ui_topbar_in shall draw the list it is given
       (`name|title|port|route|state` lines) with the current one marked.
-    rationale: Moving between applications is one click, and through the keeper an application's own port is never visited.
+    rationale: Moving between applications is one click; an application is opened on its own port, and a keeper that still answers with a path is followed there.
     satisfies: [SYS-0017, SYS-0005]
-    decided_by: [robohub:ADR-0004]
+    decided_by: [robohub:ADR-0016]
     status: proposed
     verification: demonstration
     owner: maintainer

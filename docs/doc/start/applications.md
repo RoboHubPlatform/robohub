@@ -59,20 +59,20 @@ manifest says `deploy.listen: lan`.
 
 ## Reach one
 
-**Open application** opens it through the keeper, at
-`http://127.0.0.1:19090/app/<name>/` — Mesh at `/app/mesh/mesh`, Aquarium at
-`/app/aquarium/`. Every application is reached on the keeper's own address, so a
-remote browser or a reverse proxy needs only the keeper's port, and the
-keeper's session cookie is never passed to an application. The first visit
-signs you in through the keeper and back.
+**Open application** opens it on its own port — Mesh at
+`http://127.0.0.1:8478/mesh`, Aquarium at `http://127.0.0.1:8480/`, Energy at
+`http://127.0.0.1:8482/`. Each application is an origin of its own, so the
+event streams one keeps open never slow another down. The first visit signs you
+in through the keeper and back. A link or bookmark to the keeper's old
+addresses, `http://127.0.0.1:19090/app/<name>/…`, is redirected to the
+application's port.
 
 The keeper's switcher in the top bar of every application leads from one to the
 next. **Add to menu** puts an application under **Applications** in the
 keeper's rail.
 
-To link to the applications' own ports instead of the proxy, set
-`keeper.proxy_apps=off` in the keeper's settings file,
-`~/.rho/keeper/data/settings.conf`.
+Reaching the applications from another machine takes a tunnel or a TLS proxy
+for each application's port, as well as the keeper's.
 
 ## Update, redeploy, roll back
 

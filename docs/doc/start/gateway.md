@@ -8,7 +8,7 @@ dashboard. Mesh's own guide, {ref}`mesh/index`, has the rest.
 ## 1. Install Mesh
 
 Install Mesh from the keeper as any other application ({ref}`start/applications`)
-and open it: **Open application**, or `http://127.0.0.1:19090/app/mesh/mesh`.
+and open it: **Open application**, or `http://127.0.0.1:8478/mesh`.
 Its front page is the **fleet**: every mesh it manages.
 
 ## 2. Make a mesh

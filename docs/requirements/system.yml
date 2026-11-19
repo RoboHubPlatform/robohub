@@ -61,16 +61,18 @@ requirements:
     changed: 2026-11-19
     tags: [installation, dependencies]
 
-  # The keeper: one address, one sign-in
+  # The keeper: the way to every application, one sign-in
   - id: SYS-0005
-    title: One address reaches every application
+    title: The keeper leads to every application on its own port
     statement: >
-      Every application the keeper runs shall be reachable through the keeper's
-      own address, `http://127.0.0.1:19090/app/<name>/`, without the person
-      knowing or opening the application's own port.
-    rationale: One address means one tunnel, one TLS proxy and one bookmark, and keeps one application's cookies away from another.
-    status: proposed
+      Every application the keeper runs shall be reachable on its own loopback
+      address, `http://127.0.0.1:<port>/`, from links the keeper's pages give,
+      without the person typing its port, and the keeper's earlier addresses
+      `/app/<name>/…` shall redirect there with their path and query.
+    rationale: "One application's event streams must not hold the browser's connections another needs: a browser opens six HTTP/1.1 connections per origin, so applications sharing the keeper's origin queued behind each other's streams; old links and bookmarks keep working."
+    status: approved
     verification: test
+    decided_by: [ADR-0016]
     owner: maintainer
     changed: 2026-11-19
     tags: [keeper, access]
@@ -229,6 +231,7 @@ requirements:
     rationale: Moving between Mesh, the aquarium and energy must not need typing addresses.
     status: proposed
     verification: demonstration
+    decided_by: [ADR-0016]
     owner: maintainer
     changed: 2026-11-19
     tags: [applications, ui]
@@ -838,7 +841,7 @@ requirements:
       No page of the keeper or an application shall send a person to another origin,
       add a response header, or draw markup or script, because of a value a request
       or a stored entry carries.
-    rationale: Everything is served on one origin; one open redirect or injected script reaches every application the person is signed in to.
+    rationale: The keeper and the applications are ports of one host, which a browser's cookies do not tell apart; one open redirect or injected script reaches every application the person is signed in to.
     status: proposed
     verification: test
     owner: maintainer

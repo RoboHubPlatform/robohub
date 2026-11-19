@@ -16,9 +16,9 @@ routes are registered on the application's router.
 
 - Put `notification_embed()` in the page body of the application's layout. It
   draws the toast and opens an `EventSource` on `/notifications/stream`, which it
-  names in the toast's `data-url` attribute rather than in its script: the
-  keeper's proxy rewrites that attribute, so a page reached at `/app/<name>/`
-  follows its own application's feed. Each
+  names in the toast's `data-url` attribute rather than in its script, so a
+  proxy that mounts the application under a prefix can rewrite it and the page
+  still follows its own application's feed. Each
   event is shown as a toast and also dispatched on the window as a `rho:event`
   (its `detail` is the event), so a page that cares about a change can reload
   its own data without knowing where the change came from. An event for another

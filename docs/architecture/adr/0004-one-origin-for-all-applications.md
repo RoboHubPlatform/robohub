@@ -1,11 +1,11 @@
 ---
 id: ADR-0004
 title: Serve every application under the keeper's origin
-status: proposed
+status: superseded
 date: 2026-11-14
 requirements: [SYS-0005, SYS-0017, SYS-0032]
 supersedes: []
-superseded_by: []
+superseded_by: [ADR-0016]
 ---
 
 # Serve every application under the keeper's origin

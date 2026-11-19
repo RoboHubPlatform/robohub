@@ -5,8 +5,7 @@ Home, aquarium and energy automation that runs on your own machine, built with
 
 - **The keeper** (`robohub-keeper`) is the front door and the supervisor: it
   listens on `127.0.0.1:19090`, signs people in, installs the applications, runs
-  each as a systemd user unit and serves them under its own origin at
-  `/app/<name>/`.
+  each as a systemd user unit on its own loopback port and links to it there.
 - **The applications** — Mesh (`robohub-mesh`), Aquarium (`robohub-aquarium`),
   Energy (`robohub-energy`) — are each one HTTP service built mostly from the
   shared modules in this repository.

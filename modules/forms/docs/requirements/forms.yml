@@ -63,7 +63,7 @@ requirements:
     statement: >
       Every label, value, placeholder, hint, error and option a form draws shall
       be escaped for HTML.
-    rationale: A field's value is what a person or a device typed, drawn back into a page of the keeper's origin.
+    rationale: A field's value is what a person or a device typed, drawn back into a page of the keeper or an application.
     satisfies: [SYS-0063]
     status: proposed
     verification: test

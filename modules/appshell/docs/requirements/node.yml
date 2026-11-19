@@ -83,7 +83,7 @@ requirements:
       quick mode or ends the mode in force.
     rationale: Every application shows the same bar, so moving between them and seeing whether readings are simulated needs no learning.
     satisfies: [SYS-0017, SYS-0018]
-    decided_by: [robohub:ADR-0004]
+    decided_by: [robohub:ADR-0016]
     status: proposed
     verification: demonstration
     owner: maintainer

@@ -229,11 +229,14 @@ rho bootstrap init -config /etc/robohub/provisioning.json -token-file /run/enrol
 rho bootstrap key        # later, again: the same id and key
 ```
 
-After enrolling, `rho bootstrap` posts to Mesh's node-key endpoint through the
-keeper's origin, over HTTPS:
+After enrolling, `rho bootstrap` posts to Mesh's node-key endpoint, on Mesh's own
+port (`-mesh-url`). Without `-mesh-url` it posts to the keeper's old address for
+Mesh, `<keeper>/app/mesh/mesh/api/nodes/key`, which the keeper redirects (307,
+keeping the post) to Mesh's port — so that works only where the node can reach
+Mesh's port itself:
 
 ```text
-POST <keeper>/app/mesh/mesh/api/nodes/key
+POST <mesh>/mesh/api/nodes/key
 Authorization: Node <device>:<credential>
 → { "ok": true, "uid": "<16 hex>", "key": "<32 hex>", "epoch", "project", "area", "node" }
 ```

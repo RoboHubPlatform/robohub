@@ -65,9 +65,8 @@ requirements:
       return address and callback under X-Forwarded-Prefix, -Host and
       -Proto only when the request comes from the loopback, unless
       `trust_forwarded` is set.
-    rationale: The same build works at its own port and at /app/<name>/, and a remote caller cannot redirect a sign-in elsewhere.
-    satisfies: [SYS-0005, SYS-0063]
-    decided_by: [robohub:ADR-0004]
+    rationale: The same build works at its own port and behind a proxy that mounts it under a prefix, and a remote caller cannot redirect a sign-in elsewhere.
+    satisfies: [SYS-0063]
     status: proposed
     verification: inspection
     owner: maintainer

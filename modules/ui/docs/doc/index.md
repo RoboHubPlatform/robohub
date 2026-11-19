@@ -48,10 +48,10 @@ There are two ways to draw the switcher:
 - **`ui_topbar_remote_in(current, title, keeper_port, middle, person, locale)`**
   — an application that is not the keeper. The bar names the application, and
   the page's script fills the list from the keeper's `/api/v1/switcher` on
-  `keeper_port` of the same host (the answer carries no credential). An
-  application the keeper serves behind its own origin (a `path` in that answer,
-  such as `/app/aquarium/`) is linked through the keeper, so its own port is never
-  visited; otherwise it is linked at its port. Until the keeper answers, the list
+  `keeper_port` of the same host (the answer carries no credential), and each
+  application is linked at its own port on the host the page was reached on.
+  An answer that gives an application a `path` under the keeper (as keepers
+  before 0.12.0 did) is followed there instead. Until the keeper answers, the list
   holds the way back to the keeper. Applications that include `appshell` get
   this bar from `appshell_topbar`.
 

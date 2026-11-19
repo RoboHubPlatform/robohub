@@ -10,7 +10,7 @@ account, with no cloud service in between. It is written in
 
 | Part | What it does |
 |---|---|
-| **The keeper** | The front door and the supervisor. It listens on `127.0.0.1:19090`, signs people in (admin, operator and viewer roles), installs the applications, runs each as a systemd user unit from a release, and serves them under its own origin at `/app/<name>/`. |
+| **The keeper** | The front door and the supervisor. It listens on `127.0.0.1:19090`, signs people in (admin, operator and viewer roles), installs the applications, runs each as a systemd user unit from a release on its own loopback port, and links to each there. |
 | **Applications** | What a person uses. **Mesh** manages gateways and the boards and devices behind them; **Aquarium** looks after tanks, water, dosing, livestock and equipment; **Energy** works out a site's balance of solar, storage and grid, and applies a policy with load shedding. |
 | **Shared modules** | What every application needs and none should write again: the shell and settings pages, inventory and equipment, the scheduler, rules and modes, the journal, dashboard widgets, forms, languages, logging. An application includes them, and they register their routes on its router. |
 | **Interfaces and providers** | An application reaches the outside world only through an interface — `robohub.gateway` for readings and switches, `robohub.bus` for MQTT, `robohub.alert` for alerts — and binds providers to it in its `module.yml`: Mesh or the simulator for the gateway, the keeper's Mosquitto broker for the bus, e-mail, Telegram, a webhook or a log file for alerts. |

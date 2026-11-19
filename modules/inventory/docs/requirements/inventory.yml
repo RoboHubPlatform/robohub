@@ -112,7 +112,7 @@ requirements:
       purchase, adding, renaming and deleting categories, binding and switching capabilities, and saving and
       adding on the Devices page shall be refused, with nothing changed, unless
       the post carries the application's form token (forms_csrf_ok).
-    rationale: The applications share the keeper's origin, which a SameSite cookie does not tell apart; the token is a second guard over the generated server's origin check.
+    rationale: The applications are ports of the keeper's host, which a SameSite cookie does not tell apart; the token is a second guard over the generated server's origin check.
     satisfies: [SYS-0034]
     status: proposed
     verification: test

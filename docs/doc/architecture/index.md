@@ -8,12 +8,15 @@ interface, so a part can be replaced without the others noticing.
 
 ## From the top
 
-**The browser** talks to one address: the keeper, `127.0.0.1:19090`.
+**The browser** opens the keeper, `127.0.0.1:19090`, and from there each
+application on its own loopback port — Mesh at `127.0.0.1:8478`, Aquarium at
+`:8480`, Energy at `:8482`.
 
 **The keeper** signs people in and holds the only signing key. It installs the
 applications, runs each as a systemd user unit on its own loopback port, and
-serves them at `/app/<name>/` on its own origin, so one address — and one TLS
-proxy, if there is one — reaches all of them. See {ref}`keeper/index`.
+links to each there, so every application is an origin of its own with the
+browser's connections to itself ({ref}`robohub:ADR-0016`). Its old addresses,
+`/app/<name>/…`, redirect to the application's port. See {ref}`keeper/index`.
 
 **The applications** — Mesh, Aquarium, Energy — are each one HTTP service on
 one port. An application is mostly shared modules: it includes them, they

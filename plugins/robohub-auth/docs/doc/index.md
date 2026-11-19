@@ -53,17 +53,16 @@ Sessions last eight hours and are kept in the application's workspace
 (`<workspace>/auth`). An application started with `RHO_AUTH_STANDALONE=1` has no
 issuer and answers requests from its own machine only.
 
-## Behind the keeper
+## On its own port, or behind a proxy
 
-The keeper serves every application it runs at `/app/<name>/` on its own origin
-(unless its `keeper.proxy_apps` setting is `off`), so a browser only ever talks
-to the keeper's port and the keeper's own cookie never reaches an application.
-The keeper's proxy tells the application where it is reached with
+An application the keeper runs is reached on its own port, and signs in there:
+the keeper calls it back at `/auth/callback` on that port. A proxy in front of it
+that mounts it under a prefix tells it where it is reached with
 `X-Forwarded-Prefix` (`/app/aquarium`), `X-Forwarded-Host` and
 `X-Forwarded-Proto`. The application believes those headers only from the
-loopback, where the keeper connects from, and builds its login return address
+loopback, where such a proxy connects from, and builds its login return address
 and callback under that prefix. No option is needed for this: the same build
-works at its own port and behind the keeper.
+works at its own port and behind a proxy.
 
 ## Other deployments
 

@@ -136,8 +136,8 @@ requirements:
   - id: NOTIF-0010
     title: The stream is reached under the keeper's prefix
     statement: The embed shall name the stream's address in an attribute the keeper's app proxy rewrites onto /app/<name>/ (data-url), not in a script literal, so a page reached through the keeper follows its own application's feed.
-    rationale: An EventSource opened at the absolute /notifications/stream reached the keeper's origin root, not the application behind /app/<name>/.
-    satisfies: [SYS-0059, SYS-0005]
+    rationale: An EventSource opened at the absolute /notifications/stream reached the proxy's origin root, not the application behind its prefix; an application on its own port reads the same attribute.
+    satisfies: [SYS-0059]
     status: proposed
     verification: test
     owner: maintainer

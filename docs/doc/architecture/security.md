@@ -9,11 +9,11 @@ page says what each one is and where it is enforced.
 | What | Listens on | To reach it from elsewhere |
 |---|---|---|
 | Keeper | `127.0.0.1:19090` | an SSH tunnel, or a TLS reverse proxy (`KEEPER_LISTEN` opens it, for use behind one) |
-| Applications | `127.0.0.1:<port>` | through the keeper, at `/app/<name>/`; an application listens on the network only when its manifest says `deploy.listen: lan` |
+| Applications | `127.0.0.1:<port>` | an SSH tunnel or a TLS reverse proxy per application port; an application listens on the network only when its manifest says `deploy.listen: lan` |
 | MQTT broker | `127.0.0.1:1884` | an admin opens it to the network for devices; nobody connects without a broker user |
 | A gateway | its REST and uplink ports | Mesh's tokens; HTTPS when the mesh names a certificate (`gateway_tls_cert`, `gateway_tls_key`), and Mesh then records and calls its `https://` address |
 | The keeper's node endpoints | `/api/enroll`, `/api/nodes/verify` | no session: the token or credential is the authentication; a budget of calls per client |
-| Mesh's node-key endpoint | `/mesh/api/nodes/key`, through the keeper | a host node's keeper credential, checked with the keeper; ten calls a minute per client |
+| Mesh's node-key endpoint | `/mesh/api/nodes/key`, on Mesh's port | a host node's keeper credential, checked with the keeper; ten calls a minute per client |
 
 ## Signing in
 
@@ -89,24 +89,28 @@ them only from a token it verified; refuses a token for another audience; and
 refuses a token whose id is in the revocation list `rho auth revoke --jti`
 writes.
 
-## The proxy
+## Applications on their own ports
 
-The keeper serves each application at `/app/<name>/` (the `app_proxy`
-middleware), on loopback to its port. Cookies are scoped by host, not by port,
-so applications on ports of their own would each receive every other one's
-cookies — the keeper's admin session among them. Behind the proxy:
+Each application is reached on its own loopback port, and the keeper links to it
+there ({ref}`robohub:ADR-0016`); the keeper's old addresses, `/app/<name>/…`, only
+redirect to the application's port and carry nothing to it. Every application is
+therefore an origin of its own:
 
-- the keeper's own cookie (`keeper_session`) is never forwarded;
-- an application's cookies are rewritten to its own path;
-- links, redirects and cookie paths are rewritten onto the prefix, and
-  `X-Forwarded-Prefix`, `-Host` and `-Proto` tell the application where it is
-  reached;
-- event streams are relayed as they are written.
+- a page of one application cannot read the keeper's pages or another
+  application's, nor the keeper's form token;
+- each application signs the person in itself, through the keeper, and is called
+  back on its own port;
+- cookies are scoped by host and not by port, so a browser sends the keeper's
+  cookie (`keeper_session`) to every application's port too, as it did before
+  the keeper served them under its own origin. An application must never log,
+  forward or act on it: it reads only its own session, made from a ticket the
+  keeper signed for it, and the keeper's cookie is `HttpOnly`, so no page script
+  reads it.
 
-The proxy does not sign anyone in; each application does, through the keeper,
-as above. Forms posted from another origin are refused by every application
-(`same_origin`), because the keeper and the applications are the same host,
-which a `SameSite` cookie does not tell apart.
+Forms posted from another origin are refused by the keeper and by every
+application (`same_origin`), and every form carries a token, because the keeper
+and the applications are the same host, which a `SameSite` cookie does not tell
+apart.
 
 ## Isolation between applications
 
