@@ -897,3 +897,13 @@ requirements:
     owner: maintainer
     changed: 2026-11-19
     tags: [process, compatibility]
+
+  - id: SYS-0068
+    title: An installation's design can be exported, restored and moved
+    statement: The person shall be able to export what an application plans — for Mesh, a mesh's gateways, boards, sensor modules, network devices and links — as a file, and restore it on the same or another installation, as a new design or in place of an existing one, without the file carrying a key or password in clear.
+    rationale: A design that lives only inside one installation is lost with it and cannot be moved or shared; a file the person keeps makes it portable, and keeping secrets out of it in clear makes it safe to keep and share.
+    satisfies: []
+    status: approved
+    verification: demonstration
+    changed: 2026-11-19
+    tags: [portability, backup]
