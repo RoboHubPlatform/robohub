@@ -211,3 +211,7 @@ Supervision (SYS-0070, ADR-0018), external widgets (SYS-0071, ADR-0019, robohub-
 ## [0.4.5] - 2026-11-20
 
 ADR-0021 (accepted): a node's lifecycle uses each chip's own A/B update, health first, and a separate update key per mesh. robohub-protocol 1.4.0 adds `HEALTH` (PROTO-0007).
+
+## [0.4.6] - 2026-11-20
+
+ADR-0022 (accepted): firmware goes to a board over its link as an Ed25519-signed manifest and a windowed transfer, confirmed once the board is healthy. robohub-protocol 1.5.0 adds the update messages (PROTO-0008).

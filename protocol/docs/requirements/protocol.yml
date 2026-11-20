@@ -122,3 +122,26 @@ requirements:
     owner: maintainer
     changed: 2026-11-20
     tags: [protocol, health]
+
+  - id: PROTO-0008
+    title: Firmware travels to a board in four sealed update messages
+    statement: >
+      The protocol shall define `UPDATE_OFFER` (0x0501, gateway to board: an
+      update manifest — version, update id, the board's uid, firmware version,
+      security version, image size, SHA-256 and chunk size — and its Ed25519
+      signature), `UPDATE_CHUNK` (0x0502, gateway to board: the update id, a chunk
+      index and up to the chunk size of image, to the end of the frame),
+      `UPDATE_STATUS` (0x0503, board to gateway: the update id, a state —
+      accepted, refused, verified, confirmed, rolled back, failed — a reason, the
+      next chunk index it expects, and the version and slot it runs) and
+      `UPDATE_CANCEL` (0x0504, gateway to board: the update id), each sealed like
+      every L2 message on a network link and carried whole by a relay; a receiver
+      that does not know them shall drop them as it drops any unknown message.
+    rationale: Updates over the link are part of the one wire protocol (SYS-0052); the manifest's signature is checked by the board itself, so the gateway that carries it need not be trusted (robohub ADR-0022).
+    satisfies: [SYS-0052, SYS-0072]
+    decided_by: [robohub:ADR-0022, robohub:ADR-0021]
+    status: approved
+    verification: test
+    owner: maintainer
+    changed: 2026-11-20
+    tags: [protocol, updates]

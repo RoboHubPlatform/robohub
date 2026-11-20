@@ -25,3 +25,7 @@ now.
 ## [1.4.0] - 2026-11-20
 
 `HEALTH` (0x0403, PROTO-0007, robohub ADR-0021): a board's account of its last restart — the reset reason (`ResetReason`, robohub-common's set), the boot count, the last fault record (code, task, program counter, uptime) and the firmware version — sent once per boot after its session is up and again on a `DIAG_REQUEST`; a receiver that does not know it drops it. `consumers.yml` names the device-node runtime at its new place, `robohub-node/device-node`.
+
+## [1.5.0] - 2026-11-20
+
+The update messages (PROTO-0008, robohub ADR-0022): `UPDATE_OFFER` (0x0501, an `UpdateManifest` — update id, the board's uid, firmware and security versions, size, SHA-256, chunk size — and its Ed25519 signature over "rh-update1" and the manifest's bytes), `UPDATE_CHUNK` (0x0502, update id, index and data to the end of the frame, written out as `RELAYED` is), `UPDATE_STATUS` (0x0503, with `UpdateState` and `UpdateReason`) and `UPDATE_CANCEL` (0x0504). The uid, hash and signature are `u8[N]`, which the Rho target takes from rho 0.20.1.
