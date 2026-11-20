@@ -1,10 +1,11 @@
 # robohub-transport — runtime.
 #
+# It lives in the robohub-node collection, in link/ (robohub ADR-0020).
 # What the orchestrator knows about this module. The module's own manifest is
 # the truth about what it is; this is the truth about where it is and what it
 # is for in the ecosystem.
 name: robohub-transport
 role: runtime
-path: ../robohub-transport
-git: https://github.com/RoboHubPlatform/robohub-transport
+path: ../robohub-node/link
+git: https://github.com/RoboHubPlatform/robohub-node
 summary: The transport the nodes speak over: the framing, the addresses and the acknowledgements.

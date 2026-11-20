@@ -1,10 +1,11 @@
 # robohub-freertos — middleware.
 #
+# It lives in the robohub-node collection, in kernels/freertos/ (robohub ADR-0020).
 # What the orchestrator knows about this module. The module's own manifest is
 # the truth about what it is; this is the truth about where it is and what it
 # is for in the ecosystem.
 name: robohub-freertos
 role: middleware
-path: ../robohub-freertos
-git: https://github.com/RoboHubPlatform/robohub-freertos
+path: ../robohub-node/kernels/freertos
+git: https://github.com/RoboHubPlatform/robohub-node
 summary: The FreeRTOS middleware the platforms that run it are built against.

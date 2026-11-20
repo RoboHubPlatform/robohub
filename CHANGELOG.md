@@ -204,3 +204,6 @@ other module's. New suite: the plugin's template check
 (`plugins/robohub-zigbee2mqtt/tests/check_template.py`), also declared in the
 plugin's own `tests/tests.yml`.
 
+## [0.4.4] - 2026-11-20
+
+Supervision (SYS-0070, ADR-0018), external widgets (SYS-0071, ADR-0019, robohub-feed in the registry) and robohub-node (SYS-0072, ADR-0020): robohub-core, -transport, -telemetry and -freertos live in the robohub-node collection, and their registry entries point there. The validator reads a manifest reached through two entries once, and the docsite builds a module's pages from where its entry says it is, not only from a repository of its name. CI checks out robohub-node and robohub-feed.

@@ -31,6 +31,10 @@ Mesh and the applications — is in {ref}`architecture/index`.
 | Module | What it is |
 |--------|------------|
 | `robohub-common` | The contracts: the HAL (gpio, i2c, spi, uart, rs485, onewire, adc, pwm, timer, …), the driver interfaces (temperature, humidity, pressure, light, …), the OSAL and the network contract `robohub/net.h`. Weak defaults where a platform may be absent. |
+robohub-core, robohub-transport, robohub-telemetry and robohub-freertos live in the
+[robohub-node](https://github.com/RoboHubPlatform/robohub-node) collection (`core/`,
+`link/`, `telemetry/`, `kernels/freertos/`), keeping their names (ADR-0020).
+
 | `robohub-core` | The application runtime: the event bus, the scheduler, the app lifecycle, diagnostics. Bare-metal OSAL defaults. |
 | `robohub-transport` | Turns a byte stream into validated frames: COBS, a Fletcher-16 check, a byte-at-a-time parser, and the authenticated sessions of `secure.h`. No allocation. |
 | `robohub-telemetry` | Binds the event bus to sinks (transport, socket) with per-event decimation and log interception. |

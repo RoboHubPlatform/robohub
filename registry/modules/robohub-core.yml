@@ -1,10 +1,11 @@
 # robohub-core — runtime.
 #
+# It lives in the robohub-node collection, in core/ (robohub ADR-0020).
 # What the orchestrator knows about this module. The module's own manifest is
 # the truth about what it is; this is the truth about where it is and what it
 # is for in the ecosystem.
 name: robohub-core
 role: runtime
-path: ../robohub-core
-git: https://github.com/RoboHubPlatform/robohub-core
+path: ../robohub-node/core
+git: https://github.com/RoboHubPlatform/robohub-node
 summary: The core runtime the nodes run: the scheduler, the state machine and the node protocol.

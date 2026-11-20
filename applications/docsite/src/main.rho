@@ -300,9 +300,29 @@ fn assemble_registry(tree: string) void {
             if rho_str_index_of(" " + APPLICATIONS + " ", " " + name + " ") >= 0 {
                 section = "applications"
             }
-            assemble_part(tree, name, "../" + name, section)
+            // The entry's path, when a module is there: a module that lives in a
+            // collection (robohub-node's core) is not a repository of its name.
+            var where: string = "../" + name
+            let path: string = registry_path(REGISTRY + "/" + filename)
+            if path != "" && rho_path_exists(path + "/module.yml") {
+                where = path
+            }
+            assemble_part(tree, name, where, section)
         }
     }
+}
+
+// registry_path is the `path:` an entry gives, or "".
+fn registry_path(entry: string) string {
+    var rest: string = rho_read_text(entry)
+    while rest != "" {
+        let line: string = first_line(rest)
+        rest = after_line(rest)
+        if rho_str_index_of(line, "path:") == 0 {
+            return str_trim(rho_str_slice(line, 5, u32(rho_strlen(line)) - 5))
+        }
+    }
+    return ""
 }
 
 // first_line is the text up to the first line break; after_line is the rest.

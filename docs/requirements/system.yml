@@ -927,3 +927,55 @@ requirements:
     owner: maintainer
     changed: 2026-11-20
     tags: [devices, zigbee, integration]
+
+  - id: SYS-0070
+    title: Services recover by themselves and restart quickly
+    statement: >
+      The keeper's applications and the long-running programs they need — a
+      native gateway, a Zigbee coordinator's program — shall each run as a
+      service of its own that is started again, without a person, when it
+      exits or stops answering, shall come back within seconds of a restart
+      or redeploy, and shall not be stopped by a restart of the application
+      that asked for it.
+    rationale: RoboHub runs unattended and will serve data to pages outside the installation; a crashed or hung service, a redeploy that hangs for half a minute, or a gateway dropped because Mesh was redeployed are each an outage nobody asked for.
+    satisfies: []
+    decided_by: [ADR-0018]
+    status: approved
+    verification: demonstration
+    owner: maintainer
+    changed: 2026-11-20
+    tags: [robustness, services]
+
+  - id: SYS-0071
+    title: Chosen readings can be shown on other sites without exposing the installation
+    statement: >
+      The person shall be able to choose readings and values of the installation
+      — a temperature, a plug's power — and have them shown on pages of other
+      sites by a small embeddable widget, refreshed as they change, without
+      those pages or their visitors reaching the installation, its applications
+      or anything not chosen, and with a reading that stopped arriving shown as
+      stale rather than as current.
+    rationale: Readings worth showing outside the house should not mean opening the house; publishing copies of chosen values outward keeps every application on loopback and the installation private (ADR-0019).
+    satisfies: []
+    decided_by: [ADR-0019]
+    status: approved
+    verification: demonstration
+    owner: maintainer
+    changed: 2026-11-20
+    tags: [widgets, feed, privacy]
+
+  - id: SYS-0072
+    title: A board runs a RoboHub application alone or as a member of an installation, with the same code
+    statement: >
+      A person shall be able to build an application for a supported board that
+      runs on its own — with no gateway, Mesh, keeper or keys — and to make the
+      same application a member of an installation, reporting through a gateway
+      and managed from the edge, by choosing services rather than rewriting it.
+    rationale: Many board programs never need a network, and the ones that later do must not start over; one application model from a blink to a managed node keeps RoboHub simple to adopt beside a plain RTOS (ADR-0020).
+    satisfies: []
+    decided_by: [ADR-0020]
+    status: approved
+    verification: demonstration
+    owner: maintainer
+    changed: 2026-11-20
+    tags: [node, boards, standalone]
