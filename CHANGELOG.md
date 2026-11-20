@@ -207,3 +207,7 @@ plugin's own `tests/tests.yml`.
 ## [0.4.4] - 2026-11-20
 
 Supervision (SYS-0070, ADR-0018), external widgets (SYS-0071, ADR-0019, robohub-feed in the registry) and robohub-node (SYS-0072, ADR-0020): robohub-core, -transport, -telemetry and -freertos live in the robohub-node collection, and their registry entries point there. The validator reads a manifest reached through two entries once, and the docsite builds a module's pages from where its entry says it is, not only from a repository of its name. CI checks out robohub-node and robohub-feed.
+
+## [0.4.5] - 2026-11-20
+
+ADR-0021 (accepted): a node's lifecycle uses each chip's own A/B update, health first, and a separate update key per mesh. robohub-protocol 1.4.0 adds `HEALTH` (PROTO-0007).

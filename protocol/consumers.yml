@@ -15,7 +15,7 @@ consumers:
     schemas: [common, link, uplink, gateway]
     generate:
       - {target: rho, schema: gateway.rho, out: src/gateway/wire}
-  - path: robohub-devices/runtime/device-node
+  - path: robohub-node/device-node
     schemas: [common, link]
     generate:
       - {target: c, schema: link.rho, out: src/protocol}

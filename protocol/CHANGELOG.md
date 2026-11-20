@@ -21,3 +21,7 @@ now.
 ## [1.3.0] - 2026-11-14
 
 `SESSION_RESET` (22): a gateway that restarted asks a board, sealed under the session it restored, to start a new session.
+
+## [1.4.0] - 2026-11-20
+
+`HEALTH` (0x0403, PROTO-0007, robohub ADR-0021): a board's account of its last restart — the reset reason (`ResetReason`, robohub-common's set), the boot count, the last fault record (code, task, program counter, uptime) and the firmware version — sent once per boot after its session is up and again on a `DIAG_REQUEST`; a receiver that does not know it drops it. `consumers.yml` names the device-node runtime at its new place, `robohub-node/device-node`.

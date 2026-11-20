@@ -103,3 +103,22 @@ requirements:
     owner: maintainer
     changed: 2026-11-19
     tags: [protocol, recovery, security]
+
+  - id: PROTO-0007
+    title: A board reports its health once per boot
+    statement: >
+      The protocol shall define `HEALTH` (0x0403), sealed like every L2 message on
+      a network link — the device, the reset reason (COMM-0011's set), the boot
+      count, the fault record's code, task, program counter and uptime (zero when
+      there is none), and the firmware version — which a board sends once after its
+      session is established at each boot and again when a diagnostic request asks
+      for it; a receiver that does not know it shall drop it as it drops any
+      unknown message.
+    rationale: Why a board restarted must reach the installation without anyone asking; HELLO stays as it is and old gateways are unaffected (robohub ADR-0021).
+    satisfies: [SYS-0052, SYS-0070]
+    decided_by: [robohub:ADR-0021]
+    status: approved
+    verification: test
+    owner: maintainer
+    changed: 2026-11-20
+    tags: [protocol, health]
