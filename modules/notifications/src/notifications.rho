@@ -161,9 +161,47 @@ fn notification_template(name: string) string {
     return rho_asset("notifications", "templates/" + name + ".html")
 }
 
-// @req NOTIF-0003
+// The embed also follows the keeper's own feed when the keeper started the
+// application (ROBOHUB_KEEPER_URL names it): an application on a port of its own
+// hears only its own feed otherwise, and what the keeper announces — "mesh:
+// redeploy done" — would reach no page of it. The page asks the keeper at its
+// own host name and the keeper's port, so the keeper's session cookie goes with
+// it; the keeper's own pages are not given the variable and follow one feed.
+// @req NOTIF-0003, NOTIF-0011
 fn notification_embed() string {
-    return notification_template("embed")
+    return str_replace(notification_template("embed"), "{keeper_port}", notification_keeper_port(getenv("ROBOHUB_KEEPER_URL")))
+}
+
+// notification_keeper_port is the port a keeper URL names — `19090` for
+// http://127.0.0.1:19090 — or "" when it names none.
+// @req NOTIF-0011
+fn notification_keeper_port(url: string) string {
+    var rest: string = url
+    let scheme: i32 = str_index_of(rest, "://")
+    if scheme >= 0 {
+        rest = str_slice(rest, u32(scheme) + 3, strlen(rest) - u32(scheme) - 3)
+    }
+    let slash: i32 = str_index_of(rest, "/")
+    if slash >= 0 {
+        rest = str_slice(rest, 0, u32(slash))
+    }
+    let colon: i32 = str_index_of(rest, ":")
+    if colon < 0 {
+        return ""
+    }
+    let port: string = str_slice(rest, u32(colon) + 1, strlen(rest) - u32(colon) - 1)
+    if port == "" || strlen(port) > 5 {
+        return ""
+    }
+    var i: u32 = 0
+    while i < strlen(port) {
+        let c: string = str_slice(port, i, 1)
+        if c < "0" || c > "9" {
+            return ""
+        }
+        i = i + 1
+    }
+    return port
 }
 
 // notifications_refused answers a push or a dismiss that carried neither a bearer

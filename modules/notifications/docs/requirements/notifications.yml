@@ -143,3 +143,20 @@ requirements:
     owner: maintainer
     changed: 2026-11-19
     tags: [live, sse, proxy]
+
+  - id: NOTIF-0011
+    title: A page on an application's own port also hears the keeper
+    statement: >
+      When the keeper started the application (`ROBOHUB_KEEPER_URL` names it),
+      the embed shall also follow the keeper's toast feed at
+      `/api/v1/notifications/stream` on the page's own host name and the keeper's
+      port, with credentials, and show its events as toasts as it shows the
+      application's own; a page on the keeper's own port shall follow one feed.
+    rationale: Since every application runs on its own port (robohub ADR-0016) a page followed only its own feed, so what the keeper announced — "mesh: redeploy done" — reached none of the application's pages, as it did while they were served through the keeper.
+    satisfies: [SYS-0059]
+    decided_by: [robohub:ADR-0016]
+    status: approved
+    verification: test
+    owner: maintainer
+    changed: 2026-11-20
+    tags: [live, sse, keeper]

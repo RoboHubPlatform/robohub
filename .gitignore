@@ -18,3 +18,6 @@ build/test-reports/
 build/doctree/
 # The "Build an application" pages are documentation, not build output.
 !docs/doc/build/
+
+# Python caches the test helpers leave behind
+__pycache__/

@@ -134,19 +134,23 @@ EMBED_RUNNER = r"""
 const html = require("fs").readFileSync(0, "utf8");
 const url = (html.match(/<div id="toast"[^>]*data-url="([^"]*)"/) || [])[1] || null;
 const script = html.match(/<script>(\(function\(\)\{var t=document\.getElementById\("toast"\)[\s\S]*?)<\/script>/)[1];
-const toast = {className: "", textContent: "", getAttribute: (n) => (n === "data-url" ? url : null)};
-const delays = []; let opened = null; let source = null;
+const kp = (html.match(/<div id="toast"[^>]*data-keeper-port="([^"]*)"/) || [])[1] || null;
+const toast = {className: "", textContent: "", getAttribute: (n) => (n === "data-url" ? url : (n === "data-keeper-port" ? kp : null))};
+const delays = []; let opened = null; let source = null; let keeper = null;
+global.location = {protocol: "http:", hostname: "127.0.0.1", port: process.env.PAGE_PORT || "8480"};
 global.document = {getElementById: () => toast, documentElement: {lang: "en"}};
 global.window = {dispatchEvent: () => {}};
 global.CustomEvent = function () {};
 global.setTimeout = (f, ms) => { delays.push(ms); return delays.length; };
 global.clearTimeout = () => {};
-global.EventSource = function (u) { opened = u; source = this; };
+global.EventSource = function (u, o) {
+  if (opened === null) { opened = u; source = this; } else { keeper = {url: u, credentials: !!(o && o.withCredentials)}; }
+};
 eval(script);
 source.onmessage({data: JSON.stringify({kind: "info", message: "seven", timeout: 7})});
 source.onmessage({data: JSON.stringify({kind: "refresh", message: "no timeout"})});
 window.rhoToast("from a page", "warning");
-console.log(JSON.stringify({opened, delays}));
+console.log(JSON.stringify({opened, delays, keeper}));
 """
 
 
@@ -161,6 +165,8 @@ def main() -> int:
         env["ROBOHUB_APP_WORKSPACE"] = workspace
         env["ROBOHUB_APP_MANIFEST"] = str(HOST / "module.yml")
         env["RHO_HTTP_ADDR"] = f"127.0.0.1:{port}"
+        # Started by the keeper, the application is told where it is.
+        env["ROBOHUB_KEEPER_URL"] = "http://127.0.0.1:19090"
         home = tempfile.mkdtemp(prefix="notifications-home-")
         env["HOME"] = home
         token = mint_token(home, "aquarium")
@@ -216,8 +222,17 @@ def main() -> int:
                 if ran.returncode != 0:
                     raise AssertionError(f"the embed's script did not run: {ran.stderr}")
                 seen = json.loads(ran.stdout)
-                if seen != {"opened": "/app/aquarium/notifications/stream", "delays": [7000, 5000, 5000]}:
+                if seen.get("opened") != "/app/aquarium/notifications/stream" or seen.get("delays") != [7000, 5000, 5000]:
                     raise AssertionError(f"the embed opened {seen['opened']!r} and held its toasts for {seen['delays']} ms")
+                # @verifies NOTIF-0011
+                # A page on the application's own port also follows the keeper's
+                # feed, at the page's host and the keeper's port, with credentials.
+                if seen.get("keeper") != {"url": "http://127.0.0.1:19090/api/v1/notifications/stream", "credentials": True}:
+                    raise AssertionError(f"the embed's keeper stream is {seen.get('keeper')!r}")
+                same = subprocess.run([node, "-e", EMBED_RUNNER], input=page, capture_output=True, text=True, timeout=30,
+                                      env=dict(os.environ, PAGE_PORT="19090"))
+                if json.loads(same.stdout).get("keeper") is not None:
+                    raise AssertionError("a page on the keeper's own port opened the keeper's feed twice")
             else:
                 print("node is not installed: the embed's script was checked by its text only")
 

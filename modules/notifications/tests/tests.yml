@@ -1,6 +1,6 @@
 name: notifications
 suites:
-  # @verifies NOTIF-0004, NOTIF-0007, FORMS-0008
+  # @verifies NOTIF-0004, NOTIF-0007, NOTIF-0011, FORMS-0008
   - name: notifications-smoke
     kind: command
     tags: [smoke]
