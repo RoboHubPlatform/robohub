@@ -19,6 +19,10 @@ consumers:
     schemas: [common, link]
     generate:
       - {target: c, schema: link.rho, out: src/protocol}
+  - path: robohub-node/template
+    schemas: [common, link]
+    generate:
+      - {target: c, schema: link.rho, out: src/protocol}
   - path: robohub-devices/nodes/gateway-node
     schemas: [common, link]
     generate:
