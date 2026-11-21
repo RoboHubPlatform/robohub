@@ -78,6 +78,15 @@ tested against the home mesh.
    - Where the settlement's installation runs is a later decision. It changes
      nothing here.
 
+**Amended 2026-11-21 by the maintainer: the first node is fitted with a GY-68
+(BMP180).** That is the breakout to hand. It is I2C at 0x77, with temperature,
+pressure and altitude, and robohub-drivers already carries its driver and module
+board. The node reports temperature and pressure; humidity waits for an SHT4x,
+whose driver and module board stay ready for it. Nothing else in this decision
+changes: the template, the I2C buses (PICO-0015, ESP-0012), the `http`
+publisher and the nest module are the same for either part. The on-target suite
+fits the BMP180 by default and the SHT4x on request.
+
 ## Consequences
 
 - robohub-drivers: DRV-ENV-0007…0009 (the driver) and DRV-BRD-0005 (the module
